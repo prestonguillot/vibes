@@ -104,6 +104,41 @@
         #refresh-playlists-btn:hover {
             transform: scale(1.05);
         }
+        
+        /* Sync feedback styling */
+        .sync-feedback {
+            margin: 8px 0;
+            border-left: 4px solid #198754;
+            animation: slideInFeedback 0.3s ease-out;
+        }
+        
+        .sync-feedback.alert-success {
+            background-color: #f8f9fa;
+            border-color: #198754;
+        }
+        
+        .sync-feedback .btn-close {
+            font-size: 0.75rem;
+        }
+        
+        @keyframes slideInFeedback {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+                max-height: 0;
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+                max-height: 200px;
+            }
+        }
+        
+        /* Playlist focus styling */
+        .list-group-item:focus {
+            outline: 2px solid #0d6efd;
+            outline-offset: 2px;
+        }
     </style>
 </head>
 <body>
@@ -433,9 +468,12 @@
           
           // Enhanced sync button handling
           if (event.detail.requestConfig.path.includes('/sync/playlist/')) {
+            console.log('🎯 Sync request detected:', event.detail);
             const button = event.detail.elt;
             const playlistId = button.dataset.playlistId;
             const playlistName = button.dataset.playlistName;
+            
+            console.log(`🎵 Starting sync for playlist: ${playlistName} (${playlistId})`);
             
             // Show sync status for this specific playlist
             const statusDiv = document.getElementById(`sync-status-${playlistId}`);
@@ -479,6 +517,7 @@
           if (event.detail.requestConfig?.path?.includes('/sync/playlist/')) {
             const button = event.detail.elt;
             const playlistId = button.dataset.playlistId;
+            const response = event.detail.xhr.responseText;
             
             // Hide sync status for this specific playlist
             const statusDiv = document.getElementById(`sync-status-${playlistId}`);
@@ -492,26 +531,38 @@
               btn.classList.remove('disabled');
             });
             
-            // If sync was successful, add success animation to button
-            if (status >= 200 && status < 300) {
-              button.classList.add('sync-success');
+            // Check if sync was successful
+            if (status >= 200 && status < 300 && response.includes('data-sync-success="true"')) {
+              console.log(`🎯 Sync completed successfully for playlist ${playlistId}`);
               
-              // Show temporary success feedback on button
-              const originalText = button.textContent;
-              button.innerHTML = '✅ Synced!';
+              // Clear any existing sync feedback
+              document.querySelectorAll('.sync-feedback').forEach(el => el.remove());
               
-              setTimeout(() => {
-                button.classList.remove('sync-success');
-                button.innerHTML = originalText;
-              }, 3000);
+              // Extract feedback HTML from response
+              const parser = new DOMParser();
+              const doc = parser.parseFromString(response, 'text/html');
+              const responseDiv = doc.querySelector('[data-sync-success="true"]');
               
-              // Auto-scroll to results
-              setTimeout(() => {
-                const syncResult = document.getElementById('sync-result');
-                if (syncResult && syncResult.innerHTML.trim()) {
-                  syncResult.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+              if (responseDiv) {
+                const feedbackHtml = decodeURIComponent(responseDiv.dataset.feedbackHtml || '');
+                
+                // Clear playlist cache since we have new data
+                clearPlaylistsStorage();
+                
+                // Refresh playlists to get updated sorting
+                const refreshBtn = document.getElementById('refresh-playlists-btn');
+                if (refreshBtn) {
+                  console.log('🔄 Refreshing playlists after successful sync...');
+                  
+                  // Store feedback to show after refresh
+                  sessionStorage.setItem('pendingSyncFeedback', JSON.stringify({
+                    playlistId: playlistId,
+                    feedbackHtml: feedbackHtml
+                  }));
+                  
+                  htmx.trigger(refreshBtn, 'click');
                 }
-              }, 500);
+              }
             }
           }
           
@@ -578,7 +629,7 @@
             console.error('HTMX Timeout:', evt.detail);
         });
         
-        // Save playlists to cache when successfully loaded
+        // Save playlists to cache when successfully loaded and handle pending sync feedback
         document.body.addEventListener('htmx:afterSettle', function(evt) {
             const target = evt.target;
             if (target && target.id === 'playlists-content') {
@@ -587,6 +638,52 @@
                 if (playlistItems.length > 0) {
                     console.log(`📦 Caching ${playlistItems.length} playlists`);
                     savePlaylistsToStorage(target.innerHTML);
+                    
+                    // Check for pending sync feedback
+                    const pendingFeedback = sessionStorage.getItem('pendingSyncFeedback');
+                    if (pendingFeedback) {
+                        try {
+                            const feedback = JSON.parse(pendingFeedback);
+                            const playlistId = feedback.playlistId;
+                            const feedbackHtml = feedback.feedbackHtml;
+                            
+                            // Find the playlist in the refreshed list
+                            const playlistElement = target.querySelector(`[data-playlist-id="${playlistId}"]`);
+                            if (playlistElement) {
+                                // Find the playlist row container
+                                const playlistRow = playlistElement.closest('.list-group-item, .playlist-item');
+                                if (playlistRow) {
+                                    // Remove any existing feedback
+                                    const existingFeedback = playlistRow.nextElementSibling;
+                                    if (existingFeedback && existingFeedback.classList.contains('sync-feedback')) {
+                                        existingFeedback.remove();
+                                    }
+                                    
+                                    // Insert feedback after the playlist row
+                                    const feedbackDiv = document.createElement('div');
+                                    feedbackDiv.innerHTML = feedbackHtml;
+                                    playlistRow.insertAdjacentElement('afterend', feedbackDiv.firstElementChild);
+                                    
+                                    // Focus on the playlist's new position
+                                    setTimeout(() => {
+                                        playlistRow.scrollIntoView({ 
+                                            behavior: 'smooth', 
+                                            block: 'center' 
+                                        });
+                                        playlistRow.focus();
+                                        console.log(`🎯 Focused on synced playlist: ${playlistId}`);
+                                    }, 100);
+                                    
+                                    // Clear the pending feedback
+                                    sessionStorage.removeItem('pendingSyncFeedback');
+                                    console.log(`✅ Sync feedback displayed for playlist: ${playlistId}`);
+                                }
+                            }
+                        } catch (error) {
+                            console.error('Error displaying sync feedback:', error);
+                            sessionStorage.removeItem('pendingSyncFeedback');
+                        }
+                    }
                 }
             }
         });
