@@ -24,7 +24,7 @@
                         <div class="card">
                             <div class="card-body text-center">
                                 <h5 class="card-title">
-                                    <img src="/images/spotify-logo.png" alt="Spotify" width="24" height="24" class="me-2">
+                                    <span style="font-size: 24px; margin-right: 8px;">🎵</span>
                                     Spotify
                                 </h5>
                                 <div id="spotify-status">
@@ -39,7 +39,7 @@
                         <div class="card">
                             <div class="card-body text-center">
                                 <h5 class="card-title">
-                                    <img src="/images/youtube-logo.png" alt="YouTube" width="24" height="24" class="me-2">
+                                    <span style="font-size: 24px; margin-right: 8px;">📺</span>
                                     YouTube
                                 </h5>
                                 <div id="youtube-status">
@@ -138,7 +138,7 @@
 
     <script>
         // Check connection status on page load
-        fetch('/api/connection-status')
+        fetch('/api/status')
           .then(response => response.json())
           .then(data => {
             if (data.spotify) {
