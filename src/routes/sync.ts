@@ -358,41 +358,29 @@ router.post('/playlist/:playlistId', async (req, res) => {
       console.log(`🎯 Smart sync completed: ${addedCount} new videos added, ${duplicateVideos.length} duplicates skipped`);
     }
     
-    // Generate success response
-    const foundCount = searchResults.filter(r => r.found).length;
-    const totalCount = searchResults.length;
+    console.log(`🕒 Request processing time: ${Date.now() - startTime}ms`);
     
-    const resultHtml = `
-      <div class="alert alert-success">
-        <h5>✅ Playlist ${existingPlaylist ? 'updated' : 'created'} successfully!</h5>
-        <p>Found ${foundCount} out of ${totalCount} tracks (limited from ${tracks.length} total tracks)</p>
-        <p><strong>YouTube Playlist:</strong> ${playlist.name} (from Spotify) ${existingPlaylist ? '(updated existing)' : '(newly created)'}</p>
-        <p><strong>API Usage:</strong> ${apiCallCount} calls (${totalQuotaUsed} quota units)</p>
-        <p><strong>Cost Savings:</strong> Avoided ${searchCount * 100} quota units by using web scraping for search!</p>
-      </div>
-      <div class="sync-details mt-3">
-        <h6>Sync Results:</h6>
-        <div class="track-results">
-          ${searchResults.map(result => `
-            <div class="track-result ${result.found ? 'found' : 'not-found'}">
-              <span class="track-info">${result.artist} - ${result.track}</span>
-              <span class="result-status">
-                ${result.found ? '✅ Found' : '❌ Not found'}
-              </span>
-            </div>
-          `).join('')}
-          ${tracks.length > trackLimit ? `
-            <div class="alert alert-info mt-2">
-              <small>Note: Only processed first ${trackLimit} tracks to conserve YouTube API quota. 
-              ${tracks.length - trackLimit} tracks were skipped.</small>
-            </div>
-          ` : ''}
+    // Generate user-friendly sync feedback with YouTube playlist link
+    const youtubePlaylistUrl = `https://www.youtube.com/playlist?list=${youtubePlaylistId}`;
+    const syncFeedbackHtml = `
+      <div class="sync-feedback alert alert-success alert-dismissible fade show" data-playlist-id="${playlistId}">
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <div><strong>✅ Playlist ${existingPlaylist ? 'updated' : 'created'} successfully!</strong></div>
+        <div class="small">Found ${searchResults.filter(r => r.found).length} out of ${searchResults.length} tracks${tracks.length > trackLimit ? ` (limited from ${tracks.length} total)` : ''}</div>
+        <div class="small mt-2">
+          <a href="${youtubePlaylistUrl}" target="_blank" class="btn btn-outline-primary btn-sm">
+            📺 Open YouTube Playlist
+          </a>
         </div>
       </div>
     `;
     
-    console.log(`🕒 Request processing time: ${Date.now() - startTime}ms`);
-    res.send(resultHtml);
+    // Return response with both feedback and refresh trigger
+    res.send(`
+      <div data-sync-success="true" data-playlist-id="${playlistId}" data-feedback-html="${encodeURIComponent(syncFeedbackHtml)}">
+        ${syncFeedbackHtml}
+      </div>
+    `);
     
   } catch (error) {
     console.error('Error syncing playlist:', error);
