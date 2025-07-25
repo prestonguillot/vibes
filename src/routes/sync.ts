@@ -11,6 +11,93 @@ const getSpotifyApi = () => new SpotifyWebApi({
   redirectUri: process.env.SPOTIFY_REDIRECT_URI
 });
 
+// Import token refresh helpers
+const ensureValidSpotifyToken = async (req: any) => {
+  if (!req.session.spotifyTokens) {
+    throw new Error('No Spotify tokens found');
+  }
+
+  const spotifyApi = new SpotifyWebApi({
+    clientId: process.env.SPOTIFY_CLIENT_ID,
+    clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
+    redirectUri: process.env.SPOTIFY_REDIRECT_URI
+  });
+  
+  spotifyApi.setAccessToken(req.session.spotifyTokens.accessToken);
+  spotifyApi.setRefreshToken(req.session.spotifyTokens.refreshToken);
+
+  try {
+    // Test if current token is valid by making a simple API call
+    await spotifyApi.getMe();
+    return spotifyApi;
+  } catch (error: any) {
+    // If token is expired (401), try to refresh it
+    if (error.statusCode === 401 && req.session.spotifyTokens.refreshToken) {
+      console.log('Spotify token expired, refreshing...');
+      try {
+        const data = await spotifyApi.refreshAccessToken();
+        const { access_token } = data.body;
+        
+        // Update session with new token
+        req.session.spotifyTokens.accessToken = access_token;
+        spotifyApi.setAccessToken(access_token);
+        
+        console.log('Spotify token refreshed successfully');
+        return spotifyApi;
+      } catch (refreshError) {
+        console.error('Failed to refresh Spotify token:', refreshError);
+        throw new Error('SPOTIFY_AUTH_REQUIRED');
+      }
+    } else {
+      throw new Error('SPOTIFY_AUTH_REQUIRED');
+    }
+  }
+};
+
+const ensureValidYouTubeToken = async (req: any) => {
+  if (!req.session.youtubeTokens) {
+    throw new Error('No YouTube tokens found');
+  }
+
+  const oauth2Client = new google.auth.OAuth2(
+    process.env.YOUTUBE_CLIENT_ID,
+    process.env.YOUTUBE_CLIENT_SECRET,
+    process.env.YOUTUBE_REDIRECT_URI
+  );
+  
+  oauth2Client.setCredentials(req.session.youtubeTokens);
+
+  try {
+    // Test if current token is valid by making a simple API call
+    const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
+    await youtube.channels.list({ part: ['id'], mine: true, maxResults: 1 });
+    return oauth2Client;
+  } catch (error: any) {
+    // If token is expired (401), try to refresh it
+    if (error.code === 401 && req.session.youtubeTokens.refresh_token) {
+      console.log('YouTube token expired, refreshing...');
+      try {
+        const { credentials } = await oauth2Client.refreshAccessToken();
+        
+        // Update session with new tokens
+        req.session.youtubeTokens = {
+          ...req.session.youtubeTokens,
+          ...credentials
+        };
+        oauth2Client.setCredentials(req.session.youtubeTokens);
+        
+        console.log('YouTube token refreshed successfully');
+        return oauth2Client;
+      } catch (refreshError) {
+        console.error('Failed to refresh YouTube token:', refreshError);
+        throw new Error('YOUTUBE_AUTH_REQUIRED');
+      }
+    } else {
+      throw new Error('YOUTUBE_AUTH_REQUIRED');
+    }
+  }
+};
+
 router.post('/playlist/:playlistId', async (req, res) => {
   const startTime = Date.now();
   const playlistId = req.params.playlistId;
@@ -38,19 +125,8 @@ router.post('/playlist/:playlistId', async (req, res) => {
 
     // Initialize APIs
     console.log('🔧 Initializing API clients...');
-    const spotifyApi = new SpotifyWebApi({
-      clientId: process.env.SPOTIFY_CLIENT_ID,
-      clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
-      redirectUri: process.env.SPOTIFY_REDIRECT_URI
-    });
-    spotifyApi.setAccessToken(req.session.spotifyTokens.accessToken);
-
-    const oauth2Client = new google.auth.OAuth2(
-      process.env.YOUTUBE_CLIENT_ID,
-      process.env.YOUTUBE_CLIENT_SECRET,
-      process.env.YOUTUBE_REDIRECT_URI
-    );
-    oauth2Client.setCredentials(req.session.youtubeTokens);
+    const spotifyApi = await ensureValidSpotifyToken(req);
+    const oauth2Client = await ensureValidYouTubeToken(req);
     const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
     console.log('✅ API clients initialized');
 
@@ -475,10 +551,32 @@ router.post('/playlist/:playlistId', async (req, res) => {
   } catch (error) {
     console.error('Error syncing playlist:', error);
     console.log(`🕒 Request processing time: ${Date.now() - startTime}ms`);
+    
+    // Check if it's an authentication error
+    if (error instanceof Error && (
+      error.message === 'SPOTIFY_AUTH_REQUIRED' || 
+      error.message === 'YOUTUBE_AUTH_REQUIRED'
+    )) {
+      const service = error.message === 'SPOTIFY_AUTH_REQUIRED' ? 'Spotify' : 'YouTube';
+      const loginUrl = error.message === 'SPOTIFY_AUTH_REQUIRED' ? 
+        '/auth/spotify/login' : '/auth/youtube/login';
+      
+      return res.status(401).send(`
+        <div class="alert alert-warning">
+          <h5>❌ Authentication Required</h5>
+          <p>${service} session has expired. Please reconnect to continue syncing.</p>
+          <button class="btn btn-success btn-sm" onclick="window.location.href='${loginUrl}'">
+            Reconnect to ${service}
+          </button>
+        </div>
+      `);
+    }
+    
     res.status(500).send(`
       <div class="alert alert-danger">
         <h5>❌ Error syncing playlist</h5>
-        <p>${error instanceof Error ? error.message : 'Unknown error occurred'}</p>
+        <p>Something went wrong during the sync process. Please try again.</p>
+        <small class="text-muted">Error: ${error instanceof Error ? error.message : 'Unknown error'}</small>
       </div>
     `);
   }

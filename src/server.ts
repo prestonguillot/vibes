@@ -16,6 +16,38 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Request logging middleware
+app.use((req, res, next) => {
+  // Skip logging for static assets and favicon to reduce noise
+  if (req.originalUrl.includes('.css') || req.originalUrl.includes('.js') || 
+      req.originalUrl.includes('.png') || req.originalUrl.includes('.ico') ||
+      req.originalUrl.includes('/favicon')) {
+    return next();
+  }
+  
+  console.log(`\n [${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
+  console.log(` Full URL: ${req.protocol}://${req.get('host')}${req.originalUrl}`);
+  console.log(` User-Agent: ${req.get('User-Agent')?.slice(0, 100) || 'none'}...`);
+  console.log(` Session ID: ${req.sessionID || 'none'}`);
+  
+  if (Object.keys(req.query).length > 0) {
+    console.log(` Query: ${JSON.stringify(req.query)}`);
+  }
+  if (Object.keys(req.body).length > 0) {
+    console.log(` Body: ${JSON.stringify(req.body)}`);
+  }
+  
+  // Log response when it finishes
+  const originalSend = res.send;
+  res.send = function(data) {
+    console.log(` Response: ${res.statusCode} ${res.statusMessage} (${data?.length || 0} bytes)`);
+    return originalSend.call(this, data);
+  };
+  
+  next();
+});
+
 app.use(session({
   secret: process.env.SESSION_SECRET || 'dev-secret-change-in-production',
   resave: false,
@@ -62,5 +94,5 @@ app.get('/api/status', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`🎵 Spotify-YouTube Sync server running on http://localhost:${PORT}`);
+  console.log(` Spotify-YouTube Sync server running on http://localhost:${PORT}`);
 });
