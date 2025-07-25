@@ -212,6 +212,52 @@
         // Flag to prevent infinite auto-loading
         let hasAutoLoaded = false;
         
+        // Playlist persistence functions
+        function savePlaylistsToStorage(playlistsHtml) {
+            try {
+                localStorage.setItem('spotify_playlists', playlistsHtml);
+                localStorage.setItem('spotify_playlists_timestamp', Date.now().toString());
+                console.log('💾 Playlists saved to localStorage');
+            } catch (error) {
+                console.warn('Failed to save playlists to localStorage:', error);
+            }
+        }
+        
+        function loadPlaylistsFromStorage() {
+            try {
+                const timestamp = localStorage.getItem('spotify_playlists_timestamp');
+                const playlistsHtml = localStorage.getItem('spotify_playlists');
+                
+                if (timestamp && playlistsHtml) {
+                    const ageMs = Date.now() - parseInt(timestamp);
+                    const ageMinutes = ageMs / (1000 * 60);
+                    
+                    // Cache expires after 15 minutes
+                    if (ageMinutes < 15) {
+                        console.log(`📂 Loading cached playlists (${Math.round(ageMinutes)} minutes old)`);
+                        document.getElementById('playlists-content').innerHTML = playlistsHtml;
+                        return true;
+                    } else {
+                        console.log('⏰ Cached playlists expired, will refresh');
+                        clearPlaylistsStorage();
+                    }
+                }
+            } catch (error) {
+                console.warn('Failed to load playlists from localStorage:', error);
+            }
+            return false;
+        }
+        
+        function clearPlaylistsStorage() {
+            try {
+                localStorage.removeItem('spotify_playlists');
+                localStorage.removeItem('spotify_playlists_timestamp');
+                console.log('🗑️ Cleared playlist cache');
+            } catch (error) {
+                console.warn('Failed to clear playlist cache:', error);
+            }
+        }
+        
         // Function to update connection status
         async function updateConnectionStatus() {
             try {
@@ -240,17 +286,23 @@
                     document.getElementById('youtube-status').style.opacity = 1;
                 }
                 
-                // Auto-load playlists when both services are connected
+                // Auto-load playlists when both services are connected (use cache first)
                 if (status.spotify && status.youtube && !hasAutoLoaded) {
                     hasAutoLoaded = true;
-                    // Add a small delay to ensure DOM is ready and avoid race conditions
-                    setTimeout(() => {
-                        const refreshBtn = document.getElementById('refresh-playlists-btn');
-                        if (refreshBtn && !refreshBtn.classList.contains('htmx-request')) {
-                            console.log('🔄 Auto-loading playlists...');
-                            htmx.trigger(refreshBtn, 'click');
-                        }
-                    }, 500);
+                    
+                    // Try to load from cache first
+                    const loadedFromCache = loadPlaylistsFromStorage();
+                    
+                    if (!loadedFromCache) {
+                        // Only fetch from API if no valid cache
+                        setTimeout(() => {
+                            const refreshBtn = document.getElementById('refresh-playlists-btn');
+                            if (refreshBtn && !refreshBtn.classList.contains('htmx-request')) {
+                                console.log('🔄 Auto-loading playlists from API...');
+                                htmx.trigger(refreshBtn, 'click');
+                            }
+                        }, 500);
+                    }
                 }
                 
                 // Check URL parameters for immediate feedback after OAuth redirect (but don't recurse)
@@ -499,7 +551,7 @@
     </script>
 
     <script>
-        // Add HTMX error handling
+        // Add HTMX error handling and playlist caching
         document.body.addEventListener('htmx:sendError', function(evt) {
             console.error('HTMX Send Error:', evt.detail);
             const target = evt.target;
@@ -524,6 +576,25 @@
         
         document.body.addEventListener('htmx:timeout', function(evt) {
             console.error('HTMX Timeout:', evt.detail);
+        });
+        
+        // Save playlists to cache when successfully loaded
+        document.body.addEventListener('htmx:afterSettle', function(evt) {
+            const target = evt.target;
+            if (target && target.id === 'playlists-content') {
+                // Check if the content contains actual playlists (not error messages)
+                const playlistItems = target.querySelectorAll('.playlist-item, .list-group-item');
+                if (playlistItems.length > 0) {
+                    console.log(`📦 Caching ${playlistItems.length} playlists`);
+                    savePlaylistsToStorage(target.innerHTML);
+                }
+            }
+        });
+        
+        // Clear cache when filter toggle changes (since data structure changes)
+        document.getElementById('ownPlaylistsOnly')?.addEventListener('change', function() {
+            console.log('🔄 Filter changed, clearing playlist cache');
+            clearPlaylistsStorage();
         });
     </script>
 
