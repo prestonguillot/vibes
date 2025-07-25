@@ -52,7 +52,14 @@ app.use(session({
   secret: process.env.SESSION_SECRET || 'dev-secret-change-in-production',
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: false } // Set to true in production with HTTPS
+  cookie: { 
+    secure: false, // Set to true in production with HTTPS
+    httpOnly: true, // Prevent XSS attacks
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours in milliseconds
+    sameSite: 'lax' // CSRF protection while allowing OAuth redirects
+  },
+  name: 'spotify-youtube-session', // Custom session name
+  rolling: true // Reset expiration on each request
 }));
 
 // Static files
@@ -86,10 +93,113 @@ app.get('/health', (req, res) => {
 });
 
 // Connection status check
-app.get('/api/status', (req, res) => {
+app.get('/api/status', async (req, res) => {
+  let spotifyConnected = false;
+  let youtubeConnected = false;
+
+  // Test Spotify connection
+  if (req.session.spotifyTokens) {
+    try {
+      const spotifyApi = new (require('spotify-web-api-node'))({
+        clientId: process.env.SPOTIFY_CLIENT_ID,
+        clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
+        redirectUri: process.env.SPOTIFY_REDIRECT_URI
+      });
+      
+      spotifyApi.setAccessToken(req.session.spotifyTokens.accessToken);
+      spotifyApi.setRefreshToken(req.session.spotifyTokens.refreshToken);
+      
+      // Test with a lightweight API call
+      await spotifyApi.getMe();
+      spotifyConnected = true;
+      console.log(`✅ Spotify connection validated for session ${req.sessionID}`);
+    } catch (error: any) {
+      console.log(`❌ Spotify connection invalid for session ${req.sessionID}:`, error.message);
+      // Try to refresh the token
+      if (error.statusCode === 401 && req.session.spotifyTokens.refreshToken) {
+        try {
+          const spotifyApi = new (require('spotify-web-api-node'))({
+            clientId: process.env.SPOTIFY_CLIENT_ID,
+            clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
+            redirectUri: process.env.SPOTIFY_REDIRECT_URI
+          });
+          
+          spotifyApi.setAccessToken(req.session.spotifyTokens.accessToken);
+          spotifyApi.setRefreshToken(req.session.spotifyTokens.refreshToken);
+          
+          const data = await spotifyApi.refreshAccessToken();
+          const { access_token } = data.body;
+          
+          // Update session with new token
+          req.session.spotifyTokens.accessToken = access_token;
+          spotifyConnected = true;
+          console.log(`🔄 Spotify token refreshed for session ${req.sessionID}`);
+        } catch (refreshError) {
+          console.log(`❌ Failed to refresh Spotify token for session ${req.sessionID}`);
+          // Clear invalid tokens
+          delete req.session.spotifyTokens;
+        }
+      } else {
+        // Clear invalid tokens
+        delete req.session.spotifyTokens;
+      }
+    }
+  }
+
+  // Test YouTube connection
+  if (req.session.youtubeTokens) {
+    try {
+      const { google } = require('googleapis');
+      const oauth2Client = new google.auth.OAuth2(
+        process.env.YOUTUBE_CLIENT_ID,
+        process.env.YOUTUBE_CLIENT_SECRET,
+        process.env.YOUTUBE_REDIRECT_URI
+      );
+      
+      oauth2Client.setCredentials(req.session.youtubeTokens);
+      const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
+      
+      // Test with a lightweight API call
+      await youtube.channels.list({ part: ['id'], mine: true, maxResults: 1 });
+      youtubeConnected = true;
+      console.log(`✅ YouTube connection validated for session ${req.sessionID}`);
+    } catch (error: any) {
+      console.log(`❌ YouTube connection invalid for session ${req.sessionID}:`, error.message);
+      // Try to refresh the token
+      if (error.code === 401 && req.session.youtubeTokens.refresh_token) {
+        try {
+          const { google } = require('googleapis');
+          const oauth2Client = new google.auth.OAuth2(
+            process.env.YOUTUBE_CLIENT_ID,
+            process.env.YOUTUBE_CLIENT_SECRET,
+            process.env.YOUTUBE_REDIRECT_URI
+          );
+          
+          oauth2Client.setCredentials(req.session.youtubeTokens);
+          const { credentials } = await oauth2Client.refreshAccessToken();
+          
+          // Update session with new tokens
+          req.session.youtubeTokens = {
+            ...req.session.youtubeTokens,
+            ...credentials
+          };
+          youtubeConnected = true;
+          console.log(`🔄 YouTube token refreshed for session ${req.sessionID}`);
+        } catch (refreshError) {
+          console.log(`❌ Failed to refresh YouTube token for session ${req.sessionID}`);
+          // Clear invalid tokens
+          delete req.session.youtubeTokens;
+        }
+      } else {
+        // Clear invalid tokens
+        delete req.session.youtubeTokens;
+      }
+    }
+  }
+
   res.json({
-    spotify: !!req.session.spotifyTokens,
-    youtube: !!req.session.youtubeTokens
+    spotify: spotifyConnected,
+    youtube: youtubeConnected
   });
 });
 
