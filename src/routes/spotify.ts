@@ -89,10 +89,52 @@ router.get('/callback', async (req, res) => {
       refreshToken: refresh_token
     };
     
-    res.redirect('/?spotify=connected');
+    // For popup OAuth, send a page that closes the popup
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Spotify Connected</title>
+        <style>
+          body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #1DB954; color: white; }
+          .success { font-size: 24px; margin-bottom: 20px; }
+        </style>
+      </head>
+      <body>
+        <div class="success">✅ Spotify Connected Successfully!</div>
+        <p>You can close this window.</p>
+        <script>
+          // Close popup after a brief delay
+          setTimeout(() => {
+            window.close();
+          }, 1500);
+        </script>
+      </body>
+      </html>
+    `);
   } catch (error) {
     console.error('Error getting Spotify tokens:', error);
-    res.redirect('/?error=spotify_auth_failed');
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Spotify Connection Failed</title>
+        <style>
+          body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #dc3545; color: white; }
+          .error { font-size: 24px; margin-bottom: 20px; }
+        </style>
+      </head>
+      <body>
+        <div class="error">❌ Spotify Connection Failed</div>
+        <p>Please try again. You can close this window.</p>
+        <script>
+          setTimeout(() => {
+            window.close();
+          }, 3000);
+        </script>
+      </body>
+      </html>
+    `);
   }
 });
 
@@ -183,14 +225,26 @@ router.get('/playlists', async (req, res) => {
             <p class="text-muted">${playlist.tracks.total} tracks</p>
             ${isSynced ? '<small class="text-success">Previously synced to YouTube</small>' : ''}
           </div>
-          <button class="btn ${buttonClass} sync-btn" 
-                  hx-post="/api/sync/playlist/${playlist.id}"
-                  hx-target="#sync-result"
-                  hx-indicator="#loading"
-                  data-playlist-name="${playlist.name}"
-                  data-playlist-id="${playlist.id}">
-            ${buttonText}
-          </button>
+          <div class="sync-button-container">
+            <button class="btn ${buttonClass} sync-btn" 
+                    id="sync-btn-${playlist.id}"
+                    hx-post="/api/sync/playlist/${playlist.id}"
+                    hx-target="#sync-result"
+                    hx-indicator="#loading"
+                    data-playlist-name="${playlist.name}"
+                    data-playlist-id="${playlist.id}"
+                    _="on htmx:beforeRequest add .disabled to me then put '🔄 Syncing...' into me
+                       on htmx:afterRequest remove .disabled from me then put '${buttonText}' into me
+                       on htmx:responseError remove .disabled from me then put '${buttonText}' into me">
+              ${buttonText}
+            </button>
+            <div class="sync-status mt-1" id="sync-status-${playlist.id}" style="display: none;">
+              <small class="text-info">
+                <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                Searching for videos...
+              </small>
+            </div>
+          </div>
         </div>
       `;
     }).join('');

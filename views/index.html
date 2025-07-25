@@ -8,6 +8,103 @@
     <link rel="stylesheet" href="/css/style.css">
     <script src="https://unpkg.com/htmx.org@1.9.6"></script>
     <script src="https://unpkg.com/hyperscript.org@0.9.11"></script>
+    <style>
+        .playlist-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            margin-bottom: 10px;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            background-color: #f8f9fa;
+        }
+        
+        .playlist-info h5 {
+            margin-bottom: 5px;
+        }
+        
+        .playlist-info p {
+            margin-bottom: 0;
+        }
+        
+        .sync-btn {
+            min-width: 120px;
+        }
+        
+        .sync-button-container {
+            text-align: right;
+        }
+        
+        .sync-status {
+            min-height: 20px;
+        }
+        
+        /* Sync loading animations */
+        .sync-btn.disabled {
+            pointer-events: none;
+            opacity: 0.7;
+        }
+        
+        /* Success animation for completed syncs */
+        .sync-success {
+            animation: pulse 2s ease-in-out;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        /* Enhanced loading spinner */
+        #loading {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Sync result styling */
+        #sync-result .alert {
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* Refresh button styling */
+        .refresh-icon {
+            display: inline-block;
+            transition: transform 0.3s ease;
+        }
+        
+        #refresh-playlists-btn.htmx-request .refresh-icon {
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Auto-refresh button improvements */
+        #refresh-playlists-btn {
+            transition: all 0.2s ease;
+        }
+        
+        #refresh-playlists-btn:hover {
+            transform: scale(1.05);
+        }
+    </style>
 </head>
 <body>
     <div class="container mt-5">
@@ -27,10 +124,11 @@
                                     <span style="font-size: 24px; margin-right: 8px;">🎵</span>
                                     Spotify
                                 </h5>
-                                <div id="spotify-status">
-                                    <button class="btn btn-success" onclick="window.location.href='/auth/spotify/login'">
-                                        Connect Spotify
-                                    </button>
+                                <div id="spotify-status" style="opacity: 0; transition: opacity 0.3s ease;">
+                                    <div class="spinner-border spinner-border-sm text-success" role="status">
+                                        <span class="visually-hidden">Checking...</span>
+                                    </div>
+                                    <span class="text-muted ms-2">Checking connection...</span>
                                 </div>
                             </div>
                         </div>
@@ -42,10 +140,11 @@
                                     <span style="font-size: 24px; margin-right: 8px;">📺</span>
                                     YouTube
                                 </h5>
-                                <div id="youtube-status">
-                                    <button class="btn btn-danger" onclick="window.location.href='/auth/youtube/login'">
-                                        Connect YouTube
-                                    </button>
+                                <div id="youtube-status" style="opacity: 0; transition: opacity 0.3s ease;">
+                                    <div class="spinner-border spinner-border-sm text-danger" role="status">
+                                        <span class="visually-hidden">Checking...</span>
+                                    </div>
+                                    <span class="text-muted ms-2">Checking connection...</span>
                                 </div>
                             </div>
                         </div>
@@ -55,14 +154,17 @@
                 <!-- Playlists Section -->
                 <div class="card">
                     <div class="card-header">
-                        <h5 class="mb-0">Your Playlists</h5>
-                        <button class="btn btn-outline-primary btn-sm float-end" 
-                                hx-get="/auth/spotify/playlists" 
-                                hx-target="#playlists-content"
-                                hx-vals='js:{"ownOnly": document.getElementById("ownPlaylistsOnly")?.checked || false}'
-                                hx-indicator="#loading">
-                            Load Playlists
-                        </button>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Your Playlists</h5>
+                            <button id="refresh-playlists-btn" class="btn btn-outline-primary btn-sm" 
+                                    hx-get="/auth/spotify/playlists" 
+                                    hx-target="#playlists-content"
+                                    hx-vals='js:{"ownOnly": document.getElementById("ownPlaylistsOnly")?.checked || false}'
+                                    hx-indicator="#loading"
+                                    title="Refresh playlists">
+                                <span class="refresh-icon">🔄</span> Refresh
+                            </button>
+                        </div>
                     </div>
                     <div class="card-body">
                         <div class="row">
@@ -81,7 +183,7 @@
                                     </div>
                                 </div>
                                 <div id="playlists-content">
-                                    <p class="text-muted text-center">Connect to Spotify and click "Load Playlists" to see your playlists</p>
+                                    <p class="text-muted text-center">Connect to Spotify and YouTube to see your playlists</p>
                                 </div>
                             </div>
                         </div>
@@ -96,7 +198,8 @@
                     <div class="spinner-border text-primary" role="status">
                         <span class="visually-hidden">Loading...</span>
                     </div>
-                    <p class="mt-2">Syncing playlist...</p>
+                    <p class="mt-2">🎵 Syncing playlist...</p>
+                    <small class="text-muted">This may take a moment while we search for videos</small>
                 </div>
             </div>
         </div>
@@ -104,7 +207,12 @@
 
     <!-- Connection Status Script -->
     <script>
-        // Check connection status from server
+        console.log('🎯 Page JavaScript loaded at:', new Date().toISOString());
+        
+        // Flag to prevent infinite auto-loading
+        let hasAutoLoaded = false;
+        
+        // Function to update connection status
         async function updateConnectionStatus() {
             try {
                 const response = await fetch('/api/status');
@@ -114,44 +222,122 @@
                 if (status.spotify) {
                     document.getElementById('spotify-status').innerHTML = 
                         '<span class="badge bg-success">✅ Connected</span>';
+                    document.getElementById('spotify-status').style.opacity = 1;
                 } else {
                     document.getElementById('spotify-status').innerHTML = 
-                        '<button class="btn btn-success" onclick="window.location.href=\'/auth/spotify/login\'">Connect Spotify</button>';
+                        '<button class="btn btn-success connect-btn" onclick="connectToService(\'/auth/spotify/login\', this)">Connect Spotify</button>';
+                    document.getElementById('spotify-status').style.opacity = 1;
                 }
                 
                 // Update YouTube status
                 if (status.youtube) {
                     document.getElementById('youtube-status').innerHTML = 
                         '<span class="badge bg-success">✅ Connected</span>';
+                    document.getElementById('youtube-status').style.opacity = 1;
                 } else {
                     document.getElementById('youtube-status').innerHTML = 
-                        '<button class="btn btn-danger" onclick="window.location.href=\'/auth/youtube/login\'">Connect YouTube</button>';
+                        '<button class="btn btn-danger connect-btn" onclick="connectToService(\'/auth/youtube/login\', this)">Connect YouTube</button>';
+                    document.getElementById('youtube-status').style.opacity = 1;
+                }
+                
+                // Auto-load playlists when both services are connected
+                if (status.spotify && status.youtube && !hasAutoLoaded) {
+                    hasAutoLoaded = true;
+                    // Add a small delay to ensure DOM is ready and avoid race conditions
+                    setTimeout(() => {
+                        const refreshBtn = document.getElementById('refresh-playlists-btn');
+                        if (refreshBtn && !refreshBtn.classList.contains('htmx-request')) {
+                            console.log('🔄 Auto-loading playlists...');
+                            htmx.trigger(refreshBtn, 'click');
+                        }
+                    }, 500);
+                }
+                
+                // Check URL parameters for immediate feedback after OAuth redirect (but don't recurse)
+                const urlParams = new URLSearchParams(window.location.search);
+                if (urlParams.get('spotify') === 'connected' || urlParams.get('youtube') === 'connected') {
+                    console.log('🔗 OAuth redirect detected, status already updated above');
+                    // Clear URL parameters to prevent confusion
+                    if (window.history.replaceState) {
+                        window.history.replaceState({}, document.title, window.location.pathname);
+                    }
+                }
+                
+                if (urlParams.get('error')) {
+                    const error = urlParams.get('error');
+                    const alertDiv = document.createElement('div');
+                    alertDiv.className = 'alert alert-danger alert-dismissible fade show';
+                    alertDiv.innerHTML = `
+                        <strong>Error:</strong> ${error.replace(/_/g, ' ')}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    `;
+                    document.querySelector('.container').prepend(alertDiv);
                 }
             } catch (error) {
                 console.error('Error checking connection status:', error);
+                // Show error state with fallback connect buttons
+                document.getElementById('spotify-status').innerHTML = 
+                    '<button class="btn btn-success connect-btn" onclick="connectToService(\'/auth/spotify/login\', this)">Connect Spotify</button>';
+                document.getElementById('spotify-status').style.opacity = 1;
+                
+                document.getElementById('youtube-status').innerHTML = 
+                    '<button class="btn btn-danger connect-btn" onclick="connectToService(\'/auth/youtube/login\', this)">Connect YouTube</button>';
+                document.getElementById('youtube-status').style.opacity = 1;
             }
+        }
+        
+        // Smooth connect function to prevent page flash
+        function connectToService(url, button) {
+            console.log(`🔗 Connecting to service: ${url}`);
+            
+            // Show loading state on button
+            const originalText = button.innerHTML;
+            const originalClass = button.className;
+            
+            button.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Connecting...';
+            button.disabled = true;
+            button.classList.add('disabled');
+            
+            // Open OAuth in popup instead of full page navigation
+            const popup = window.open(url, 'oauth_popup', 'width=600,height=700,scrollbars=yes,resizable=yes');
+            
+            // Monitor popup for completion
+            const checkClosed = setInterval(() => {
+                if (popup.closed) {
+                    clearInterval(checkClosed);
+                    console.log('🔄 OAuth popup closed, checking connection status...');
+                    
+                    // Reset button to loading state while checking
+                    button.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Checking...';
+                    
+                    // Check connection status after popup closes
+                    setTimeout(() => {
+                        updateConnectionStatus().then(() => {
+                            // If still not connected, restore original button
+                            if (button.innerHTML.includes('Checking...')) {
+                                button.innerHTML = originalText;
+                                button.disabled = false;
+                                button.classList.remove('disabled');
+                            }
+                        });
+                    }, 500);
+                }
+            }, 1000);
+            
+            // Timeout after 5 minutes
+            setTimeout(() => {
+                if (!popup.closed) {
+                    popup.close();
+                    clearInterval(checkClosed);
+                    button.innerHTML = originalText;
+                    button.disabled = false;
+                    button.classList.remove('disabled');
+                }
+            }, 5 * 60 * 1000);
         }
         
         // Check status on page load
         updateConnectionStatus();
-        
-        // Also check URL parameters for immediate feedback after OAuth redirect
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('spotify') === 'connected' || urlParams.get('youtube') === 'connected') {
-            // Refresh status after OAuth redirect
-            setTimeout(updateConnectionStatus, 500);
-        }
-        
-        if (urlParams.get('error')) {
-            const error = urlParams.get('error');
-            const alertDiv = document.createElement('div');
-            alertDiv.className = 'alert alert-danger alert-dismissible fade show';
-            alertDiv.innerHTML = `
-                <strong>Error:</strong> ${error.replace(/_/g, ' ')}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            `;
-            document.querySelector('.container').prepend(alertDiv);
-        }
     </script>
 
     <script>
@@ -192,6 +378,39 @@
             target: event.detail.target,
             timestamp: new Date().toISOString()
           });
+          
+          // Enhanced sync button handling
+          if (event.detail.requestConfig.path.includes('/sync/playlist/')) {
+            const button = event.detail.elt;
+            const playlistId = button.dataset.playlistId;
+            const playlistName = button.dataset.playlistName;
+            
+            // Show sync status for this specific playlist
+            const statusDiv = document.getElementById(`sync-status-${playlistId}`);
+            if (statusDiv) {
+              statusDiv.style.display = 'block';
+              statusDiv.innerHTML = `
+                <small class="text-info">
+                  <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                  Searching for videos for "${playlistName}"...
+                </small>
+              `;
+            }
+            
+            // Disable all sync buttons during sync
+            document.querySelectorAll('.sync-btn').forEach(btn => {
+              if (btn !== button) {
+                btn.disabled = true;
+                btn.classList.add('disabled');
+              }
+            });
+            
+            // Clear previous sync results
+            const syncResult = document.getElementById('sync-result');
+            if (syncResult) {
+              syncResult.innerHTML = '';
+            }
+          }
         });
 
         document.addEventListener('htmx:afterRequest', function(event) {
@@ -203,6 +422,46 @@
             responseLength: event.detail.xhr.responseText?.length || 0,
             timestamp: new Date().toISOString()
           });
+          
+          // Enhanced sync completion handling
+          if (event.detail.requestConfig?.path?.includes('/sync/playlist/')) {
+            const button = event.detail.elt;
+            const playlistId = button.dataset.playlistId;
+            
+            // Hide sync status for this specific playlist
+            const statusDiv = document.getElementById(`sync-status-${playlistId}`);
+            if (statusDiv) {
+              statusDiv.style.display = 'none';
+            }
+            
+            // Re-enable all sync buttons
+            document.querySelectorAll('.sync-btn').forEach(btn => {
+              btn.disabled = false;
+              btn.classList.remove('disabled');
+            });
+            
+            // If sync was successful, add success animation to button
+            if (status >= 200 && status < 300) {
+              button.classList.add('sync-success');
+              
+              // Show temporary success feedback on button
+              const originalText = button.textContent;
+              button.innerHTML = '✅ Synced!';
+              
+              setTimeout(() => {
+                button.classList.remove('sync-success');
+                button.innerHTML = originalText;
+              }, 3000);
+              
+              // Auto-scroll to results
+              setTimeout(() => {
+                const syncResult = document.getElementById('sync-result');
+                if (syncResult && syncResult.innerHTML.trim()) {
+                  syncResult.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+              }, 500);
+            }
+          }
           
           if (status >= 400) {
             console.error('❌ HTMX request failed:', event.detail.xhr.responseText);
@@ -237,6 +496,35 @@
 
         // Log when page is fully loaded
         console.log('🎯 Page JavaScript loaded at:', new Date().toISOString());
+    </script>
+
+    <script>
+        // Add HTMX error handling
+        document.body.addEventListener('htmx:sendError', function(evt) {
+            console.error('HTMX Send Error:', evt.detail);
+            const target = evt.target;
+            if (target && target.id === 'refresh-playlists-btn') {
+                const content = document.getElementById('playlists-content');
+                if (content) {
+                    content.innerHTML = `
+                        <div class="alert alert-warning">
+                            <strong>Connection Issue:</strong> Unable to load playlists. 
+                            <button class="btn btn-outline-primary btn-sm ms-2" onclick="document.getElementById('refresh-playlists-btn').click()">
+                                Try Again
+                            </button>
+                        </div>
+                    `;
+                }
+            }
+        });
+        
+        document.body.addEventListener('htmx:responseError', function(evt) {
+            console.error('HTMX Response Error:', evt.detail);
+        });
+        
+        document.body.addEventListener('htmx:timeout', function(evt) {
+            console.error('HTMX Timeout:', evt.detail);
+        });
     </script>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
