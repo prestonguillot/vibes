@@ -57,15 +57,33 @@
                     <div class="card-header">
                         <h5 class="mb-0">Your Playlists</h5>
                         <button class="btn btn-outline-primary btn-sm float-end" 
-                                hx-get="/auth/spotify/playlists"
-                                hx-target="#playlists-container"
+                                hx-get="/auth/spotify/playlists" 
+                                hx-target="#playlists-content"
+                                hx-vals='js:{"ownOnly": document.getElementById("ownPlaylistsOnly")?.checked || false}'
                                 hx-indicator="#loading">
                             Load Playlists
                         </button>
                     </div>
                     <div class="card-body">
-                        <div id="playlists-container">
-                            <p class="text-muted text-center">Connect to Spotify and click "Load Playlists" to see your playlists</p>
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h4>Your Spotify Playlists</h4>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="ownPlaylistsOnly" 
+                                               hx-get="/auth/spotify/playlists"
+                                               hx-target="#playlists-content"
+                                               hx-trigger="change"
+                                               hx-vals='js:{"ownOnly": document.getElementById("ownPlaylistsOnly").checked}'>
+                                        <label class="form-check-label" for="ownPlaylistsOnly">
+                                            Show only playlists I created
+                                        </label>
+                                    </div>
+                                </div>
+                                <div id="playlists-content">
+                                    <p class="text-muted text-center">Connect to Spotify and click "Load Playlists" to see your playlists</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -137,38 +155,54 @@
     </script>
 
     <script>
-        // Check connection status on page load
-        fetch('/api/status')
-          .then(response => response.json())
-          .then(data => {
-            if (data.spotify) {
-              document.getElementById('spotify-status').innerHTML = '<span class="text-success">✓ Connected</span>';
-            }
-            if (data.youtube) {
-              document.getElementById('youtube-status').innerHTML = '<span class="text-success">✓ Connected</span>';
-            }
-          })
-          .catch(error => console.error('Error checking connection status:', error));
-
         // Add logging for button clicks and HTMX events
         document.addEventListener('click', function(event) {
+          // Log all button clicks
+          if (event.target.matches('button')) {
+            console.log(`🖱️ Button clicked: "${event.target.textContent?.trim()}"`);
+            console.log(`🔗 Button attributes:`, {
+              id: event.target.id,
+              class: event.target.className,
+              onclick: event.target.getAttribute('onclick'),
+              'hx-get': event.target.getAttribute('hx-get'),
+              'hx-post': event.target.getAttribute('hx-post'),
+              'hx-target': event.target.getAttribute('hx-target')
+            });
+          }
+
+          // Log sync button clicks specifically
           if (event.target.matches('button[hx-post]')) {
             const playlistName = event.target.getAttribute('data-playlist-name') || 'Unknown';
             const playlistId = event.target.getAttribute('data-playlist-id') || 'Unknown';
             console.log(`🔄 Sync button clicked for playlist: "${playlistName}" (ID: ${playlistId})`);
             console.log(`📡 Making request to: ${event.target.getAttribute('hx-post')}`);
           }
+
+          // Log navigation clicks (Connect buttons)
+          if (event.target.getAttribute('onclick')) {
+            console.log(`🔗 Navigation click detected: ${event.target.getAttribute('onclick')}`);
+          }
         });
 
-        // Log HTMX events
+        // Log all HTMX events
         document.addEventListener('htmx:beforeRequest', function(event) {
-          console.log('📤 HTMX request starting:', event.detail.requestConfig.verb, event.detail.requestConfig.path);
+          console.log('📤 HTMX request starting:', {
+            method: event.detail.requestConfig.verb,
+            url: event.detail.requestConfig.path,
+            target: event.detail.target,
+            timestamp: new Date().toISOString()
+          });
         });
 
         document.addEventListener('htmx:afterRequest', function(event) {
           const status = event.detail.xhr.status;
           const statusText = event.detail.xhr.statusText;
-          console.log(`📥 HTMX request completed: ${status} ${statusText}`);
+          console.log(`📥 HTMX request completed:`, {
+            status: `${status} ${statusText}`,
+            url: event.detail.xhr.responseURL,
+            responseLength: event.detail.xhr.responseText?.length || 0,
+            timestamp: new Date().toISOString()
+          });
           
           if (status >= 400) {
             console.error('❌ HTMX request failed:', event.detail.xhr.responseText);
@@ -180,6 +214,29 @@
         document.addEventListener('htmx:responseError', function(event) {
           console.error('💥 HTMX response error:', event.detail);
         });
+
+        document.addEventListener('htmx:sendError', function(event) {
+          console.error('📡 HTMX send error:', event.detail);
+        });
+
+        // Log page navigation
+        window.addEventListener('beforeunload', function(event) {
+          console.log('🔄 Page navigation detected');
+        });
+
+        // Log any JavaScript errors
+        window.addEventListener('error', function(event) {
+          console.error('❌ JavaScript error:', {
+            message: event.message,
+            filename: event.filename,
+            line: event.lineno,
+            column: event.colno,
+            error: event.error
+          });
+        });
+
+        // Log when page is fully loaded
+        console.log('🎯 Page JavaScript loaded at:', new Date().toISOString());
     </script>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
