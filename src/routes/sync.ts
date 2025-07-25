@@ -1,17 +1,11 @@
 import { Router } from 'express';
 import SpotifyWebApi from 'spotify-web-api-node';
 import { google } from 'googleapis';
+import { searchMusicVideo } from '../utils/youtubeScraper';
 
 const router = Router();
 
-// Create Spotify API instance with current env vars
-const getSpotifyApi = () => new SpotifyWebApi({
-  clientId: process.env.SPOTIFY_CLIENT_ID,
-  clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
-  redirectUri: process.env.SPOTIFY_REDIRECT_URI
-});
-
-// Import token refresh helpers
+// Helper functions for token refresh
 const ensureValidSpotifyToken = async (req: any) => {
   if (!req.session.spotifyTokens) {
     throw new Error('No Spotify tokens found');
@@ -27,18 +21,15 @@ const ensureValidSpotifyToken = async (req: any) => {
   spotifyApi.setRefreshToken(req.session.spotifyTokens.refreshToken);
 
   try {
-    // Test if current token is valid by making a simple API call
     await spotifyApi.getMe();
     return spotifyApi;
   } catch (error: any) {
-    // If token is expired (401), try to refresh it
     if (error.statusCode === 401 && req.session.spotifyTokens.refreshToken) {
       console.log('Spotify token expired, refreshing...');
       try {
         const data = await spotifyApi.refreshAccessToken();
         const { access_token } = data.body;
         
-        // Update session with new token
         req.session.spotifyTokens.accessToken = access_token;
         spotifyApi.setAccessToken(access_token);
         
@@ -68,18 +59,15 @@ const ensureValidYouTubeToken = async (req: any) => {
   oauth2Client.setCredentials(req.session.youtubeTokens);
 
   try {
-    // Test if current token is valid by making a simple API call
     const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
     await youtube.channels.list({ part: ['id'], mine: true, maxResults: 1 });
     return oauth2Client;
   } catch (error: any) {
-    // If token is expired (401), try to refresh it
     if (error.code === 401 && req.session.youtubeTokens.refresh_token) {
       console.log('YouTube token expired, refreshing...');
       try {
         const { credentials } = await oauth2Client.refreshAccessToken();
         
-        // Update session with new tokens
         req.session.youtubeTokens = {
           ...req.session.youtubeTokens,
           ...credentials
@@ -137,7 +125,7 @@ router.post('/playlist/:playlistId', async (req, res) => {
     console.log(`📋 Playlist: "${playlist.name}" (${playlist.tracks.total} tracks)`);
 
     // Get tracks with limit
-    const trackLimit = 1; // Conservative limit for testing
+    const trackLimit = 10; // Conservative limit for testing - now 10 tracks
     console.log(`🎵 Fetching tracks (limit: ${trackLimit})...`);
     const tracksResponse = await spotifyApi.getPlaylistTracks(playlistId, { limit: trackLimit });
     const tracks = tracksResponse.body.items.filter(item => item.track && item.track.type === 'track');
@@ -148,10 +136,12 @@ router.post('/playlist/:playlistId', async (req, res) => {
       return res.send('<div class="alert alert-warning">No tracks found to sync</div>');
     }
 
-    // Search for YouTube videos for each track
+    // Search for YouTube videos using web scraping (no API quota cost!)
     const videoIds: string[] = [];
     const searchResults: Array<{track: string, artist: string, found: boolean, videoId?: string}> = [];
-    let apiCallCount = 0;
+    let searchCount = 0;
+    
+    console.log(`🕷️ Starting YouTube scraping for ${tracks.length} tracks`);
     
     for (const item of tracks) {
       if (item.track && item.track.type === 'track') {
@@ -160,46 +150,38 @@ router.post('/playlist/:playlistId', async (req, res) => {
         const songName = track.name;
         
         try {
-          // OPTIMIZATION: More targeted search query
-          const searchQuery = `"${artist}" "${songName}"`;
-          console.log(`🔍 Searching for: ${searchQuery}`);
+          console.log(`🎵 Track ${searchCount + 1}/${tracks.length}: ${artist} - ${songName}`);
           
-          const searchResponse = await youtube.search.list({
-            part: ['id', 'snippet'],
-            q: searchQuery,
-            type: ['video'],
-            maxResults: 1, // Reduced from 3 to 1
-            videoCategoryId: '10', // Music category
-            order: 'relevance'
-          });
+          const videoId = await searchMusicVideo(artist, songName);
+          searchCount++;
           
-          apiCallCount++;
-          console.log(`API call #${apiCallCount} - Quota used: ${apiCallCount * 100} units`);
-          
-          if (searchResponse.data.items && searchResponse.data.items.length > 0) {
-            const videoId = searchResponse.data.items[0].id?.videoId;
-            if (videoId) {
-              videoIds.push(videoId);
-              searchResults.push({
-                track: songName,
-                artist: artist,
-                found: true,
-                videoId: videoId
-              });
-            }
+          if (videoId) {
+            videoIds.push(videoId);
+            searchResults.push({
+              track: songName,
+              artist: artist,
+              found: true,
+              videoId: videoId
+            });
+            console.log(`✅ Found video for "${songName}" by ${artist}: ${videoId}`);
           } else {
             searchResults.push({
               track: songName,
               artist: artist,
               found: false
             });
+            console.log(`❌ No video found for "${songName}" by ${artist}`);
           }
           
-          // OPTIMIZATION: Add delay between requests to avoid rate limiting
-          await new Promise(resolve => setTimeout(resolve, 100));
+          // Rate limiting: add delay between searches to be respectful
+          if (searchCount < tracks.length) {
+            console.log(`⏳ Rate limiting: waiting 2 seconds before next search...`);
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          }
           
         } catch (error) {
-          console.error(`Error searching for ${artist} - ${songName}:`, error);
+          searchCount++;
+          console.error(`❌ Error searching for ${artist} - ${songName}:`, error);
           searchResults.push({
             track: songName,
             artist: artist,
@@ -209,38 +191,51 @@ router.post('/playlist/:playlistId', async (req, res) => {
       }
     }
     
-    console.log(`Total API calls made: ${apiCallCount}, Total quota used: ${apiCallCount * 100} units`);
+    console.log(`🕷️ Scraping completed: ${searchCount} searches made, ${videoIds.length} videos found`);
+    console.log(`💰 Cost savings: Avoided ${searchCount * 100} YouTube API quota units!`);
+    
+    // Track API calls and quota usage accurately
+    let apiCallCount = 0;
+    let totalQuotaUsed = 0;
+    
+    // Helper function to log API calls with correct quota costs
+    const logApiCall = (operation: string, quotaCost: number) => {
+      apiCallCount++;
+      totalQuotaUsed += quotaCost;
+      console.log(`API call #${apiCallCount} (${operation}) - ${quotaCost} quota units (total: ${totalQuotaUsed})`);
+    };
     
     // Check if a YouTube playlist already exists for this Spotify playlist
     const playlistTitle = `${playlist.name} (from Spotify)`;
-    let youtubePlaylistId: string | null = null;
-    let existingPlaylist = false;
+    console.log(`🔍 Searching for existing YouTube playlist: "${playlistTitle}"`);
+    
+    let existingPlaylist: any = null;
+    let youtubePlaylistId: string;
     
     try {
-      // Search for existing playlists with the same title
       const existingPlaylists = await youtube.playlists.list({
-        part: ['snippet'],
+        part: ['id', 'snippet'],
         mine: true,
         maxResults: 50
       });
       
-      apiCallCount++;
-      console.log(`API call #${apiCallCount} (playlist search) - Quota used: ${apiCallCount * 100} units`);
+      logApiCall('playlist search', 1); // playlists.list costs 1 unit
       
       if (existingPlaylists.data.items) {
-        const matchingPlaylist = existingPlaylists.data.items.find(
-          pl => pl.snippet?.title === playlistTitle
+        existingPlaylist = existingPlaylists.data.items.find(p => 
+          p.snippet?.title === playlistTitle
         );
-        
-        if (matchingPlaylist && matchingPlaylist.id) {
-          youtubePlaylistId = matchingPlaylist.id;
-          existingPlaylist = true;
-          console.log(`Found existing playlist: ${youtubePlaylistId}`);
-        }
+      }
+      
+      if (existingPlaylist) {
+        youtubePlaylistId = existingPlaylist.id!;
+        console.log(`📺 Found existing playlist: "${playlistTitle}" (${youtubePlaylistId})`);
+      } else {
+        console.log(`📺 No existing playlist found, will create new one`);
       }
     } catch (error) {
-      console.error('Error searching for existing playlists:', error);
-      // Continue with creating new playlist if search fails
+      console.error('Error checking for existing playlist:', error);
+      throw error;
     }
     
     // Only create playlist if we found some videos
@@ -250,33 +245,32 @@ router.post('/playlist/:playlistId', async (req, res) => {
         <div class="alert alert-warning">
           <h5>No videos found</h5>
           <p>Could not find any YouTube videos for the tracks in this playlist.</p>
-          <p>API calls made: ${apiCallCount} (${apiCallCount * 100} quota units)</p>
+          <p>API calls made: ${apiCallCount} (${totalQuotaUsed} quota units)</p>
         </div>
       `);
     }
-
-    // Create YouTube playlist if one doesn't exist, otherwise do smart sync
-    if (!youtubePlaylistId) {
+    
+    // Create playlist if it doesn't exist
+    if (!existingPlaylist) {
       const playlistResponse = await youtube.playlists.insert({
         part: ['snippet', 'status'],
         requestBody: {
           snippet: {
             title: playlistTitle,
-            description: `Synced from Spotify playlist: ${playlist.name}\nOriginal playlist by: ${playlist.owner.display_name}\nSpotify ID: ${playlistId}`
+            description: `Synced from Spotify playlist: ${playlist.name}`,
           },
           status: {
-            privacyStatus: 'private'
+            privacyStatus: 'private',
           }
         }
       });
       
-      apiCallCount++;
-      console.log(`API call #${apiCallCount} (playlist creation) - Quota used: ${apiCallCount * 100} units`);
+      logApiCall('playlist creation', 50); // playlists.insert costs 50 units
       
       youtubePlaylistId = playlistResponse.data.id!;
-      console.log(`Created new playlist: ${youtubePlaylistId}`);
+      console.log(`Created new YouTube playlist: ${playlistTitle} (${youtubePlaylistId})`);
       
-      // Add all found videos to new playlist
+      // Add all videos to the new playlist
       for (const videoId of videoIds) {
         try {
           await youtube.playlistItems.insert({
@@ -286,209 +280,60 @@ router.post('/playlist/:playlistId', async (req, res) => {
                 playlistId: youtubePlaylistId,
                 resourceId: {
                   kind: 'youtube#video',
-                  videoId: videoId
+                  videoId: videoId,
                 }
               }
             }
           });
-          apiCallCount++;
+          logApiCall('add video to new playlist', 50); // playlistItems.insert costs 50 units
           console.log(`Added video to new playlist: ${videoId}`);
         } catch (error) {
           console.error(`Error adding video ${videoId} to playlist:`, error);
         }
       }
-    } else {
-      // Smart sync: compare existing playlist with current Spotify tracks
-      console.log(`Updating existing playlist: ${youtubePlaylistId}`);
       
-      // Get existing playlist items with video details
+    } else {
+      // Smart sync for existing playlist - check for duplicates
+      console.log(`🔄 Performing smart sync on existing playlist...`);
+      
+      // Get existing videos in the playlist
       const existingItems = await youtube.playlistItems.list({
         part: ['id', 'snippet'],
         playlistId: youtubePlaylistId,
         maxResults: 50
       });
       
-      apiCallCount++;
-      console.log(`API call #${apiCallCount} (get existing items) - Quota used: ${apiCallCount * 100} units`);
+      logApiCall('get existing items', 1); // playlistItems.list costs 1 unit
       
       const existingVideos = existingItems.data.items || [];
-      console.log(`Found ${existingVideos.length} existing videos in playlist`);
+      console.log(`📋 Found ${existingVideos.length} existing videos in playlist`);
       
-      // Check accessibility of existing videos
-      const videoIds = existingVideos.map(item => item.snippet?.resourceId?.videoId).filter(Boolean) as string[];
-      let inaccessibleVideos: string[] = [];
-      
-      if (videoIds.length > 0) {
-        try {
-          const videoDetails = await youtube.videos.list({
-            part: ['id', 'status'],
-            id: videoIds
-          });
-          
-          apiCallCount++;
-          console.log(`API call #${apiCallCount} (check video accessibility) - Quota used: ${apiCallCount * 100} units`);
-          
-          const accessibleVideoIds = new Set(videoDetails.data.items?.map(v => v.id) || []);
-          inaccessibleVideos = videoIds.filter(id => !accessibleVideoIds.has(id));
-          
-          if (inaccessibleVideos.length > 0) {
-            console.log(`Found ${inaccessibleVideos.length} inaccessible videos:`, inaccessibleVideos);
-          }
-        } catch (error) {
-          console.error('Error checking video accessibility:', error);
-        }
-      }
-      
-      // Create a map of existing videos by video ID for exact matching
-      const existingVideoMap = new Map<string, any>();
-      const existingVideosByTitle = new Map<string, any>();
-      
+      // Create a set of existing video IDs for fast lookup
+      const existingVideoIds = new Set<string>();
       for (const item of existingVideos) {
         if (item.snippet?.resourceId?.videoId) {
-          const videoId = item.snippet.resourceId.videoId;
-          const title = item.snippet.title || '';
-          
-          // Map by video ID for exact matching
-          existingVideoMap.set(videoId, {
-            playlistItemId: item.id,
-            videoId: videoId,
-            title: title,
-            isInaccessible: inaccessibleVideos.includes(videoId)
-          });
-          
-          // Also map by title for fuzzy matching (as fallback)
-          existingVideosByTitle.set(title.toLowerCase(), {
-            playlistItemId: item.id,
-            videoId: videoId,
-            title: title,
-            isInaccessible: inaccessibleVideos.includes(videoId)
-          });
+          existingVideoIds.add(item.snippet.resourceId.videoId);
         }
       }
       
-      // Determine what needs to be added/removed/replaced
-      const toAdd: string[] = [];
-      const toRemove: string[] = [];
-      const toReplace: Array<{playlistItemId: string, newVideoId: string, reason: string}> = [];
+      console.log(`🔍 Existing video IDs: ${Array.from(existingVideoIds).join(', ')}`);
       
-      // Check each current Spotify track
-      for (const result of searchResults) {
-        if (result.found && result.videoId) {
-          // First check: Does this exact video ID already exist in the playlist?
-          const existingVideo = existingVideoMap.get(result.videoId);
-          
-          if (existingVideo) {
-            // Video already exists
-            if (existingVideo.isInaccessible) {
-              // This shouldn't happen since we're checking the same video, but handle it
-              console.log(`Warning: Found same video ID but marked as inaccessible: ${result.videoId}`);
-            } else {
-              // Video exists and is accessible - do nothing
-              console.log(`Video already exists and is accessible: ${result.artist} - ${result.track}`);
-            }
-          } else {
-            // Video doesn't exist, check if there's a different video for the same track
-            let foundSimilarTrack = false;
-            
-            for (const [existingTitle, existingVideoData] of existingVideosByTitle.entries()) {
-              // Fuzzy matching: check if existing video title contains both artist and track name
-              const artistLower = result.artist.toLowerCase();
-              const trackLower = result.track.toLowerCase();
-              
-              if (existingTitle.includes(artistLower) && existingTitle.includes(trackLower)) {
-                foundSimilarTrack = true;
-                
-                if (existingVideoData.isInaccessible) {
-                  // Replace inaccessible video with new one
-                  toReplace.push({
-                    playlistItemId: existingVideoData.playlistItemId,
-                    newVideoId: result.videoId,
-                    reason: 'inaccessible'
-                  });
-                  console.log(`Will replace inaccessible video for: ${result.artist} - ${result.track}`);
-                } else {
-                  // Replace with potentially better video
-                  toReplace.push({
-                    playlistItemId: existingVideoData.playlistItemId,
-                    newVideoId: result.videoId,
-                    reason: 'better_match'
-                  });
-                  console.log(`Will replace with better match for: ${result.artist} - ${result.track}`);
-                }
-                break;
-              }
-            }
-            
-            if (!foundSimilarTrack) {
-              // Completely new track, add it
-              toAdd.push(result.videoId);
-              console.log(`Will add new video for: ${result.artist} - ${result.track}`);
-            }
-          }
-        }
+      // Only add videos that don't already exist
+      const videosToAdd = videoIds.filter(videoId => !existingVideoIds.has(videoId));
+      const duplicateVideos = videoIds.filter(videoId => existingVideoIds.has(videoId));
+      
+      console.log(`📊 Smart sync analysis:`);
+      console.log(`   - Total videos found: ${videoIds.length}`);
+      console.log(`   - Already in playlist: ${duplicateVideos.length}`);
+      console.log(`   - New videos to add: ${videosToAdd.length}`);
+      
+      if (duplicateVideos.length > 0) {
+        console.log(`⏭️  Skipping duplicates: ${duplicateVideos.join(', ')}`);
       }
       
-      // Remove videos for tracks no longer in Spotify (simplified approach)
-      // This is tricky without storing metadata, so for now we'll be conservative
-      // and only remove videos we're sure are inaccessible
-      for (const [videoId, video] of existingVideoMap.entries()) {
-        if (video.isInaccessible && !toReplace.some(r => r.playlistItemId === video.playlistItemId)) {
-          toRemove.push(video.playlistItemId);
-          console.log(`Will remove inaccessible video: ${video.title}`);
-        }
-      }
-      
-      console.log(`Smart sync plan: Add ${toAdd.length}, Remove ${toRemove.length}, Replace ${toReplace.length}`);
-      
-      // Execute the sync plan
-      let changesCount = 0;
-      
-      // Remove videos
-      for (const playlistItemId of toRemove) {
-        try {
-          await youtube.playlistItems.delete({
-            id: playlistItemId
-          });
-          apiCallCount++;
-          changesCount++;
-          console.log(`Removed inaccessible video: ${playlistItemId}`);
-        } catch (error) {
-          console.error(`Error removing video ${playlistItemId}:`, error);
-        }
-      }
-      
-      // Replace videos
-      for (const replacement of toReplace) {
-        try {
-          // Remove old video
-          await youtube.playlistItems.delete({
-            id: replacement.playlistItemId
-          });
-          apiCallCount++;
-          
-          // Add new video
-          await youtube.playlistItems.insert({
-            part: ['snippet'],
-            requestBody: {
-              snippet: {
-                playlistId: youtubePlaylistId,
-                resourceId: {
-                  kind: 'youtube#video',
-                  videoId: replacement.newVideoId
-                }
-              }
-            }
-          });
-          apiCallCount++;
-          changesCount++;
-          console.log(`Replaced video (${replacement.reason}): ${replacement.playlistItemId} -> ${replacement.newVideoId}`);
-        } catch (error) {
-          console.error(`Error replacing video ${replacement.playlistItemId}:`, error);
-        }
-      }
-      
-      // Add new videos
-      for (const videoId of toAdd) {
+      // Add only the new videos
+      let addedCount = 0;
+      for (const videoId of videosToAdd) {
         try {
           await youtube.playlistItems.insert({
             part: ['snippet'],
@@ -497,57 +342,58 @@ router.post('/playlist/:playlistId', async (req, res) => {
                 playlistId: youtubePlaylistId,
                 resourceId: {
                   kind: 'youtube#video',
-                  videoId: videoId
+                  videoId: videoId,
                 }
               }
             }
           });
-          apiCallCount++;
-          changesCount++;
-          console.log(`Added new video: ${videoId}`);
+          logApiCall('add new video', 50); // playlistItems.insert costs 50 units
+          addedCount++;
+          console.log(`✅ Added new video to existing playlist: ${videoId}`);
         } catch (error) {
-          console.error(`Error adding video ${videoId}:`, error);
+          console.error(`❌ Error adding video ${videoId} to playlist:`, error);
         }
       }
       
-      console.log(`Smart sync completed: ${changesCount} changes made`);
-      
-      // Generate success response with details
-      const foundCount = searchResults.filter(r => r.found).length;
-      const totalCount = searchResults.length;
-      
-      const resultHtml = `
-        <div class="alert alert-success">
-          <h5>✅ Playlist ${existingPlaylist ? 'updated' : 'created'} successfully!</h5>
-          <p>Found ${foundCount} out of ${totalCount} tracks (limited from ${tracks.length} total tracks)</p>
-          <p><strong>YouTube Playlist:</strong> ${playlist.name} (from Spotify) ${existingPlaylist ? '(updated existing)' : '(newly created)'}</p>
-          <p><strong>API Usage:</strong> ${apiCallCount} calls (${apiCallCount * 100} quota units)</p>
-        </div>
-        <div class="sync-details mt-3">
-          <h6>Sync Results:</h6>
-          <div class="track-results">
-            ${searchResults.map(result => `
-              <div class="track-result ${result.found ? 'found' : 'not-found'}">
-                <span class="track-info">${result.artist} - ${result.track}</span>
-                <span class="result-status">
-                  ${result.found ? '✅ Found' : '❌ Not found'}
-                </span>
-              </div>
-            `).join('')}
-            ${tracks.length > trackLimit ? `
-              <div class="alert alert-info mt-2">
-                <small>Note: Only processed first ${trackLimit} tracks to conserve YouTube API quota. 
-                ${tracks.length - trackLimit} tracks were skipped.</small>
-              </div>
-            ` : ''}
-          </div>
-        </div>
-      `;
-      
-      console.log(`🕒 Request processing time: ${Date.now() - startTime}ms`);
-      res.send(resultHtml);
-      
+      console.log(`🎯 Smart sync completed: ${addedCount} new videos added, ${duplicateVideos.length} duplicates skipped`);
     }
+    
+    // Generate success response
+    const foundCount = searchResults.filter(r => r.found).length;
+    const totalCount = searchResults.length;
+    
+    const resultHtml = `
+      <div class="alert alert-success">
+        <h5>✅ Playlist ${existingPlaylist ? 'updated' : 'created'} successfully!</h5>
+        <p>Found ${foundCount} out of ${totalCount} tracks (limited from ${tracks.length} total tracks)</p>
+        <p><strong>YouTube Playlist:</strong> ${playlist.name} (from Spotify) ${existingPlaylist ? '(updated existing)' : '(newly created)'}</p>
+        <p><strong>API Usage:</strong> ${apiCallCount} calls (${totalQuotaUsed} quota units)</p>
+        <p><strong>Cost Savings:</strong> Avoided ${searchCount * 100} quota units by using web scraping for search!</p>
+      </div>
+      <div class="sync-details mt-3">
+        <h6>Sync Results:</h6>
+        <div class="track-results">
+          ${searchResults.map(result => `
+            <div class="track-result ${result.found ? 'found' : 'not-found'}">
+              <span class="track-info">${result.artist} - ${result.track}</span>
+              <span class="result-status">
+                ${result.found ? '✅ Found' : '❌ Not found'}
+              </span>
+            </div>
+          `).join('')}
+          ${tracks.length > trackLimit ? `
+            <div class="alert alert-info mt-2">
+              <small>Note: Only processed first ${trackLimit} tracks to conserve YouTube API quota. 
+              ${tracks.length - trackLimit} tracks were skipped.</small>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    `;
+    
+    console.log(`🕒 Request processing time: ${Date.now() - startTime}ms`);
+    res.send(resultHtml);
+    
   } catch (error) {
     console.error('Error syncing playlist:', error);
     console.log(`🕒 Request processing time: ${Date.now() - startTime}ms`);
