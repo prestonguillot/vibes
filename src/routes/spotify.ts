@@ -216,13 +216,25 @@ router.get('/playlists', async (req, res) => {
       const isSynced = youtubePlaylistNames.has(`${playlist.name} (from Spotify)`);
       const syncIcon = isSynced ? '✅ ' : '';
       const buttonText = isSynced ? 'Update YouTube Playlist' : 'Sync to YouTube';
-      const buttonClass = isSynced ? 'btn-success' : 'btn-primary';
-      
+      const buttonClass = isSynced ? 'btn-outline-success' : 'btn-primary';
+
       return `
-        <div class="playlist-item" data-playlist-id="${playlist.id}">
-          <div class="playlist-info">
-            <h5>${syncIcon}${playlist.name}</h5>
-            <p class="text-muted">${playlist.tracks.total} tracks</p>
+      <div class="list-group-item playlist-item" data-playlist-id="${playlist.id}">
+        <div class="d-flex justify-content-between align-items-start">
+          <div class="playlist-info flex-grow-1">
+            <div class="d-flex align-items-center">
+              <h5 class="mb-1">${syncIcon}${playlist.name}</h5>
+              ${isSynced ? `
+                <button class="btn btn-sm btn-outline-secondary ms-2 expand-btn" 
+                        data-playlist-id="${playlist.id}"
+                        data-expanded="false"
+                        onclick="togglePlaylistDetails('${playlist.id}', this)"
+                        title="Show track details">
+                  👁️ Details
+                </button>
+              ` : ''}
+            </div>
+            <p class="text-muted mb-1">${playlist.tracks.total} tracks</p>
             ${isSynced ? '<small class="text-success">Previously synced to YouTube</small>' : ''}
           </div>
           <div class="sync-button-container">
@@ -246,7 +258,19 @@ router.get('/playlists', async (req, res) => {
             </div>
           </div>
         </div>
-      `;
+        
+        ${isSynced ? `
+          <div class="playlist-details-container mt-3" id="details-${playlist.id}" style="display: none;">
+            <div class="text-center text-muted">
+              <div class="spinner-border spinner-border-sm me-2" role="status">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+              Loading playlist details...
+            </div>
+          </div>
+        ` : ''}
+      </div>
+    `
     }).join('');
     
     const summaryText = syncedPlaylists.length > 0 

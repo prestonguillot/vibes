@@ -8,6 +8,7 @@ import path from 'path';
 import { spotifyRouter } from './routes/spotify';
 import { youtubeRouter } from './routes/youtube';
 import { syncRouter } from './routes/sync';
+import { playlistDetailsRouter } from './routes/playlistDetails';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -81,6 +82,7 @@ app.engine('html', (filePath, options, callback) => {
 app.use('/auth/spotify', spotifyRouter);
 app.use('/auth/youtube', youtubeRouter);
 app.use('/api/sync', syncRouter);
+app.use('/api/playlistDetails', playlistDetailsRouter);
 
 // Main page
 app.get('/', (req, res) => {
