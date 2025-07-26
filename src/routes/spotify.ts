@@ -138,7 +138,7 @@ router.get('/callback', async (req, res) => {
   }
 });
 
-// Get user playlists
+// Get user's playlists with improved layout - testing hot reload
 router.get('/playlists', async (req, res) => {
   console.log('\n📚 === SPOTIFY PLAYLISTS REQUEST ===');
   console.log(`📅 Timestamp: ${new Date().toISOString()}`);
@@ -219,25 +219,24 @@ router.get('/playlists', async (req, res) => {
       const buttonClass = isSynced ? 'btn-outline-success' : 'btn-primary';
 
       return `
-      <div class="list-group-item playlist-item" data-playlist-id="${playlist.id}">
-        <div class="d-flex justify-content-between align-items-start">
-          <div class="playlist-info flex-grow-1">
-            <div class="d-flex align-items-center">
-              <h5 class="mb-1">${syncIcon}${playlist.name}</h5>
-              ${isSynced ? `
-                <button class="btn btn-sm btn-outline-secondary ms-2 expand-btn" 
-                        data-playlist-id="${playlist.id}"
-                        data-expanded="false"
-                        onclick="togglePlaylistDetails('${playlist.id}', this)"
-                        title="Show track details">
-                  👁️ Details
-                </button>
-              ` : ''}
-            </div>
+      <div class="list-group-item playlist-item" data-playlist-id="${playlist.id}" style="position: relative;">
+        <div style="min-height: 60px;">
+          <div class="playlist-info" style="padding-right: 300px;">
+            <h5 class="mb-1">${syncIcon}${playlist.name}</h5>
             <p class="text-muted mb-1">${playlist.tracks.total} tracks</p>
             ${isSynced ? '<small class="text-success">Previously synced to YouTube</small>' : ''}
           </div>
-          <div class="sync-button-container">
+          <div style="position: absolute; top: 8px; right: 10px; display: flex; gap: 8px; align-items: flex-start;">
+            ${isSynced ? `
+              <button class="btn btn-sm btn-outline-secondary expand-btn" 
+                      data-playlist-id="${playlist.id}"
+                      data-expanded="false"
+                      onclick="togglePlaylistDetails('${playlist.id}', this)"
+                      title="Show track details"
+                      style="white-space: nowrap;">
+                View Details
+              </button>
+            ` : ''}
             <button class="btn ${buttonClass} sync-btn" 
                     id="sync-btn-${playlist.id}"
                     hx-post="/api/sync/playlist/${playlist.id}"
@@ -245,20 +244,20 @@ router.get('/playlists', async (req, res) => {
                     hx-indicator="#loading"
                     data-playlist-name="${playlist.name}"
                     data-playlist-id="${playlist.id}"
+                    style="white-space: nowrap;"
                     _="on htmx:beforeRequest add .disabled to me then put '🔄 Syncing...' into me
                        on htmx:afterRequest remove .disabled from me then put '${buttonText}' into me
                        on htmx:responseError remove .disabled from me then put '${buttonText}' into me">
               ${buttonText}
             </button>
-            <div class="sync-status mt-1" id="sync-status-${playlist.id}" style="display: none;">
-              <small class="text-info">
-                <span class="spinner-border spinner-border-sm me-1" role="status"></span>
-                Searching for videos...
-              </small>
-            </div>
           </div>
         </div>
-        
+        <div class="sync-status mt-2" id="sync-status-${playlist.id}" style="display: none;">
+          <small class="text-info">
+            <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+            Searching for videos...
+          </small>
+        </div>
         ${isSynced ? `
           <div class="playlist-details-container mt-3" id="details-${playlist.id}" style="display: none;">
             <div class="text-center text-muted">
