@@ -244,10 +244,7 @@ router.get('/playlists', async (req, res) => {
                     hx-indicator="#loading"
                     data-playlist-name="${playlist.name}"
                     data-playlist-id="${playlist.id}"
-                    style="white-space: nowrap;"
-                    _="on htmx:beforeRequest add .disabled to me then put '🔄 Syncing...' into me
-                       on htmx:afterRequest remove .disabled from me then put '${buttonText}' into me
-                       on htmx:responseError remove .disabled from me then put '${buttonText}' into me">
+                    style="white-space: nowrap;">
               ${buttonText}
             </button>
           </div>
