@@ -99,7 +99,7 @@ router.get('/callback', async (req, res) => {
         </style>
       </head>
       <body>
-        <div class="success">✅ YouTube Connected Successfully!</div>
+        <div class="success">YouTube Connected Successfully!</div>
         <p>You can close this window.</p>
         <script>
           // Close popup after a brief delay
@@ -123,7 +123,7 @@ router.get('/callback', async (req, res) => {
         </style>
       </head>
       <body>
-        <div class="error">❌ YouTube Connection Failed</div>
+        <div class="error">YouTube Connection Failed</div>
         <p>Please try again. You can close this window.</p>
         <script>
           setTimeout(() => {

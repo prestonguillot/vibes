@@ -307,7 +307,7 @@ router.get('/playlist/:playlistId', async (req, res) => {
                     hx-target="[data-playlist-id='${playlistId}']"
                     hx-swap="outerHTML"
                     title="Refresh playlist details">
-              🔄 Refresh
+              Refresh
             </button>
           </div>
         </div>
@@ -334,7 +334,7 @@ router.get('/playlist/:playlistId', async (req, res) => {
                            style="width: 40px; height: 30px; object-fit: cover; border-radius: 3px;" class="me-2">
                       <div class="flex-grow-1">
                         <a href="${track.youtube.url}" target="_blank" class="text-decoration-none small">
-                          📺 ${track.youtube.title}
+                          ${track.youtube.title}
                         </a>
                       </div>
                     </div>
@@ -344,10 +344,10 @@ router.get('/playlist/:playlistId', async (req, res) => {
               
               <div class="track-status ms-2">
                 ${track.linked ? 
-                  '<span class="badge bg-success">🔗 Linked</span>' : 
+                  '<span class="badge bg-success">Linked</span>' : 
                   track.spotify ? 
-                    '<span class="badge bg-warning">📻 Spotify Only</span>' : 
-                    '<span class="badge bg-info">📺 YouTube Only</span>'
+                    '<span class="badge bg-warning">Spotify Only</span>' : 
+                    '<span class="badge bg-info">YouTube Only</span>'
                 }
               </div>
             </div>
@@ -365,7 +365,7 @@ router.get('/playlist/:playlistId', async (req, res) => {
     
     res.status(500).send(`
       <div class="alert alert-danger">
-        <h6>❌ Error loading playlist details</h6>
+        <h6>Error loading playlist details</h6>
         <p>Unable to fetch playlist information. Please try again.</p>
         <small class="text-muted">Error: ${error instanceof Error ? error.message : 'Unknown error'}</small>
       </div>
