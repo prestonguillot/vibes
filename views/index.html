@@ -730,6 +730,7 @@
                     indicator.textContent = '...';
                     indicator.style.color = '#999';
                     expandArea.style.pointerEvents = 'none';
+                    expandArea.style.display = 'none';
                     
                     // Use HTMX to fetch details
                     htmx.ajax('GET', `/api/playlistDetails/playlist/${playlistId}`, {
@@ -741,6 +742,7 @@
                         indicator.style.color = '#ff0040';
                         expandArea.dataset.expanded = 'true';
                         expandArea.style.pointerEvents = 'auto';
+                        expandArea.style.display = 'flex';
                         expandArea.title = 'Hide track details';
                         
                         // Save to cache
@@ -755,6 +757,7 @@
                         indicator.style.color = '#666';
                         expandArea.dataset.expanded = 'false';
                         expandArea.style.pointerEvents = 'auto';
+                        expandArea.style.display = 'flex';
                         expandArea.title = 'Show track details';
                         detailsContainer.style.display = 'none';
                     });

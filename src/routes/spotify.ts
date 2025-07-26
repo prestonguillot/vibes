@@ -242,8 +242,8 @@ router.get('/playlists', async (req, res) => {
                  data-playlist-id="${playlist.id}"
                  data-expanded="false"
                  onclick="togglePlaylistDetails('${playlist.id}', this)"
-                 style="position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); cursor: pointer; padding: 4px 16px; border-radius: 3px; user-select: none; transition: all 0.2s;">
-              <span class="expand-indicator" style="font-size: 16px; color: #666;">▼</span>
+                 style="position: absolute; bottom: -20px; left: -20px; right: -20px; height: 50px; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: center;">
+              <span class="expand-indicator" style="font-size: 16px; color: #666; transition: all 0.2s;">▼</span>
             </div>
           ` : ''}
         </div>
@@ -254,12 +254,6 @@ router.get('/playlists', async (req, res) => {
                 <span class="visually-hidden">Loading...</span>
               </div>
               Loading playlist details...
-            </div>
-            <div class="playlist-collapse-area" 
-                 data-playlist-id="${playlist.id}"
-                 onclick="togglePlaylistDetails('${playlist.id}', document.querySelector('[data-playlist-id=\\\"${playlist.id}\\\"].playlist-expand-area'))"
-                 style="position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); cursor: pointer; padding: 4px 16px; border-radius: 3px; user-select: none; transition: all 0.2s;">
-              <span class="collapse-indicator" style="font-size: 16px; color: #ff0040;">▲</span>
             </div>
           </div>
         ` : ''}
