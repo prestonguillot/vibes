@@ -383,18 +383,23 @@
         // Function to update connection status
         async function updateConnectionStatus() {
             try {
+                console.log('🔍 Checking authentication status...');
                 const response = await fetch('/api/status');
                 const status = await response.json();
+                
+                console.log('📊 Authentication status:', status);
                 
                 // Update Spotify status
                 if (status.spotify) {
                     document.getElementById('spotify-status').innerHTML = 
                         '<span class="badge bg-success">✅ Connected</span>';
                     document.getElementById('spotify-status').style.opacity = 1;
+                    console.log('✅ Spotify: Already authenticated');
                 } else {
                     document.getElementById('spotify-status').innerHTML = 
                         '<button class="btn btn-success connect-btn" onclick="connectToService(\'/auth/spotify/login\', this)">Connect Spotify</button>';
                     document.getElementById('spotify-status').style.opacity = 1;
+                    console.log('🔑 Spotify: Authentication required');
                 }
                 
                 // Update YouTube status
@@ -402,15 +407,18 @@
                     document.getElementById('youtube-status').innerHTML = 
                         '<span class="badge bg-success">✅ Connected</span>';
                     document.getElementById('youtube-status').style.opacity = 1;
+                    console.log('✅ YouTube: Already authenticated');
                 } else {
                     document.getElementById('youtube-status').innerHTML = 
                         '<button class="btn btn-danger connect-btn" onclick="connectToService(\'/auth/youtube/login\', this)">Connect YouTube</button>';
                     document.getElementById('youtube-status').style.opacity = 1;
+                    console.log('🔑 YouTube: Authentication required');
                 }
                 
                 // Auto-load playlists when both services are connected (use cache first)
                 if (status.spotify && status.youtube && !hasAutoLoaded) {
                     hasAutoLoaded = true;
+                    console.log('🎵 Both services connected - auto-loading playlists');
                     
                     // Try to load from cache first
                     const loadedFromCache = loadPlaylistsFromStorage();
