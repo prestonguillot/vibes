@@ -218,7 +218,7 @@ router.get('/playlists', async (req, res) => {
       const buttonClass = isSynced ? 'btn-outline-success' : 'btn-primary';
 
       return `
-      <div class="list-group-item playlist-item" data-playlist-id="${playlist.id}" style="position: relative;">
+      <div class="playlist-item" data-playlist-id="${playlist.id}" style="position: relative;">
         <div style="min-height: 60px; position: relative;">
           <div class="playlist-info" style="padding-right: 200px;">
             <h5 class="mb-1">${syncIcon}${playlist.name}</h5>
