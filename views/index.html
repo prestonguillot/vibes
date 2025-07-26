@@ -10,26 +10,50 @@
     <script src="https://unpkg.com/hyperscript.org@0.9.11"></script>
     <style>
         .playlist-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 15px;
-            margin-bottom: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
             border: 1px solid #dee2e6;
-            border-radius: 8px;
+            border-radius: 12px;
             background-color: #f8f9fa;
+            transition: all 0.2s ease;
+        }
+        
+        .playlist-item:hover {
+            background-color: #e9ecef;
+            border-color: #adb5bd;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
         }
         
         .playlist-info h5 {
-            margin-bottom: 5px;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #212529;
         }
         
         .playlist-info p {
-            margin-bottom: 0;
+            margin-bottom: 4px;
+            font-size: 0.95rem;
         }
         
         .sync-btn {
-            min-width: 120px;
+            min-width: 180px;
+            height: 38px;
+            font-weight: 500;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+        }
+        
+        .expand-btn {
+            min-width: 100px;
+            height: 38px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         
         .sync-button-container {
@@ -140,12 +164,67 @@
             outline-offset: 2px;
         }
         
-        /* Sync button styling - prevent text wrapping */
-        .sync-btn {
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            min-width: fit-content;
+        /* Button spacing using CSS gap */
+        .gap-2 {
+            gap: 0.5rem !important;
+        }
+        
+        .gap-3 {
+            gap: 1rem !important;
+        }
+        
+        /* Better button colors for improved contrast */
+        .btn-outline-secondary {
+            color: #6c757d;
+            border-color: #6c757d;
+            background-color: #fff;
+        }
+        
+        .btn-outline-secondary:hover {
+            color: #fff;
+            background-color: #6c757d;
+            border-color: #6c757d;
+        }
+        
+        .btn-outline-success {
+            color: #fff;
+            background-color: #198754;
+            border-color: #198754;
+        }
+        
+        .btn-outline-success:hover {
+            color: #fff;
+            background-color: #157347;
+            border-color: #146c43;
+        }
+        
+        .btn-primary {
+            color: #fff;
+            background-color: #0d6efd;
+            border-color: #0d6efd;
+        }
+        
+        .btn-primary:hover {
+            color: #fff;
+            background-color: #0b5ed7;
+            border-color: #0a58ca;
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .playlist-item {
+                padding: 15px;
+            }
+            
+            .sync-btn {
+                min-width: 120px;
+                font-size: 0.9rem;
+            }
+            
+            .expand-btn {
+                min-width: 80px;
+                font-size: 0.9rem;
+            }
         }
     </style>
 </head>
@@ -752,25 +831,26 @@
         
         // Global function for toggling playlist details
         window.togglePlaylistDetails = function(playlistId, button) {
+            console.log(`🔄 Toggle clicked for playlist: ${playlistId}, current expanded: ${button.dataset.expanded}`);
             const detailsContainer = document.getElementById(`details-${playlistId}`);
             const isExpanded = button.dataset.expanded === 'true';
             
             if (isExpanded) {
-                // Collapse
+                console.log(`📁 Collapsing playlist details: ${playlistId}`);
                 detailsContainer.style.display = 'none';
-                button.innerHTML = '👁️ Details';
+                button.innerHTML = 'View Details';
                 button.dataset.expanded = 'false';
                 button.title = 'Show track details';
                 console.log(`📁 Collapsed playlist details: ${playlistId}`);
             } else {
-                // Expand - check cache first
+                console.log(`📂 Expanding playlist details: ${playlistId}`);
                 const cachedDetails = loadPlaylistDetailsFromStorage(playlistId);
                 
                 if (cachedDetails) {
                     // Use cached data
                     detailsContainer.innerHTML = cachedDetails;
                     detailsContainer.style.display = 'block';
-                    button.innerHTML = '🔽 Hide';
+                    button.innerHTML = 'Hide';
                     button.dataset.expanded = 'true';
                     button.title = 'Hide track details';
                     console.log(`📂 Expanded with cached data: ${playlistId}`);
@@ -778,7 +858,7 @@
                     // Load from API
                     console.log(`🔍 Loading playlist details from API: ${playlistId}`);
                     detailsContainer.style.display = 'block';
-                    button.innerHTML = '⏳ Loading...';
+                    button.innerHTML = 'Loading...';
                     button.disabled = true;
                     
                     // Use HTMX to fetch details
@@ -787,7 +867,7 @@
                         swap: 'innerHTML'
                     }).then(() => {
                         // Success - update button and save to cache
-                        button.innerHTML = '🔽 Hide';
+                        button.innerHTML = 'Hide';
                         button.dataset.expanded = 'true';
                         button.disabled = false;
                         button.title = 'Hide track details';
@@ -800,17 +880,17 @@
                     }).catch((error) => {
                         // Error - reset button state
                         console.error('Error loading playlist details:', error);
-                        button.innerHTML = '❌ Error';
+                        button.innerHTML = 'Error';
                         button.disabled = false;
                         setTimeout(() => {
-                            button.innerHTML = '👁️ Details';
+                            button.innerHTML = 'View Details';
                             button.dataset.expanded = 'false';
                             button.title = 'Show track details';
                         }, 2000);
                         
                         detailsContainer.innerHTML = `
                             <div class="alert alert-warning">
-                                <small>❌ Failed to load playlist details. Please try again.</small>
+                                <small>Failed to load playlist details. Please try again.</small>
                             </div>
                         `;
                     });
