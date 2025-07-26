@@ -243,27 +243,27 @@
                 // Update Spotify status
                 if (status.spotify) {
                     document.getElementById('spotify-status').innerHTML = 
-                        '<span class="badge bg-success">Connected</span>';
+                        '<button class="btn btn-success connect-btn" disabled>Connected</button>';
                     document.getElementById('spotify-status').style.opacity = 1;
-                    console.log('Spotify: Already authenticated');
+                    console.log('✅ Spotify: Already authenticated');
                 } else {
                     document.getElementById('spotify-status').innerHTML = 
                         '<button class="btn btn-success connect-btn" onclick="connectToService(\'/auth/spotify/login\', this)">Connect Spotify</button>';
                     document.getElementById('spotify-status').style.opacity = 1;
-                    console.log('Spotify: Authentication required');
+                    console.log('🔑 Spotify: Authentication required');
                 }
                 
                 // Update YouTube status
                 if (status.youtube) {
                     document.getElementById('youtube-status').innerHTML = 
-                        '<span class="badge bg-success">Connected</span>';
+                        '<button class="btn btn-danger connect-btn" disabled>Connected</button>';
                     document.getElementById('youtube-status').style.opacity = 1;
-                    console.log('YouTube: Already authenticated');
+                    console.log('✅ YouTube: Already authenticated');
                 } else {
                     document.getElementById('youtube-status').innerHTML = 
                         '<button class="btn btn-danger connect-btn" onclick="connectToService(\'/auth/youtube/login\', this)">Connect YouTube</button>';
                     document.getElementById('youtube-status').style.opacity = 1;
-                    console.log('YouTube: Authentication required');
+                    console.log('🔑 YouTube: Authentication required');
                 }
                 
                 // Auto-load playlists when both services are connected (use cache first)
