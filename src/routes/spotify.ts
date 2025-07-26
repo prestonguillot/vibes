@@ -51,27 +51,26 @@ const ensureValidSpotifyToken = async (req: any) => {
 
 // Spotify login
 router.get('/login', (req, res) => {
-  console.log('\n🔗 === SPOTIFY LOGIN REQUEST ===');
-  console.log(`📅 Timestamp: ${new Date().toISOString()}`);
-  console.log(`👤 Session ID: ${req.sessionID}`);
-  console.log(`🔗 Request URL: ${req.originalUrl}`);
+  console.log('\n === SPOTIFY LOGIN REQUEST ===');
+  console.log(` Timestamp: ${new Date().toISOString()}`);
+  console.log(` Session ID: ${req.sessionID}`);
+  console.log(` Request URL: ${req.originalUrl}`);
   
   const spotifyApi = getSpotifyApi();
   const scopes = ['playlist-read-private', 'playlist-read-collaborative'];
-  
   const authorizeURL = spotifyApi.createAuthorizeURL(scopes);
-  console.log(`🎯 Redirecting to: ${authorizeURL}`);
+  console.log(` Redirecting to: ${authorizeURL}`);
   
   res.redirect(authorizeURL);
 });
 
 // Spotify callback
 router.get('/callback', async (req, res) => {
-  console.log('\n📞 === SPOTIFY CALLBACK REQUEST ===');
-  console.log(`📅 Timestamp: ${new Date().toISOString()}`);
-  console.log(`👤 Session ID: ${req.sessionID}`);
-  console.log(`🔗 Request URL: ${req.originalUrl}`);
-  console.log(`🔑 Authorization code: ${req.query.code ? 'present' : 'missing'}`);
+  console.log('\n === SPOTIFY CALLBACK REQUEST ===');
+  console.log(` Timestamp: ${new Date().toISOString()}`);
+  console.log(` Session ID: ${req.sessionID}`);
+  console.log(` Request URL: ${req.originalUrl}`);
+  console.log(` Authorization code: ${req.query.code ? 'present' : 'missing'}`);
   
   const { code } = req.query;
   
@@ -101,7 +100,7 @@ router.get('/callback', async (req, res) => {
         </style>
       </head>
       <body>
-        <div class="success">✅ Spotify Connected Successfully!</div>
+        <div class="success">Spotify Connected Successfully!</div>
         <p>You can close this window.</p>
         <script>
           // Close popup after a brief delay
@@ -125,7 +124,7 @@ router.get('/callback', async (req, res) => {
         </style>
       </head>
       <body>
-        <div class="error">❌ Spotify Connection Failed</div>
+        <div class="error">Spotify Connection Failed</div>
         <p>Please try again. You can close this window.</p>
         <script>
           setTimeout(() => {
@@ -140,11 +139,11 @@ router.get('/callback', async (req, res) => {
 
 // Get user's playlists with improved layout - testing hot reload
 router.get('/playlists', async (req, res) => {
-  console.log('\n📚 === SPOTIFY PLAYLISTS REQUEST ===');
-  console.log(`📅 Timestamp: ${new Date().toISOString()}`);
-  console.log(`👤 Session ID: ${req.sessionID}`);
-  console.log(`🔗 Request URL: ${req.originalUrl}`);
-  console.log(`🔍 Query parameters: ${JSON.stringify(req.query)}`);
+  console.log('\n === SPOTIFY PLAYLISTS REQUEST ===');
+  console.log(` Timestamp: ${new Date().toISOString()}`);
+  console.log(` Session ID: ${req.sessionID}`);
+  console.log(` Request URL: ${req.originalUrl}`);
+  console.log(` Query parameters: ${JSON.stringify(req.query)}`);
   
   if (!req.session.spotifyTokens) {
     return res.status(401).send('<div class="alert alert-warning">Please connect to Spotify first</div>');
@@ -214,29 +213,19 @@ router.get('/playlists', async (req, res) => {
     
     const playlistsHtml = sortedPlaylists.map(playlist => {
       const isSynced = youtubePlaylistNames.has(`${playlist.name} (from Spotify)`);
-      const syncIcon = isSynced ? '✅ ' : '';
+      const syncIcon = isSynced ? '' : '';
       const buttonText = isSynced ? 'Update YouTube Playlist' : 'Sync to YouTube';
       const buttonClass = isSynced ? 'btn-outline-success' : 'btn-primary';
 
       return `
       <div class="list-group-item playlist-item" data-playlist-id="${playlist.id}" style="position: relative;">
-        <div style="min-height: 60px;">
-          <div class="playlist-info" style="padding-right: 300px;">
+        <div style="min-height: 60px; position: relative;">
+          <div class="playlist-info" style="padding-right: 200px;">
             <h5 class="mb-1">${syncIcon}${playlist.name}</h5>
             <p class="text-muted mb-1">${playlist.tracks.total} tracks</p>
             ${isSynced ? '<small class="text-success">Previously synced to YouTube</small>' : ''}
           </div>
           <div style="position: absolute; top: 8px; right: 10px; display: flex; gap: 8px; align-items: flex-start;">
-            ${isSynced ? `
-              <button class="btn btn-sm btn-outline-secondary expand-btn" 
-                      data-playlist-id="${playlist.id}"
-                      data-expanded="false"
-                      onclick="togglePlaylistDetails('${playlist.id}', this)"
-                      title="Show track details"
-                      style="white-space: nowrap;">
-                View Details
-              </button>
-            ` : ''}
             <button class="btn ${buttonClass} sync-btn" 
                     id="sync-btn-${playlist.id}"
                     hx-post="/api/sync/playlist/${playlist.id}"
@@ -248,24 +237,33 @@ router.get('/playlists', async (req, res) => {
               ${buttonText}
             </button>
           </div>
-        </div>
-        <div class="sync-status mt-2" id="sync-status-${playlist.id}" style="display: none;">
-          <small class="text-info">
-            <span class="spinner-border spinner-border-sm me-1" role="status"></span>
-            Searching for videos...
-          </small>
-        </div>
-      </div>
-      ${isSynced ? `
-        <div class="playlist-details-container" id="details-${playlist.id}" style="display: none; background: #f8f9fa; border: 1px solid #dee2e6; border-top: none; padding: 15px; margin-bottom: 10px;">
-          <div class="text-center text-muted">
-            <div class="spinner-border spinner-border-sm me-2" role="status">
-              <span class="visually-hidden">Loading...</span>
+          ${isSynced ? `
+            <div class="playlist-expand-area" 
+                 data-playlist-id="${playlist.id}"
+                 data-expanded="false"
+                 onclick="togglePlaylistDetails('${playlist.id}', this)"
+                 style="position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); cursor: pointer; padding: 4px 16px; border-radius: 3px; user-select: none; transition: all 0.2s;">
+              <span class="expand-indicator" style="font-size: 16px; color: #666;">▼</span>
             </div>
-            Loading playlist details...
-          </div>
+          ` : ''}
         </div>
-      ` : ''}
+        ${isSynced ? `
+          <div class="playlist-details-container" id="details-${playlist.id}" style="display: none; background: #f8f9fa; border: 1px solid #dee2e6; border-top: none; padding: 15px; margin-bottom: 10px; position: relative;">
+            <div class="text-center text-muted">
+              <div class="spinner-border spinner-border-sm me-2" role="status">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+              Loading playlist details...
+            </div>
+            <div class="playlist-collapse-area" 
+                 data-playlist-id="${playlist.id}"
+                 onclick="togglePlaylistDetails('${playlist.id}', document.querySelector('[data-playlist-id=\\\"${playlist.id}\\\"].playlist-expand-area'))"
+                 style="position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); cursor: pointer; padding: 4px 16px; border-radius: 3px; user-select: none; transition: all 0.2s;">
+              <span class="collapse-indicator" style="font-size: 16px; color: #ff0040;">▲</span>
+            </div>
+          </div>
+        ` : ''}
+      </div>
     `
     }).join('');
     

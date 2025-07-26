@@ -365,11 +365,11 @@ router.post('/playlist/:playlistId', async (req, res) => {
     const syncFeedbackHtml = `
       <div class="sync-feedback alert alert-success alert-dismissible fade show" data-playlist-id="${playlistId}">
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        <div><strong>✅ Playlist ${existingPlaylist ? 'updated' : 'created'} successfully!</strong></div>
+        <div><strong>Playlist ${existingPlaylist ? 'updated' : 'created'} successfully!</strong></div>
         <div class="small">Found ${searchResults.filter(r => r.found).length} out of ${searchResults.length} tracks${tracks.length > trackLimit ? ` (limited from ${tracks.length} total)` : ''}</div>
         <div class="small mt-2">
           <a href="${youtubePlaylistUrl}" target="_blank" class="btn btn-outline-primary btn-sm">
-            📺 Open YouTube Playlist
+            Open YouTube Playlist
           </a>
         </div>
       </div>
@@ -397,7 +397,7 @@ router.post('/playlist/:playlistId', async (req, res) => {
       
       return res.status(401).send(`
         <div class="alert alert-warning">
-          <h5>❌ Authentication Required</h5>
+          <h5>Authentication Required</h5>
           <p>${service} session has expired. Please reconnect to continue syncing.</p>
           <button class="btn btn-success btn-sm" onclick="window.location.href='${loginUrl}'">
             Reconnect to ${service}
@@ -408,7 +408,7 @@ router.post('/playlist/:playlistId', async (req, res) => {
     
     res.status(500).send(`
       <div class="alert alert-danger">
-        <h5>❌ Error syncing playlist</h5>
+        <h5>Error syncing playlist</h5>
         <p>Something went wrong during the sync process. Please try again.</p>
         <small class="text-muted">Error: ${error instanceof Error ? error.message : 'Unknown error'}</small>
       </div>
