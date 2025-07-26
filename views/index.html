@@ -701,6 +701,122 @@
             console.log('🔄 Filter changed, clearing playlist cache');
             clearPlaylistsStorage();
         });
+        
+        // Playlist details functionality
+        function savePlaylistDetailsToStorage(playlistId, detailsHtml) {
+            try {
+                const storageKey = `playlist_details_${playlistId}`;
+                localStorage.setItem(storageKey, detailsHtml);
+                localStorage.setItem(`${storageKey}_timestamp`, Date.now().toString());
+                console.log(`💾 Playlist details saved for: ${playlistId}`);
+            } catch (error) {
+                console.warn('Failed to save playlist details to localStorage:', error);
+            }
+        }
+        
+        function loadPlaylistDetailsFromStorage(playlistId) {
+            try {
+                const storageKey = `playlist_details_${playlistId}`;
+                const timestamp = localStorage.getItem(`${storageKey}_timestamp`);
+                const detailsHtml = localStorage.getItem(storageKey);
+                
+                if (timestamp && detailsHtml) {
+                    const ageMs = Date.now() - parseInt(timestamp);
+                    const ageMinutes = ageMs / (1000 * 60);
+                    
+                    // Cache expires after 10 minutes (shorter than main playlist cache)
+                    if (ageMinutes < 10) {
+                        console.log(`📂 Loading cached playlist details for ${playlistId} (${Math.round(ageMinutes)} minutes old)`);
+                        return detailsHtml;
+                    } else {
+                        console.log(`⏰ Cached playlist details expired for ${playlistId}`);
+                        clearPlaylistDetailsStorage(playlistId);
+                    }
+                }
+            } catch (error) {
+                console.warn('Failed to load playlist details from localStorage:', error);
+            }
+            return null;
+        }
+        
+        function clearPlaylistDetailsStorage(playlistId) {
+            try {
+                const storageKey = `playlist_details_${playlistId}`;
+                localStorage.removeItem(storageKey);
+                localStorage.removeItem(`${storageKey}_timestamp`);
+                console.log(`🗑️ Cleared playlist details cache for: ${playlistId}`);
+            } catch (error) {
+                console.warn('Failed to clear playlist details cache:', error);
+            }
+        }
+        
+        // Global function for toggling playlist details
+        window.togglePlaylistDetails = function(playlistId, button) {
+            const detailsContainer = document.getElementById(`details-${playlistId}`);
+            const isExpanded = button.dataset.expanded === 'true';
+            
+            if (isExpanded) {
+                // Collapse
+                detailsContainer.style.display = 'none';
+                button.innerHTML = '👁️ Details';
+                button.dataset.expanded = 'false';
+                button.title = 'Show track details';
+                console.log(`📁 Collapsed playlist details: ${playlistId}`);
+            } else {
+                // Expand - check cache first
+                const cachedDetails = loadPlaylistDetailsFromStorage(playlistId);
+                
+                if (cachedDetails) {
+                    // Use cached data
+                    detailsContainer.innerHTML = cachedDetails;
+                    detailsContainer.style.display = 'block';
+                    button.innerHTML = '🔽 Hide';
+                    button.dataset.expanded = 'true';
+                    button.title = 'Hide track details';
+                    console.log(`📂 Expanded with cached data: ${playlistId}`);
+                } else {
+                    // Load from API
+                    console.log(`🔍 Loading playlist details from API: ${playlistId}`);
+                    detailsContainer.style.display = 'block';
+                    button.innerHTML = '⏳ Loading...';
+                    button.disabled = true;
+                    
+                    // Use HTMX to fetch details
+                    htmx.ajax('GET', `/api/playlistDetails/playlist/${playlistId}`, {
+                        target: `#details-${playlistId}`,
+                        swap: 'innerHTML'
+                    }).then(() => {
+                        // Success - update button and save to cache
+                        button.innerHTML = '🔽 Hide';
+                        button.dataset.expanded = 'true';
+                        button.disabled = false;
+                        button.title = 'Hide track details';
+                        
+                        // Save to cache
+                        const detailsHtml = detailsContainer.innerHTML;
+                        savePlaylistDetailsToStorage(playlistId, detailsHtml);
+                        
+                        console.log(`✅ Loaded and cached playlist details: ${playlistId}`);
+                    }).catch((error) => {
+                        // Error - reset button state
+                        console.error('Error loading playlist details:', error);
+                        button.innerHTML = '❌ Error';
+                        button.disabled = false;
+                        setTimeout(() => {
+                            button.innerHTML = '👁️ Details';
+                            button.dataset.expanded = 'false';
+                            button.title = 'Show track details';
+                        }, 2000);
+                        
+                        detailsContainer.innerHTML = `
+                            <div class="alert alert-warning">
+                                <small>❌ Failed to load playlist details. Please try again.</small>
+                            </div>
+                        `;
+                    });
+                }
+            }
+        };
     </script>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
