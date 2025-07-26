@@ -258,17 +258,17 @@ router.get('/playlists', async (req, res) => {
             Searching for videos...
           </small>
         </div>
-        ${isSynced ? `
-          <div class="playlist-details-container mt-3" id="details-${playlist.id}" style="display: none;">
-            <div class="text-center text-muted">
-              <div class="spinner-border spinner-border-sm me-2" role="status">
-                <span class="visually-hidden">Loading...</span>
-              </div>
-              Loading playlist details...
-            </div>
-          </div>
-        ` : ''}
       </div>
+      ${isSynced ? `
+        <div class="playlist-details-container" id="details-${playlist.id}" style="display: none; background: #f8f9fa; border: 1px solid #dee2e6; border-top: none; padding: 15px; margin-bottom: 10px;">
+          <div class="text-center text-muted">
+            <div class="spinner-border spinner-border-sm me-2" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </div>
+            Loading playlist details...
+          </div>
+        </div>
+      ` : ''}
     `
     }).join('');
     
