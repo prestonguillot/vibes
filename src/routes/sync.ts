@@ -45,9 +45,10 @@ const ensureValidSpotifyToken = async (req: any) => {
   }
 };
 
-const ensureValidYouTubeToken = async (req: any) => {
+// Helper function to ensure valid YouTube token and return quota usage
+async function ensureValidYouTubeToken(req: any): Promise<{ oauth2Client: any, quotaUsed: number }> {
   if (!req.session.youtubeTokens) {
-    throw new Error('No YouTube tokens found');
+    throw new Error('YOUTUBE_AUTH_REQUIRED');
   }
 
   const oauth2Client = new google.auth.OAuth2(
@@ -55,13 +56,14 @@ const ensureValidYouTubeToken = async (req: any) => {
     process.env.YOUTUBE_CLIENT_SECRET,
     process.env.YOUTUBE_REDIRECT_URI
   );
-  
+
   oauth2Client.setCredentials(req.session.youtubeTokens);
 
   try {
     const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
     await youtube.channels.list({ part: ['id'], mine: true, maxResults: 1 });
-    return oauth2Client;
+    console.log('✅ YouTube token validation - 1 quota unit');
+    return { oauth2Client, quotaUsed: 1 }; // channels.list costs 1 unit
   } catch (error: any) {
     if (error.code === 401 && req.session.youtubeTokens.refresh_token) {
       console.log('YouTube token expired, refreshing...');
@@ -75,7 +77,7 @@ const ensureValidYouTubeToken = async (req: any) => {
         oauth2Client.setCredentials(req.session.youtubeTokens);
         
         console.log('YouTube token refreshed successfully');
-        return oauth2Client;
+        return { oauth2Client, quotaUsed: 1 }; // refreshAccessToken costs 1 unit
       } catch (refreshError) {
         console.error('Failed to refresh YouTube token:', refreshError);
         throw new Error('YOUTUBE_AUTH_REQUIRED');
@@ -114,7 +116,7 @@ router.post('/playlist/:playlistId', async (req, res) => {
     // Initialize APIs
     console.log('🔧 Initializing API clients...');
     const spotifyApi = await ensureValidSpotifyToken(req);
-    const oauth2Client = await ensureValidYouTubeToken(req);
+    const { oauth2Client, quotaUsed } = await ensureValidYouTubeToken(req);
     const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
     console.log('✅ API clients initialized');
 
@@ -175,8 +177,8 @@ router.post('/playlist/:playlistId', async (req, res) => {
           
           // Rate limiting: add delay between searches to be respectful
           if (searchCount < tracks.length) {
-            console.log(`⏳ Rate limiting: waiting 2 seconds before next search...`);
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            console.log(`⏳ Rate limiting: waiting 100ms before next search...`);
+            await new Promise(resolve => setTimeout(resolve, 100));
           }
           
         } catch (error) {
@@ -196,7 +198,7 @@ router.post('/playlist/:playlistId', async (req, res) => {
     
     // Track API calls and quota usage accurately
     let apiCallCount = 0;
-    let totalQuotaUsed = 0;
+    let totalQuotaUsed = quotaUsed;
     
     // Helper function to log API calls with correct quota costs
     const logApiCall = (operation: string, quotaCost: number) => {
@@ -360,6 +362,16 @@ router.post('/playlist/:playlistId', async (req, res) => {
     
     console.log(`🕒 Request processing time: ${Date.now() - startTime}ms`);
     
+    // Log comprehensive YouTube API quota usage summary
+    console.log(`📊 YouTube API Quota Usage Summary:`);
+    console.log(`   Total API calls made: ${apiCallCount}`);
+    console.log(`   Total quota units used: ${totalQuotaUsed}`);
+    console.log(`   Operation type: ${existingPlaylist ? 'UPDATE' : 'SYNC'} playlist`);
+    console.log(`   Playlist: "${playlist.name}" (${playlistId})`);
+    console.log(`   Tracks processed: ${searchResults.length}${tracks.length > trackLimit ? ` (limited from ${tracks.length} total)` : ''}`);
+    console.log(`   Videos found: ${searchResults.filter(r => r.found).length}`);
+    console.log(`   Scraper searches: ${searchResults.length} (saved ${searchResults.length * 100} quota units vs API search)`);
+    
     // Generate user-friendly sync feedback with YouTube playlist link
     const youtubePlaylistUrl = `https://www.youtube.com/playlist?list=${youtubePlaylistId}`;
     const syncFeedbackHtml = `
@@ -385,6 +397,12 @@ router.post('/playlist/:playlistId', async (req, res) => {
   } catch (error) {
     console.error('Error syncing playlist:', error);
     console.log(`🕒 Request processing time: ${Date.now() - startTime}ms`);
+    
+    // Log YouTube API quota usage summary even on error
+    console.log(`📊 YouTube API Quota Usage Summary (ERROR):`);
+    console.log(`   Total API calls made: ${apiCallCount}`);
+    console.log(`   Total quota units used: ${totalQuotaUsed}`);
+    console.log(`   Operation attempted: ${existingPlaylist ? 'UPDATE' : 'SYNC'} playlist`);
     
     // Check if it's an authentication error
     if (error instanceof Error && (
