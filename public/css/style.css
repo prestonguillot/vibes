@@ -255,6 +255,26 @@ body {
     box-shadow: 4px 4px 0px rgba(0,0,0,0.5);
 }
 
+.btn-outline-primary {
+    background-color: #0066ff;
+    border: 2px solid #0066ff !important;
+    color: #fff;
+    box-shadow: 3px 3px 0px rgba(0,0,0,0.3);
+    font-family: 'Courier Prime', monospace;
+    font-weight: 700;
+    border-radius: 0;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.btn-outline-primary:hover {
+    background-color: #0052cc;
+    border: 2px solid #fff !important;
+    color: #fff;
+    transform: translateY(-1px);
+    box-shadow: 4px 4px 0px rgba(0,0,0,0.5);
+}
+
 /* === PLAYLIST ITEMS === */
 .playlist-item {
     width: 100%;
