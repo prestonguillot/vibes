@@ -248,7 +248,7 @@ router.get('/playlists', async (req, res) => {
         </div>
         
         <!-- Sync result area for final summary -->
-        <div id="sync-result-${playlist.id}" style="display: none; margin: 0; padding: 8px 15px; border-left: 1px solid #dee2e6; border-right: 1px solid #dee2e6; border-bottom: 1px solid #dee2e6; background: #f8f9fa; font-family: 'Courier Prime', monospace; font-size: 0.9rem;">
+        <div id="sync-result-${playlist.id}" style="display: none; margin: 0; padding: 8px 15px; font-family: 'Courier Prime', monospace; font-size: 0.9rem;">
           <!-- Sync completion summary will be inserted here -->
         </div>
         
@@ -257,7 +257,7 @@ router.get('/playlists', async (req, res) => {
                data-playlist-id="${playlist.id}"
                data-expanded="false"
                onclick="togglePlaylistDetails('${playlist.id}', this)"
-               style="position: relative; left: -20px; right: -20px; width: calc(100% + 40px); height: 50px; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: center; margin-top: -10px;">
+               style="position: relative; left: -20px; right: -20px; width: calc(100% + 40px); height: 50px; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: center; margin-top: 5px;">
             <span class="expand-indicator" style="font-size: 16px; color: #666; transition: all 0.2s;">▼</span>
           </div>
         ` : ''}
