@@ -9,6 +9,7 @@ import { spotifyRouter } from './routes/spotify';
 import { youtubeRouter } from './routes/youtube';
 import { syncRouter } from './routes/sync';
 import { playlistDetailsRouter } from './routes/playlistDetails';
+import { progressRouter } from './routes/progress';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -83,6 +84,7 @@ app.use('/auth/spotify', spotifyRouter);
 app.use('/auth/youtube', youtubeRouter);
 app.use('/api/sync', syncRouter);
 app.use('/api/playlistDetails', playlistDetailsRouter);
+app.use('/api/progress', progressRouter);
 
 // Main page
 app.get('/', (req, res) => {

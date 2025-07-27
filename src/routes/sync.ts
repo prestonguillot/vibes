@@ -2,6 +2,7 @@ import { Router } from 'express';
 import SpotifyWebApi from 'spotify-web-api-node';
 import { google } from 'googleapis';
 import { searchMusicVideo } from '../utils/youtubeScraper';
+import { sendProgressUpdate } from './progress';
 
 const router = Router();
 
@@ -99,19 +100,42 @@ router.post('/playlist/:playlistId', async (req, res) => {
   console.log(`🔗 Request URL: ${req.originalUrl}`);
   console.log(`📊 Request method: ${req.method}`);
 
+  // Send initial progress update
+  sendProgressUpdate(playlistId, {
+    type: 'progress',
+    message: 'Starting sync...',
+    details: 'Checking authentication and initializing APIs'
+  });
+
   try {
     // Check authentication
     if (!req.session.spotifyTokens) {
       console.log('❌ No Spotify tokens in session');
+      sendProgressUpdate(playlistId, {
+        type: 'error',
+        message: 'Authentication required',
+        details: 'Please connect to Spotify first'
+      });
       return res.status(401).send('<div class="alert alert-danger">Please connect to Spotify first</div>');
     }
     
     if (!req.session.youtubeTokens) {
       console.log('❌ No YouTube tokens in session');
+      sendProgressUpdate(playlistId, {
+        type: 'error',
+        message: 'Authentication required',
+        details: 'Please connect to YouTube first'
+      });
       return res.status(401).send('<div class="alert alert-danger">Please connect to YouTube first</div>');
     }
 
     console.log('✅ Authentication check passed');
+    
+    sendProgressUpdate(playlistId, {
+      type: 'progress',
+      message: 'Authentication verified',
+      details: 'Initializing API clients...'
+    });
 
     // Initialize APIs
     console.log('🔧 Initializing API clients...');
@@ -120,11 +144,23 @@ router.post('/playlist/:playlistId', async (req, res) => {
     const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
     console.log('✅ API clients initialized');
 
+    sendProgressUpdate(playlistId, {
+      type: 'progress',
+      message: 'APIs initialized',
+      details: 'Fetching Spotify playlist details...'
+    });
+
     // Get playlist details
     console.log('📋 Fetching Spotify playlist details...');
     const playlistResponse = await spotifyApi.getPlaylist(playlistId);
     const playlist = playlistResponse.body;
     console.log(`📋 Playlist: "${playlist.name}" (${playlist.tracks.total} tracks)`);
+
+    sendProgressUpdate(playlistId, {
+      type: 'progress',
+      message: `Found playlist: "${playlist.name}"`,
+      details: `Fetching tracks (limit: 10)...`
+    });
 
     // Get tracks with limit
     const trackLimit = 10; // Conservative limit for testing - now 10 tracks
@@ -133,8 +169,21 @@ router.post('/playlist/:playlistId', async (req, res) => {
     const tracks = tracksResponse.body.items.filter(item => item.track && item.track.type === 'track');
     console.log(`🎵 Found ${tracks.length} valid tracks to sync`);
 
+    sendProgressUpdate(playlistId, {
+      type: 'progress',
+      message: `Processing ${tracks.length} tracks`,
+      details: 'Searching for existing YouTube playlist...',
+      currentTrack: 0,
+      totalTracks: tracks.length
+    });
+
     if (tracks.length === 0) {
       console.log('⚠️ No tracks to sync');
+      sendProgressUpdate(playlistId, {
+        type: 'error',
+        message: 'No tracks found',
+        details: 'No tracks found in the playlist'
+      });
       return res.send('<div class="alert alert-warning">No tracks found to sync</div>');
     }
 
@@ -175,6 +224,14 @@ router.post('/playlist/:playlistId', async (req, res) => {
             console.log(`❌ No video found for "${songName}" by ${artist}`);
           }
           
+          sendProgressUpdate(playlistId, {
+            type: 'progress',
+            message: `Processing ${tracks.length} tracks`,
+            details: `Searching for YouTube videos... (${searchCount}/${tracks.length})`,
+            currentTrack: searchCount,
+            totalTracks: tracks.length
+          });
+          
           // Rate limiting: add delay between searches to be respectful
           if (searchCount < tracks.length) {
             console.log(`⏳ Rate limiting: waiting 100ms before next search...`);
@@ -184,6 +241,11 @@ router.post('/playlist/:playlistId', async (req, res) => {
         } catch (error) {
           searchCount++;
           console.error(`❌ Error searching for ${artist} - ${songName}:`, error);
+          sendProgressUpdate(playlistId, {
+            type: 'error',
+            message: 'Error searching for video',
+            details: error instanceof Error ? error.message : 'An unexpected error occurred'
+          });
           searchResults.push({
             track: songName,
             artist: artist,
@@ -195,6 +257,12 @@ router.post('/playlist/:playlistId', async (req, res) => {
     
     console.log(`🕷️ Scraping completed: ${searchCount} searches made, ${videoIds.length} videos found`);
     console.log(`💰 Cost savings: Avoided ${searchCount * 100} YouTube API quota units!`);
+    
+    sendProgressUpdate(playlistId, {
+      type: 'progress',
+      message: `Found ${videoIds.length} YouTube videos`,
+      details: 'Checking for existing YouTube playlist...'
+    });
     
     // Track API calls and quota usage accurately
     let apiCallCount = 0;
@@ -232,17 +300,37 @@ router.post('/playlist/:playlistId', async (req, res) => {
       if (existingPlaylist) {
         youtubePlaylistId = existingPlaylist.id!;
         console.log(`📺 Found existing playlist: "${playlistTitle}" (${youtubePlaylistId})`);
+        sendProgressUpdate(playlistId, {
+          type: 'progress',
+          message: `Found existing YouTube playlist: "${playlistTitle}"`,
+          details: 'Adding videos to existing playlist...'
+        });
       } else {
         console.log(`📺 No existing playlist found, will create new one`);
+        sendProgressUpdate(playlistId, {
+          type: 'progress',
+          message: `No existing YouTube playlist found`,
+          details: 'Creating new playlist...'
+        });
       }
     } catch (error) {
       console.error('Error checking for existing playlist:', error);
+      sendProgressUpdate(playlistId, {
+        type: 'error',
+        message: 'Error checking for existing playlist',
+        details: error instanceof Error ? error.message : 'An unexpected error occurred'
+      });
       throw error;
     }
     
     // Only create playlist if we found some videos
     if (videoIds.length === 0) {
       console.log('⚠️ No videos found');
+      sendProgressUpdate(playlistId, {
+        type: 'error',
+        message: 'No videos found',
+        details: 'No videos found in the playlist'
+      });
       return res.send(`
         <div class="alert alert-warning">
           <h5>No videos found</h5>
@@ -271,6 +359,11 @@ router.post('/playlist/:playlistId', async (req, res) => {
       
       youtubePlaylistId = playlistResponse.data.id!;
       console.log(`Created new YouTube playlist: ${playlistTitle} (${youtubePlaylistId})`);
+      sendProgressUpdate(playlistId, {
+        type: 'progress',
+        message: `Created new YouTube playlist: "${playlistTitle}"`,
+        details: 'Adding videos to new playlist...'
+      });
       
       // Add all videos to the new playlist
       for (const videoId of videoIds) {
@@ -289,8 +382,20 @@ router.post('/playlist/:playlistId', async (req, res) => {
           });
           logApiCall('add video to new playlist', 50); // playlistItems.insert costs 50 units
           console.log(`Added video to new playlist: ${videoId}`);
+          sendProgressUpdate(playlistId, {
+            type: 'progress',
+            message: `Adding videos to playlist...`,
+            details: `Added video: ${videoId}`,
+            currentTrack: videoIds.indexOf(videoId) + 1,
+            totalTracks: videoIds.length
+          });
         } catch (error) {
           console.error(`Error adding video ${videoId} to playlist:`, error);
+          sendProgressUpdate(playlistId, {
+            type: 'error',
+            message: 'Error adding video to playlist',
+            details: error instanceof Error ? error.message : 'An unexpected error occurred'
+          });
         }
       }
       
@@ -352,8 +457,20 @@ router.post('/playlist/:playlistId', async (req, res) => {
           logApiCall('add new video', 50); // playlistItems.insert costs 50 units
           addedCount++;
           console.log(`✅ Added new video to existing playlist: ${videoId}`);
+          sendProgressUpdate(playlistId, {
+            type: 'progress',
+            message: `Adding videos to playlist...`,
+            details: `Added video: ${videoId}`,
+            currentTrack: addedCount,
+            totalTracks: videosToAdd.length
+          });
         } catch (error) {
           console.error(`❌ Error adding video ${videoId} to playlist:`, error);
+          sendProgressUpdate(playlistId, {
+            type: 'error',
+            message: 'Error adding video to playlist',
+            details: error instanceof Error ? error.message : 'An unexpected error occurred'
+          });
         }
       }
       
@@ -361,6 +478,16 @@ router.post('/playlist/:playlistId', async (req, res) => {
     }
     
     console.log(`🕒 Request processing time: ${Date.now() - startTime}ms`);
+    
+    // Send completion progress update
+    const youtubePlaylistUrl = `https://www.youtube.com/playlist?list=${youtubePlaylistId}`;
+    sendProgressUpdate(playlistId, {
+      type: 'complete',
+      message: `Playlist ${existingPlaylist ? 'updated' : 'created'} successfully!`,
+      details: `Found ${searchResults.filter(r => r.found).length} out of ${searchResults.length} tracks${tracks.length > trackLimit ? ` (limited from ${tracks.length} total)` : ''}`,
+      currentTrack: searchResults.length,
+      totalTracks: searchResults.length
+    });
     
     // Log comprehensive YouTube API quota usage summary
     console.log(`📊 YouTube API Quota Usage Summary:`);
@@ -373,7 +500,6 @@ router.post('/playlist/:playlistId', async (req, res) => {
     console.log(`   Scraper searches: ${searchResults.length} (saved ${searchResults.length * 100} quota units vs API search)`);
     
     // Generate user-friendly sync feedback with YouTube playlist link
-    const youtubePlaylistUrl = `https://www.youtube.com/playlist?list=${youtubePlaylistId}`;
     const syncFeedbackHtml = `
       <div class="sync-feedback alert alert-success alert-dismissible fade show" data-playlist-id="${playlistId}">
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
@@ -397,6 +523,13 @@ router.post('/playlist/:playlistId', async (req, res) => {
   } catch (error) {
     console.error('Error syncing playlist:', error);
     console.log(`🕒 Request processing time: ${Date.now() - startTime}ms`);
+    
+    // Send error progress update
+    sendProgressUpdate(playlistId, {
+      type: 'error',
+      message: 'Sync failed',
+      details: error instanceof Error ? error.message : 'An unexpected error occurred'
+    });
     
     // Log YouTube API quota usage summary even on error
     console.log(`📊 YouTube API Quota Usage Summary (ERROR):`);

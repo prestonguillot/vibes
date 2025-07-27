@@ -425,7 +425,7 @@
             timestamp: new Date().toISOString()
           });
           
-          // Enhanced sync button handling
+          // Enhanced sync button handling with real-time progress
           if (event.detail.requestConfig.path.includes('/sync/playlist/')) {
             console.log('Sync request detected:', event.detail);
             const button = event.detail.elt;
@@ -434,17 +434,8 @@
             
             console.log(`Starting sync for playlist: ${playlistName} (${playlistId})`);
             
-            // Show sync status for this specific playlist
-            const statusDiv = document.getElementById(`sync-status-${playlistId}`);
-            if (statusDiv) {
-              statusDiv.style.display = 'block';
-              statusDiv.innerHTML = `
-                <small class="text-info">
-                  <span class="spinner-border spinner-border-sm me-1" role="status"></span>
-                  Searching for videos for "${playlistName}"...
-                </small>
-              `;
-            }
+            // Start real-time progress updates
+            startProgressUpdates(playlistId, playlistName);
             
             // Disable all sync buttons during sync
             document.querySelectorAll('.sync-btn').forEach(btn => {
@@ -781,6 +772,110 @@
                 }
             }
         };
+    </script>
+
+    <script>
+        // Add Server-Sent Events handling for real-time sync progress updates
+        function startProgressUpdates(playlistId, playlistName) {
+            console.log(`🔄 Starting real-time progress updates for playlist: ${playlistName} (${playlistId})`);
+            
+            // Show the progress area
+            const progressDiv = document.getElementById(`progress-${playlistId}`);
+            if (progressDiv) {
+                progressDiv.style.display = 'block';
+                progressDiv.querySelector('.progress-content').innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="border: 2px solid #2196f3; border-top-color: transparent; border-radius: 50%; width: 16px; height: 16px; animation: spin 1s linear infinite;"></div>
+                        <span>Connecting to progress updates...</span>
+                    </div>
+                `;
+            }
+            
+            // Create an EventSource object to listen for Server-Sent Events
+            const eventSource = new EventSource(`/api/progress/playlist/${playlistId}`);
+            
+            // Handle incoming progress updates
+            eventSource.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    console.log(`📡 Received progress update for playlist ${playlistId}:`, data);
+                    
+                    // Update the progress display
+                    if (progressDiv) {
+                        const progressContent = progressDiv.querySelector('.progress-content');
+                        
+                        if (data.type === 'progress') {
+                            // Show progress with spinner
+                            let progressHtml = `
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <div style="border: 2px solid #2196f3; border-top-color: transparent; border-radius: 50%; width: 16px; height: 16px; animation: spin 1s linear infinite;"></div>
+                                    <div>
+                                        <strong>${data.message}</strong>
+                                        ${data.details ? `<br><small style="opacity: 0.8;">${data.details}</small>` : ''}
+                                        ${data.currentTrack && data.totalTracks ? `<br><small style="opacity: 0.8;">Progress: ${data.currentTrack}/${data.totalTracks}</small>` : ''}
+                                    </div>
+                                </div>
+                            `;
+                            progressContent.innerHTML = progressHtml;
+                        } else if (data.type === 'complete') {
+                            // Show completion message with success styling
+                            progressContent.innerHTML = `
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <div style="color: #4caf50; font-size: 16px;">✓</div>
+                                    <div>
+                                        <strong style="color: #4caf50;">${data.message}</strong>
+                                        ${data.details ? `<br><small style="opacity: 0.8;">${data.details}</small>` : ''}
+                                    </div>
+                                </div>
+                            `;
+                            
+                            // Close the EventSource connection
+                            eventSource.close();
+                            
+                            // Hide progress area after 5 seconds and show final sync result
+                            setTimeout(() => {
+                                if (progressDiv) {
+                                    progressDiv.style.display = 'none';
+                                }
+                            }, 5000);
+                        } else if (data.type === 'error') {
+                            // Show error message
+                            progressContent.innerHTML = `
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <div style="color: #f44336; font-size: 16px;">✗</div>
+                                    <div>
+                                        <strong style="color: #f44336;">${data.message}</strong>
+                                        ${data.details ? `<br><small style="opacity: 0.8;">${data.details}</small>` : ''}
+                                    </div>
+                                </div>
+                            `;
+                            
+                            // Close the EventSource connection
+                            eventSource.close();
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error parsing progress update:', error, event.data);
+                }
+            };
+            
+            // Handle connection events
+            eventSource.onopen = function() {
+                console.log(`✅ Connected to progress updates for playlist ${playlistId}`);
+            };
+            
+            eventSource.onerror = function(error) {
+                console.error(`❌ Error with progress updates for playlist ${playlistId}:`, error);
+                if (progressDiv) {
+                    progressDiv.querySelector('.progress-content').innerHTML = `
+                        <div style="color: #f44336;">
+                            <strong>Connection error</strong><br>
+                            <small>Unable to receive real-time updates</small>
+                        </div>
+                    `;
+                }
+            };
+        }
     </script>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
