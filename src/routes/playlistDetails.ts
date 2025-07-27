@@ -304,15 +304,15 @@ router.get('/playlist/:playlistId', async (req, res) => {
             </span>
             <button class="btn btn-outline-secondary btn-sm" 
                     hx-get="/api/playlistDetails/playlist/${playlistId}"
-                    hx-target="[data-playlist-id='${playlistId}']"
-                    hx-swap="outerHTML"
+                    hx-target="#details-${playlistId}"
+                    hx-swap="innerHTML"
                     title="Refresh playlist details">
               Refresh
             </button>
           </div>
         </div>
         
-        <div class="tracks-list">
+        <div id="details-${playlistId}" class="tracks-list">
           ${allTracks.map((track, index) => `
             <div class="track-item d-flex align-items-center py-2 ${index % 2 === 0 ? 'bg-light' : ''}" style="border-radius: 4px;">
               <div class="track-number me-3 text-muted small" style="min-width: 30px;">
