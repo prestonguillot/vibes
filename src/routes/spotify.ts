@@ -229,7 +229,8 @@ router.get('/playlists', async (req, res) => {
             <button class="btn ${buttonClass} sync-btn" 
                     id="sync-btn-${playlist.id}"
                     hx-post="/api/sync/playlist/${playlist.id}"
-                    hx-target="#sync-result"
+                    hx-target="#sync-result-${playlist.id}"
+                    hx-swap="innerHTML"
                     hx-indicator="#loading"
                     data-playlist-name="${playlist.name}"
                     data-playlist-id="${playlist.id}"
@@ -244,6 +245,11 @@ router.get('/playlists', async (req, res) => {
           <div class="progress-content">
             <!-- Progress updates will be inserted here -->
           </div>
+        </div>
+        
+        <!-- Sync result area for final summary -->
+        <div id="sync-result-${playlist.id}" style="display: none; margin: 0; padding: 8px 15px; border-left: 1px solid #dee2e6; border-right: 1px solid #dee2e6; border-bottom: 1px solid #dee2e6; background: #f8f9fa; font-family: 'Courier Prime', monospace; font-size: 0.9rem;">
+          <!-- Sync completion summary will be inserted here -->
         </div>
         
         ${isSynced ? `
