@@ -255,6 +255,22 @@ body {
     box-shadow: 4px 4px 0px rgba(0,0,0,0.5);
 }
 
+.btn-outline-success:disabled,
+.btn-outline-success.disabled {
+    background-color: #00ff00 !important;
+    border: 2px solid #00ff00 !important;
+    color: #000 !important;
+    opacity: 0.6 !important;
+}
+
+.btn-outline-success:active,
+.btn-outline-success.active {
+    background-color: #00ff00 !important;
+    border: 2px solid #00ff00 !important;
+    color: #000 !important;
+    box-shadow: 3px 3px 0px rgba(0,0,0,0.3) !important;
+}
+
 .btn-outline-primary {
     background-color: #0066ff;
     border: 2px solid #0066ff !important;
@@ -273,6 +289,14 @@ body {
     color: #fff;
     transform: translateY(-1px);
     box-shadow: 4px 4px 0px rgba(0,0,0,0.5);
+}
+
+.btn-outline-primary:active,
+.btn-outline-primary.active {
+    background-color: #0066ff !important;
+    border: 2px solid #0066ff !important;
+    color: #fff !important;
+    box-shadow: 3px 3px 0px rgba(0,0,0,0.3) !important;
 }
 
 /* === PLAYLIST ITEMS === */
