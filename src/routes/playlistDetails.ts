@@ -27,10 +27,10 @@ router.get('/playlist/:playlistId', async (req, res) => {
   const startTime = Date.now();
   const { playlistId } = req.params;
   
-  console.log('\n🔍 === PLAYLIST DETAILS REQUEST ===');
-  console.log(`📅 Timestamp: ${new Date().toISOString()}`);
-  console.log(`👤 Session ID: ${req.sessionID}`);
-  console.log(`🎵 Playlist ID: ${playlistId}`);
+  console.log('\n=== PLAYLIST DETAILS REQUEST ===');
+  console.log(`Timestamp: ${new Date().toISOString()}`);
+  console.log(`Session ID: ${req.sessionID}`);
+  console.log(`Playlist ID: ${playlistId}`);
 
   try {
     // Check authentication
@@ -52,7 +52,7 @@ router.get('/playlist/:playlistId', async (req, res) => {
     const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
 
     // Get Spotify playlist tracks
-    console.log('📻 Fetching Spotify playlist tracks...');
+    console.log('Fetching Spotify playlist tracks...');
     const spotifyPlaylistData = await spotifyApi.getPlaylist(playlistId);
     const spotifyTracks = spotifyPlaylistData.body.tracks.items.map((item: any) => ({
       id: item.track.id,
@@ -64,11 +64,11 @@ router.get('/playlist/:playlistId', async (req, res) => {
       preview_url: item.track.preview_url
     }));
 
-    console.log(`📻 Found ${spotifyTracks.length} Spotify tracks`);
+    console.log(`Found ${spotifyTracks.length} Spotify tracks`);
 
     // Find corresponding YouTube playlist
     const youtubePlaylistTitle = `${spotifyPlaylistData.body.name} (from Spotify)`;
-    console.log(`📺 Looking for YouTube playlist: "${youtubePlaylistTitle}"`);
+    console.log(`Looking for YouTube playlist: "${youtubePlaylistTitle}"`);
     
     const youtubePlaylistsResponse = await youtube.playlists.list({
       part: ['snippet'],
@@ -83,7 +83,7 @@ router.get('/playlist/:playlistId', async (req, res) => {
     let youtubeVideos: any[] = [];
     
     if (youtubePlaylist) {
-      console.log(`📺 Found YouTube playlist: ${youtubePlaylist.id}`);
+      console.log(`Found YouTube playlist: ${youtubePlaylist.id}`);
       
       // Get YouTube playlist videos
       const youtubeVideosResponse = await youtube.playlistItems.list({
@@ -101,9 +101,9 @@ router.get('/playlist/:playlistId', async (req, res) => {
         url: `https://www.youtube.com/watch?v=${item.snippet.resourceId.videoId}`
       })) || [];
 
-      console.log(`📺 Found ${youtubeVideos.length} YouTube videos`);
+      console.log(`Found ${youtubeVideos.length} YouTube videos`);
     } else {
-      console.log('📺 No corresponding YouTube playlist found');
+      console.log('No corresponding YouTube playlist found');
     }
 
     // Create merged view of tracks with their YouTube counterparts using improved matching
@@ -289,9 +289,9 @@ router.get('/playlist/:playlistId', async (req, res) => {
 
     const allTracks = [...mergedTracks, ...orphanedVideos];
 
-    console.log(`🔗 Matched tracks: ${mergedTracks.filter(t => t.linked).length}`);
-    console.log(`📻 Spotify-only tracks: ${mergedTracks.filter(t => !t.linked).length}`);
-    console.log(`📺 YouTube-only videos: ${orphanedVideos.length}`);
+    console.log(`Matched tracks: ${mergedTracks.filter(t => t.linked).length}`);
+    console.log(`Spotify-only tracks: ${mergedTracks.filter(t => !t.linked).length}`);
+    console.log(`YouTube-only videos: ${orphanedVideos.length}`);
 
     // Generate HTML response
     const playlistDetailsHtml = `
@@ -353,15 +353,31 @@ router.get('/playlist/:playlistId', async (req, res) => {
             </div>
           `).join('')}
         </div>
+        
+        <!-- Collapse area at bottom of expanded details -->
+        <div class="playlist-collapse-area" 
+             data-playlist-id="${playlistId}"
+             onclick="
+               const expandArea = document.querySelector('.playlist-expand-area[data-playlist-id=&quot;${playlistId}&quot;]');
+               if (expandArea) {
+                 expandArea.click();
+                 setTimeout(() => {
+                   expandArea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                 }, 100);
+               }
+             "
+             style="position: relative; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: center; height: 30px;">
+          <span class="collapse-indicator" style="font-size: 16px; color: #ff0040; padding: 8px 90px; border-radius: 3px; transition: all 0.2s;">▲</span>
+        </div>
       </div>
     `;
 
-    console.log(`🕒 Request processing time: ${Date.now() - startTime}ms`);
+    console.log(`Request processing time: ${Date.now() - startTime}ms`);
     res.send(playlistDetailsHtml);
 
   } catch (error) {
     console.error('Error fetching playlist details:', error);
-    console.log(`🕒 Request processing time: ${Date.now() - startTime}ms`);
+    console.log(`Request processing time: ${Date.now() - startTime}ms`);
     
     res.status(500).send(`
       <div class="alert alert-danger">
