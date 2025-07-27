@@ -196,7 +196,7 @@ body {
 
 .btn-primary {
     background-color: #ff0040 !important;
-    border: 2px solid #000 !important;
+    border: 2px solid #ff0040 !important;
     color: #fff !important;
     box-shadow: 3px 3px 0px rgba(0,0,0,0.3) !important;
     font-family: 'Courier Prime', monospace !important;
