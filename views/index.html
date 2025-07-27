@@ -163,9 +163,6 @@
                     </div>
                 </div>
 
-                <!-- Sync Results -->
-                <div id="sync-result" class="mt-4"></div>
-
                 <!-- Loading Indicator -->
                 <div id="loading" class="text-center mt-3" style="display: none;">
                     <div class="spinner-border text-primary" role="status">
@@ -372,10 +369,9 @@
         // Check status on page load
         document.addEventListener('DOMContentLoaded', function() {
             // Clear any leftover sync results from previous sessions
-            const syncResult = document.getElementById('sync-result');
-            if (syncResult) {
+            document.querySelectorAll('[id^="sync-result-"]').forEach(syncResult => {
                 syncResult.innerHTML = '';
-            }
+            });
             
             updateConnectionStatus();
         });
@@ -444,7 +440,7 @@
             });
             
             // Clear previous sync results
-            const syncResult = document.getElementById('sync-result');
+            const syncResult = document.getElementById(`sync-result-${playlistId}`);
             if (syncResult) {
               syncResult.innerHTML = '';
             }
@@ -460,61 +456,6 @@
             responseLength: event.detail.xhr.responseText?.length || 0,
             timestamp: new Date().toISOString()
           });
-          
-          // Enhanced sync completion handling
-          if (event.detail.requestConfig?.path?.includes('/sync/playlist/')) {
-            const button = event.detail.elt;
-            const playlistId = button.dataset.playlistId;
-            const response = event.detail.xhr.responseText;
-            
-            // Hide sync status for this specific playlist
-            const statusDiv = document.getElementById(`sync-status-${playlistId}`);
-            if (statusDiv) {
-              statusDiv.style.display = 'none';
-            }
-            
-            // Re-enable all sync buttons
-            document.querySelectorAll('.sync-btn').forEach(btn => {
-              btn.disabled = false;
-              btn.classList.remove('disabled');
-            });
-            
-            // Check if sync was successful
-            if (status >= 200 && status < 300 && response.includes('data-sync-success="true"')) {
-              console.log(`Sync completed successfully for playlist ${playlistId}`);
-              
-              // Clear any existing sync feedback
-              document.querySelectorAll('.sync-feedback').forEach(el => el.remove());
-              
-              // Extract feedback HTML from response
-              const parser = new DOMParser();
-              const doc = parser.parseFromString(response, 'text/html');
-              const responseDiv = doc.querySelector('[data-sync-success="true"]');
-              
-              if (responseDiv) {
-                const feedbackHtml = decodeURIComponent(responseDiv.dataset.feedbackHtml || '');
-                
-                // Trigger playlist refresh to reorder lists and show new position
-                const refreshBtn = document.getElementById('refresh-playlists-btn');
-                if (refreshBtn) {
-                  // Store the feedback to show after refresh
-                  sessionStorage.setItem('pendingSyncFeedback', JSON.stringify({
-                    playlistId: playlistId,
-                    feedbackHtml: feedbackHtml
-                  }));
-                  
-                  // Trigger refresh
-                  refreshBtn.click();
-                } else {
-                  // Fallback: show in sync-result if refresh button not available
-                  const syncResult = document.getElementById('sync-result');
-                  if (syncResult && feedbackHtml) {
-                    syncResult.innerHTML = feedbackHtml;
-                  }
-                }
-              }
-            }
-          }
           
           // Handle playlist refresh completion to show sync feedback
           if (event.detail.requestConfig?.path?.includes('/auth/spotify/playlists')) {
@@ -645,6 +586,92 @@
                     // Process HTMX attributes on newly loaded content
                     htmx.process(target);
                     console.log('HTMX processed on dynamically loaded playlists');
+                    
+                    // Add manual event listeners for sync buttons since HTMX processing may not work
+                    const syncButtons = target.querySelectorAll('.sync-btn');
+                    syncButtons.forEach(button => {
+                        button.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            
+                            const playlistId = this.dataset.playlistId;
+                            const playlistName = this.dataset.playlistName;
+                            const targetId = this.getAttribute('hx-target');
+                            const url = this.getAttribute('hx-post');
+                            
+                            console.log(`Manual sync button clicked for: ${playlistName} (${playlistId})`);
+                            console.log(`Target: ${targetId}, URL: ${url}`);
+                            
+                            // Start real-time progress updates
+                            startProgressUpdates(playlistId, playlistName);
+                            
+                            // Disable all sync buttons during sync
+                            document.querySelectorAll('.sync-btn').forEach(btn => {
+                                btn.disabled = true;
+                                btn.classList.add('disabled');
+                            });
+                            
+                            // Clear previous sync results for this playlist
+                            const syncResult = document.getElementById(`sync-result-${playlistId}`);
+                            if (syncResult) {
+                                syncResult.innerHTML = '';
+                            }
+                            
+                            // Make manual HTMX request
+                            htmx.ajax('POST', url, {
+                                target: targetId,
+                                swap: 'innerHTML'
+                            }).then(() => {
+                                // Hide the blue progress area since sync is complete
+                                const progressDiv = document.getElementById(`progress-${playlistId}`);
+                                if (progressDiv) {
+                                    progressDiv.style.display = 'none';
+                                }
+                                
+                                // Show the sync result area after content is loaded
+                                const syncResult = document.getElementById(`sync-result-${playlistId}`);
+                                if (syncResult && syncResult.innerHTML.trim() !== '') {
+                                    syncResult.style.display = 'block';
+                                    
+                                    // Add dismissal functionality if not already present
+                                    const dismissButton = syncResult.querySelector('.btn-close');
+                                    if (dismissButton) {
+                                        dismissButton.addEventListener('click', function() {
+                                            syncResult.style.display = 'none';
+                                        });
+                                    }
+                                    
+                                    // Auto-hide after 5 seconds
+                                    setTimeout(() => {
+                                        if (syncResult && syncResult.style.display !== 'none') {
+                                            syncResult.style.opacity = '0';
+                                            syncResult.style.transition = 'opacity 0.5s ease-out';
+                                            setTimeout(() => {
+                                                syncResult.style.display = 'none';
+                                                // Reset for next use
+                                                syncResult.style.opacity = '1';
+                                                syncResult.style.transition = '';
+                                            }, 500);
+                                        }
+                                    }, 5000);
+                                }
+                                
+                                // Re-enable all sync buttons
+                                document.querySelectorAll('.sync-btn').forEach(btn => {
+                                    btn.disabled = false;
+                                    btn.classList.remove('disabled');
+                                });
+                            }).catch((error) => {
+                                console.error('Sync request failed:', error);
+                                
+                                // Re-enable all sync buttons even on error
+                                document.querySelectorAll('.sync-btn').forEach(btn => {
+                                    btn.disabled = false;
+                                    btn.classList.remove('disabled');
+                                });
+                            });
+                        });
+                    });
+                    console.log(`Added manual event listeners to ${syncButtons.length} sync buttons`);
                 }
             }
         });
