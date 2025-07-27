@@ -412,21 +412,7 @@
             console.log(`Sync button clicked for playlist: "${playlistName}" (ID: ${playlistId})`);
             console.log(`Making request to: /api/sync/playlist/${playlistId}`);
             
-            // Manually trigger HTMX request since automatic processing isn't working
-            event.preventDefault();
-            const url = `/api/sync/playlist/${playlistId}`;
-            const target = document.getElementById('sync-result');
-            
-            console.log(`Manually triggering HTMX request to: ${url}`);
-            htmx.ajax('POST', url, {
-              target: target,
-              swap: 'innerHTML'
-            });
-          }
-
-          // Log navigation clicks (Connect buttons)
-          if (event.target.getAttribute('onclick')) {
-            console.log(`Navigation click detected: ${event.target.getAttribute('onclick')}`);
+            // Let HTMX handle the request automatically - no manual trigger needed
           }
         });
 
@@ -462,10 +448,8 @@
             
             // Disable all sync buttons during sync
             document.querySelectorAll('.sync-btn').forEach(btn => {
-              if (btn !== button) {
-                btn.disabled = true;
-                btn.classList.add('disabled');
-              }
+              btn.disabled = true;
+              btn.classList.add('disabled');
             });
             
             // Clear previous sync results
