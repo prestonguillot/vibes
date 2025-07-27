@@ -96,9 +96,14 @@ body {
 }
 
 /* === CONNECTION STATUS CARDS === */
+.card,
+.card-header,
+.card-body {
+    border-radius: 0 !important;
+}
+
 .card {
     border: 3px solid #000;
-    border-radius: 0;
     background: #fff;
     box-shadow: 5px 5px 0px rgba(0,0,0,0.3);
     transform: rotate(0.2deg);
@@ -330,10 +335,8 @@ body {
 /* === PLAYLIST ITEMS === */
 .playlist-item {
     width: 100%;
-    max-width: 100%;
-    box-sizing: border-box;
     overflow: hidden;
-    padding: 20px;
+    padding: 25px 20px 30px 20px;
     margin-bottom: 15px;
     border-left: 2px solid #000;
     border-right: 2px solid #000;
@@ -394,6 +397,7 @@ body {
     border-radius: 0 !important;
     background: #f8f8f8 !important;
     font-family: 'Courier Prime', monospace;
+    margin-top: 30px !important;
 }
 
 .playlist-details-container * {
