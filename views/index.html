@@ -589,9 +589,16 @@
                     
                     // Add manual event listeners for sync buttons since HTMX processing may not work
                     const syncButtons = target.querySelectorAll('.sync-btn');
-                    syncButtons.forEach(button => {
-                        button.addEventListener('click', function(e) {
+                    console.log(`Found ${syncButtons.length} sync buttons to attach listeners to`);
+                    
+                    syncButtons.forEach((button, index) => {
+                        // Remove any existing listeners to prevent duplicates
+                        const newButton = button.cloneNode(true);
+                        button.parentNode.replaceChild(newButton, button);
+                        
+                        newButton.addEventListener('click', function(e) {
                             e.preventDefault();
+                            console.log(`🔥 SYNC BUTTON CLICKED! Button ${index + 1}`);
                             
                             const playlistId = this.dataset.playlistId;
                             const playlistName = this.dataset.playlistName;
@@ -810,10 +817,16 @@
             const progressDiv = document.getElementById(`progress-${playlistId}`);
             if (progressDiv) {
                 progressDiv.style.display = 'block';
-                progressDiv.querySelector('.progress-content').innerHTML = `
+                const progressContent = progressDiv.querySelector('.progress-content');
+                
+                // Create initial structure with persistent spinner
+                progressContent.innerHTML = `
                     <div style="display: flex; align-items: center; gap: 8px;">
-                        <div style="border: 2px solid #2196f3; border-top-color: transparent; border-radius: 50%; width: 16px; height: 16px; animation: spin 1s linear infinite;"></div>
-                        <span>Connecting to progress updates...</span>
+                        <div class="progress-spinner" style="border: 2px solid #2196f3; border-top-color: transparent; border-radius: 50%; width: 16px; height: 16px; animation: spin 1s linear infinite;"></div>
+                        <div class="progress-text">
+                            <span class="progress-message">Connecting to progress updates...</span>
+                            <div class="progress-details"></div>
+                        </div>
                     </div>
                 `;
             }
@@ -830,31 +843,20 @@
                     // Update the progress display
                     if (progressDiv) {
                         const progressContent = progressDiv.querySelector('.progress-content');
+                        const progressText = progressContent.querySelector('.progress-text');
                         
                         if (data.type === 'progress') {
                             // Show progress with spinner
-                            let progressHtml = `
-                                <div style="display: flex; align-items: center; gap: 8px;">
-                                    <div style="border: 2px solid #2196f3; border-top-color: transparent; border-radius: 50%; width: 16px; height: 16px; animation: spin 1s linear infinite;"></div>
-                                    <div>
-                                        <strong>${data.message}</strong>
-                                        ${data.details ? `<br><small style="opacity: 0.8;">${data.details}</small>` : ''}
-                                        ${data.currentTrack && data.totalTracks ? `<br><small style="opacity: 0.8;">Progress: ${data.currentTrack}/${data.totalTracks}</small>` : ''}
-                                    </div>
-                                </div>
-                            `;
-                            progressContent.innerHTML = progressHtml;
+                            progressText.querySelector('.progress-message').textContent = data.message;
+                            progressText.querySelector('.progress-details').textContent = data.details || '';
+                            progressText.querySelector('.progress-details').style.opacity = data.details ? '1' : '0';
                         } else if (data.type === 'complete') {
                             // Show completion message with success styling
-                            progressContent.innerHTML = `
-                                <div style="display: flex; align-items: center; gap: 8px;">
-                                    <div style="color: #4caf50; font-size: 16px;">✓</div>
-                                    <div>
-                                        <strong style="color: #4caf50;">${data.message}</strong>
-                                        ${data.details ? `<br><small style="opacity: 0.8;">${data.details}</small>` : ''}
-                                    </div>
-                                </div>
-                            `;
+                            progressText.querySelector('.progress-message').textContent = data.message;
+                            progressText.querySelector('.progress-details').textContent = data.details || '';
+                            progressText.querySelector('.progress-details').style.opacity = data.details ? '1' : '0';
+                            progressText.style.color = '#4caf50';
+                            progressContent.querySelector('.progress-spinner').style.display = 'none';
                             
                             // Close the EventSource connection
                             eventSource.close();
@@ -867,15 +869,11 @@
                             }, 5000);
                         } else if (data.type === 'error') {
                             // Show error message
-                            progressContent.innerHTML = `
-                                <div style="display: flex; align-items: center; gap: 8px;">
-                                    <div style="color: #f44336; font-size: 16px;">✗</div>
-                                    <div>
-                                        <strong style="color: #f44336;">${data.message}</strong>
-                                        ${data.details ? `<br><small style="opacity: 0.8;">${data.details}</small>` : ''}
-                                    </div>
-                                </div>
-                            `;
+                            progressText.querySelector('.progress-message').textContent = data.message;
+                            progressText.querySelector('.progress-details').textContent = data.details || '';
+                            progressText.querySelector('.progress-details').style.opacity = data.details ? '1' : '0';
+                            progressText.style.color = '#f44336';
+                            progressContent.querySelector('.progress-spinner').style.display = 'none';
                             
                             // Close the EventSource connection
                             eventSource.close();
