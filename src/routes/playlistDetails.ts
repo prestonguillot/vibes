@@ -366,7 +366,7 @@ router.get('/playlist/:playlistId', async (req, res) => {
                  }, 100);
                }
              "
-             style="position: relative; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: center; height: 30px;">
+             style="position: relative; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: center; height: 50px; margin: 0; margin-bottom: -15px; padding-bottom: 15px;">
           <span class="collapse-indicator" style="font-size: 16px; color: #ff0040; padding: 8px 90px; border-radius: 3px; transition: all 0.2s;">▲</span>
         </div>
       </div>
