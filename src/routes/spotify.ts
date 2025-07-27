@@ -238,6 +238,14 @@ router.get('/playlists', async (req, res) => {
             </button>
           </div>
         </div>
+        
+        <!-- Progress display area for real-time updates -->
+        <div id="progress-${playlist.id}" class="playlist-progress" style="display: none; background: #e3f2fd; border: 1px solid #2196f3; border-top: none; padding: 8px 15px; margin: 0; font-family: 'Courier Prime', monospace; font-size: 0.9rem; color: #1976d2;">
+          <div class="progress-content">
+            <!-- Progress updates will be inserted here -->
+          </div>
+        </div>
+        
         ${isSynced ? `
           <div class="playlist-expand-area" 
                data-playlist-id="${playlist.id}"
