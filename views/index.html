@@ -370,7 +370,15 @@
         }
         
         // Check status on page load
-        updateConnectionStatus();
+        document.addEventListener('DOMContentLoaded', function() {
+            // Clear any leftover sync results from previous sessions
+            const syncResult = document.getElementById('sync-result');
+            if (syncResult) {
+                syncResult.innerHTML = '';
+            }
+            
+            updateConnectionStatus();
+        });
     </script>
 
     <script>
@@ -511,22 +519,14 @@
               if (responseDiv) {
                 const feedbackHtml = decodeURIComponent(responseDiv.dataset.feedbackHtml || '');
                 
-                // Clear playlist cache since we have new data
-                clearPlaylistsStorage();
-                
-                // Refresh playlists to get updated sorting
-                const refreshBtn = document.getElementById('refresh-playlists-btn');
-                if (refreshBtn) {
-                  console.log('Refreshing playlists after successful sync...');
-                  
-                  // Store feedback to show after refresh
-                  sessionStorage.setItem('pendingSyncFeedback', JSON.stringify({
-                    playlistId: playlistId,
-                    feedbackHtml: feedbackHtml
-                  }));
-                  
-                  htmx.trigger(refreshBtn, 'click');
+                // Display the sync feedback
+                const syncResult = document.getElementById('sync-result');
+                if (syncResult && feedbackHtml) {
+                  syncResult.innerHTML = feedbackHtml;
                 }
+                
+                // Clear the pending feedback
+                sessionStorage.removeItem('pendingSyncFeedback');
               }
             }
           }
@@ -616,22 +616,14 @@
                             const playlistId = feedback.playlistId;
                             const feedbackHtml = feedback.feedbackHtml;
                             
-                            // Clear playlist cache since we have new data
-                            clearPlaylistsStorage();
-                            
-                            // Refresh playlists to get updated sorting
-                            const refreshBtn = document.getElementById('refresh-playlists-btn');
-                            if (refreshBtn) {
-                                console.log('Refreshing playlists after successful sync...');
-                                
-                                // Store feedback to show after refresh
-                                sessionStorage.setItem('pendingSyncFeedback', JSON.stringify({
-                                  playlistId: playlistId,
-                                  feedbackHtml: feedbackHtml
-                                }));
-                                
-                                htmx.trigger(refreshBtn, 'click');
+                            // Display the sync feedback
+                            const syncResult = document.getElementById('sync-result');
+                            if (syncResult && feedbackHtml) {
+                                syncResult.innerHTML = feedbackHtml;
                             }
+                            
+                            // Clear the pending feedback
+                            sessionStorage.removeItem('pendingSyncFeedback');
                         } catch (error) {
                             console.error('Error displaying sync feedback:', error);
                             sessionStorage.removeItem('pendingSyncFeedback');
