@@ -503,13 +503,76 @@
               if (responseDiv) {
                 const feedbackHtml = decodeURIComponent(responseDiv.dataset.feedbackHtml || '');
                 
-                // Display the sync feedback
-                const syncResult = document.getElementById('sync-result');
-                if (syncResult && feedbackHtml) {
-                  syncResult.innerHTML = feedbackHtml;
+                // Trigger playlist refresh to reorder lists and show new position
+                const refreshBtn = document.getElementById('refresh-playlists-btn');
+                if (refreshBtn) {
+                  // Store the feedback to show after refresh
+                  sessionStorage.setItem('pendingSyncFeedback', JSON.stringify({
+                    playlistId: playlistId,
+                    feedbackHtml: feedbackHtml
+                  }));
+                  
+                  // Trigger refresh
+                  refreshBtn.click();
+                } else {
+                  // Fallback: show in sync-result if refresh button not available
+                  const syncResult = document.getElementById('sync-result');
+                  if (syncResult && feedbackHtml) {
+                    syncResult.innerHTML = feedbackHtml;
+                  }
                 }
+              }
+            }
+          }
+          
+          // Handle playlist refresh completion to show sync feedback
+          if (event.detail.requestConfig?.path?.includes('/auth/spotify/playlists')) {
+            const pendingFeedback = sessionStorage.getItem('pendingSyncFeedback');
+            if (pendingFeedback && status >= 200 && status < 300) {
+              try {
+                const feedback = JSON.parse(pendingFeedback);
+                const playlistId = feedback.playlistId;
+                const feedbackHtml = feedback.feedbackHtml;
                 
-                // Clear the pending feedback
+                // Find the synced playlist in the refreshed list
+                setTimeout(() => {
+                  const playlistElement = document.querySelector(`[data-playlist-id="${playlistId}"]`);
+                  if (playlistElement && feedbackHtml) {
+                    // Create feedback element
+                    const feedbackDiv = document.createElement('div');
+                    feedbackDiv.innerHTML = feedbackHtml;
+                    const feedbackElement = feedbackDiv.firstElementChild;
+                    
+                    // Insert feedback directly after the synced playlist
+                    playlistElement.parentNode.insertBefore(feedbackElement, playlistElement.nextSibling);
+                    
+                    // Scroll to the synced playlist
+                    playlistElement.scrollIntoView({ 
+                      behavior: 'smooth', 
+                      block: 'center' 
+                    });
+                    
+                    // Auto-dismiss after 5 seconds
+                    setTimeout(() => {
+                      if (feedbackElement && feedbackElement.parentNode) {
+                        feedbackElement.style.transition = 'opacity 0.5s ease-out';
+                        feedbackElement.style.opacity = '0';
+                        setTimeout(() => {
+                          if (feedbackElement.parentNode) {
+                            feedbackElement.remove();
+                          }
+                        }, 500);
+                      }
+                    }, 5000);
+                    
+                    console.log(`Sync feedback displayed for playlist ${playlistId}`);
+                  }
+                  
+                  // Clear the pending feedback
+                  sessionStorage.removeItem('pendingSyncFeedback');
+                }, 100);
+              } catch (error) {
+                console.error('Error processing pending sync feedback:', error);
                 sessionStorage.removeItem('pendingSyncFeedback');
               }
             }
@@ -578,7 +641,7 @@
             console.error('HTMX Timeout:', evt.detail);
         });
         
-        // Save playlists to cache when successfully loaded and handle pending sync feedback
+        // Save playlists to cache when successfully loaded
         document.body.addEventListener('htmx:afterSettle', function(evt) {
             const target = evt.target;
             if (target && target.id === 'playlists-content') {
@@ -591,28 +654,6 @@
                     // Process HTMX attributes on newly loaded content
                     htmx.process(target);
                     console.log('HTMX processed on dynamically loaded playlists');
-                    
-                    // Check for pending sync feedback
-                    const pendingFeedback = sessionStorage.getItem('pendingSyncFeedback');
-                    if (pendingFeedback) {
-                        try {
-                            const feedback = JSON.parse(pendingFeedback);
-                            const playlistId = feedback.playlistId;
-                            const feedbackHtml = feedback.feedbackHtml;
-                            
-                            // Display the sync feedback
-                            const syncResult = document.getElementById('sync-result');
-                            if (syncResult && feedbackHtml) {
-                                syncResult.innerHTML = feedbackHtml;
-                            }
-                            
-                            // Clear the pending feedback
-                            sessionStorage.removeItem('pendingSyncFeedback');
-                        } catch (error) {
-                            console.error('Error displaying sync feedback:', error);
-                            sessionStorage.removeItem('pendingSyncFeedback');
-                        }
-                    }
                 }
             }
         });
