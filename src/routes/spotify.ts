@@ -242,13 +242,13 @@ router.get('/playlists', async (req, res) => {
                  data-playlist-id="${playlist.id}"
                  data-expanded="false"
                  onclick="togglePlaylistDetails('${playlist.id}', this)"
-                 style="position: absolute; bottom: -20px; left: -20px; right: -20px; height: 50px; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: center;">
+                 style="position: absolute; bottom: -25px; left: -20px; right: -20px; height: 50px; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: center;">
               <span class="expand-indicator" style="font-size: 16px; color: #666; transition: all 0.2s;">▼</span>
             </div>
           ` : ''}
         </div>
         ${isSynced ? `
-          <div class="playlist-details-container" id="details-${playlist.id}" style="display: none; background: #f8f9fa; border: 1px solid #dee2e6; border-top: none; padding: 15px; margin-bottom: 10px; position: relative;">
+          <div class="playlist-details-container" id="details-${playlist.id}" style="display: none; background: #f8f9fa; border: 1px solid #dee2e6; border-top: none; padding: 15px; margin-bottom: 10px; margin-top: 15px; position: relative;">
             <div class="text-center text-muted">
               <div class="spinner-border spinner-border-sm me-2" role="status">
                 <span class="visually-hidden">Loading...</span>
