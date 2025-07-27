@@ -146,7 +146,7 @@ router.get('/playlists', async (req, res) => {
   console.log(` Query parameters: ${JSON.stringify(req.query)}`);
   
   if (!req.session.spotifyTokens) {
-    return res.status(401).send('<div class="alert alert-warning">Please connect to Spotify first</div>');
+    return res.status(401).send('<div style="margin: 0; padding: 0;">Please connect to Spotify first</div>');
   }
   
   try {
@@ -219,13 +219,13 @@ router.get('/playlists', async (req, res) => {
 
       return `
       <div class="playlist-item" data-playlist-id="${playlist.id}" style="position: relative;">
-        <div style="min-height: 60px; position: relative;">
-          <div class="playlist-info" style="padding-right: 200px;">
+        <div style="min-height: 40px; display: flex; justify-content: space-between; align-items: flex-start; gap: 5px;">
+          <div class="playlist-info" style="flex: 1;">
             <h5 class="mb-1">${syncIcon}${playlist.name}</h5>
             <p class="text-muted mb-1">${playlist.tracks.total} tracks</p>
             ${isSynced ? '<small class="text-success">Previously synced to YouTube</small>' : ''}
           </div>
-          <div style="position: absolute; top: 8px; right: 10px; display: flex; gap: 8px; align-items: flex-start;">
+          <div style="display: flex; gap: 8px; align-items: flex-start; flex-shrink: 0;">
             <button class="btn ${buttonClass} sync-btn" 
                     id="sync-btn-${playlist.id}"
                     hx-post="/api/sync/playlist/${playlist.id}"
@@ -237,23 +237,22 @@ router.get('/playlists', async (req, res) => {
               ${buttonText}
             </button>
           </div>
-          ${isSynced ? `
-            <div class="playlist-expand-area" 
-                 data-playlist-id="${playlist.id}"
-                 data-expanded="false"
-                 onclick="togglePlaylistDetails('${playlist.id}', this)"
-                 style="position: absolute; bottom: -25px; left: -20px; right: -20px; height: 50px; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: center;">
-              <span class="expand-indicator" style="font-size: 16px; color: #666; transition: all 0.2s;">▼</span>
-            </div>
-          ` : ''}
         </div>
         ${isSynced ? `
-          <div class="playlist-details-container" id="details-${playlist.id}" style="display: none; background: #f8f9fa; border: 1px solid #dee2e6; border-top: none; padding: 15px; margin-bottom: 10px; margin-top: 15px; position: relative;">
-            <div class="text-center text-muted">
-              <div class="spinner-border spinner-border-sm me-2" role="status">
-                <span class="visually-hidden">Loading...</span>
+          <div class="playlist-expand-area" 
+               data-playlist-id="${playlist.id}"
+               data-expanded="false"
+               onclick="togglePlaylistDetails('${playlist.id}', this)"
+               style="position: relative; left: -20px; right: -20px; width: calc(100% + 40px); height: 50px; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: center; margin-top: -10px;">
+            <span class="expand-indicator" style="font-size: 16px; color: #666; transition: all 0.2s;">▼</span>
+          </div>
+        ` : ''}
+        ${isSynced ? `
+          <div class="playlist-details-container" id="details-${playlist.id}" style="display: none; background: #f8f9fa; border: 1px solid #dee2e6; border-top: none; padding: 0; margin: 0; margin-top: 10px !important; position: relative;">
+            <div style="margin: 0; padding: 8px; text-align: center; color: #6c757d;">
+              <div style="border: 4px solid rgba(0, 0, 0, 0.1); border-top-color: #3498db; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: inline-block; vertical-align: middle;">
               </div>
-              Loading playlist details...
+              Click to load playlist details...
             </div>
           </div>
         ` : ''}
@@ -267,7 +266,7 @@ router.get('/playlists', async (req, res) => {
     
     res.send(`
       <div>
-        <p class="text-muted mb-3">${summaryText}</p>
+        <p style="margin: 0; padding: 0;">${summaryText}</p>
         ${playlistsHtml}
       </div>
     `);
@@ -277,17 +276,17 @@ router.get('/playlists', async (req, res) => {
     // Check if it's an authentication error
     if (error instanceof Error && error.message === 'SPOTIFY_AUTH_REQUIRED') {
       return res.status(401).send(`
-        <div class="alert alert-warning">
+        <div style="margin: 0; padding: 0;">
           <h6>Spotify session expired</h6>
           <p>Please reconnect to Spotify to continue.</p>
-          <button class="btn btn-success btn-sm" onclick="window.location.href='/auth/spotify/login'">
+          <button style="background-color: #1DB954; color: white; border: none; padding: 8px 16px; font-size: 16px; cursor: pointer;" onclick="window.location.href='/auth/spotify/login'">
             Reconnect to Spotify
           </button>
         </div>
       `);
     }
     
-    res.status(500).send('<div class="alert alert-danger">Error fetching playlists</div>');
+    res.status(500).send('<div style="margin: 0; padding: 0;">Error fetching playlists</div>');
   }
 });
 

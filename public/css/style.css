@@ -336,7 +336,7 @@ body {
 .playlist-item {
     width: 100%;
     overflow: hidden;
-    padding: 25px 20px 30px 20px;
+    padding: 10px 20px 5px 20px;
     margin-bottom: 15px;
     border-left: 2px solid #000;
     border-right: 2px solid #000;
@@ -350,6 +350,12 @@ body {
 .playlist-item:hover {
     background-color: #f0f0f0;
     border-color: #ff0040;
+}
+
+.playlist-info {
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    margin-right: 20px !important;
 }
 
 .playlist-info h5 {
@@ -397,7 +403,6 @@ body {
     border-radius: 0 !important;
     background: #f8f8f8 !important;
     font-family: 'Courier Prime', monospace;
-    margin-top: 30px !important;
 }
 
 .playlist-details-container * {
