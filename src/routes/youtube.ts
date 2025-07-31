@@ -87,29 +87,8 @@ router.get('/callback', async (req, res) => {
     // Store tokens in session
     req.session.youtubeTokens = tokens;
     
-    // For popup OAuth, send a page that closes the popup
-    res.send(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>YouTube Connected</title>
-        <style>
-          body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #FF0000; color: white; }
-          .success { font-size: 24px; margin-bottom: 20px; }
-        </style>
-      </head>
-      <body>
-        <div class="success">YouTube Connected Successfully!</div>
-        <p>You can close this window.</p>
-        <script>
-          // Close popup after a brief delay
-          setTimeout(() => {
-            window.close();
-          }, 1500);
-        </script>
-      </body>
-      </html>
-    `);
+    // Redirect back to main page instead of popup success page
+    res.redirect('/?youtube=connected');
   } catch (error) {
     console.error('Error getting YouTube tokens:', error);
     res.send(`
