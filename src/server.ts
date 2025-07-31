@@ -14,6 +14,9 @@ import { progressRouter } from './routes/progress';
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Temporary token storage for OAuth (in production, use Redis or database)
+export const tempTokenStorage = new Map<string, any>();
+
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -53,7 +56,7 @@ app.use((req, res, next) => {
 app.use(session({
   secret: process.env.SESSION_SECRET || 'dev-secret-change-in-production',
   resave: false,
-  saveUninitialized: false,
+  saveUninitialized: true, // Create session for all requests (needed for OAuth popup compatibility)
   cookie: { 
     secure: false, // Set to true in production with HTTPS
     httpOnly: true, // Prevent XSS attacks

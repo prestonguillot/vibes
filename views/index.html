@@ -320,50 +320,16 @@
         function connectToService(url, button) {
             console.log(`Connecting to service: ${url}`);
             
-            // Show loading state on button
+            // Store original button text
             const originalText = button.innerHTML;
-            const originalClass = button.className;
             
-            button.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Connecting...';
+            // Show loading state
+            button.innerHTML = 'Connecting...';
             button.disabled = true;
             button.classList.add('disabled');
             
-            // Open OAuth in popup instead of full page navigation
-            const popup = window.open(url, 'oauth_popup', 'width=600,height=700,scrollbars=yes,resizable=yes');
-            
-            // Monitor popup for completion
-            const checkClosed = setInterval(() => {
-                if (popup.closed) {
-                    clearInterval(checkClosed);
-                    console.log('OAuth popup closed, checking connection status...');
-                    
-                    // Reset button to loading state while checking
-                    button.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Checking...';
-                    
-                    // Check connection status after popup closes
-                    setTimeout(() => {
-                        updateConnectionStatus().then(() => {
-                            // If still not connected, restore original button
-                            if (button.innerHTML.includes('Checking...')) {
-                                button.innerHTML = originalText;
-                                button.disabled = false;
-                                button.classList.remove('disabled');
-                            }
-                        });
-                    }, 500);
-                }
-            }, 1000);
-            
-            // Timeout after 5 minutes
-            setTimeout(() => {
-                if (!popup.closed) {
-                    popup.close();
-                    clearInterval(checkClosed);
-                    button.innerHTML = originalText;
-                    button.disabled = false;
-                    button.classList.remove('disabled');
-                }
-            }, 5 * 60 * 1000);
+            // Use full-page redirect instead of popup
+            window.location.href = url;
         }
         
         // Check status on page load
@@ -374,6 +340,24 @@
             });
             
             updateConnectionStatus();
+        });
+        
+        // Listen for OAuth success messages from popup windows
+        window.addEventListener('message', function(event) {
+            // Verify origin for security
+            if (event.origin !== window.location.origin) {
+                return;
+            }
+            
+            // Handle OAuth success messages
+            if (event.data && event.data.type === 'oauth-success') {
+                console.log(`🎉 OAuth success received for ${event.data.service}`);
+                
+                // Refresh authentication status after successful OAuth
+                setTimeout(() => {
+                    updateConnectionStatus();
+                }, 500); // Small delay to ensure server session is updated
+            }
         });
     </script>
 
