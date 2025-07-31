@@ -454,42 +454,49 @@
                 setTimeout(() => {
                   const playlistElement = document.querySelector(`[data-playlist-id="${playlistId}"]`);
                   if (playlistElement && feedbackHtml) {
-                    // Create feedback element
-                    const feedbackDiv = document.createElement('div');
-                    feedbackDiv.innerHTML = feedbackHtml;
-                    const feedbackElement = feedbackDiv.firstElementChild;
-                    
-                    // Insert feedback directly after the synced playlist
-                    playlistElement.parentNode.insertBefore(feedbackElement, playlistElement.nextSibling);
+                    // Find the playlist's sync result area within the row
+                    const syncResultArea = playlistElement.querySelector(`#sync-result-${playlistId}`);
+                    if (syncResultArea) {
+                      // Place feedback within the playlist's sync result area
+                      syncResultArea.innerHTML = feedbackHtml;
+                      syncResultArea.style.display = 'block';
+                      
+                      // Add dismissal functionality
+                      const dismissButton = syncResultArea.querySelector('.btn-close');
+                      if (dismissButton) {
+                        dismissButton.addEventListener('click', function() {
+                          syncResultArea.style.display = 'none';
+                        });
+                      }
+                      
+                      // Auto-dismiss after 5 seconds
+                      setTimeout(() => {
+                        if (syncResultArea && syncResultArea.style.display !== 'none') {
+                          syncResultArea.style.opacity = '0';
+                          syncResultArea.style.transition = 'opacity 0.5s ease-out';
+                          setTimeout(() => {
+                            syncResultArea.style.display = 'none';
+                            // Reset for next use
+                            syncResultArea.style.opacity = '1';
+                            syncResultArea.style.transition = '';
+                          }, 500);
+                        }
+                      }, 5000);
+                    }
                     
                     // Scroll to the synced playlist
                     playlistElement.scrollIntoView({ 
                       behavior: 'smooth', 
                       block: 'center' 
                     });
-                    
-                    // Auto-dismiss after 5 seconds
-                    setTimeout(() => {
-                      if (feedbackElement && feedbackElement.parentNode) {
-                        feedbackElement.style.transition = 'opacity 0.5s ease-out';
-                        feedbackElement.style.opacity = '0';
-                        setTimeout(() => {
-                          if (feedbackElement.parentNode) {
-                            feedbackElement.remove();
-                          }
-                        }, 500);
-                      }
-                    }, 5000);
-                    
-                    console.log(`Sync feedback displayed for playlist ${playlistId}`);
                   }
                   
                   // Clear the pending feedback
                   sessionStorage.removeItem('pendingSyncFeedback');
-                }, 100);
-              } catch (error) {
-                console.error('Error processing pending sync feedback:', error);
-                sessionStorage.removeItem('pendingSyncFeedback');
+                } catch (error) {
+                  console.error('Error processing pending sync feedback:', error);
+                  sessionStorage.removeItem('pendingSyncFeedback');
+                }
               }
             }
           }
@@ -621,36 +628,59 @@
                                 // Show the sync result area after content is loaded
                                 const syncResult = document.getElementById(`sync-result-${playlistId}`);
                                 if (syncResult && syncResult.innerHTML.trim() !== '') {
-                                    syncResult.style.display = 'block';
+                                    // Check if sync was successful by looking for success indicators
+                                    const isSuccessful = syncResult.innerHTML.includes('successfully') || 
+                                                        syncResult.innerHTML.includes('data-sync-success="true"');
                                     
-                                    // Add dismissal functionality if not already present
-                                    const dismissButton = syncResult.querySelector('.btn-close');
-                                    if (dismissButton) {
-                                        dismissButton.addEventListener('click', function() {
-                                            syncResult.style.display = 'none';
-                                        });
-                                    }
-                                    
-                                    // Auto-hide after 5 seconds
-                                    setTimeout(() => {
-                                        if (syncResult && syncResult.style.display !== 'none') {
-                                            syncResult.style.opacity = '0';
-                                            syncResult.style.transition = 'opacity 0.5s ease-out';
-                                            setTimeout(() => {
-                                                syncResult.style.display = 'none';
-                                                // Reset for next use
-                                                syncResult.style.opacity = '1';
-                                                syncResult.style.transition = '';
-                                            }, 500);
+                                    if (isSuccessful) {
+                                        // For successful syncs, store feedback and trigger playlist refresh for reordering
+                                        sessionStorage.setItem('pendingSyncFeedback', JSON.stringify({
+                                            playlistId: playlistId,
+                                            feedbackHtml: syncResult.innerHTML
+                                        }));
+                                        
+                                        // Hide the summary initially - it will appear after refresh in correct position
+                                        syncResult.style.display = 'none';
+                                        
+                                        // Trigger playlist refresh to reorder lists and show new position
+                                        const refreshBtn = document.getElementById('refresh-playlists-btn');
+                                        if (refreshBtn) {
+                                            console.log(`🔄 Triggering playlist refresh for newly synced playlist: ${playlistId}`);
+                                            refreshBtn.click();
                                         }
-                                    }, 5000);
+                                    } else {
+                                        // For non-successful syncs, show result immediately (no reordering needed)
+                                        syncResult.style.display = 'block';
+                                        
+                                        // Add dismissal functionality if not already present
+                                        const dismissButton = syncResult.querySelector('.btn-close');
+                                        if (dismissButton) {
+                                            dismissButton.addEventListener('click', function() {
+                                                syncResult.style.display = 'none';
+                                            });
+                                        }
+                                        
+                                        // Auto-hide after 5 seconds
+                                        setTimeout(() => {
+                                            if (syncResult && syncResult.style.display !== 'none') {
+                                                syncResult.style.opacity = '0';
+                                                syncResult.style.transition = 'opacity 0.5s ease-out';
+                                                setTimeout(() => {
+                                                    syncResult.style.display = 'none';
+                                                    // Reset for next use
+                                                    syncResult.style.opacity = '1';
+                                                    syncResult.style.transition = '';
+                                                }, 500);
+                                            }
+                                        }, 5000);
+                                    }
+                                } else {
+                                    // Re-enable all sync buttons
+                                    document.querySelectorAll('.sync-btn').forEach(btn => {
+                                        btn.disabled = false;
+                                        btn.classList.remove('disabled');
+                                    });
                                 }
-                                
-                                // Re-enable all sync buttons
-                                document.querySelectorAll('.sync-btn').forEach(btn => {
-                                    btn.disabled = false;
-                                    btn.classList.remove('disabled');
-                                });
                             }).catch((error) => {
                                 console.error('Sync request failed:', error);
                                 
