@@ -469,19 +469,45 @@
                         });
                       }
                       
-                      // Auto-dismiss after 5 seconds
-                      setTimeout(() => {
-                        if (syncResultArea && syncResultArea.style.display !== 'none') {
-                          syncResultArea.style.opacity = '0';
-                          syncResultArea.style.transition = 'opacity 0.5s ease-out';
-                          setTimeout(() => {
-                            syncResultArea.style.display = 'none';
-                            // Reset for next use
-                            syncResultArea.style.opacity = '1';
-                            syncResultArea.style.transition = '';
-                          }, 500);
+                      // Auto-hide after 15 seconds with hover cancellation
+                      let fadeTimeout;
+                      let fadeInProgress = false;
+                      
+                      const startFade = () => {
+                        fadeTimeout = setTimeout(() => {
+                          if (syncResultArea && syncResultArea.style.display !== 'none') {
+                            fadeInProgress = true;
+                            syncResultArea.style.opacity = '0';
+                            syncResultArea.style.transition = 'opacity 0.5s ease-out';
+                            setTimeout(() => {
+                              if (fadeInProgress) {
+                                syncResultArea.style.display = 'none';
+                                // Reset for next use
+                                syncResultArea.style.opacity = '1';
+                                syncResultArea.style.transition = '';
+                              }
+                            }, 500);
+                          }
+                        }, 15000); // 15 second delay before fade starts
+                      };
+                      
+                      const cancelFade = () => {
+                        if (fadeTimeout) {
+                          clearTimeout(fadeTimeout);
+                          fadeTimeout = null;
                         }
-                      }, 5000);
+                        if (fadeInProgress) {
+                          fadeInProgress = false;
+                          syncResultArea.style.opacity = '1';
+                          syncResultArea.style.transition = '';
+                        }
+                      };
+                      
+                      // Add hover listeners to cancel fade
+                      syncResultArea.addEventListener('mouseenter', cancelFade);
+                      
+                      // Start the fade timer
+                      startFade();
                     }
                     
                     // Scroll to the synced playlist
@@ -493,10 +519,11 @@
                   
                   // Clear the pending feedback
                   sessionStorage.removeItem('pendingSyncFeedback');
-                } catch (error) {
-                  console.error('Error processing pending sync feedback:', error);
-                  sessionStorage.removeItem('pendingSyncFeedback');
-                }
+                }, 100); // Add missing closing parenthesis and delay parameter for setTimeout
+                
+              } catch (error) {
+                console.error('Error processing pending sync feedback:', error);
+                sessionStorage.removeItem('pendingSyncFeedback');
               }
             }
           }
@@ -608,7 +635,7 @@
                                 btn.classList.add('disabled');
                             });
                             
-                            // Clear previous sync results for this playlist
+                            // Clear previous sync results
                             const syncResult = document.getElementById(`sync-result-${playlistId}`);
                             if (syncResult) {
                                 syncResult.innerHTML = '';
@@ -660,19 +687,45 @@
                                             });
                                         }
                                         
-                                        // Auto-hide after 5 seconds
-                                        setTimeout(() => {
-                                            if (syncResult && syncResult.style.display !== 'none') {
-                                                syncResult.style.opacity = '0';
-                                                syncResult.style.transition = 'opacity 0.5s ease-out';
-                                                setTimeout(() => {
-                                                    syncResult.style.display = 'none';
-                                                    // Reset for next use
-                                                    syncResult.style.opacity = '1';
-                                                    syncResult.style.transition = '';
-                                                }, 500);
+                                        // Auto-hide after 15 seconds with hover cancellation
+                                        let fadeTimeout;
+                                        let fadeInProgress = false;
+                                        
+                                        const startFade = () => {
+                                            fadeTimeout = setTimeout(() => {
+                                                if (syncResult && syncResult.style.display !== 'none') {
+                                                    fadeInProgress = true;
+                                                    syncResult.style.opacity = '0';
+                                                    syncResult.style.transition = 'opacity 0.5s ease-out';
+                                                    setTimeout(() => {
+                                                        if (fadeInProgress) {
+                                                            syncResult.style.display = 'none';
+                                                            // Reset for next use
+                                                            syncResult.style.opacity = '1';
+                                                            syncResult.style.transition = '';
+                                                        }
+                                                    }, 500);
+                                                }
+                                            }, 15000); // Triple the time from 5 to 15 seconds
+                                        };
+                                        
+                                        const cancelFade = () => {
+                                            if (fadeTimeout) {
+                                                clearTimeout(fadeTimeout);
+                                                fadeTimeout = null;
                                             }
-                                        }, 5000);
+                                            if (fadeInProgress) {
+                                                fadeInProgress = false;
+                                                syncResult.style.opacity = '1';
+                                                syncResult.style.transition = '';
+                                            }
+                                        };
+                                        
+                                        // Add hover listeners to cancel fade
+                                        syncResult.addEventListener('mouseenter', cancelFade);
+                                        
+                                        // Start the fade timer
+                                        startFade();
                                     }
                                 } else {
                                     // Re-enable all sync buttons
