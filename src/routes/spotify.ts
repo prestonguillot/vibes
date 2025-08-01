@@ -236,7 +236,7 @@ router.get('/playlists', async (req, res) => {
                data-playlist-id="${playlist.id}"
                data-expanded="false"
                onclick="togglePlaylistDetails('${playlist.id}', this)"
-               style="position: relative; left: -20px; right: -20px; width: calc(100% + 40px); height: 50px; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: center; margin-top: 5px;">
+               style="position: relative; left: -20px; right: -20px; width: calc(100% + 40px); height: 50px; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: center; margin-top: -5px;">
             <span class="expand-indicator" style="font-size: 16px; color: #666; transition: all 0.2s;">▼</span>
           </div>
         ` : ''}
