@@ -205,7 +205,113 @@
                     // Cache expires after 15 minutes
                     if (ageMinutes < 15) {
                         console.log(`Loading cached playlists (${Math.round(ageMinutes)} minutes old)`);
-                        document.getElementById('playlists-content').innerHTML = playlistsHtml;
+                        const target = document.getElementById('playlists-content');
+                        target.innerHTML = playlistsHtml;
+                        
+                        // Process HTMX attributes on cached content (same as refresh button)
+                        const playlistItems = target.querySelectorAll('.playlist-item');
+                        if (playlistItems.length > 0) {
+                            htmx.process(target);
+                            console.log('HTMX processed on cached playlists');
+                            
+                            // Add manual event listeners for sync buttons since HTMX processing may not work
+                            const syncButtons = target.querySelectorAll('.sync-btn');
+                            console.log(`Found ${syncButtons.length} sync buttons to attach listeners to (cached)`);
+                            
+                            syncButtons.forEach((button, index) => {
+                                // Remove any existing listeners to prevent duplicates
+                                const newButton = button.cloneNode(true);
+                                button.parentNode.replaceChild(newButton, button);
+                                
+                                newButton.addEventListener('click', function(e) {
+                                    e.preventDefault();
+                                    console.log(`🔥 SYNC BUTTON CLICKED! Button ${index + 1} (cached)`);
+                                    
+                                    const playlistId = this.dataset.playlistId;
+                                    const playlistName = this.dataset.playlistName;
+                                    const targetId = this.getAttribute('hx-target');
+                                    const url = this.getAttribute('hx-post');
+                                    
+                                    console.log(`Manual sync button clicked for: ${playlistName} (${playlistId})`);
+                                    console.log(`Target: ${targetId}, URL: ${url}`);
+                                    
+                                    // Start real-time progress updates
+                                    startProgressUpdates(playlistId, playlistName);
+                                    
+                                    // Disable all sync buttons during sync
+                                    document.querySelectorAll('.sync-btn').forEach(btn => {
+                                        btn.disabled = true;
+                                        btn.classList.add('disabled');
+                                    });
+                                    
+                                    // Clear previous sync results
+                                    const syncResult = document.getElementById(`sync-result-${playlistId}`);
+                                    if (syncResult) {
+                                        syncResult.innerHTML = '';
+                                    }
+                                    
+                                    // Make manual HTMX request
+                                    htmx.ajax('POST', url, {
+                                        target: targetId,
+                                        swap: 'innerHTML'
+                                    }).then(() => {
+                                        // Hide the blue progress area since sync is complete
+                                        const progressDiv = document.getElementById(`progress-${playlistId}`);
+                                        if (progressDiv) {
+                                            progressDiv.style.display = 'none';
+                                        }
+                                        
+                                        // Show the sync result area after content is loaded
+                                        const syncResult = document.getElementById(`sync-result-${playlistId}`);
+                                        if (syncResult && syncResult.innerHTML.trim() !== '') {
+                                            // Check if sync was successful by looking for success indicators
+                                            const isSuccessful = syncResult.innerHTML.includes('successfully') || 
+                                                                syncResult.innerHTML.includes('data-sync-success="true"');
+                                            
+                                            if (isSuccessful) {
+                                                // For successful syncs, store feedback and trigger playlist refresh for reordering
+                                                sessionStorage.setItem('pendingSyncFeedback', JSON.stringify({
+                                                    playlistId: playlistId,
+                                                    feedbackHtml: syncResult.innerHTML
+                                                }));
+                                                
+                                                // Hide the summary initially - it will appear after refresh in correct position
+                                                syncResult.style.display = 'none';
+                                                
+                                                // Trigger playlist refresh for reordering
+                                                console.log('🔄 Triggering playlist refresh for reordering...');
+                                                const refreshBtn = document.getElementById('refresh-playlists-btn');
+                                                if (refreshBtn) {
+                                                    htmx.trigger(refreshBtn, 'click');
+                                                }
+                                            } else {
+                                                // Re-enable all sync buttons for failed syncs
+                                                document.querySelectorAll('.sync-btn').forEach(btn => {
+                                                    btn.disabled = false;
+                                                    btn.classList.remove('disabled');
+                                                });
+                                            }
+                                        } else {
+                                            // Re-enable all sync buttons
+                                            document.querySelectorAll('.sync-btn').forEach(btn => {
+                                                btn.disabled = false;
+                                                btn.classList.remove('disabled');
+                                            });
+                                        }
+                                    }).catch((error) => {
+                                        console.error('Sync request failed:', error);
+                                        
+                                        // Re-enable all sync buttons even on error
+                                        document.querySelectorAll('.sync-btn').forEach(btn => {
+                                            btn.disabled = false;
+                                            btn.classList.remove('disabled');
+                                        });
+                                    });
+                                });
+                            });
+                            console.log(`Added manual event listeners to ${syncButtons.length} sync buttons (cached)`);
+                        }
+                        
                         return true;
                     } else {
                         console.log('Cached playlists expired, will refresh');
