@@ -493,7 +493,7 @@ body {
     box-shadow: none !important;
 }
 
-/* HTMX indicators - handled by JavaScript module */
+/* HTMX indicators - CSS-only approach */
 .htmx-indicator,
 div[style*="animation: spin"],
 div[style*="border-top-color: #3498db"],
