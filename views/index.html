@@ -103,176 +103,58 @@
     <script src="/js/playlistStorage.js"></script>
     <script src="/js/eventLogging.js"></script>
     <script src="/js/playlistDetails.js"></script>
+    <script src="/js/syncFunctionality.js"></script>
 
     <!-- Connection Status Script -->
     <script>
         console.log('Page JavaScript loaded at:', new Date().toISOString());
-        
+
         // Flag to prevent infinite auto-loading
         let hasAutoLoaded = false;
-        
-        // Updated function to load playlists from storage using the new module
-        function loadPlaylistsFromStorage() {
-            const cachedData = getCachedPlaylistsData();
 
-            if (cachedData.isValid) {
-                console.log(`Loading cached playlists (${cachedData.ageMinutes} minutes old)`);
-                const target = document.getElementById('playlists-content');
-                target.innerHTML = cachedData.html;
-
-                // Process HTMX attributes on cached content (same as refresh button)
-                const playlistItems = target.querySelectorAll('.playlist-item');
-                if (playlistItems.length > 0) {
-                    htmx.process(target);
-                    console.log('HTMX processed on cached playlists');
-
-                    // Add manual event listeners for sync buttons since HTMX processing may not work
-                    const syncButtons = target.querySelectorAll('.sync-btn');
-                    console.log(`Found ${syncButtons.length} sync buttons to attach listeners to (cached)`);
-
-                    syncButtons.forEach((button, index) => {
-                        // Remove any existing listeners to prevent duplicates
-                        const newButton = button.cloneNode(true);
-                        button.parentNode.replaceChild(newButton, button);
-
-                        newButton.addEventListener('click', function(e) {
-                            e.preventDefault();
-                            console.log(`🔥 SYNC BUTTON CLICKED! Button ${index + 1} (cached)`);
-
-                            const playlistId = this.dataset.playlistId;
-                            const playlistName = this.dataset.playlistName;
-                            const targetId = this.getAttribute('hx-target');
-                            const url = this.getAttribute('hx-post');
-
-                            console.log(`Manual sync button clicked for: ${playlistName} (${playlistId})`);
-                            console.log(`Target: ${targetId}, URL: ${url}`);
-
-                            // Start real-time progress updates
-                            startProgressUpdates(playlistId, playlistName);
-
-                            // Disable all sync buttons during sync
-                            document.querySelectorAll('.sync-btn').forEach(btn => {
-                                btn.disabled = true;
-                                btn.classList.add('disabled');
-                            });
-
-                            // Clear previous sync results
-                            const syncResult = document.getElementById(`sync-result-${playlistId}`);
-                            if (syncResult) {
-                                syncResult.innerHTML = '';
-                            }
-
-                            // Make manual HTMX request
-                            htmx.ajax('POST', url, {
-                                target: targetId,
-                                swap: 'innerHTML'
-                            }).then(() => {
-                                // Hide the blue progress area since sync is complete
-                                const progressDiv = document.getElementById(`progress-${playlistId}`);
-                                if (progressDiv) {
-                                    progressDiv.style.display = 'none';
-                                }
-
-                                // Show the sync result area after content is loaded
-                                const syncResult = document.getElementById(`sync-result-${playlistId}`);
-                                if (syncResult && syncResult.innerHTML.trim() !== '') {
-                                    // Check if sync was successful by looking for success indicators
-                                    const isSuccessful = syncResult.innerHTML.includes('successfully') ||
-                                                        syncResult.innerHTML.includes('data-sync-success="true"');
-
-                                    if (isSuccessful) {
-                                        // For successful syncs, store feedback and trigger playlist refresh for reordering
-                                        sessionStorage.setItem('pendingSyncFeedback', JSON.stringify({
-                                            playlistId: playlistId,
-                                            feedbackHtml: syncResult.innerHTML
-                                        }));
-
-                                        // Hide the summary initially - it will appear after refresh in correct position
-                                        syncResult.style.display = 'none';
-
-                                        // Trigger playlist refresh for reordering
-                                        console.log('🔄 Triggering playlist refresh for reordering...');
-                                        const refreshBtn = document.getElementById('refresh-playlists-btn');
-                                        if (refreshBtn) {
-                                            htmx.trigger(refreshBtn, 'click');
-                                        }
-                                    } else {
-                                        // Re-enable all sync buttons for failed syncs
-                                        document.querySelectorAll('.sync-btn').forEach(btn => {
-                                            btn.disabled = false;
-                                            btn.classList.remove('disabled');
-                                        });
-                                    }
-                                } else {
-                                    // Re-enable all sync buttons
-                                    document.querySelectorAll('.sync-btn').forEach(btn => {
-                                        btn.disabled = false;
-                                        btn.classList.remove('disabled');
-                                    });
-                                }
-                            }).catch((error) => {
-                                console.error('Sync request failed:', error);
-
-                                // Re-enable all sync buttons even on error
-                                document.querySelectorAll('.sync-btn').forEach(btn => {
-                                    btn.disabled = false;
-                                    btn.classList.remove('disabled');
-                                });
-                            });
-                        });
-                    });
-                    console.log(`Added manual event listeners to ${syncButtons.length} sync buttons (cached)`);
-                }
-
-                return true;
-            }
-
-            return false;
-        }
-        
         // Function to update connection status
         async function updateConnectionStatus() {
             try {
                 console.log('Checking authentication status...');
                 const response = await fetch('/api/status');
                 const status = await response.json();
-                
+
                 console.log('Authentication status:', status);
-                
+
                 // Update Spotify status
                 if (status.spotify) {
-                    document.getElementById('spotify-status').innerHTML = 
+                    document.getElementById('spotify-status').innerHTML =
                         '<button class="btn btn-success connect-btn" disabled>Connected</button>';
                     document.getElementById('spotify-status').style.opacity = 1;
                     console.log('✅ Spotify: Already authenticated');
                 } else {
-                    document.getElementById('spotify-status').innerHTML = 
+                    document.getElementById('spotify-status').innerHTML =
                         '<button class="btn btn-success connect-btn" onclick="connectToService(\'/auth/spotify/login\', this)">Connect Spotify</button>';
                     document.getElementById('spotify-status').style.opacity = 1;
                     console.log('🔑 Spotify: Authentication required');
                 }
-                
+
                 // Update YouTube status
                 if (status.youtube) {
-                    document.getElementById('youtube-status').innerHTML = 
+                    document.getElementById('youtube-status').innerHTML =
                         '<button class="btn btn-danger connect-btn" disabled>Connected</button>';
                     document.getElementById('youtube-status').style.opacity = 1;
                     console.log('✅ YouTube: Already authenticated');
                 } else {
-                    document.getElementById('youtube-status').innerHTML = 
+                    document.getElementById('youtube-status').innerHTML =
                         '<button class="btn btn-danger connect-btn" onclick="connectToService(\'/auth/youtube/login\', this)">Connect YouTube</button>';
                     document.getElementById('youtube-status').style.opacity = 1;
                     console.log('🔑 YouTube: Authentication required');
                 }
-                
+
                 // Auto-load playlists when both services are connected (use cache first)
                 if (status.spotify && status.youtube && !hasAutoLoaded) {
                     hasAutoLoaded = true;
                     console.log('Both services connected - auto-loading playlists');
-                    
+
                     // Try to load from cache first
                     const loadedFromCache = loadPlaylistsFromStorage();
-                    
+
                     if (!loadedFromCache) {
                         // Only fetch from API if no valid cache
                         setTimeout(() => {
@@ -284,7 +166,7 @@
                         }, 500);
                     }
                 }
-                
+
                 // Check URL parameters for immediate feedback after OAuth redirect (but don't recurse)
                 const urlParams = new URLSearchParams(window.location.search);
                 if (urlParams.get('spotify') === 'connected' || urlParams.get('youtube') === 'connected') {
@@ -294,7 +176,7 @@
                         window.history.replaceState({}, document.title, window.location.pathname);
                     }
                 }
-                
+
                 if (urlParams.get('error')) {
                     const error = urlParams.get('error');
                     const alertDiv = document.createElement('div');
@@ -308,53 +190,53 @@
             } catch (error) {
                 console.error('Error checking connection status:', error);
                 // Show error state with fallback connect buttons
-                document.getElementById('spotify-status').innerHTML = 
+                document.getElementById('spotify-status').innerHTML =
                     '<button class="btn btn-success connect-btn" onclick="connectToService(\'/auth/spotify/login\', this)">Connect Spotify</button>';
                 document.getElementById('spotify-status').style.opacity = 1;
-                
-                document.getElementById('youtube-status').innerHTML = 
+
+                document.getElementById('youtube-status').innerHTML =
                     '<button class="btn btn-danger connect-btn" onclick="connectToService(\'/auth/youtube/login\', this)">Connect YouTube</button>';
                 document.getElementById('youtube-status').style.opacity = 1;
             }
         }
-        
+
         // Smooth connect function to prevent page flash
         function connectToService(url, button) {
             console.log(`Connecting to service: ${url}`);
-            
+
             // Store original button text
             const originalText = button.innerHTML;
-            
+
             // Show loading state
             button.innerHTML = 'Connecting...';
             button.disabled = true;
             button.classList.add('disabled');
-            
+
             // Use full-page redirect instead of popup
             window.location.href = url;
         }
-        
+
         // Check status on page load
         document.addEventListener('DOMContentLoaded', function() {
             // Clear any leftover sync results from previous sessions
             document.querySelectorAll('[id^="sync-result-"]').forEach(syncResult => {
                 syncResult.innerHTML = '';
             });
-            
+
             updateConnectionStatus();
         });
-        
+
         // Listen for OAuth success messages from popup windows
         window.addEventListener('message', function(event) {
             // Verify origin for security
             if (event.origin !== window.location.origin) {
                 return;
             }
-            
+
             // Handle OAuth success messages
             if (event.data && event.data.type === 'oauth-success') {
                 console.log(`🎉 OAuth success received for ${event.data.service}`);
-                
+
                 // Refresh authentication status after successful OAuth
                 setTimeout(() => {
                     updateConnectionStatus();
@@ -372,7 +254,7 @@
             console.log(`Button attributes:`, {
               id: event.target.id,
               class: event.target.className,
-              onclick: event.target.getAttribute('onclick'),
+              onclick: event.target.onclick,
               'hx-get': event.target.getAttribute('hx-get'),
               'hx-post': event.target.getAttribute('hx-post'),
               'hx-target': event.target.getAttribute('hx-target')
@@ -393,156 +275,9 @@
             });
             console.log(`Sync button clicked for playlist: "${playlistName}" (ID: ${playlistId})`);
             console.log(`Making request to: /api/sync/playlist/${playlistId}`);
-            
+
             // Let HTMX handle the request automatically - no manual trigger needed
           }
-        });
-
-        // Log all HTMX events
-        document.addEventListener('htmx:beforeRequest', function(event) {
-          console.log('HTMX request starting:', {
-            method: event.detail.requestConfig.verb,
-            url: event.detail.requestConfig.path,
-            target: event.detail.target,
-            timestamp: new Date().toISOString()
-          });
-          
-          // Enhanced sync button handling with real-time progress
-          if (event.detail.requestConfig.path.includes('/sync/playlist/')) {
-            console.log('Sync request detected:', event.detail);
-            const button = event.detail.elt;
-            const playlistId = button.dataset.playlistId;
-            const playlistName = button.dataset.playlistName;
-            
-            console.log(`Starting sync for playlist: ${playlistName} (${playlistId})`);
-            
-            // Start real-time progress updates
-            startProgressUpdates(playlistId, playlistName);
-            
-            // Disable all sync buttons during sync
-            document.querySelectorAll('.sync-btn').forEach(btn => {
-              btn.disabled = true;
-              btn.classList.add('disabled');
-            });
-            
-            // Clear previous sync results
-            const syncResult = document.getElementById(`sync-result-${playlistId}`);
-            if (syncResult) {
-              syncResult.innerHTML = '';
-            }
-          }
-        });
-
-        document.addEventListener('htmx:afterRequest', function(event) {
-          const status = event.detail.xhr.status;
-          const statusText = event.detail.xhr.statusText;
-          console.log(`HTMX request completed:`, {
-            status: `${status} ${statusText}`,
-            url: event.detail.xhr.responseURL,
-            responseLength: event.detail.xhr.responseText?.length || 0,
-            timestamp: new Date().toISOString()
-          });
-          
-          // Handle playlist refresh completion to show sync feedback
-          if (event.detail.requestConfig?.path?.includes('/auth/spotify/playlists')) {
-            const pendingFeedback = sessionStorage.getItem('pendingSyncFeedback');
-            if (pendingFeedback && status >= 200 && status < 300) {
-              try {
-                const feedback = JSON.parse(pendingFeedback);
-                const playlistId = feedback.playlistId;
-                const feedbackHtml = feedback.feedbackHtml;
-                
-                // Find the synced playlist in the refreshed list
-                setTimeout(() => {
-                  const playlistElement = document.querySelector(`[data-playlist-id="${playlistId}"]`);
-                  if (playlistElement && feedbackHtml) {
-                    // Find the playlist's sync result area within the row
-                    const syncResultArea = playlistElement.querySelector(`#sync-result-${playlistId}`);
-                    if (syncResultArea) {
-                      // Place feedback within the playlist's sync result area
-                      syncResultArea.innerHTML = feedbackHtml;
-                      syncResultArea.style.display = 'block';
-                      
-                      // Add dismissal functionality
-                      const dismissButton = syncResultArea.querySelector('.btn-close');
-                      if (dismissButton) {
-                        dismissButton.addEventListener('click', function() {
-                          syncResultArea.style.display = 'none';
-                        });
-                      }
-                      
-                      // Auto-hide after 15 seconds with hover cancellation
-                      let fadeTimeout;
-                      let fadeInProgress = false;
-                      
-                      const startFade = () => {
-                        fadeTimeout = setTimeout(() => {
-                          if (syncResultArea && syncResultArea.style.display !== 'none') {
-                            fadeInProgress = true;
-                            syncResultArea.style.opacity = '0';
-                            syncResultArea.style.transition = 'opacity 0.5s ease-out';
-                            setTimeout(() => {
-                              if (fadeInProgress) {
-                                syncResultArea.style.display = 'none';
-                                // Reset for next use
-                                syncResultArea.style.opacity = '1';
-                                syncResultArea.style.transition = '';
-                              }
-                            }, 500);
-                          }
-                        }, 15000); // 15 second delay before fade starts
-                      };
-                      
-                      const cancelFade = () => {
-                        if (fadeTimeout) {
-                          clearTimeout(fadeTimeout);
-                          fadeTimeout = null;
-                        }
-                        if (fadeInProgress) {
-                          fadeInProgress = false;
-                          syncResultArea.style.opacity = '1';
-                          syncResultArea.style.transition = '';
-                        }
-                      };
-                      
-                      // Add hover listeners to cancel fade
-                      syncResultArea.addEventListener('mouseenter', cancelFade);
-                      
-                      // Start the fade timer
-                      startFade();
-                    }
-                    
-                    // Scroll to the synced playlist
-                    playlistElement.scrollIntoView({ 
-                      behavior: 'smooth', 
-                      block: 'center' 
-                    });
-                  }
-                  
-                  // Clear the pending feedback
-                  sessionStorage.removeItem('pendingSyncFeedback');
-                }, 100); // Add missing closing parenthesis and delay parameter for setTimeout
-                
-              } catch (error) {
-                console.error('Error processing pending sync feedback:', error);
-                sessionStorage.removeItem('pendingSyncFeedback');
-              }
-            }
-          }
-          
-          if (status >= 400) {
-            console.error('HTMX request failed:', event.detail.xhr.responseText);
-          } else {
-            console.log('HTMX request successful');
-          }
-        });
-
-        document.addEventListener('htmx:responseError', function(event) {
-          console.error('HTMX response error:', event.detail);
-        });
-
-        document.addEventListener('htmx:sendError', function(event) {
-          console.error('HTMX send error:', event.detail);
         });
 
         // Log page navigation
@@ -561,300 +296,7 @@
           });
         });
 
-        // Log when page is fully loaded
         console.log('Page JavaScript loaded at:', new Date().toISOString());
-    </script>
-
-    <script>
-        // Add HTMX error handling and playlist caching
-        document.body.addEventListener('htmx:sendError', function(evt) {
-            console.error('HTMX Send Error:', evt.detail);
-            const target = evt.target;
-            if (target && target.id === 'refresh-playlists-btn') {
-                const content = document.getElementById('playlists-content');
-                if (content) {
-                    content.innerHTML = `
-                        <div class="alert alert-warning">
-                            <strong>Connection Issue:</strong> Unable to load playlists. 
-                            <button class="btn btn-outline-primary btn-sm ms-2" onclick="document.getElementById('refresh-playlists-btn').click()">
-                                Try Again
-                            </button>
-                        </div>
-                    `;
-                }
-            }
-        });
-        
-        document.body.addEventListener('htmx:responseError', function(evt) {
-            console.error('HTMX Response Error:', evt.detail);
-        });
-        
-        document.body.addEventListener('htmx:timeout', function(evt) {
-            console.error('HTMX Timeout:', evt.detail);
-        });
-        
-        // Save playlists to cache when successfully loaded
-        document.body.addEventListener('htmx:afterSettle', function(evt) {
-            const target = evt.target;
-            if (target && target.id === 'playlists-content') {
-                // Check if the content contains actual playlists (not error messages)
-                const playlistItems = target.querySelectorAll('.playlist-item');
-                if (playlistItems.length > 0) {
-                    console.log(`Caching ${playlistItems.length} playlists`);
-                    savePlaylistsToStorage(target.innerHTML);
-                    
-                    // Process HTMX attributes on newly loaded content
-                    htmx.process(target);
-                    console.log('HTMX processed on dynamically loaded playlists');
-                    
-                    // Add manual event listeners for sync buttons since HTMX processing may not work
-                    const syncButtons = target.querySelectorAll('.sync-btn');
-                    console.log(`Found ${syncButtons.length} sync buttons to attach listeners to`);
-                    
-                    syncButtons.forEach((button, index) => {
-                        // Remove any existing listeners to prevent duplicates
-                        const newButton = button.cloneNode(true);
-                        button.parentNode.replaceChild(newButton, button);
-                        
-                        newButton.addEventListener('click', function(e) {
-                            e.preventDefault();
-                            console.log(`🔥 SYNC BUTTON CLICKED! Button ${index + 1}`);
-                            
-                            const playlistId = this.dataset.playlistId;
-                            const playlistName = this.dataset.playlistName;
-                            const targetId = this.getAttribute('hx-target');
-                            const url = this.getAttribute('hx-post');
-                            
-                            console.log(`Manual sync button clicked for: ${playlistName} (${playlistId})`);
-                            console.log(`Target: ${targetId}, URL: ${url}`);
-                            
-                            // Start real-time progress updates
-                            startProgressUpdates(playlistId, playlistName);
-                            
-                            // Disable all sync buttons during sync
-                            document.querySelectorAll('.sync-btn').forEach(btn => {
-                                btn.disabled = true;
-                                btn.classList.add('disabled');
-                            });
-                            
-                            // Clear previous sync results
-                            const syncResult = document.getElementById(`sync-result-${playlistId}`);
-                            if (syncResult) {
-                                syncResult.innerHTML = '';
-                            }
-                            
-                            // Make manual HTMX request
-                            htmx.ajax('POST', url, {
-                                target: targetId,
-                                swap: 'innerHTML'
-                            }).then(() => {
-                                // Hide the blue progress area since sync is complete
-                                const progressDiv = document.getElementById(`progress-${playlistId}`);
-                                if (progressDiv) {
-                                    progressDiv.style.display = 'none';
-                                }
-                                
-                                // Show the sync result area after content is loaded
-                                const syncResult = document.getElementById(`sync-result-${playlistId}`);
-                                if (syncResult && syncResult.innerHTML.trim() !== '') {
-                                    // Check if sync was successful by looking for success indicators
-                                    const isSuccessful = syncResult.innerHTML.includes('successfully') || 
-                                                        syncResult.innerHTML.includes('data-sync-success="true"');
-                                    
-                                    if (isSuccessful) {
-                                        // For successful syncs, store feedback and trigger playlist refresh for reordering
-                                        sessionStorage.setItem('pendingSyncFeedback', JSON.stringify({
-                                            playlistId: playlistId,
-                                            feedbackHtml: syncResult.innerHTML
-                                        }));
-                                        
-                                        // Hide the summary initially - it will appear after refresh in correct position
-                                        syncResult.style.display = 'none';
-                                        
-                                        // Trigger playlist refresh to reorder lists and show new position
-                                        const refreshBtn = document.getElementById('refresh-playlists-btn');
-                                        if (refreshBtn) {
-                                            console.log(`🔄 Triggering playlist refresh for newly synced playlist: ${playlistId}`);
-                                            refreshBtn.click();
-                                        }
-                                    } else {
-                                        // For non-successful syncs, show result immediately (no reordering needed)
-                                        syncResult.style.display = 'block';
-                                        
-                                        // Add dismissal functionality if not already present
-                                        const dismissButton = syncResult.querySelector('.btn-close');
-                                        if (dismissButton) {
-                                            dismissButton.addEventListener('click', function() {
-                                                syncResult.style.display = 'none';
-                                            });
-                                        }
-                                        
-                                        // Auto-hide after 15 seconds with hover cancellation
-                                        let fadeTimeout;
-                                        let fadeInProgress = false;
-                                        
-                                        const startFade = () => {
-                                            fadeTimeout = setTimeout(() => {
-                                                if (syncResult && syncResult.style.display !== 'none') {
-                                                    fadeInProgress = true;
-                                                    syncResult.style.opacity = '0';
-                                                    syncResult.style.transition = 'opacity 0.5s ease-out';
-                                                    setTimeout(() => {
-                                                        if (fadeInProgress) {
-                                                            syncResult.style.display = 'none';
-                                                            // Reset for next use
-                                                            syncResult.style.opacity = '1';
-                                                            syncResult.style.transition = '';
-                                                        }
-                                                    }, 500);
-                                                }
-                                            }, 15000); // Triple the time from 5 to 15 seconds
-                                        };
-                                        
-                                        const cancelFade = () => {
-                                            if (fadeTimeout) {
-                                                clearTimeout(fadeTimeout);
-                                                fadeTimeout = null;
-                                            }
-                                            if (fadeInProgress) {
-                                                fadeInProgress = false;
-                                                syncResult.style.opacity = '1';
-                                                syncResult.style.transition = '';
-                                            }
-                                        };
-                                        
-                                        // Add hover listeners to cancel fade
-                                        syncResult.addEventListener('mouseenter', cancelFade);
-                                        
-                                        // Start the fade timer
-                                        startFade();
-                                    }
-                                } else {
-                                    // Re-enable all sync buttons
-                                    document.querySelectorAll('.sync-btn').forEach(btn => {
-                                        btn.disabled = false;
-                                        btn.classList.remove('disabled');
-                                    });
-                                }
-                            }).catch((error) => {
-                                console.error('Sync request failed:', error);
-                                
-                                // Re-enable all sync buttons even on error
-                                document.querySelectorAll('.sync-btn').forEach(btn => {
-                                    btn.disabled = false;
-                                    btn.classList.remove('disabled');
-                                });
-                            });
-                        });
-                    });
-                    console.log(`Added manual event listeners to ${syncButtons.length} sync buttons`);
-                }
-            }
-        });
-        
-        // Clear cache when filter toggle changes (since data structure changes)
-        document.getElementById('ownPlaylistsOnly')?.addEventListener('change', function() {
-            console.log('Filter changed, clearing playlist cache');
-            clearPlaylistsStorage();
-        });
-    </script>
-
-    <script>
-        // Add Server-Sent Events handling for real-time sync progress updates
-        function startProgressUpdates(playlistId, playlistName) {
-            console.log(`🚀 Starting real-time progress updates for playlist: ${playlistName} (${playlistId})`);
-
-            // Show the progress area
-            const progressDiv = document.getElementById(`progress-${playlistId}`);
-            if (progressDiv) {
-                progressDiv.style.display = 'block';
-
-                // Initialize progress display
-                const progressContent = progressDiv.querySelector('.progress-content');
-                const progressText = progressContent.querySelector('.progress-text');
-                progressText.querySelector('.progress-message').textContent = 'Initializing sync...';
-                progressText.querySelector('.progress-details').textContent = '';
-                progressText.querySelector('.progress-details').style.opacity = '0';
-                progressText.style.color = '#333';
-                progressContent.querySelector('.progress-spinner').style.display = 'inline-block';
-            }
-
-            // Create EventSource connection for real-time updates
-            const eventSource = new EventSource(`/api/progress/${playlistId}`);
-
-            // Handle progress messages
-            eventSource.onmessage = function(event) {
-                try {
-                    const data = JSON.parse(event.data);
-                    console.log(`📡 Received progress update for playlist ${playlistId}:`, data);
-
-                    // Update the progress display
-                    if (progressDiv) {
-                        const progressContent = progressDiv.querySelector('.progress-content');
-                        const progressText = progressContent.querySelector('.progress-text');
-
-                        if (data.type === 'progress') {
-                            // Show progress with spinner
-                            progressText.querySelector('.progress-message').textContent = data.message;
-                            progressText.querySelector('.progress-details').textContent = data.details || '';
-                            progressText.querySelector('.progress-details').style.opacity = data.details ? '1' : '0';
-                        } else if (data.type === 'complete') {
-                            // Show completion message with success styling
-                            progressText.querySelector('.progress-message').textContent = data.message;
-                            progressText.querySelector('.progress-details').textContent = data.details || '';
-                            progressText.querySelector('.progress-details').style.opacity = data.details ? '1' : '0';
-                            progressText.style.color = '#4caf50';
-                            progressContent.querySelector('.progress-spinner').style.display = 'none';
-
-                            // Close the EventSource connection
-                            eventSource.close();
-
-                            // Hide progress area after 5 seconds and show final sync result
-                            setTimeout(() => {
-                                if (progressDiv) {
-                                    progressDiv.style.display = 'none';
-                                }
-                            }, 5000);
-                        } else if (data.type === 'error') {
-                            // Show error message
-                            progressText.querySelector('.progress-message').textContent = data.message;
-                            progressText.querySelector('.progress-details').textContent = data.details || '';
-                            progressText.querySelector('.progress-details').style.opacity = data.details ? '1' : '0';
-                            progressText.style.color = '#f44336';
-                            progressContent.querySelector('.progress-spinner').style.display = 'none';
-
-                            // Close the EventSource connection
-                            eventSource.close();
-                        }
-                    }
-                } catch (error) {
-                    console.error('Error parsing progress update:', error, event.data);
-                }
-            };
-
-            // Handle connection events
-            eventSource.onopen = function() {
-                console.log(`✅ Connected to progress updates for playlist ${playlistId}`);
-            };
-
-            eventSource.onerror = function(error) {
-                console.error(`❌ Error with progress updates for playlist ${playlistId}:`, error);
-                if (progressDiv) {
-                    progressDiv.querySelector('.progress-content').innerHTML = `
-                        <div style="color: #f44336;">
-                            <strong>Connection error</strong><br>
-                            <small>Unable to receive real-time updates</small>
-                        </div>
-                    `;
-                }
-            };
-
-            // Store the EventSource for potential cleanup
-            window[`progressEventSource_${playlistId}`] = eventSource;
-        }
-
-        // Make startProgressUpdates available globally
-        window.startProgressUpdates = startProgressUpdates;
     </script>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
