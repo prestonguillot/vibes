@@ -10,34 +10,74 @@ let hasAutoLoaded = false;
 async function updateConnectionStatus() {
     try {
         console.log('Checking authentication status...');
+        
+        // Record start time for minimum loading duration
+        const loadingStartTime = Date.now();
+        
+        // Check if we're returning from OAuth and show loading states
+        const spotifyConnecting = sessionStorage.getItem('spotify_connecting');
+        const youtubeConnecting = sessionStorage.getItem('youtube_connecting');
+        
+        if (spotifyConnecting) {
+            const spotifyStatus = document.getElementById('spotify-status');
+            spotifyStatus.innerHTML = '<button class="btn btn-success connect-btn disabled" disabled><span class="d-flex align-items-center justify-content-center"><div class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" style="width: 0.8rem; height: 0.8rem;"></div>Connecting...</span></button>';
+            spotifyStatus.style.opacity = 1;
+        }
+        
+        if (youtubeConnecting) {
+            const youtubeStatus = document.getElementById('youtube-status');
+            youtubeStatus.innerHTML = '<button class="btn btn-danger connect-btn disabled" disabled><span class="d-flex align-items-center justify-content-center"><div class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" style="width: 0.8rem; height: 0.8rem;"></div>Connecting...</span></button>';
+            youtubeStatus.style.opacity = 1;
+        }
+        
         const response = await fetch('/api/status');
         const status = await response.json();
 
         console.log('Authentication status:', status);
 
-        // Update Spotify status
+        // Ensure minimum loading duration of 1 second
+        const loadingDuration = Date.now() - loadingStartTime;
+        const minimumDuration = 1000; // 1 second
+        
+        if (loadingDuration < minimumDuration) {
+            const remainingTime = minimumDuration - loadingDuration;
+            console.log(`Waiting ${remainingTime}ms to ensure minimum loading duration...`);
+            await new Promise(resolve => setTimeout(resolve, remainingTime));
+        }
+
+        // Clear loading states from sessionStorage
+        sessionStorage.removeItem('spotify_connecting');
+        sessionStorage.removeItem('youtube_connecting');
+        sessionStorage.removeItem('spotify_original_content');
+        sessionStorage.removeItem('spotify_original_classes');
+        sessionStorage.removeItem('youtube_original_content');
+        sessionStorage.removeItem('youtube_original_classes');
+
+        // Update Spotify status with smooth transitions
+        const spotifyStatus = document.getElementById('spotify-status');
         if (status.spotify) {
-            document.getElementById('spotify-status').innerHTML =
-                '<button class="btn btn-success connect-btn" disabled>Connected</button>';
-            document.getElementById('spotify-status').style.opacity = 1;
+            spotifyStatus.innerHTML =
+                '<button class="btn btn-success connect-btn connected" disabled>Connected</button>';
+            spotifyStatus.style.opacity = 1;
             console.log('✅ Spotify: Already authenticated');
         } else {
-            document.getElementById('spotify-status').innerHTML =
-                '<button class="btn btn-success connect-btn" onclick="connectToService(\'/auth/spotify/login\', this)">Connect Spotify</button>';
-            document.getElementById('spotify-status').style.opacity = 1;
+            spotifyStatus.innerHTML =
+                '<button class="btn btn-success connect-btn" onclick="connectToService(\'/auth/spotify/login\', this, \'spotify\')">Connect Spotify</button>';
+            spotifyStatus.style.opacity = 1;
             console.log('🔑 Spotify: Authentication required');
         }
 
-        // Update YouTube status
+        // Update YouTube status with smooth transitions
+        const youtubeStatus = document.getElementById('youtube-status');
         if (status.youtube) {
-            document.getElementById('youtube-status').innerHTML =
-                '<button class="btn btn-danger connect-btn" disabled>Connected</button>';
-            document.getElementById('youtube-status').style.opacity = 1;
+            youtubeStatus.innerHTML =
+                '<button class="btn btn-danger connect-btn connected" disabled>Connected</button>';
+            youtubeStatus.style.opacity = 1;
             console.log('✅ YouTube: Already authenticated');
         } else {
-            document.getElementById('youtube-status').innerHTML =
-                '<button class="btn btn-danger connect-btn" onclick="connectToService(\'/auth/youtube/login\', this)">Connect YouTube</button>';
-            document.getElementById('youtube-status').style.opacity = 1;
+            youtubeStatus.innerHTML =
+                '<button class="btn btn-danger connect-btn" onclick="connectToService(\'/auth/youtube/login\', this, \'youtube\')">Connect YouTube</button>';
+            youtubeStatus.style.opacity = 1;
             console.log('🔑 YouTube: Authentication required');
         }
 
@@ -87,26 +127,32 @@ async function updateConnectionStatus() {
         
         // Show error state with fallback connect buttons
         document.getElementById('spotify-status').innerHTML =
-            '<button class="btn btn-success connect-btn" onclick="connectToService(\'/auth/spotify/login\', this)">Connect Spotify</button>';
+            '<button class="btn btn-success connect-btn" onclick="connectToService(\'/auth/spotify/login\', this, \'spotify\')">Connect Spotify</button>';
         document.getElementById('spotify-status').style.opacity = 1;
 
         document.getElementById('youtube-status').innerHTML =
-            '<button class="btn btn-danger connect-btn" onclick="connectToService(\'/auth/youtube/login\', this)">Connect YouTube</button>';
+            '<button class="btn btn-danger connect-btn" onclick="connectToService(\'/auth/youtube/login\', this, \'youtube\')">Connect YouTube</button>';
         document.getElementById('youtube-status').style.opacity = 1;
     }
 }
 
 // Simple connect function using direct navigation (no popup)
-function connectToService(url, button) {
+function connectToService(url, button, service) {
     console.log(`Connecting to service: ${url}`);
 
-    // Store original button text
-    const originalText = button.innerHTML;
+    // Store original button content and classes
+    const originalContent = button.innerHTML;
+    const originalClasses = button.className;
 
-    // Show loading state
-    button.innerHTML = 'Connecting...';
+    // Show loading state with spinner inside button
+    button.innerHTML = '<span class="d-flex align-items-center justify-content-center"><div class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" style="width: 0.8rem; height: 0.8rem;"></div>Connecting...</span>';
     button.disabled = true;
     button.classList.add('disabled');
+
+    // Store loading state in sessionStorage so it persists through redirect
+    sessionStorage.setItem(`${service}_connecting`, 'true');
+    sessionStorage.setItem(`${service}_original_content`, originalContent);
+    sessionStorage.setItem(`${service}_original_classes`, originalClasses);
 
     // Use direct navigation to OAuth endpoint
     window.location.href = url;
