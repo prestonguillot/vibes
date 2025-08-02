@@ -199,6 +199,46 @@ body {
     opacity: 1 !important;
 }
 
+/* === CONNECTION BUTTON STATES === */
+/* Dim non-connected button states for visual distinction */
+.connect-btn:not([disabled]):not(.connected) {
+    opacity: 0.85 !important;
+}
+
+.connect-btn:not([disabled]):not(.connected).btn-danger {
+    background-color: rgba(255, 0, 64, 0.85) !important;
+}
+
+.connect-btn:not([disabled]):not(.connected).btn-success {
+    background-color: rgba(0, 255, 0, 0.85) !important;
+}
+
+/* Loading states (disabled but not connected) */
+.connect-btn.disabled:not(.connected) {
+    opacity: 0.8 !important;
+}
+
+.connect-btn.disabled:not(.connected).btn-danger {
+    background-color: rgba(255, 0, 64, 0.8) !important;
+}
+
+.connect-btn.disabled:not(.connected).btn-success {
+    background-color: rgba(0, 255, 0, 0.8) !important;
+}
+
+/* Connected state - full brightness */
+.connect-btn.connected {
+    opacity: 1 !important;
+}
+
+.connect-btn.connected.btn-success {
+    background-color: #00ff00 !important;
+}
+
+.connect-btn.connected.btn-danger {
+    background-color: #ff0040 !important;
+}
+
 /* === SHARED SYNC/UPDATE BUTTON STYLING === */
 .sync-btn {
     box-shadow: 3px 3px 0px rgba(0,0,0,0.3) !important;
