@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { google } from 'googleapis';
+import { scrapeYouTubeSearch } from '../utils/youtubeScraper';
 const SpotifyWebApi = require('spotify-web-api-node');
 
 const router = Router();
@@ -340,9 +341,16 @@ router.get('/playlist/:playlistId', async (req, res) => {
                 ` : ''}
               </div>
               
-              <div class="track-status ms-2">
+              <div class="track-status ms-2 d-flex align-items-center gap-2">
                 ${track.linked ? 
-                  '<span class="badge bg-success">Linked</span>' : 
+                  `<span class="badge bg-success">Linked</span>
+                   <button type="button" class="btn btn-outline-secondary btn-sm" 
+                           onclick="editTrackVideo('${playlistId}', '${track.spotify.id}', '${track.spotify.name.replace(/'/g, "\\'")}', '${track.spotify.artist.replace(/'/g, "\\'")}', '${track.youtube?.id || ''}')"
+                           title="Edit linked video">
+                     <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                       <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                     </svg>
+                   </button>` : 
                   track.spotify ? 
                     '<span class="badge bg-warning">Spotify Only</span>' : 
                     '<span class="badge bg-info">YouTube Only</span>'
@@ -384,6 +392,223 @@ router.get('/playlist/:playlistId', async (req, res) => {
         <small class="text-muted">Error: ${error instanceof Error ? error.message : 'Unknown error'}</small>
       </div>
     `);
+  }
+});
+
+// Search for alternative YouTube videos for a track
+router.get('/search/:trackId', async (req, res) => {
+  const { trackId } = req.params;
+  const { trackName, artistName } = req.query;
+  
+  console.log('\n=== TRACK VIDEO SEARCH REQUEST ===');
+  console.log(`Timestamp: ${new Date().toISOString()}`);
+  console.log(`Track ID: ${trackId}`);
+  console.log(`Track Name: ${trackName}`);
+  console.log(`Artist Name: ${artistName}`);
+
+  try {
+    // Search for videos using the YouTube scraper
+    const searchQuery = `${trackName} ${artistName}`;
+    console.log(`Searching YouTube for: "${searchQuery}"`);
+    
+    const searchResults = await scrapeYouTubeSearch(searchQuery, 10);
+
+    const videos = searchResults.map((result) => ({
+      id: result.videoId,
+      title: result.title,
+      description: `Duration: ${result.duration} • Views: ${result.views}`,
+      thumbnail: `https://img.youtube.com/vi/${result.videoId}/mqdefault.jpg`,
+      channelTitle: result.channel,
+      publishedAt: '', // Not available from scraper
+      url: `https://www.youtube.com/watch?v=${result.videoId}`
+    }));
+
+    console.log(`Found ${videos.length} alternative videos`);
+
+    // Generate HTML response with video selection interface
+    const videoSelectionHtml = `
+      <div class="video-selection-modal" data-track-id="${trackId}">
+        <div class="modal-header mb-3">
+          <h5>Select Alternative Video</h5>
+          <p class="text-muted mb-0">Choose a different YouTube video for: <strong>${trackName}</strong> by <strong>${artistName}</strong></p>
+        </div>
+        
+        <div class="video-options" style="max-height: 400px; overflow-y: auto;">
+          ${videos.map((video, index) => `
+            <div class="video-option p-3 border rounded mb-2" 
+                 data-video-id="${video.id}"
+                 style="cursor: pointer; transition: all 0.2s;"
+                 onclick="selectVideo('${video.id}', this)">
+              <div class="d-flex align-items-start">
+                <img src="${video.thumbnail}" alt="Video thumbnail" 
+                     style="width: 120px; height: 90px; object-fit: cover; border-radius: 4px;" class="me-3">
+                <div class="flex-grow-1">
+                  <h6 class="mb-1">${video.title}</h6>
+                  <p class="text-muted small mb-1">by ${video.channelTitle}</p>
+                  <p class="small mb-0" style="max-height: 60px; overflow: hidden;">
+                    ${video.description.substring(0, 150)}${video.description.length > 150 ? '...' : ''}
+                  </p>
+                </div>
+                <div class="selection-indicator ms-2" style="display: none;">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="#28a745">
+                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                  </svg>
+                </div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+        
+        <div class="modal-footer mt-3 d-flex justify-content-between">
+          <button type="button" class="btn btn-secondary" onclick="cancelVideoSelection()">
+            Cancel
+          </button>
+          <button type="button" class="btn btn-primary" id="confirm-selection-btn" 
+                  onclick="confirmVideoSelection('${trackId}')" disabled>
+            Confirm Selection
+          </button>
+        </div>
+      </div>
+    `;
+
+    res.send(videoSelectionHtml);
+
+  } catch (error) {
+    console.error('Error searching for alternative videos:', error);
+    
+    res.status(500).send(`
+      <div class="alert alert-danger">
+        <h6>Error searching for videos</h6>
+        <p>Unable to search for alternative videos. Please try again.</p>
+        <small class="text-muted">Error: ${error instanceof Error ? error.message : 'Unknown error'}</small>
+      </div>
+    `);
+  }
+});
+
+// Replace a video in a YouTube playlist
+router.post('/replace/:trackId', async (req, res) => {
+  const { trackId } = req.params;
+  const { newVideoId, currentVideoId, playlistId } = req.body;
+  
+  console.log('\n=== VIDEO REPLACEMENT REQUEST ===');
+  console.log(`Timestamp: ${new Date().toISOString()}`);
+  console.log(`Track ID: ${trackId}`);
+  console.log(`Current Video ID: ${currentVideoId}`);
+  console.log(`New Video ID: ${newVideoId}`);
+  console.log(`Playlist ID: ${playlistId}`);
+
+  try {
+    // Check authentication
+    if (!req.session.youtubeTokens) {
+      return res.status(401).json({ 
+        error: 'Authentication required',
+        message: 'YouTube authentication required'
+      });
+    }
+
+    // Initialize YouTube API
+    const oauth2Client = getOAuth2Client();
+    oauth2Client.setCredentials(req.session.youtubeTokens);
+    const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
+
+    // We need to find the YouTube playlist that corresponds to this Spotify playlist
+    // First, get the Spotify playlist name to construct the YouTube playlist name
+    const spotifyApi = getSpotifyApi();
+    spotifyApi.setAccessToken(req.session.spotifyTokens.accessToken);
+    spotifyApi.setRefreshToken(req.session.spotifyTokens.refreshToken);
+    
+    const spotifyPlaylistData = await spotifyApi.getPlaylist(playlistId);
+    const expectedYouTubePlaylistName = `${spotifyPlaylistData.body.name} (from Spotify)`;
+    
+    console.log(`Looking for YouTube playlist: "${expectedYouTubePlaylistName}"`);
+
+    // Get all user's YouTube playlists to find the matching one
+    const playlistsResponse = await youtube.playlists.list({
+      part: ['snippet'],
+      mine: true,
+      maxResults: 50
+    });
+
+    const targetPlaylist = playlistsResponse.data.items?.find(playlist => 
+      playlist.snippet?.title === expectedYouTubePlaylistName
+    );
+
+    if (!targetPlaylist) {
+      console.log(`Could not find YouTube playlist: "${expectedYouTubePlaylistName}"`);
+      return res.status(404).json({
+        error: 'Playlist not found',
+        message: `Could not find YouTube playlist: "${expectedYouTubePlaylistName}"`
+      });
+    }
+
+    console.log(`Found YouTube playlist: ${targetPlaylist.snippet?.title} (${targetPlaylist.id})`);
+
+    // Get playlist items to find the current video
+    const playlistItemsResponse = await youtube.playlistItems.list({
+      part: ['snippet', 'contentDetails'],
+      playlistId: targetPlaylist.id!,
+      maxResults: 50
+    });
+
+    // Look for the current video in this playlist
+    const playlistItemToReplace = playlistItemsResponse.data.items?.find(item => 
+      item.snippet?.resourceId?.videoId === currentVideoId
+    );
+
+    if (!playlistItemToReplace) {
+      console.log(`Could not find video ${currentVideoId} in playlist ${targetPlaylist.snippet?.title}`);
+      return res.status(404).json({
+        error: 'Video not found',
+        message: `Could not find video ${currentVideoId} in the YouTube playlist`
+      });
+    }
+
+    console.log(`Replacing video ${currentVideoId} with ${newVideoId} in playlist ${targetPlaylist.snippet?.title}`);
+
+    // Get the position of the current video so we can maintain order
+    const currentPosition = playlistItemToReplace.snippet?.position || 0;
+
+    // Add the new video at the same position
+    const insertResponse = await youtube.playlistItems.insert({
+      part: ['snippet'],
+      requestBody: {
+        snippet: {
+          playlistId: targetPlaylist.id!,
+          position: currentPosition,
+          resourceId: {
+            kind: 'youtube#video',
+            videoId: newVideoId
+          }
+        }
+      }
+    });
+
+    console.log(`Added new video ${newVideoId} at position ${currentPosition}`);
+
+    // Remove the old video (it will now be at position + 1 due to the insert)
+    await youtube.playlistItems.delete({
+      id: playlistItemToReplace.id!
+    });
+
+    console.log(`Removed old video ${currentVideoId}`);
+    console.log('Video replacement completed successfully');
+
+    res.json({
+      success: true,
+      message: 'Video replaced successfully',
+      oldVideoId: currentVideoId,
+      newVideoId: newVideoId,
+      playlistId: targetPlaylist.id
+    });
+
+  } catch (error) {
+    console.error('Error replacing video:', error);
+    
+    res.status(500).json({
+      error: 'Video replacement failed',
+      message: error instanceof Error ? error.message : 'Unknown error occurred'
+    });
   }
 });
 
