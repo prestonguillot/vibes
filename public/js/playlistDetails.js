@@ -145,9 +145,194 @@ function refreshPlaylistDetails(playlistId) {
     });
 }
 
+// Video selection functionality
+let selectedVideoId = null;
+
+function editTrackVideo(playlistId, trackId, trackName, artistName, currentVideoId) {
+    console.log(`Opening video selection for track: ${trackName} by ${artistName}, current video: ${currentVideoId}`);
+    
+    // Store current video ID globally for later use
+    window.currentVideoId = currentVideoId;
+    
+    // Create modal overlay
+    const modalOverlay = document.createElement('div');
+    modalOverlay.id = 'video-selection-overlay';
+    modalOverlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1050;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    `;
+    
+    // Create modal content container
+    const modalContent = document.createElement('div');
+    modalContent.style.cssText = `
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        max-width: 800px;
+        max-height: 80vh;
+        overflow-y: auto;
+        margin: 20px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    `;
+    
+    modalContent.innerHTML = `
+        <div class="d-flex align-items-center justify-content-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <span class="ms-2">Searching for alternative videos...</span>
+        </div>
+    `;
+    
+    modalOverlay.appendChild(modalContent);
+    document.body.appendChild(modalOverlay);
+    
+    // Load video options
+    const searchUrl = `/api/playlistDetails/search/${trackId}?trackName=${encodeURIComponent(trackName)}&artistName=${encodeURIComponent(artistName)}`;
+    
+    htmx.ajax('GET', searchUrl, {
+        target: modalContent,
+        swap: 'innerHTML'
+    }).then(() => {
+        // After the modal content loads, add the current video ID to the modal
+        const modal = document.querySelector('.video-selection-modal');
+        if (modal) {
+            modal.dataset.currentVideoId = currentVideoId;
+            console.log(`Set modal currentVideoId to: ${currentVideoId}`);
+        } else {
+            console.error('Could not find .video-selection-modal element to set currentVideoId');
+        }
+    }).catch((error) => {
+        console.error('Error loading video options:', error);
+        modalContent.innerHTML = `
+            <div class="alert alert-danger">
+                <h6>Error loading video options</h6>
+                <p>Unable to search for alternative videos. Please try again.</p>
+                <button type="button" class="btn btn-secondary" onclick="cancelVideoSelection()">Close</button>
+            </div>
+        `;
+    });
+}
+
+function selectVideo(videoId, element) {
+    console.log(`Selected video: ${videoId}`);
+    
+    // Remove selection from all other options
+    document.querySelectorAll('.video-option').forEach(option => {
+        option.style.backgroundColor = '';
+        option.style.borderColor = '';
+        option.querySelector('.selection-indicator').style.display = 'none';
+    });
+    
+    // Highlight selected option
+    element.style.backgroundColor = '#e8f5e8';
+    element.style.borderColor = '#28a745';
+    element.querySelector('.selection-indicator').style.display = 'block';
+    
+    // Store selected video ID and enable confirm button
+    selectedVideoId = videoId;
+    const confirmBtn = document.getElementById('confirm-selection-btn');
+    if (confirmBtn) {
+        confirmBtn.disabled = false;
+    }
+}
+
+function cancelVideoSelection() {
+    console.log('Cancelling video selection');
+    selectedVideoId = null;
+    
+    const overlay = document.getElementById('video-selection-overlay');
+    if (overlay) {
+        overlay.remove();
+    }
+}
+
+function confirmVideoSelection(trackId) {
+    if (!selectedVideoId) {
+        console.error('No video selected');
+        return;
+    }
+    
+    // Get the current video ID from the modal data or fallback to global variable
+    const modal = document.querySelector('.video-selection-modal');
+    const currentVideoId = modal?.dataset.currentVideoId || window.currentVideoId;
+    
+    console.log(`Confirming video selection: ${selectedVideoId} for track: ${trackId}, replacing: ${currentVideoId}`);
+    
+    // Show loading state
+    const confirmBtn = document.getElementById('confirm-selection-btn');
+    if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = `
+            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+            Updating...
+        `;
+    }
+    
+    // Make API call to replace the video using fetch instead of HTMX
+    fetch(`/api/playlistDetails/replace/${trackId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ 
+            newVideoId: selectedVideoId,
+            currentVideoId: currentVideoId,
+            playlistId: document.querySelector('.playlist-details')?.dataset.playlistId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            console.log('Video replacement successful:', data);
+            cancelVideoSelection();
+            
+            // Refresh the playlist details to show the updated video
+            const playlistId = document.querySelector('.playlist-details')?.dataset.playlistId;
+            if (playlistId) {
+                refreshPlaylistDetails(playlistId);
+            }
+        } else {
+            throw new Error(data.message || 'Video replacement failed');
+        }
+    })
+    .catch((error) => {
+        console.error('Error replacing video:', error);
+        
+        // Show error and restore button
+        if (confirmBtn) {
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = 'Confirm Selection';
+        }
+        
+        // Show error message
+        const modalContent = document.querySelector('.video-selection-modal');
+        if (modalContent) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'alert alert-danger mt-3';
+            errorDiv.innerHTML = `
+                <strong>Error:</strong> ${error.message || 'Failed to replace video. Please try again.'}
+            `;
+            modalContent.appendChild(errorDiv);
+        }
+    });
+}
+
 // Make functions available globally
 window.savePlaylistDetailsToStorage = savePlaylistDetailsToStorage;
 window.loadPlaylistDetailsFromStorage = loadPlaylistDetailsFromStorage;
 window.clearPlaylistDetailsStorage = clearPlaylistDetailsStorage;
 window.togglePlaylistDetails = togglePlaylistDetails;
 window.refreshPlaylistDetails = refreshPlaylistDetails;
+window.editTrackVideo = editTrackVideo;
+window.selectVideo = selectVideo;
+window.cancelVideoSelection = cancelVideoSelection;
+window.confirmVideoSelection = confirmVideoSelection;
