@@ -121,8 +121,33 @@ function togglePlaylistDetails(playlistId, expandArea) {
     }
 }
 
+// Function to refresh playlist details
+function refreshPlaylistDetails(playlistId) {
+    console.log(`Refreshing playlist details for: ${playlistId}`);
+    
+    // Clear cached details first
+    clearPlaylistDetailsStorage(playlistId);
+    
+    // Use HTMX to fetch fresh details
+    htmx.ajax('GET', `/api/playlistDetails/playlist/${playlistId}`, {
+        target: `#details-${playlistId}`,
+        swap: 'innerHTML'
+    }).then(() => {
+        console.log(`Refreshed playlist details for: ${playlistId}`);
+        
+        // Save fresh details to cache
+        const detailsContainer = document.getElementById(`details-${playlistId}`);
+        if (detailsContainer) {
+            savePlaylistDetailsToStorage(playlistId, detailsContainer.innerHTML);
+        }
+    }).catch((error) => {
+        console.error('Error refreshing playlist details:', error);
+    });
+}
+
 // Make functions available globally
 window.savePlaylistDetailsToStorage = savePlaylistDetailsToStorage;
 window.loadPlaylistDetailsFromStorage = loadPlaylistDetailsFromStorage;
 window.clearPlaylistDetailsStorage = clearPlaylistDetailsStorage;
 window.togglePlaylistDetails = togglePlaylistDetails;
+window.refreshPlaylistDetails = refreshPlaylistDetails;

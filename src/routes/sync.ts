@@ -163,7 +163,7 @@ router.post('/playlist/:playlistId', async (req, res) => {
     });
 
     // Get tracks with limit
-    const trackLimit = 1; // Conservative limit for testing - now 10 tracks
+    const trackLimit = 10; // Conservative limit for testing - now 10 tracks
     console.log(`🎵 Fetching tracks (limit: ${trackLimit})...`);
     const tracksResponse = await spotifyApi.getPlaylistTracks(playlistId, { limit: trackLimit });
     const tracks = tracksResponse.body.items.filter(item => item.track && item.track.type === 'track');

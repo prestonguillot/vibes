@@ -302,10 +302,8 @@ router.get('/playlist/:playlistId', async (req, res) => {
             <span class="text-muted small">
               ${allTracks.length} tracks • ${mergedTracks.filter(t => t.linked).length} linked
             </span>
-            <button class="btn btn-outline-secondary btn-sm" 
-                    hx-get="/api/playlistDetails/playlist/${playlistId}"
-                    hx-target="#details-${playlistId}"
-                    hx-swap="innerHTML"
+            <button type="button" class="btn btn-outline-secondary btn-sm" 
+                    onclick="refreshPlaylistDetails('${playlistId}')"
                     title="Refresh playlist details">
               Refresh
             </button>
