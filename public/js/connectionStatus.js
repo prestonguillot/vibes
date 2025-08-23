@@ -170,8 +170,30 @@ function initializeConnectionStatus() {
     // Check connection status immediately
     updateConnectionStatus();
     
-    // Set up periodic status checking (every 30 seconds)
-    setInterval(updateConnectionStatus, 30000);
+    // Set up periodic status checking (every 5 minutes instead of 30 seconds)
+    // Only check periodically if user is actively using the page
+    let statusCheckInterval = setInterval(() => {
+        // Only check if page is visible (user is actively using it)
+        if (!document.hidden) {
+            updateConnectionStatus();
+        }
+    }, 5 * 60 * 1000); // 5 minutes
+    
+    // Clear interval when page becomes hidden for extended periods
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            // Page is hidden, reduce checking
+            clearInterval(statusCheckInterval);
+        } else {
+            // Page is visible again, resume checking and do immediate check
+            updateConnectionStatus();
+            statusCheckInterval = setInterval(() => {
+                if (!document.hidden) {
+                    updateConnectionStatus();
+                }
+            }, 5 * 60 * 1000);
+        }
+    });
 }
 
 // Auto-initialize when DOM is ready

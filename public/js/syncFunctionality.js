@@ -243,7 +243,11 @@ function initializeSyncFunctionality() {
     // Enhanced sync button handling with real-time progress
     document.addEventListener('htmx:beforeRequest', function(event) {
         if (event.detail.requestConfig.path.includes('/sync/playlist/')) {
-            Logger.debug('Sync request detected', event.detail);
+            Logger.debug('Sync request detected', { 
+                path: event.detail.requestConfig.path,
+                method: event.detail.requestConfig.verb,
+                target: event.detail.target?.id
+            });
             const button = event.detail.elt;
             const playlistId = button.dataset.playlistId;
             const playlistName = button.dataset.playlistName;
