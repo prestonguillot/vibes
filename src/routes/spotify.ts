@@ -211,7 +211,6 @@ router.get('/playlists', async (req, res) => {
           <div class="playlist-info" style="flex: 1;">
             <h5 class="mb-1">${syncIcon}${playlist.name}</h5>
             <p class="text-muted mb-1">${playlist.tracks.total} tracks</p>
-            ${isSynced ? '<small class="text-success">Previously synced to YouTube</small>' : ''}
             
             <!-- Playlist Links -->
             <div class="playlist-links mt-2" style="display: flex; gap: 12px; align-items: center;">
