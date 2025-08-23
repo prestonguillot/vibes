@@ -143,6 +143,14 @@ app.get('/api/status', async (req, res) => {
           req.session.spotifyTokens.accessToken = access_token;
           spotifyConnected = true;
           Logger.auth('Spotify', 'token refreshed', { sessionId: req.sessionID });
+          
+          // Force session save to ensure token persists
+          await new Promise((resolve, reject) => {
+            req.session.save((err) => {
+              if (err) reject(err);
+              else resolve(true);
+            });
+          });
         } catch (refreshError) {
           Logger.auth('Spotify', 'failed to refresh token', { sessionId: req.sessionID });
           // Clear invalid tokens
@@ -194,6 +202,14 @@ app.get('/api/status', async (req, res) => {
           };
           youtubeConnected = true;
           Logger.auth('YouTube', 'token refreshed', { sessionId: req.sessionID });
+          
+          // Force session save to ensure token persists
+          await new Promise((resolve, reject) => {
+            req.session.save((err) => {
+              if (err) reject(err);
+              else resolve(true);
+            });
+          });
         } catch (refreshError) {
           Logger.auth('YouTube', 'failed to refresh token', { sessionId: req.sessionID });
           // Clear invalid tokens

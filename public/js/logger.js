@@ -18,10 +18,42 @@ function formatTimestamp() {
     return new Date().toISOString();
 }
 
-// Helper function to format context
+// Helper function to format context with circular reference handling
 function formatContext(context = {}) {
     if (Object.keys(context).length === 0) return '';
-    return ` | ${JSON.stringify(context)}`;
+    
+    try {
+        // Use JSON.stringify with replacer to handle circular references
+        return ` | ${JSON.stringify(context, (key, value) => {
+            // Handle circular references and DOM elements
+            if (value && typeof value === 'object') {
+                // Skip DOM elements and other problematic objects
+                if (value.nodeType || value.constructor?.name?.includes('HTML') || 
+                    value.constructor?.name?.includes('Event') || 
+                    value.constructor?.name?.includes('Element')) {
+                    return '[DOM Element]';
+                }
+                
+                // Handle circular references by tracking seen objects
+                if (formatContext._seen && formatContext._seen.has(value)) {
+                    return '[Circular Reference]';
+                }
+                
+                if (!formatContext._seen) {
+                    formatContext._seen = new WeakSet();
+                }
+                formatContext._seen.add(value);
+            }
+            
+            return value;
+        })}`;
+    } catch (error) {
+        // Fallback for any remaining serialization issues
+        return ` | [Object - could not serialize: ${error.message}]`;
+    } finally {
+        // Clean up the tracking set
+        delete formatContext._seen;
+    }
 }
 
 // Emoji mappings for different log types and operations
