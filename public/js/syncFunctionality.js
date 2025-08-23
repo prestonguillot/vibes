@@ -128,23 +128,36 @@ function loadPlaylistsFromStorage() {
 function startProgressUpdates(playlistId, playlistName) {
     Logger.info('Starting progress updates', { playlistName, playlistId });
     
-    // Create and show the blue progress area
+    // Create and show the enhanced progress area
     const progressDiv = document.getElementById(`progress-${playlistId}`);
     if (progressDiv) {
         progressDiv.innerHTML = `
-            <div class="d-flex align-items-center">
-                <div class="spinner-border spinner-border-sm text-primary me-2" role="status">
-                    <span class="visually-hidden">Loading...</span>
+            <div class="sync-progress-container">
+                <div class="d-flex align-items-center mb-2">
+                    <div class="spinner-border spinner-border-sm text-primary me-2" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <span class="progress-text">Initializing sync...</span>
+                    <span class="progress-percentage ms-auto text-muted">0%</span>
                 </div>
-                <span class="progress-text">Initializing sync...</span>
+                <div class="progress-details text-muted small mb-1" style="display: none;"></div>
+                <div class="progress mb-2" style="height: 6px;">
+                    <div class="progress-bar bg-primary" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
             </div>
         `;
         progressDiv.style.display = 'block';
-        Logger.debug('Progress area shown', { playlistId });
+        Logger.debug('Enhanced progress area shown', { playlistId });
     }
     
-    // Set up Server-Sent Events connection
+    // Set up Server-Sent Events connection and track it globally
     const eventSource = new EventSource(`/api/progress/playlist/${playlistId}`);
+    
+    // Track event sources globally to ensure proper cleanup
+    if (!window.syncEventSources) {
+        window.syncEventSources = {};
+    }
+    window.syncEventSources[playlistId] = eventSource;
     
     eventSource.onmessage = function(event) {
         try {
@@ -152,31 +165,37 @@ function startProgressUpdates(playlistId, playlistName) {
             Logger.debug('Progress update received', data);
             
             if (progressDiv) {
+                // Update main progress message
                 const progressText = progressDiv.querySelector('.progress-text');
                 if (progressText) {
                     progressText.textContent = data.message || 'Processing...';
                 }
                 
-                // Update progress bar if percentage is provided
-                if (data.progress !== undefined) {
-                    let progressBar = progressDiv.querySelector('.progress-bar');
-                    if (!progressBar) {
-                        // Create progress bar if it doesn't exist
-                        const progressContainer = document.createElement('div');
-                        progressContainer.className = 'progress mt-2';
-                        progressContainer.style.height = '4px';
-                        
-                        progressBar = document.createElement('div');
-                        progressBar.className = 'progress-bar bg-primary';
-                        progressBar.setAttribute('role', 'progressbar');
-                        
-                        progressContainer.appendChild(progressBar);
-                        progressDiv.appendChild(progressContainer);
+                // Update details (shows action context and x/y progress)
+                const progressDetails = progressDiv.querySelector('.progress-details');
+                if (progressDetails) {
+                    if (data.details) {
+                        progressDetails.textContent = data.details;
+                        progressDetails.style.display = 'block';
+                    } else {
+                        progressDetails.style.display = 'none';
                     }
-                    
-                    progressBar.style.width = `${data.progress}%`;
-                    progressBar.setAttribute('aria-valuenow', data.progress);
                 }
+                
+                // Update percentage display and progress bar
+                const percentage = data.percentage || 0;
+                const progressPercentage = progressDiv.querySelector('.progress-percentage');
+                if (progressPercentage) {
+                    progressPercentage.textContent = `${percentage}%`;
+                }
+                
+                const progressBar = progressDiv.querySelector('.progress-bar');
+                if (progressBar) {
+                    progressBar.style.width = `${percentage}%`;
+                    progressBar.setAttribute('aria-valuenow', percentage);
+                }
+                
+                // Song info is now included in the details line, no separate display needed
             }
         } catch (error) {
             Logger.error('Error parsing progress data', {}, error);
@@ -187,27 +206,39 @@ function startProgressUpdates(playlistId, playlistName) {
         Logger.info('SSE connection error or closed', { event });
         eventSource.close();
         
-        // Update progress area to show completion
-        if (progressDiv) {
-            const progressText = progressDiv.querySelector('.progress-text');
-            if (progressText) {
-                progressText.textContent = 'Sync completed';
-            }
-            
-            // Hide progress area after a short delay
-            setTimeout(() => {
-                progressDiv.style.display = 'none';
-            }, 1000);
+        // Clean up global tracking
+        if (window.syncEventSources && window.syncEventSources[playlistId]) {
+            delete window.syncEventSources[playlistId];
         }
+        
+        // Don't update progress area on error - let HTMX handle the final state
     };
     
     eventSource.addEventListener('complete', function(event) {
-        Logger.info('Sync completed', { data: event.data });
+        Logger.info('Sync completed via SSE', { data: event.data });
         eventSource.close();
         
-        // Hide progress area
+        // Clean up global tracking
+        if (window.syncEventSources && window.syncEventSources[playlistId]) {
+            delete window.syncEventSources[playlistId];
+        }
+        
+        // Update progress area to show completion
         if (progressDiv) {
-            progressDiv.style.display = 'none';
+            const progressText = progressDiv.querySelector('.progress-text');
+            const progressDetails = progressDiv.querySelector('.progress-details');
+            const progressBar = progressDiv.querySelector('.progress-bar');
+            const progressPercentage = progressDiv.querySelector('.progress-percentage');
+            
+            if (progressText) progressText.textContent = 'Sync completed!';
+            if (progressDetails) progressDetails.textContent = 'Finishing up...';
+            if (progressBar) progressBar.style.width = '100%';
+            if (progressPercentage) progressPercentage.textContent = '100%';
+            
+            // Hide progress area after showing completion
+            setTimeout(() => {
+                progressDiv.style.display = 'none';
+            }, 2000);
         }
     });
     
@@ -218,16 +249,21 @@ function startProgressUpdates(playlistId, playlistName) {
         // Show error in progress area
         if (progressDiv) {
             progressDiv.innerHTML = `
-                <div class="text-danger">
-                    <i class="fas fa-exclamation-triangle me-1"></i>
-                    Sync failed. Please try again.
+                <div class="sync-progress-container">
+                    <div class="d-flex align-items-center text-danger mb-2">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <span>Sync failed. Please try again.</span>
+                    </div>
+                    <div class="progress mb-2" style="height: 6px;">
+                        <div class="progress-bar bg-danger" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
                 </div>
             `;
             
             // Hide after delay
             setTimeout(() => {
                 progressDiv.style.display = 'none';
-            }, 3000);
+            }, 5000);
         }
     });
 }
@@ -284,7 +320,13 @@ function initializeSyncFunctionality() {
             
             Logger.info('Sync request completed', { playlistId, status });
             
-            // Hide the blue progress area since sync is complete
+            // Close any open SSE connections for this playlist to prevent conflicts
+            if (window.syncEventSources && window.syncEventSources[playlistId]) {
+                window.syncEventSources[playlistId].close();
+                delete window.syncEventSources[playlistId];
+            }
+            
+            // Hide the progress area since sync is complete
             const progressDiv = document.getElementById(`progress-${playlistId}`);
             if (progressDiv) {
                 progressDiv.style.display = 'none';
@@ -398,11 +440,14 @@ function initializeSyncFunctionality() {
                                 startFade();
                             }
 
-                            // Scroll to the synced playlist
-                            playlistElement.scrollIntoView({
-                                behavior: 'smooth',
-                                block: 'center'
-                            });
+                            // Scroll to the synced playlist with a small delay to ensure content is rendered
+                            setTimeout(() => {
+                                playlistElement.scrollIntoView({
+                                    behavior: 'smooth',
+                                    block: 'center'
+                                });
+                                Logger.info('Scrolled to synced playlist', { playlistId });
+                            }, 200);
                         }
 
                         // Clear the pending feedback

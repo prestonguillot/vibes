@@ -3,8 +3,9 @@
  * Handles authentication status checking and connection button management
  */
 
-// Flag to prevent infinite auto-loading
+// Flags to prevent infinite loops
 let hasAutoLoaded = false;
+let silentAuthAttempted = false;
 
 // Function to update connection status
 async function updateConnectionStatus() {
@@ -101,14 +102,31 @@ async function updateConnectionStatus() {
             }
         }
 
-        // Check URL parameters for immediate feedback after OAuth redirect (but don't recurse)
+        // Check URL parameters for immediate feedback after OAuth redirect
         const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('spotify') === 'connected' || urlParams.get('youtube') === 'connected') {
-            Logger.info('OAuth redirect detected, status already updated');
+        if (urlParams.get('spotify') === 'connected' || urlParams.get('youtube') === 'connected' ||
+            urlParams.get('spotify') === 'silent-connected' || urlParams.get('youtube') === 'silent-connected') {
+            
+            const isSilentAuth = urlParams.get('spotify') === 'silent-connected' || urlParams.get('youtube') === 'silent-connected';
+            
+            if (isSilentAuth) {
+                Logger.info('Silent OAuth authentication successful');
+            } else {
+                Logger.info('OAuth redirect detected, status already updated');
+            }
+            
             // Clear URL parameters to prevent confusion
             if (window.history.replaceState) {
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
+        }
+        
+        // Check if we should attempt automatic reconnection (but don't use problematic iframes)
+        if (!status.spotify && !status.youtube && !silentAuthAttempted) {
+            Logger.info('No active sessions detected, but iframe-based silent auth is blocked by OAuth providers');
+            silentAuthAttempted = true;
+            // Instead of silent auth, we'll just show the connect buttons
+            // The user experience is already good since OAuth providers remember login state
         }
 
         if (urlParams.get('error')) {
@@ -203,6 +221,10 @@ if (document.readyState === 'loading') {
     // DOM is already ready
     initializeConnectionStatus();
 }
+
+// Note: Silent authentication using iframes is blocked by OAuth providers due to X-Frame-Options
+// The current approach (manual connect buttons) is actually the standard and expected UX
+// OAuth providers remember user login state, so reconnection is seamless without password re-entry
 
 // Expose functions globally so they can be called from other modules if needed
 window.updateConnectionStatus = updateConnectionStatus;

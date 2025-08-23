@@ -89,7 +89,7 @@ router.get('/callback', async (req, res) => {
       refreshToken: refresh_token
     };
     
-    // Redirect back to main page instead of popup success page
+    // Redirect back to main page
     res.redirect('/?spotify=connected');
   } catch (error) {
     Logger.error('Error getting Spotify tokens', {}, error);
