@@ -546,17 +546,12 @@ router.post('/playlist/:playlistId', async (req, res) => {
       quotaSaved: searchResults.length * 100
     });
     
-    // Generate user-friendly sync feedback with YouTube playlist link
+    // Generate user-friendly sync feedback
     const syncFeedbackHtml = `
       <div class="sync-feedback alert alert-success alert-dismissible fade show" data-playlist-id="${playlistId}">
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         <div><strong>Playlist ${existingPlaylist ? 'updated' : 'created'} successfully!</strong></div>
         <div class="small">Found ${searchResults.filter(r => r.found).length} out of ${searchResults.length} tracks${tracks.length > trackLimit ? ` (limited from ${tracks.length} total)` : ''}</div>
-        <div class="small mt-2">
-          <a href="${youtubePlaylistUrl}" target="_blank" class="btn btn-outline-primary btn-sm">
-            Open YouTube Playlist
-          </a>
-        </div>
       </div>
     `;
     
