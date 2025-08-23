@@ -9,7 +9,7 @@ let hasAutoLoaded = false;
 // Function to update connection status
 async function updateConnectionStatus() {
     try {
-        console.log('Checking authentication status...');
+        Logger.info('Checking authentication status');
         
         // Record start time for minimum loading duration
         const loadingStartTime = Date.now();
@@ -33,7 +33,7 @@ async function updateConnectionStatus() {
         const response = await fetch('/api/status');
         const status = await response.json();
 
-        console.log('Authentication status:', status);
+        Logger.info('Authentication status received', status);
 
         // Ensure minimum loading duration of 1 second
         const loadingDuration = Date.now() - loadingStartTime;
@@ -41,7 +41,7 @@ async function updateConnectionStatus() {
         
         if (loadingDuration < minimumDuration) {
             const remainingTime = minimumDuration - loadingDuration;
-            console.log(`Waiting ${remainingTime}ms to ensure minimum loading duration...`);
+            Logger.debug('Waiting for minimum loading duration', { remainingTime });
             await new Promise(resolve => setTimeout(resolve, remainingTime));
         }
 
@@ -59,12 +59,12 @@ async function updateConnectionStatus() {
             spotifyStatus.innerHTML =
                 '<button class="btn btn-success connect-btn connected" disabled>Connected</button>';
             spotifyStatus.style.opacity = 1;
-            console.log('✅ Spotify: Already authenticated');
+            Logger.auth('Spotify', 'authenticated');
         } else {
             spotifyStatus.innerHTML =
                 '<button class="btn btn-success connect-btn" onclick="connectToService(\'/auth/spotify/login\', this, \'spotify\')">Connect Spotify</button>';
             spotifyStatus.style.opacity = 1;
-            console.log('🔑 Spotify: Authentication required');
+            Logger.auth('Spotify', 'authentication required');
         }
 
         // Update YouTube status with smooth transitions
@@ -73,17 +73,17 @@ async function updateConnectionStatus() {
             youtubeStatus.innerHTML =
                 '<button class="btn btn-danger connect-btn connected" disabled>Connected</button>';
             youtubeStatus.style.opacity = 1;
-            console.log('✅ YouTube: Already authenticated');
+            Logger.auth('YouTube', 'authenticated');
         } else {
             youtubeStatus.innerHTML =
                 '<button class="btn btn-danger connect-btn" onclick="connectToService(\'/auth/youtube/login\', this, \'youtube\')">Connect YouTube</button>';
             youtubeStatus.style.opacity = 1;
-            console.log('🔑 YouTube: Authentication required');
+            Logger.auth('YouTube', 'authentication required');
         }
 
         // Auto-load playlists if both services are connected and we haven't auto-loaded yet
         if (status.spotify && status.youtube && !hasAutoLoaded) {
-            console.log('🔄 Both services connected, auto-loading playlists...');
+            Logger.info('Both services connected, auto-loading playlists');
             hasAutoLoaded = true;
             
             // Try to load from cache first
@@ -93,10 +93,10 @@ async function updateConnectionStatus() {
                 // If no cache, trigger fresh load
                 const refreshBtn = document.getElementById('refresh-playlists-btn');
                 if (refreshBtn) {
-                    console.log('📡 No cached playlists found, loading fresh playlists...');
+                    Logger.info('No cached playlists found, loading fresh playlists');
                     refreshBtn.click();
                 } else {
-                    console.warn('⚠️ Refresh button not found for auto-loading');
+                    Logger.warn('Refresh button not found for auto-loading');
                 }
             }
         }
@@ -104,7 +104,7 @@ async function updateConnectionStatus() {
         // Check URL parameters for immediate feedback after OAuth redirect (but don't recurse)
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('spotify') === 'connected' || urlParams.get('youtube') === 'connected') {
-            console.log('OAuth redirect detected, status already updated above');
+            Logger.info('OAuth redirect detected, status already updated');
             // Clear URL parameters to prevent confusion
             if (window.history.replaceState) {
                 window.history.replaceState({}, document.title, window.location.pathname);
@@ -123,7 +123,7 @@ async function updateConnectionStatus() {
         }
 
     } catch (error) {
-        console.error('Error checking connection status:', error);
+        Logger.error('Error checking connection status', {}, error);
         
         // Show error state with fallback connect buttons
         document.getElementById('spotify-status').innerHTML =
@@ -138,7 +138,7 @@ async function updateConnectionStatus() {
 
 // Simple connect function using direct navigation (no popup)
 function connectToService(url, button, service) {
-    console.log(`Connecting to service: ${url}`);
+    Logger.userAction('Connect to service', { url, service });
 
     // Store original button content and classes
     const originalContent = button.innerHTML;
@@ -160,7 +160,7 @@ function connectToService(url, button, service) {
 
 // Initialize connection status checking when DOM is ready
 function initializeConnectionStatus() {
-    console.log('Connection status initialized at:', new Date().toISOString());
+    Logger.info('Connection status module initialized');
     
     // Clear any leftover sync results from previous sessions
     document.querySelectorAll('[id^="sync-result-"]').forEach(syncResult => {

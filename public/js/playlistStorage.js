@@ -8,9 +8,9 @@ function savePlaylistsToStorage(playlistsHtml) {
     try {
         localStorage.setItem('spotify_playlists', playlistsHtml);
         localStorage.setItem('spotify_playlists_timestamp', Date.now().toString());
-        console.log('Playlists saved to localStorage');
+        Logger.cache('save', 'spotify_playlists');
     } catch (error) {
-        console.warn('Failed to save playlists to localStorage:', error);
+        Logger.warn('Failed to save playlists to localStorage', {}, error);
     }
 }
 
@@ -18,9 +18,9 @@ function clearPlaylistsStorage() {
     try {
         localStorage.removeItem('spotify_playlists');
         localStorage.removeItem('spotify_playlists_timestamp');
-        console.log('Cleared playlist cache');
+        Logger.cache('clear', 'spotify_playlists');
     } catch (error) {
-        console.warn('Failed to clear playlist cache:', error);
+        Logger.warn('Failed to clear playlist cache', {}, error);
     }
 }
 
@@ -42,13 +42,13 @@ function getCachedPlaylistsData() {
                     isValid: true
                 };
             } else {
-                console.log('Cached playlists expired, will refresh');
+                Logger.cache('expired', 'spotify_playlists', { ageMinutes: Math.round(ageMinutes) });
                 clearPlaylistsStorage();
                 return { isValid: false };
             }
         }
     } catch (error) {
-        console.warn('Failed to load playlists from localStorage:', error);
+        Logger.warn('Failed to load playlists from localStorage', {}, error);
     }
     return { isValid: false };
 }

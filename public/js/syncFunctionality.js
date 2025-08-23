@@ -8,7 +8,7 @@ function loadPlaylistsFromStorage() {
     const cachedData = getCachedPlaylistsData();
     
     if (cachedData.isValid) {
-        console.log(`Loading cached playlists (${cachedData.ageMinutes} minutes old)`);
+        Logger.cache('load', 'spotify_playlists', { ageMinutes: cachedData.ageMinutes });
         const target = document.getElementById('playlists-content');
         target.innerHTML = cachedData.html;
         
@@ -16,11 +16,11 @@ function loadPlaylistsFromStorage() {
         const playlistItems = target.querySelectorAll('.playlist-item');
         if (playlistItems.length > 0) {
             htmx.process(target);
-            console.log('HTMX processed on cached playlists');
+            Logger.debug('HTMX processed on cached playlists');
             
             // Add manual event listeners for sync buttons since HTMX processing may not work
             const syncButtons = target.querySelectorAll('.sync-btn');
-            console.log(`Found ${syncButtons.length} sync buttons to attach listeners to (cached)`);
+            Logger.debug('Found sync buttons to attach listeners', { count: syncButtons.length, source: 'cached' });
             
             syncButtons.forEach((button, index) => {
                 // Remove any existing listeners to prevent duplicates
@@ -29,15 +29,15 @@ function loadPlaylistsFromStorage() {
                 
                 newButton.addEventListener('click', function(e) {
                     e.preventDefault();
-                    console.log(`🔥 SYNC BUTTON CLICKED! Button ${index + 1} (cached)`);
+                    Logger.userAction('Sync button clicked', { buttonIndex: index + 1, source: 'cached' });
                     
                     const playlistId = this.dataset.playlistId;
                     const playlistName = this.dataset.playlistName;
                     const targetId = this.getAttribute('hx-target');
                     const url = this.getAttribute('hx-post');
                     
-                    console.log(`Manual sync button clicked for: ${playlistName} (${playlistId})`);
-                    console.log(`Target: ${targetId}, URL: ${url}`);
+                    Logger.userAction('Manual sync initiated', { playlistName, playlistId });
+                    Logger.debug('Sync request details', { targetId, url });
                     
                     // Start real-time progress updates
                     if (typeof startProgressUpdates === 'function') {
@@ -85,7 +85,7 @@ function loadPlaylistsFromStorage() {
                                 syncResult.style.display = 'none';
                                 
                                 // Trigger playlist refresh for reordering
-                                console.log('🔄 Triggering playlist refresh for reordering...');
+                                Logger.info('Triggering playlist refresh for reordering');
                                 const refreshBtn = document.getElementById('refresh-playlists-btn');
                                 if (refreshBtn) {
                                     htmx.trigger(refreshBtn, 'click');
@@ -105,7 +105,7 @@ function loadPlaylistsFromStorage() {
                             });
                         }
                     }).catch((error) => {
-                        console.error('Sync request failed:', error);
+                        Logger.error('Sync request failed', { playlistId, playlistName }, error);
                         
                         // Re-enable all sync buttons even on error
                         document.querySelectorAll('.sync-btn').forEach(btn => {
@@ -115,7 +115,7 @@ function loadPlaylistsFromStorage() {
                     });
                 });
             });
-            console.log(`Added manual event listeners to ${syncButtons.length} sync buttons (cached)`);
+            Logger.debug('Added manual event listeners to sync buttons', { count: syncButtons.length, source: 'cached' });
         }
         
         return true;
@@ -126,7 +126,7 @@ function loadPlaylistsFromStorage() {
 
 // Function to start real-time progress updates using Server-Sent Events
 function startProgressUpdates(playlistId, playlistName) {
-    console.log(`Starting progress updates for playlist: ${playlistName} (${playlistId})`);
+    Logger.info('Starting progress updates', { playlistName, playlistId });
     
     // Create and show the blue progress area
     const progressDiv = document.getElementById(`progress-${playlistId}`);
@@ -140,7 +140,7 @@ function startProgressUpdates(playlistId, playlistName) {
             </div>
         `;
         progressDiv.style.display = 'block';
-        console.log(`Progress area shown for playlist: ${playlistId}`);
+        Logger.debug('Progress area shown', { playlistId });
     }
     
     // Set up Server-Sent Events connection
@@ -149,7 +149,7 @@ function startProgressUpdates(playlistId, playlistName) {
     eventSource.onmessage = function(event) {
         try {
             const data = JSON.parse(event.data);
-            console.log('Progress update received:', data);
+            Logger.debug('Progress update received', data);
             
             if (progressDiv) {
                 const progressText = progressDiv.querySelector('.progress-text');
@@ -179,12 +179,12 @@ function startProgressUpdates(playlistId, playlistName) {
                 }
             }
         } catch (error) {
-            console.error('Error parsing progress data:', error);
+            Logger.error('Error parsing progress data', {}, error);
         }
     };
     
     eventSource.onerror = function(event) {
-        console.log('SSE connection error or closed:', event);
+        Logger.info('SSE connection error or closed', { event });
         eventSource.close();
         
         // Update progress area to show completion
@@ -202,7 +202,7 @@ function startProgressUpdates(playlistId, playlistName) {
     };
     
     eventSource.addEventListener('complete', function(event) {
-        console.log('Sync completed:', event.data);
+        Logger.info('Sync completed', { data: event.data });
         eventSource.close();
         
         // Hide progress area
@@ -212,7 +212,7 @@ function startProgressUpdates(playlistId, playlistName) {
     });
     
     eventSource.addEventListener('error', function(event) {
-        console.error('Sync error:', event.data);
+        Logger.error('Sync error', { data: event.data });
         eventSource.close();
         
         // Show error in progress area
@@ -238,17 +238,17 @@ window.startProgressUpdates = startProgressUpdates;
 
 // Initialize sync functionality when DOM is ready
 function initializeSyncFunctionality() {
-    console.log('Sync functionality initialized at:', new Date().toISOString());
+    Logger.info('Sync functionality module initialized');
 
     // Enhanced sync button handling with real-time progress
     document.addEventListener('htmx:beforeRequest', function(event) {
         if (event.detail.requestConfig.path.includes('/sync/playlist/')) {
-            console.log('Sync request detected:', event.detail);
+            Logger.debug('Sync request detected', event.detail);
             const button = event.detail.elt;
             const playlistId = button.dataset.playlistId;
             const playlistName = button.dataset.playlistName;
 
-            console.log(`Starting sync for playlist: ${playlistName} (${playlistId})`);
+            Logger.info('Starting sync for playlist', { playlistName, playlistId });
 
             // Start real-time progress updates
             if (typeof startProgressUpdates === 'function') {
@@ -278,7 +278,7 @@ function initializeSyncFunctionality() {
             const target = event.detail.target;
             const playlistId = target.id.replace('sync-result-', '');
             
-            console.log(`Sync request completed for playlist: ${playlistId}, status: ${status}`);
+            Logger.info('Sync request completed', { playlistId, status });
             
             // Hide the blue progress area since sync is complete
             const progressDiv = document.getElementById(`progress-${playlistId}`);
@@ -304,7 +304,7 @@ function initializeSyncFunctionality() {
                     syncResult.style.display = 'none';
                     
                     // Trigger playlist refresh for reordering
-                    console.log('🔄 Triggering playlist refresh for reordering...');
+                    Logger.info('Triggering playlist refresh for reordering');
                     const refreshBtn = document.getElementById('refresh-playlists-btn');
                     if (refreshBtn) {
                         htmx.trigger(refreshBtn, 'click');
@@ -406,7 +406,7 @@ function initializeSyncFunctionality() {
                     }, 100);
 
                 } catch (error) {
-                    console.error('Error processing pending sync feedback:', error);
+                    Logger.error('Error processing pending sync feedback', {}, error);
                     sessionStorage.removeItem('pendingSyncFeedback');
                 }
             }

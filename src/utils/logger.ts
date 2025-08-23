@@ -1,0 +1,196 @@
+/**
+ * Server-side logging utility for consistent logging across the application
+ */
+
+// Log levels
+export enum LogLevel {
+    DEBUG = 0,
+    INFO = 1,
+    WARN = 2,
+    ERROR = 3
+}
+
+// Current log level (can be changed for production)
+let currentLogLevel = LogLevel.DEBUG;
+
+// Helper function to format timestamp
+function formatTimestamp(): string {
+    return new Date().toISOString();
+}
+
+// Helper function to format context
+function formatContext(context: Record<string, any> = {}): string {
+    if (Object.keys(context).length === 0) return '';
+    return ` | ${JSON.stringify(context)}`;
+}
+
+// Emoji mappings for different log types and operations
+const EMOJIS = {
+    // General log levels
+    DEBUG: '🔍',
+    INFO: 'ℹ️',
+    WARN: '⚠️',
+    ERROR: '❌',
+    
+    // Operation types
+    SERVER: '🚀',
+    AUTH: '🔐',
+    EXTERNAL: '🌐',
+    REQUEST: '📝',
+    SUCCESS: '✅',
+    REFRESH: '🔄',
+    MUSIC: '🎵',
+    PLAYLIST: '📋',
+    VIDEO: '🎬',
+    SEARCH: '🔍',
+    SYNC: '🔄',
+    CACHE: '💾',
+    USER: '👤',
+    API: '📊',
+    PERFORMANCE: '⚡',
+    SESSION: '🎫',
+    HTTP: '🌐'
+};
+
+// Helper function to get appropriate emoji based on message content and context
+function getContextualEmoji(message: string, context: Record<string, any> = {}, level: LogLevel): string {
+    const msg = message.toLowerCase();
+    
+    // Check for specific operation types in message
+    if (msg.includes('server') || msg.includes('started') || msg.includes('running')) return EMOJIS.SERVER;
+    if (msg.includes('auth') || msg.includes('token') || msg.includes('login')) return EMOJIS.AUTH;
+    if (msg.includes('spotify') || msg.includes('youtube') || msg.includes('external')) return EMOJIS.EXTERNAL;
+    if (msg.includes('sync') || msg.includes('refresh')) return EMOJIS.SYNC;
+    if (msg.includes('playlist')) return EMOJIS.PLAYLIST;
+    if (msg.includes('video') || msg.includes('track')) return EMOJIS.VIDEO;
+    if (msg.includes('search') || msg.includes('found')) return EMOJIS.SEARCH;
+    if (msg.includes('cache') || msg.includes('storage')) return EMOJIS.CACHE;
+    if (msg.includes('performance') || msg.includes('completed in') || msg.includes('ms')) return EMOJIS.PERFORMANCE;
+    if (msg.includes('session')) return EMOJIS.SESSION;
+    if (msg.includes('http') || msg.includes('request') || msg.includes('response')) return EMOJIS.HTTP;
+    if (msg.includes('api') || msg.includes('quota')) return EMOJIS.API;
+    if (msg.includes('success') || msg.includes('validated') || msg.includes('created')) return EMOJIS.SUCCESS;
+    
+    // Check context for hints
+    if (context.sessionId || context.sessionID) return EMOJIS.SESSION;
+    if (context.playlistId || context.playlistName) return EMOJIS.PLAYLIST;
+    if (context.videoId || context.trackId) return EMOJIS.VIDEO;
+    if (context.quotaUsed || context.apiCalls) return EMOJIS.API;
+    
+    // Fall back to log level emoji
+    switch (level) {
+        case LogLevel.DEBUG: return EMOJIS.DEBUG;
+        case LogLevel.INFO: return EMOJIS.INFO;
+        case LogLevel.WARN: return EMOJIS.WARN;
+        case LogLevel.ERROR: return EMOJIS.ERROR;
+        default: return EMOJIS.INFO;
+    }
+}
+
+// Core logging function
+function log(level: LogLevel, message: string, context: Record<string, any> = {}, error?: Error | any): void {
+    if (level < currentLogLevel) return;
+    
+    const timestamp = formatTimestamp();
+    const contextStr = formatContext(context);
+    const levelStr = LogLevel[level];
+    const emoji = getContextualEmoji(message, context, level);
+    
+    const logMessage = `${emoji} [${timestamp}] [${levelStr}] ${message}${contextStr}`;
+    
+    switch (level) {
+        case LogLevel.DEBUG:
+            console.debug(logMessage);
+            break;
+        case LogLevel.INFO:
+            console.log(logMessage);
+            break;
+        case LogLevel.WARN:
+            console.warn(logMessage);
+            if (error) console.warn('❌ Error details:', error);
+            break;
+        case LogLevel.ERROR:
+            console.error(logMessage);
+            if (error) console.error('❌ Error details:', error);
+            break;
+    }
+}
+
+// Public API
+export const Logger = {
+    // Set log level
+    setLevel: (level: LogLevel) => {
+        currentLogLevel = level;
+    },
+    
+    // Debug logging (detailed information for debugging)
+    debug: (message: string, context: Record<string, any> = {}) => {
+        log(LogLevel.DEBUG, message, context);
+    },
+    
+    // Info logging (general information)
+    info: (message: string, context: Record<string, any> = {}) => {
+        log(LogLevel.INFO, message, context);
+    },
+    
+    // Warning logging (something unexpected but not critical)
+    warn: (message: string, context: Record<string, any> = {}, error?: Error | any) => {
+        log(LogLevel.WARN, message, context, error);
+    },
+    
+    // Error logging (critical errors)
+    error: (message: string, context: Record<string, any> = {}, error?: Error | any) => {
+        log(LogLevel.ERROR, message, context, error);
+    },
+    
+    // Specialized logging methods for common patterns
+    
+    // HTTP request logging
+    httpRequest: (method: string, path: string, context: Record<string, any> = {}) => {
+        log(LogLevel.INFO, `HTTP Request: ${method} ${path}`, context);
+    },
+    
+    // HTTP response logging
+    httpResponse: (method: string, path: string, status: number, duration?: number, context: Record<string, any> = {}) => {
+        const level = status >= 400 ? LogLevel.ERROR : LogLevel.INFO;
+        const durationStr = duration ? ` (${duration}ms)` : '';
+        log(level, `HTTP Response: ${method} ${path} - ${status}${durationStr}`, context);
+    },
+    
+    // API operation logging
+    apiOperation: (operation: string, context: Record<string, any> = {}) => {
+        log(LogLevel.INFO, `API Operation: ${operation}`, context);
+    },
+    
+    // Authentication logging
+    auth: (service: string, status: string, context: Record<string, any> = {}) => {
+        log(LogLevel.INFO, `Auth: ${service} - ${status}`, context);
+    },
+    
+    // Database/external service logging
+    external: (service: string, operation: string, context: Record<string, any> = {}) => {
+        log(LogLevel.DEBUG, `External: ${service} - ${operation}`, context);
+    },
+    
+    // Performance logging
+    performance: (operation: string, duration: number, context: Record<string, any> = {}) => {
+        log(LogLevel.INFO, `Performance: ${operation} completed in ${duration}ms`, context);
+    },
+    
+    // Session logging
+    session: (action: string, sessionId: string, context: Record<string, any> = {}) => {
+        log(LogLevel.DEBUG, `Session: ${action}`, { sessionId, ...context });
+    },
+    
+    // Request block logging (for major operations)
+    requestStart: (operation: string, context: Record<string, any> = {}) => {
+        log(LogLevel.INFO, `=== ${operation.toUpperCase()} START ===`, context);
+    },
+    
+    requestEnd: (operation: string, duration: number, context: Record<string, any> = {}) => {
+        log(LogLevel.INFO, `=== ${operation.toUpperCase()} END (${duration}ms) ===`, context);
+    }
+};
+
+// Initialize logging
+Logger.info('Server-side logger initialized');

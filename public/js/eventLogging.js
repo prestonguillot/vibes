@@ -5,14 +5,14 @@
 
 // Initialize event logging when DOM is ready
 function initializeEventLogging() {
-    console.log('Event logging initialized at:', new Date().toISOString());
+    Logger.info('Event logging module initialized');
 
     // Add logging for button clicks
     document.addEventListener('click', function(event) {
         // Log all button clicks
         if (event.target.matches('button')) {
-            console.log(`Button clicked: "${event.target.textContent?.trim()}"`);
-            console.log(`Button attributes:`, {
+            Logger.userAction('Button clicked', { text: event.target.textContent?.trim() });
+            Logger.debug('Button attributes', {
                 id: event.target.id,
                 class: event.target.className,
                 type: event.target.type,
@@ -23,54 +23,51 @@ function initializeEventLogging() {
 
     // Log basic HTMX request events
     document.addEventListener('htmx:beforeRequest', function(event) {
-        console.log('HTMX request starting:', {
+        Logger.htmx('Request starting', {
             method: event.detail.requestConfig.verb,
             url: event.detail.requestConfig.path,
-            target: event.detail.target,
-            timestamp: new Date().toISOString()
+            target: event.detail.target?.id || 'unknown'
         });
     });
 
     document.addEventListener('htmx:afterRequest', function(event) {
         const status = event.detail.xhr.status;
         const statusText = event.detail.xhr.statusText;
-        console.log(`HTMX request completed:`, {
+        Logger.htmx('Request completed', {
             status: `${status} ${statusText}`,
             url: event.detail.xhr.responseURL,
-            responseLength: event.detail.xhr.responseText?.length || 0,
-            timestamp: new Date().toISOString()
+            responseLength: event.detail.xhr.responseText?.length || 0
         });
 
         if (status >= 400) {
-            console.error('HTMX request failed:', event.detail.xhr.responseText);
+            Logger.error('HTMX request failed', { responseText: event.detail.xhr.responseText });
         } else {
-            console.log('HTMX request successful');
+            Logger.debug('HTMX request successful');
         }
     });
 
     // Log HTMX errors
     document.addEventListener('htmx:responseError', function(event) {
-        console.error('HTMX response error:', event.detail);
+        Logger.error('HTMX response error', event.detail);
     });
 
     document.addEventListener('htmx:sendError', function(event) {
-        console.error('HTMX send error:', event.detail);
+        Logger.error('HTMX send error', event.detail);
     });
 
     // Log page navigation
     window.addEventListener('beforeunload', function(event) {
-        console.log('Page navigation detected');
+        Logger.info('Page navigation detected');
     });
 
     // Log any JavaScript errors
     window.addEventListener('error', function(event) {
-        console.error('JavaScript error:', {
+        Logger.error('JavaScript error', {
             message: event.message,
             filename: event.filename,
             line: event.lineno,
-            column: event.colno,
-            error: event.error
-        });
+            column: event.colno
+        }, event.error);
     });
 }
 
