@@ -57,6 +57,9 @@ export function sendProgressUpdate(playlistId: string, update: {
   details?: string;
   currentTrack?: number;
   totalTracks?: number;
+  currentSong?: string;
+  currentArtist?: string;
+  percentage?: number;
   timestamp?: string;
 }) {
   const connections = progressConnections.get(playlistId);

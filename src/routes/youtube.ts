@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { google } from 'googleapis';
+import { Logger } from '../utils/logger';
 
 const router = Router();
 
@@ -27,7 +28,7 @@ const ensureValidYouTubeToken = async (req: any) => {
   } catch (error: any) {
     // If token is expired (401), try to refresh it
     if (error.code === 401 && req.session.youtubeTokens.refresh_token) {
-      console.log('YouTube token expired, refreshing...');
+      Logger.auth('YouTube', 'token expired, refreshing');
       try {
         const { credentials } = await oauth2Client.refreshAccessToken();
         
@@ -38,10 +39,10 @@ const ensureValidYouTubeToken = async (req: any) => {
         };
         oauth2Client.setCredentials(req.session.youtubeTokens);
         
-        console.log('YouTube token refreshed successfully');
+        Logger.auth('YouTube', 'token refreshed successfully');
         return oauth2Client;
       } catch (refreshError) {
-        console.error('Failed to refresh YouTube token:', refreshError);
+        Logger.error('Failed to refresh YouTube token', {}, refreshError);
         throw new Error('YOUTUBE_AUTH_REQUIRED');
       }
     } else {
@@ -52,10 +53,10 @@ const ensureValidYouTubeToken = async (req: any) => {
 
 // YouTube login
 router.get('/login', (req, res) => {
-  console.log('\n === YOUTUBE LOGIN REQUEST ===');
-  console.log(` Timestamp: ${new Date().toISOString()}`);
-  console.log(` Session ID: ${req.sessionID}`);
-  console.log(` Request URL: ${req.originalUrl}`);
+  Logger.requestStart('YouTube Login Request', {
+    sessionId: req.sessionID,
+    requestUrl: req.originalUrl
+  });
   
   const oauth2Client = getOAuth2Client();
   const scopes = ['https://www.googleapis.com/auth/youtube'];
@@ -65,17 +66,17 @@ router.get('/login', (req, res) => {
     scope: scopes,
   });
   
-  console.log(` Redirecting to: ${url}`);
+  Logger.auth('YouTube', 'redirecting to authorization', { authorizeURL: url });
   res.redirect(url);
 });
 
 // YouTube callback
 router.get('/callback', async (req, res) => {
-  console.log('\n === YOUTUBE CALLBACK REQUEST ===');
-  console.log(` Timestamp: ${new Date().toISOString()}`);
-  console.log(` Session ID: ${req.sessionID}`);
-  console.log(` Request URL: ${req.originalUrl}`);
-  console.log(` Authorization code: ${req.query.code ? 'present' : 'missing'}`);
+  Logger.requestStart('YouTube Callback Request', {
+    sessionId: req.sessionID,
+    requestUrl: req.originalUrl,
+    authCodePresent: !!req.query.code
+  });
   
   const { code } = req.query;
   
@@ -87,10 +88,10 @@ router.get('/callback', async (req, res) => {
     // Store tokens in session
     req.session.youtubeTokens = tokens;
     
-    // Redirect back to main page instead of popup success page
+    // Redirect back to main page
     res.redirect('/?youtube=connected');
   } catch (error) {
-    console.error('Error getting YouTube tokens:', error);
+    Logger.error('Error getting YouTube tokens', {}, error);
     res.send(`
       <!DOCTYPE html>
       <html>

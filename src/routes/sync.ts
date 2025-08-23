@@ -193,6 +193,10 @@ router.post('/playlist/:playlistId', async (req, res) => {
     const searchResults: Array<{track: string, artist: string, found: boolean, videoId?: string}> = [];
     let searchCount = 0;
     
+    // Calculate total progress phases: search (70%) + playlist operations (30%)
+    const SEARCH_PHASE_WEIGHT = 0.7;
+    const PLAYLIST_PHASE_WEIGHT = 0.3;
+    
     Logger.info('Starting YouTube scraping', { trackCount: tracks.length });
     
     for (const item of tracks) {
@@ -203,6 +207,20 @@ router.post('/playlist/:playlistId', async (req, res) => {
         
         try {
           Logger.debug('Searching for track', { trackNumber: searchCount + 1, totalTracks: tracks.length, artist, songName });
+          
+          // Send progress update with current song info (search phase: 0-70% of total)
+          const searchProgress = (searchCount / tracks.length) * SEARCH_PHASE_WEIGHT;
+          const totalPercentage = Math.round(searchProgress * 100);
+          sendProgressUpdate(playlistId, {
+            type: 'progress',
+            message: `Finding music videos`,
+            details: `Searching for "${songName}" by ${artist}... (${searchCount + 1}/${tracks.length})`,
+            currentTrack: searchCount + 1,
+            totalTracks: tracks.length,
+            currentSong: songName,
+            currentArtist: artist,
+            percentage: totalPercentage
+          });
           
           const videoId = await searchMusicVideo(artist, songName);
           searchCount++;
@@ -224,14 +242,6 @@ router.post('/playlist/:playlistId', async (req, res) => {
             });
             Logger.warn('No video found for track', { songName, artist });
           }
-          
-          sendProgressUpdate(playlistId, {
-            type: 'progress',
-            message: `Processing ${tracks.length} tracks`,
-            details: `Searching for YouTube videos... (${searchCount}/${tracks.length})`,
-            currentTrack: searchCount,
-            totalTracks: tracks.length
-          });
           
           // Rate limiting: add delay between searches to be respectful
           if (searchCount < tracks.length) {
@@ -258,10 +268,12 @@ router.post('/playlist/:playlistId', async (req, res) => {
     
     Logger.info('Scraping completed', { searchesMade: searchCount, videosFound: videoIds.length, quotaSaved: searchCount * 100 });
     
+    // After search phase completes, we're at 70% progress
     sendProgressUpdate(playlistId, {
       type: 'progress',
-      message: `Found ${videoIds.length} YouTube videos`,
-      details: 'Checking for existing YouTube playlist...'
+      message: `Found ${videoIds.length} music videos`,
+      details: 'Checking for existing YouTube playlist...',
+      percentage: Math.round(SEARCH_PHASE_WEIGHT * 100)
     });
     
     // Track API calls and quota usage accurately
@@ -302,15 +314,17 @@ router.post('/playlist/:playlistId', async (req, res) => {
         Logger.external('YouTube', 'Found existing playlist', { title: playlistTitle, id: youtubePlaylistId });
         sendProgressUpdate(playlistId, {
           type: 'progress',
-          message: `Found existing YouTube playlist: "${playlistTitle}"`,
-          details: 'Adding videos to existing playlist...'
+          message: `Found existing playlist: "${playlistTitle}"`,
+          details: 'Adding new videos to existing playlist...',
+          percentage: Math.round(SEARCH_PHASE_WEIGHT * 100)
         });
       } else {
         Logger.info('No existing playlist found, will create new one');
         sendProgressUpdate(playlistId, {
           type: 'progress',
-          message: `No existing YouTube playlist found`,
-          details: 'Creating new playlist...'
+          message: `Creating new YouTube playlist`,
+          details: 'Setting up new playlist...',
+          percentage: Math.round(SEARCH_PHASE_WEIGHT * 100)
         });
       }
     } catch (error) {
@@ -361,8 +375,9 @@ router.post('/playlist/:playlistId', async (req, res) => {
       Logger.external('YouTube', 'Created new playlist', { title: playlistTitle, id: youtubePlaylistId });
       sendProgressUpdate(playlistId, {
         type: 'progress',
-        message: `Created new YouTube playlist: "${playlistTitle}"`,
-        details: 'Adding videos to new playlist...'
+        message: `Created playlist: "${playlistTitle}"`,
+        details: 'Adding videos to new playlist...',
+        percentage: Math.round(SEARCH_PHASE_WEIGHT * 100)
       });
       
       // Add all videos to the new playlist
@@ -382,12 +397,25 @@ router.post('/playlist/:playlistId', async (req, res) => {
           });
           logApiCall('add video to new playlist', 50); // playlistItems.insert costs 50 units
           Logger.external('YouTube', 'Added video to new playlist', { videoId });
+          const currentIndex = videoIds.indexOf(videoId) + 1;
+          // Calculate total progress: 70% (search complete) + 30% * (current/total) for playlist phase
+          const playlistProgress = (currentIndex / videoIds.length) * PLAYLIST_PHASE_WEIGHT;
+          const totalPercentage = Math.round((SEARCH_PHASE_WEIGHT + playlistProgress) * 100);
+          
+          // Find the corresponding song info for this video
+          const videoResult = searchResults.find(result => result.videoId === videoId);
+          const songName = videoResult?.track || 'Unknown Song';
+          const artistName = videoResult?.artist || 'Unknown Artist';
+          
           sendProgressUpdate(playlistId, {
             type: 'progress',
-            message: `Adding videos to playlist...`,
-            details: `Added video: ${videoId}`,
-            currentTrack: videoIds.indexOf(videoId) + 1,
-            totalTracks: videoIds.length
+            message: `Adding videos to playlist`,
+            details: `Adding "${songName}" by ${artistName} (${currentIndex}/${videoIds.length})`,
+            currentTrack: currentIndex,
+            totalTracks: videoIds.length,
+            currentSong: songName,
+            currentArtist: artistName,
+            percentage: totalPercentage
           });
         } catch (error) {
           Logger.error('Error adding video to playlist', { videoId }, error);
@@ -458,12 +486,24 @@ router.post('/playlist/:playlistId', async (req, res) => {
           logApiCall('add new video', 50); // playlistItems.insert costs 50 units
           addedCount++;
           Logger.external('YouTube', 'Added new video to existing playlist', { videoId });
+          // Calculate total progress: 70% (search complete) + 30% * (current/total) for playlist phase
+          const playlistProgress = (addedCount / videosToAdd.length) * PLAYLIST_PHASE_WEIGHT;
+          const totalPercentage = Math.round((SEARCH_PHASE_WEIGHT + playlistProgress) * 100);
+          
+          // Find the corresponding song info for this video
+          const videoResult = searchResults.find(result => result.videoId === videoId);
+          const songName = videoResult?.track || 'Unknown Song';
+          const artistName = videoResult?.artist || 'Unknown Artist';
+          
           sendProgressUpdate(playlistId, {
             type: 'progress',
-            message: `Adding videos to playlist...`,
-            details: `Added video: ${videoId}`,
+            message: `Adding new videos to playlist`,
+            details: `Adding "${songName}" by ${artistName} (${addedCount}/${videosToAdd.length})`,
             currentTrack: addedCount,
-            totalTracks: videosToAdd.length
+            totalTracks: videosToAdd.length,
+            currentSong: songName,
+            currentArtist: artistName,
+            percentage: totalPercentage
           });
         } catch (error) {
           Logger.error('Error adding video to existing playlist', { videoId }, error);
@@ -487,7 +527,8 @@ router.post('/playlist/:playlistId', async (req, res) => {
       message: `Playlist ${existingPlaylist ? 'updated' : 'created'} successfully!`,
       details: `Found ${searchResults.filter(r => r.found).length} out of ${searchResults.length} tracks${tracks.length > trackLimit ? ` (limited from ${tracks.length} total)` : ''}`,
       currentTrack: searchResults.length,
-      totalTracks: searchResults.length
+      totalTracks: searchResults.length,
+      percentage: 100
     });
     
     // Log comprehensive YouTube API quota usage summary
