@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import SpotifyWebApi from 'spotify-web-api-node';
 import { google } from 'googleapis';
+import { Logger } from '../utils/logger';
 
 const router = Router();
 
@@ -28,7 +29,7 @@ const ensureValidSpotifyToken = async (req: any) => {
   } catch (error: any) {
     // If token is expired (401), try to refresh it
     if (error.statusCode === 401 && req.session.spotifyTokens.refreshToken) {
-      console.log('Spotify token expired, refreshing...');
+      Logger.auth('Spotify', 'token expired, refreshing');
       try {
         const data = await spotifyApi.refreshAccessToken();
         const { access_token } = data.body;
@@ -37,10 +38,10 @@ const ensureValidSpotifyToken = async (req: any) => {
         req.session.spotifyTokens.accessToken = access_token;
         spotifyApi.setAccessToken(access_token);
         
-        console.log('Spotify token refreshed successfully');
+        Logger.auth('Spotify', 'token refreshed successfully');
         return spotifyApi;
       } catch (refreshError) {
-        console.error('Failed to refresh Spotify token:', refreshError);
+        Logger.error('Failed to refresh Spotify token', {}, refreshError);
         throw new Error('SPOTIFY_AUTH_REQUIRED');
       }
     } else {
@@ -51,26 +52,26 @@ const ensureValidSpotifyToken = async (req: any) => {
 
 // Spotify login
 router.get('/login', (req, res) => {
-  console.log('\n === SPOTIFY LOGIN REQUEST ===');
-  console.log(` Timestamp: ${new Date().toISOString()}`);
-  console.log(` Session ID: ${req.sessionID}`);
-  console.log(` Request URL: ${req.originalUrl}`);
+  Logger.requestStart('Spotify Login Request', {
+    sessionId: req.sessionID,
+    requestUrl: req.originalUrl
+  });
   
   const spotifyApi = getSpotifyApi();
   const scopes = ['playlist-read-private', 'playlist-read-collaborative'];
   const authorizeURL = spotifyApi.createAuthorizeURL(scopes);
-  console.log(` Redirecting to: ${authorizeURL}`);
+  Logger.auth('Spotify', 'redirecting to authorization', { authorizeURL });
   
   res.redirect(authorizeURL);
 });
 
 // Spotify callback
 router.get('/callback', async (req, res) => {
-  console.log('\n === SPOTIFY CALLBACK REQUEST ===');
-  console.log(` Timestamp: ${new Date().toISOString()}`);
-  console.log(` Session ID: ${req.sessionID}`);
-  console.log(` Request URL: ${req.originalUrl}`);
-  console.log(` Authorization code: ${req.query.code ? 'present' : 'missing'}`);
+  Logger.requestStart('Spotify Callback Request', {
+    sessionId: req.sessionID,
+    requestUrl: req.originalUrl,
+    authCodePresent: !!req.query.code
+  });
   
   const { code } = req.query;
   
@@ -91,7 +92,7 @@ router.get('/callback', async (req, res) => {
     // Redirect back to main page instead of popup success page
     res.redirect('/?spotify=connected');
   } catch (error) {
-    console.error('Error getting Spotify tokens:', error);
+    Logger.error('Error getting Spotify tokens', {}, error);
     res.send(`
       <!DOCTYPE html>
       <html>
@@ -118,11 +119,11 @@ router.get('/callback', async (req, res) => {
 
 // Get user's playlists with improved layout - testing hot reload
 router.get('/playlists', async (req, res) => {
-  console.log('\n === SPOTIFY PLAYLISTS REQUEST ===');
-  console.log(` Timestamp: ${new Date().toISOString()}`);
-  console.log(` Session ID: ${req.sessionID}`);
-  console.log(` Request URL: ${req.originalUrl}`);
-  console.log(` Query parameters: ${JSON.stringify(req.query)}`);
+  Logger.requestStart('Spotify Playlists Request', {
+    sessionId: req.sessionID,
+    requestUrl: req.originalUrl,
+    queryParams: req.query
+  });
   
   if (!req.session.spotifyTokens) {
     return res.status(401).send('<div style="margin: 0; padding: 0;">Please connect to Spotify first</div>');
@@ -175,7 +176,7 @@ router.get('/playlists', async (req, res) => {
           });
         }
       } catch (error) {
-        console.log('Could not fetch YouTube playlists for sorting:', error);
+        Logger.warn('Could not fetch YouTube playlists for sorting', {}, error);
         // Continue without YouTube playlist info
       }
     }
@@ -296,7 +297,7 @@ router.get('/playlists', async (req, res) => {
       </div>
     `);
   } catch (error) {
-    console.error('Error fetching playlists:', error);
+    Logger.error('Error fetching playlists', {}, error);
     
     // Check if it's an authentication error
     if (error instanceof Error && error.message === 'SPOTIFY_AUTH_REQUIRED') {

@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { Logger } from '../utils/logger';
 
 const router = Router();
 
@@ -9,7 +10,7 @@ const progressConnections = new Map<string, Response[]>();
 router.get('/playlist/:playlistId', (req: Request, res: Response) => {
   const playlistId = req.params.playlistId;
   
-  console.log(`🔄 SSE connection established for playlist: ${playlistId}`);
+  Logger.info('SSE connection established', { playlistId });
   
   // Set SSE headers
   res.writeHead(200, {
@@ -35,7 +36,7 @@ router.get('/playlist/:playlistId', (req: Request, res: Response) => {
 
   // Handle client disconnect
   req.on('close', () => {
-    console.log(`🔄 SSE connection closed for playlist: ${playlistId}`);
+    Logger.info('SSE connection closed', { playlistId });
     const connections = progressConnections.get(playlistId);
     if (connections) {
       const index = connections.indexOf(res);
@@ -68,14 +69,14 @@ export function sendProgressUpdate(playlistId: string, update: {
     timestamp: update.timestamp || new Date().toISOString()
   });
 
-  console.log(`📡 Sending progress update to ${connections.length} clients for playlist ${playlistId}:`, update.message);
+  Logger.debug('Sending progress update', { playlistId, clientCount: connections.length, message: update.message });
 
   // Send to all connected clients for this playlist
   connections.forEach((res, index) => {
     try {
       res.write(`data: ${data}\n\n`);
     } catch (error) {
-      console.warn(`⚠️ Failed to send progress update to client ${index}:`, error);
+      Logger.warn('Failed to send progress update to client', { playlistId, clientIndex: index }, error);
       // Remove failed connection
       connections.splice(index, 1);
     }
@@ -91,13 +92,13 @@ export function sendProgressUpdate(playlistId: string, update: {
 export function closeProgressConnections(playlistId: string) {
   const connections = progressConnections.get(playlistId);
   if (connections) {
-    console.log(`🔄 Closing ${connections.length} SSE connections for playlist: ${playlistId}`);
+    Logger.info('Closing SSE connections', { playlistId, connectionCount: connections.length });
     connections.forEach(res => {
       try {
         res.write(`data: ${JSON.stringify({ type: 'close' })}\n\n`);
         res.end();
       } catch (error) {
-        console.warn('⚠️ Error closing SSE connection:', error);
+        Logger.warn('Error closing SSE connection', { playlistId }, error);
       }
     });
     progressConnections.delete(playlistId);

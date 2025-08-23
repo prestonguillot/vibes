@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { google } from 'googleapis';
 import { scrapeYouTubeSearch } from '../utils/youtubeScraper';
+import { Logger } from '../utils/logger';
 const SpotifyWebApi = require('spotify-web-api-node');
 
 const router = Router();
@@ -28,10 +29,10 @@ router.get('/playlist/:playlistId', async (req, res) => {
   const startTime = Date.now();
   const { playlistId } = req.params;
   
-  console.log('\n=== PLAYLIST DETAILS REQUEST ===');
-  console.log(`Timestamp: ${new Date().toISOString()}`);
-  console.log(`Session ID: ${req.sessionID}`);
-  console.log(`Playlist ID: ${playlistId}`);
+  Logger.requestStart('Playlist Details Request', {
+    sessionId: req.sessionID,
+    playlistId
+  });
 
   try {
     // Check authentication
@@ -53,7 +54,7 @@ router.get('/playlist/:playlistId', async (req, res) => {
     const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
 
     // Get Spotify playlist tracks
-    console.log('Fetching Spotify playlist tracks...');
+    Logger.external('Spotify', 'Fetching playlist tracks', { playlistId });
     const spotifyPlaylistData = await spotifyApi.getPlaylist(playlistId);
     const spotifyTracks = spotifyPlaylistData.body.tracks.items.map((item: any) => ({
       id: item.track.id,
@@ -65,11 +66,11 @@ router.get('/playlist/:playlistId', async (req, res) => {
       preview_url: item.track.preview_url
     }));
 
-    console.log(`Found ${spotifyTracks.length} Spotify tracks`);
+    Logger.info('Found Spotify tracks', { count: spotifyTracks.length });
 
     // Find corresponding YouTube playlist
     const youtubePlaylistTitle = `${spotifyPlaylistData.body.name} (from Spotify)`;
-    console.log(`Looking for YouTube playlist: "${youtubePlaylistTitle}"`);
+    Logger.external('YouTube', 'Looking for playlist', { title: youtubePlaylistTitle });
     
     const youtubePlaylistsResponse = await youtube.playlists.list({
       part: ['snippet'],
@@ -84,7 +85,7 @@ router.get('/playlist/:playlistId', async (req, res) => {
     let youtubeVideos: any[] = [];
     
     if (youtubePlaylist) {
-      console.log(`Found YouTube playlist: ${youtubePlaylist.id}`);
+      Logger.external('YouTube', 'Found matching playlist', { playlistId: youtubePlaylist.id });
       
       // Get YouTube playlist videos
       const youtubeVideosResponse = await youtube.playlistItems.list({
@@ -102,9 +103,9 @@ router.get('/playlist/:playlistId', async (req, res) => {
         url: `https://www.youtube.com/watch?v=${item.snippet.resourceId.videoId}`
       })) || [];
 
-      console.log(`Found ${youtubeVideos.length} YouTube videos`);
+      Logger.info('Found YouTube videos', { count: youtubeVideos.length });
     } else {
-      console.log('No corresponding YouTube playlist found');
+      Logger.info('No corresponding YouTube playlist found');
     }
 
     // Create merged view of tracks with their YouTube counterparts using improved matching
@@ -290,9 +291,11 @@ router.get('/playlist/:playlistId', async (req, res) => {
 
     const allTracks = [...mergedTracks, ...orphanedVideos];
 
-    console.log(`Matched tracks: ${mergedTracks.filter(t => t.linked).length}`);
-    console.log(`Spotify-only tracks: ${mergedTracks.filter(t => !t.linked).length}`);
-    console.log(`YouTube-only videos: ${orphanedVideos.length}`);
+    Logger.info('Track matching results', {
+      matchedTracks: mergedTracks.filter(t => t.linked).length,
+      spotifyOnlyTracks: mergedTracks.filter(t => !t.linked).length,
+      youtubeOnlyVideos: orphanedVideos.length
+    });
 
     // Generate HTML response
     const playlistDetailsHtml = `
@@ -378,12 +381,13 @@ router.get('/playlist/:playlistId', async (req, res) => {
       </div>
     `;
 
-    console.log(`Request processing time: ${Date.now() - startTime}ms`);
+    const duration = Date.now() - startTime;
+    Logger.requestEnd('Playlist Details Request', duration, { playlistId });
     res.send(playlistDetailsHtml);
 
   } catch (error) {
-    console.error('Error fetching playlist details:', error);
-    console.log(`Request processing time: ${Date.now() - startTime}ms`);
+    const duration = Date.now() - startTime;
+    Logger.error('Error fetching playlist details', { playlistId, duration }, error);
     
     res.status(500).send(`
       <div class="alert alert-danger">
@@ -400,16 +404,16 @@ router.get('/search/:trackId', async (req, res) => {
   const { trackId } = req.params;
   const { trackName, artistName } = req.query;
   
-  console.log('\n=== TRACK VIDEO SEARCH REQUEST ===');
-  console.log(`Timestamp: ${new Date().toISOString()}`);
-  console.log(`Track ID: ${trackId}`);
-  console.log(`Track Name: ${trackName}`);
-  console.log(`Artist Name: ${artistName}`);
+  Logger.requestStart('Track Video Search Request', {
+    trackId,
+    trackName,
+    artistName
+  });
 
   try {
     // Search for videos using the YouTube scraper
     const searchQuery = `${trackName} ${artistName}`;
-    console.log(`Searching YouTube for: "${searchQuery}"`);
+    Logger.external('YouTube', 'Searching for videos', { query: searchQuery });
     
     const searchResults = await scrapeYouTubeSearch(searchQuery, 10);
 
@@ -423,7 +427,7 @@ router.get('/search/:trackId', async (req, res) => {
       url: `https://www.youtube.com/watch?v=${result.videoId}`
     }));
 
-    console.log(`Found ${videos.length} alternative videos`);
+    Logger.info('Found alternative videos', { count: videos.length });
 
     // Generate HTML response with video selection interface
     const videoSelectionHtml = `
@@ -474,7 +478,7 @@ router.get('/search/:trackId', async (req, res) => {
     res.send(videoSelectionHtml);
 
   } catch (error) {
-    console.error('Error searching for alternative videos:', error);
+    Logger.error('Error searching for alternative videos', { trackId, trackName, artistName }, error);
     
     res.status(500).send(`
       <div class="alert alert-danger">
@@ -491,12 +495,12 @@ router.post('/replace/:trackId', async (req, res) => {
   const { trackId } = req.params;
   const { newVideoId, currentVideoId, playlistId } = req.body;
   
-  console.log('\n=== VIDEO REPLACEMENT REQUEST ===');
-  console.log(`Timestamp: ${new Date().toISOString()}`);
-  console.log(`Track ID: ${trackId}`);
-  console.log(`Current Video ID: ${currentVideoId}`);
-  console.log(`New Video ID: ${newVideoId}`);
-  console.log(`Playlist ID: ${playlistId}`);
+  Logger.requestStart('Video Replacement Request', {
+    trackId,
+    currentVideoId,
+    newVideoId,
+    playlistId
+  });
 
   try {
     // Check authentication
@@ -521,7 +525,7 @@ router.post('/replace/:trackId', async (req, res) => {
     const spotifyPlaylistData = await spotifyApi.getPlaylist(playlistId);
     const expectedYouTubePlaylistName = `${spotifyPlaylistData.body.name} (from Spotify)`;
     
-    console.log(`Looking for YouTube playlist: "${expectedYouTubePlaylistName}"`);
+    Logger.external('YouTube', 'Looking for playlist', { name: expectedYouTubePlaylistName });
 
     // Get all user's YouTube playlists to find the matching one
     const playlistsResponse = await youtube.playlists.list({
@@ -535,14 +539,14 @@ router.post('/replace/:trackId', async (req, res) => {
     );
 
     if (!targetPlaylist) {
-      console.log(`Could not find YouTube playlist: "${expectedYouTubePlaylistName}"`);
+      Logger.error('YouTube playlist not found', { name: expectedYouTubePlaylistName });
       return res.status(404).json({
         error: 'Playlist not found',
         message: `Could not find YouTube playlist: "${expectedYouTubePlaylistName}"`
       });
     }
 
-    console.log(`Found YouTube playlist: ${targetPlaylist.snippet?.title} (${targetPlaylist.id})`);
+    Logger.external('YouTube', 'Found target playlist', { title: targetPlaylist.snippet?.title, id: targetPlaylist.id });
 
     // Get playlist items to find the current video
     const playlistItemsResponse = await youtube.playlistItems.list({
@@ -557,14 +561,14 @@ router.post('/replace/:trackId', async (req, res) => {
     );
 
     if (!playlistItemToReplace) {
-      console.log(`Could not find video ${currentVideoId} in playlist ${targetPlaylist.snippet?.title}`);
+      Logger.error('Video not found in playlist', { currentVideoId, playlistTitle: targetPlaylist.snippet?.title });
       return res.status(404).json({
         error: 'Video not found',
         message: `Could not find video ${currentVideoId} in the YouTube playlist`
       });
     }
 
-    console.log(`Replacing video ${currentVideoId} with ${newVideoId} in playlist ${targetPlaylist.snippet?.title}`);
+    Logger.info('Starting video replacement', { currentVideoId, newVideoId, playlistTitle: targetPlaylist.snippet?.title });
 
     // Get the position of the current video so we can maintain order
     const currentPosition = playlistItemToReplace.snippet?.position || 0;
@@ -584,15 +588,15 @@ router.post('/replace/:trackId', async (req, res) => {
       }
     });
 
-    console.log(`Added new video ${newVideoId} at position ${currentPosition}`);
+    Logger.info('Added new video', { newVideoId, position: currentPosition });
 
     // Remove the old video (it will now be at position + 1 due to the insert)
     await youtube.playlistItems.delete({
       id: playlistItemToReplace.id!
     });
 
-    console.log(`Removed old video ${currentVideoId}`);
-    console.log('Video replacement completed successfully');
+    Logger.info('Removed old video', { currentVideoId });
+    Logger.info('Video replacement completed successfully');
 
     res.json({
       success: true,
@@ -603,7 +607,7 @@ router.post('/replace/:trackId', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error replacing video:', error);
+    Logger.error('Error replacing video', { trackId, currentVideoId, newVideoId }, error);
     
     res.status(500).json({
       error: 'Video replacement failed',

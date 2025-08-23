@@ -10,6 +10,7 @@ import { youtubeRouter } from './routes/youtube';
 import { syncRouter } from './routes/sync';
 import { playlistDetailsRouter } from './routes/playlistDetails';
 import { progressRouter } from './routes/progress';
+import { Logger } from './utils/logger';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -31,22 +32,23 @@ app.use((req, res, next) => {
     return next();
   }
   
-  console.log(`\n [${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
-  console.log(` Full URL: ${req.protocol}://${req.get('host')}${req.originalUrl}`);
-  console.log(` User-Agent: ${req.get('User-Agent')?.slice(0, 100) || 'none'}...`);
-  console.log(` Session ID: ${req.sessionID || 'none'}`);
+  Logger.requestStart(`${req.method} ${req.originalUrl}`, {
+    fullUrl: `${req.protocol}://${req.get('host')}${req.originalUrl}`,
+    userAgent: req.get('User-Agent')?.slice(0, 100) || 'none',
+    sessionId: req.sessionID || 'none'
+  });
   
   if (Object.keys(req.query).length > 0) {
-    console.log(` Query: ${JSON.stringify(req.query)}`);
+    Logger.debug('Request query parameters', { query: req.query });
   }
   if (Object.keys(req.body).length > 0) {
-    console.log(` Body: ${JSON.stringify(req.body)}`);
+    Logger.debug('Request body', { body: req.body });
   }
   
   // Log response when it finishes
   const originalSend = res.send;
   res.send = function(data) {
-    console.log(` Response: ${res.statusCode} ${res.statusMessage} (${data?.length || 0} bytes)`);
+    Logger.debug('Response sent', { statusCode: res.statusCode, statusMessage: res.statusMessage, bytes: data?.length || 0 });
     return originalSend.call(this, data);
   };
   
@@ -119,9 +121,9 @@ app.get('/api/status', async (req, res) => {
       // Test with a lightweight API call
       await spotifyApi.getMe();
       spotifyConnected = true;
-      console.log(`✅ Spotify connection validated for session ${req.sessionID}`);
+      Logger.auth('Spotify', 'connection validated', { sessionId: req.sessionID });
     } catch (error: any) {
-      console.log(`❌ Spotify connection invalid for session ${req.sessionID}:`, error.message);
+      Logger.auth('Spotify', 'connection invalid', { sessionId: req.sessionID, error: error.message });
       // Try to refresh the token
       if (error.statusCode === 401 && req.session.spotifyTokens.refreshToken) {
         try {
@@ -140,9 +142,9 @@ app.get('/api/status', async (req, res) => {
           // Update session with new token
           req.session.spotifyTokens.accessToken = access_token;
           spotifyConnected = true;
-          console.log(`🔄 Spotify token refreshed for session ${req.sessionID}`);
+          Logger.auth('Spotify', 'token refreshed', { sessionId: req.sessionID });
         } catch (refreshError) {
-          console.log(`❌ Failed to refresh Spotify token for session ${req.sessionID}`);
+          Logger.auth('Spotify', 'failed to refresh token', { sessionId: req.sessionID });
           // Clear invalid tokens
           delete req.session.spotifyTokens;
         }
@@ -169,9 +171,9 @@ app.get('/api/status', async (req, res) => {
       // Test with a lightweight API call
       await youtube.channels.list({ part: ['id'], mine: true, maxResults: 1 });
       youtubeConnected = true;
-      console.log(`✅ YouTube connection validated for session ${req.sessionID}`);
+      Logger.auth('YouTube', 'connection validated', { sessionId: req.sessionID });
     } catch (error: any) {
-      console.log(`❌ YouTube connection invalid for session ${req.sessionID}:`, error.message);
+      Logger.auth('YouTube', 'connection invalid', { sessionId: req.sessionID, error: error.message });
       // Try to refresh the token
       if (error.code === 401 && req.session.youtubeTokens.refresh_token) {
         try {
@@ -191,9 +193,9 @@ app.get('/api/status', async (req, res) => {
             ...credentials
           };
           youtubeConnected = true;
-          console.log(`🔄 YouTube token refreshed for session ${req.sessionID}`);
+          Logger.auth('YouTube', 'token refreshed', { sessionId: req.sessionID });
         } catch (refreshError) {
-          console.log(`❌ Failed to refresh YouTube token for session ${req.sessionID}`);
+          Logger.auth('YouTube', 'failed to refresh token', { sessionId: req.sessionID });
           // Clear invalid tokens
           delete req.session.youtubeTokens;
         }
@@ -211,5 +213,5 @@ app.get('/api/status', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(` Spotify-YouTube Sync server running on http://localhost:${PORT}`);
+  Logger.info('Server started', { port: PORT, url: `http://localhost:${PORT}` });
 });

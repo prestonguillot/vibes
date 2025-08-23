@@ -9,9 +9,9 @@ function savePlaylistDetailsToStorage(playlistId, detailsHtml) {
         const storageKey = `playlist_details_${playlistId}`;
         localStorage.setItem(storageKey, detailsHtml);
         localStorage.setItem(`${storageKey}_timestamp`, Date.now().toString());
-        console.log(`Playlist details saved for: ${playlistId}`);
+        Logger.cache('save', `playlist_details_${playlistId}`);
     } catch (error) {
-        console.warn('Failed to save playlist details to localStorage:', error);
+        Logger.warn('Failed to save playlist details to localStorage', { playlistId }, error);
     }
 }
 
@@ -27,15 +27,15 @@ function loadPlaylistDetailsFromStorage(playlistId) {
 
             // Cache expires after 10 minutes (shorter than main playlist cache)
             if (ageMinutes < 10) {
-                console.log(`Loading cached playlist details for ${playlistId} (${Math.round(ageMinutes)} minutes old)`);
+                Logger.cache('load', `playlist_details_${playlistId}`, { ageMinutes: Math.round(ageMinutes) });
                 return detailsHtml;
             } else {
-                console.log(`Cached playlist details expired for ${playlistId}`);
+                Logger.cache('expired', `playlist_details_${playlistId}`, { ageMinutes: Math.round(ageMinutes) });
                 clearPlaylistDetailsStorage(playlistId);
             }
         }
     } catch (error) {
-        console.warn('Failed to load playlist details from localStorage:', error);
+        Logger.warn('Failed to load playlist details from localStorage', { playlistId }, error);
     }
     return null;
 }
@@ -45,29 +45,29 @@ function clearPlaylistDetailsStorage(playlistId) {
         const storageKey = `playlist_details_${playlistId}`;
         localStorage.removeItem(storageKey);
         localStorage.removeItem(`${storageKey}_timestamp`);
-        console.log(`Cleared playlist details cache for: ${playlistId}`);
+        Logger.cache('clear', `playlist_details_${playlistId}`);
     } catch (error) {
-        console.warn('Failed to clear playlist details cache:', error);
+        Logger.warn('Failed to clear playlist details cache', { playlistId }, error);
     }
 }
 
 // Global function for toggling playlist details
 function togglePlaylistDetails(playlistId, expandArea) {
-    console.log(`Toggle clicked for playlist: ${playlistId}, current expanded: ${expandArea.dataset.expanded}`);
+    Logger.userAction('Toggle playlist details', { playlistId, expanded: expandArea.dataset.expanded });
     const detailsContainer = document.getElementById(`details-${playlistId}`);
     const isExpanded = expandArea.dataset.expanded === 'true';
     const indicator = expandArea.querySelector('.expand-indicator');
 
     if (isExpanded) {
-        console.log(`Collapsing playlist details: ${playlistId}`);
+        Logger.debug('Collapsing playlist details', { playlistId });
         detailsContainer.style.display = 'none';
         indicator.textContent = '▼';
         indicator.style.color = '#666';
         expandArea.dataset.expanded = 'false';
         expandArea.title = 'Show track details';
-        console.log(`Collapsed playlist details: ${playlistId}`);
+        Logger.debug('Collapsed playlist details', { playlistId });
     } else {
-        console.log(`Expanding playlist details: ${playlistId}`);
+        Logger.debug('Expanding playlist details', { playlistId });
         const cachedDetails = loadPlaylistDetailsFromStorage(playlistId);
 
         if (cachedDetails) {
@@ -78,10 +78,10 @@ function togglePlaylistDetails(playlistId, expandArea) {
             indicator.style.color = '#ff0040';
             expandArea.dataset.expanded = 'true';
             expandArea.title = 'Hide track details';
-            console.log(`Expanded with cached data: ${playlistId}`);
+            Logger.debug('Expanded with cached data', { playlistId });
         } else {
             // Load from API
-            console.log(`Loading playlist details from API: ${playlistId}`);
+            Logger.info('Loading playlist details from API', { playlistId });
             detailsContainer.style.display = 'block';
             indicator.textContent = '...';
             indicator.style.color = '#999';
@@ -105,10 +105,10 @@ function togglePlaylistDetails(playlistId, expandArea) {
                 const detailsHtml = detailsContainer.innerHTML;
                 savePlaylistDetailsToStorage(playlistId, detailsHtml);
 
-                console.log(`Loaded and cached playlist details: ${playlistId}`);
+                Logger.info('Loaded and cached playlist details', { playlistId });
             }).catch((error) => {
                 // Error - reset indicator
-                console.error('Error loading playlist details:', error);
+                Logger.error('Error loading playlist details', { playlistId }, error);
                 indicator.textContent = '▼';
                 indicator.style.color = '#666';
                 expandArea.dataset.expanded = 'false';
@@ -123,7 +123,7 @@ function togglePlaylistDetails(playlistId, expandArea) {
 
 // Function to refresh playlist details
 function refreshPlaylistDetails(playlistId) {
-    console.log(`Refreshing playlist details for: ${playlistId}`);
+    Logger.userAction('Refresh playlist details', { playlistId });
     
     // Clear cached details first
     clearPlaylistDetailsStorage(playlistId);
@@ -133,7 +133,7 @@ function refreshPlaylistDetails(playlistId) {
         target: `#details-${playlistId}`,
         swap: 'innerHTML'
     }).then(() => {
-        console.log(`Refreshed playlist details for: ${playlistId}`);
+        Logger.info('Refreshed playlist details', { playlistId });
         
         // Save fresh details to cache
         const detailsContainer = document.getElementById(`details-${playlistId}`);
@@ -141,7 +141,7 @@ function refreshPlaylistDetails(playlistId) {
             savePlaylistDetailsToStorage(playlistId, detailsContainer.innerHTML);
         }
     }).catch((error) => {
-        console.error('Error refreshing playlist details:', error);
+        Logger.error('Error refreshing playlist details', { playlistId }, error);
     });
 }
 
@@ -149,7 +149,7 @@ function refreshPlaylistDetails(playlistId) {
 let selectedVideoId = null;
 
 function editTrackVideo(playlistId, trackId, trackName, artistName, currentVideoId) {
-    console.log(`Opening video selection for track: ${trackName} by ${artistName}, current video: ${currentVideoId}`);
+    Logger.userAction('Open video selection', { trackName, artistName, currentVideoId });
     
     // Store current video ID globally for later use
     window.currentVideoId = currentVideoId;
@@ -206,12 +206,12 @@ function editTrackVideo(playlistId, trackId, trackName, artistName, currentVideo
         const modal = document.querySelector('.video-selection-modal');
         if (modal) {
             modal.dataset.currentVideoId = currentVideoId;
-            console.log(`Set modal currentVideoId to: ${currentVideoId}`);
+            Logger.debug('Set modal currentVideoId', { currentVideoId });
         } else {
-            console.error('Could not find .video-selection-modal element to set currentVideoId');
+            Logger.error('Could not find .video-selection-modal element to set currentVideoId');
         }
     }).catch((error) => {
-        console.error('Error loading video options:', error);
+        Logger.error('Error loading video options', { trackId, trackName, artistName }, error);
         modalContent.innerHTML = `
             <div class="alert alert-danger">
                 <h6>Error loading video options</h6>
@@ -223,7 +223,7 @@ function editTrackVideo(playlistId, trackId, trackName, artistName, currentVideo
 }
 
 function selectVideo(videoId, element) {
-    console.log(`Selected video: ${videoId}`);
+    Logger.userAction('Select video', { videoId });
     
     // Remove selection from all other options
     document.querySelectorAll('.video-option').forEach(option => {
@@ -246,7 +246,7 @@ function selectVideo(videoId, element) {
 }
 
 function cancelVideoSelection() {
-    console.log('Cancelling video selection');
+    Logger.userAction('Cancel video selection');
     selectedVideoId = null;
     
     const overlay = document.getElementById('video-selection-overlay');
@@ -257,7 +257,7 @@ function cancelVideoSelection() {
 
 function confirmVideoSelection(trackId) {
     if (!selectedVideoId) {
-        console.error('No video selected');
+        Logger.error('No video selected for confirmation');
         return;
     }
     
@@ -265,7 +265,7 @@ function confirmVideoSelection(trackId) {
     const modal = document.querySelector('.video-selection-modal');
     const currentVideoId = modal?.dataset.currentVideoId || window.currentVideoId;
     
-    console.log(`Confirming video selection: ${selectedVideoId} for track: ${trackId}, replacing: ${currentVideoId}`);
+    Logger.userAction('Confirm video selection', { selectedVideoId, trackId, currentVideoId });
     
     // Show loading state
     const confirmBtn = document.getElementById('confirm-selection-btn');
@@ -292,7 +292,7 @@ function confirmVideoSelection(trackId) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            console.log('Video replacement successful:', data);
+            Logger.info('Video replacement successful', data);
             cancelVideoSelection();
             
             // Refresh the playlist details to show the updated video
@@ -305,7 +305,7 @@ function confirmVideoSelection(trackId) {
         }
     })
     .catch((error) => {
-        console.error('Error replacing video:', error);
+        Logger.error('Error replacing video', { trackId, selectedVideoId, currentVideoId }, error);
         
         // Show error and restore button
         if (confirmBtn) {
