@@ -355,7 +355,14 @@ router.get('/playlist/:playlistId', async (req, res) => {
                      </svg>
                    </button>` : 
                   track.spotify ? 
-                    '<span class="badge bg-warning">Spotify Only</span>' : 
+                    `<span class="badge bg-warning">Unlinked</span>
+                     <button type="button" class="btn btn-outline-secondary btn-sm" 
+                             onclick="editTrackVideo('${playlistId}', '${track.spotify.id}', '${track.spotify.name.replace(/'/g, "\\'")}', '${track.spotify.artist.replace(/'/g, "\\'")}', '')"
+                             title="Link video to this track">
+                       <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                         <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                       </svg>
+                     </button>` : 
                     '<span class="badge bg-info">YouTube Only</span>'
                 }
               </div>

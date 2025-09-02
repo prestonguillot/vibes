@@ -312,8 +312,11 @@ router.post('/playlist/:playlistId', async (req, res) => {
       details: `Fetching tracks (limit: 10)...`
     });
 
-    // Get ALL tracks first (we'll apply limit after matching in UPDATE mode)
-    const trackLimit = 10; // Conservative limit for testing - now 10 tracks per operation
+    // Get batch size from request, default to 1 if not provided
+    const batchSize = req.body.batchSize ? parseInt(req.body.batchSize) : 1;
+    const trackLimit = batchSize; // Use user-selected batch size
+    
+    Logger.info('Using user-selected batch size', { batchSize, trackLimit });
     Logger.external('Spotify', 'Fetching all tracks for analysis');
     
     // Fetch all tracks (handle pagination if needed)
@@ -355,6 +358,205 @@ router.post('/playlist/:playlistId', async (req, res) => {
     // Calculate total progress phases: search (70%) + playlist operations (30%)
     const SEARCH_PHASE_WEIGHT = 0.7;
     const PLAYLIST_PHASE_WEIGHT = 0.3;
+    
+    // Reorder existing YouTube playlist tracks to match current Spotify playlist order
+    const reorderExistingTracks = async (
+      youtube: any, 
+      youtubePlaylistId: string, 
+      spotifyTracks: any[], 
+      syncedTracks: any[], 
+      existingItemsMap: Map<string, any>,
+      playlistId: string
+    ) => {
+      if (syncedTracks.length === 0) {
+        Logger.info('No existing synced tracks to reorder');
+        return;
+      }
+
+      Logger.info('Starting playlist reordering', { 
+        syncedTracksCount: syncedTracks.length,
+        totalSpotifyTracks: spotifyTracks.length 
+      });
+
+      sendProgressUpdate(playlistId, {
+        type: 'progress',
+        message: 'Reordering existing tracks',
+        details: `Organizing ${syncedTracks.length} existing tracks to match Spotify order...`,
+        percentage: 15
+      });
+
+      // Create a map of Spotify tracks to their current positions
+      const spotifyTrackPositions = new Map();
+      for (let i = 0; i < spotifyTracks.length; i++) {
+        const item = spotifyTracks[i];
+        if (item.track && item.track.type === 'track') {
+          const track = item.track;
+          const trackKey = `${track.name.toLowerCase()}-${track.artists[0]?.name?.toLowerCase() || ''}`;
+          spotifyTrackPositions.set(trackKey, i);
+        }
+      }
+
+      // Get current YouTube playlist order to compare with target order
+      const currentPlaylistItems = await youtube.playlistItems.list({
+        part: ['id', 'snippet'],
+        playlistId: youtubePlaylistId,
+        maxResults: 50
+      });
+      logApiCall('get current playlist order', 1);
+      
+      const currentYouTubeOrder = currentPlaylistItems.data.items || [];
+      
+      // Create a map of current YouTube positions
+      const currentPositions = new Map();
+      for (let i = 0; i < currentYouTubeOrder.length; i++) {
+        const item = currentYouTubeOrder[i];
+        if (item.snippet?.resourceId?.videoId) {
+          currentPositions.set(item.snippet.resourceId.videoId, {
+            currentPosition: i,
+            playlistItemId: item.id
+          });
+        }
+      }
+
+      // Find existing YouTube videos that need reordering (only those in wrong positions)
+      const reorderOperations = [];
+      
+      for (const syncedTrack of syncedTracks) {
+        if (syncedTrack.track && syncedTrack.track.type === 'track') {
+          const track = syncedTrack.track;
+          const trackKey = `${track.name.toLowerCase()}-${track.artists[0]?.name?.toLowerCase() || ''}`;
+          const targetPosition = spotifyTrackPositions.get(trackKey);
+          
+          if (targetPosition !== undefined) {
+            // Find the corresponding YouTube video
+            const spotifyTrackInfo = {
+              id: track.id,
+              name: track.name,
+              artist: track.artists[0]?.name || 'Unknown Artist'
+            };
+            
+            // Get existing videos for matching
+            const existingVideos = [];
+            for (const item of existingItemsMap.values()) {
+              if (item.snippet?.resourceId?.videoId) {
+                existingVideos.push({
+                  id: item.snippet.resourceId.videoId,
+                  title: item.snippet.title || 'Unknown',
+                  description: item.snippet.description || '',
+                  playlistItemId: item.id
+                });
+              }
+            }
+            
+            const matchingVideo = findBestMatch(spotifyTrackInfo, existingVideos);
+            if (matchingVideo && matchingVideo.playlistItemId) {
+              const currentPosInfo = currentPositions.get(matchingVideo.id);
+              
+              // CRITICAL FIX: Only add to reorder operations if position is actually wrong
+              if (currentPosInfo && currentPosInfo.currentPosition !== targetPosition) {
+                reorderOperations.push({
+                  playlistItemId: matchingVideo.playlistItemId,
+                  videoId: matchingVideo.id,
+                  currentPosition: currentPosInfo.currentPosition,
+                  targetPosition: targetPosition,
+                  trackName: track.name,
+                  artist: track.artists[0]?.name || 'Unknown Artist'
+                });
+                
+                Logger.debug('Track needs repositioning', {
+                  trackName: track.name,
+                  artist: track.artists[0]?.name || 'Unknown Artist',
+                  currentPosition: currentPosInfo.currentPosition,
+                  targetPosition: targetPosition
+                });
+              } else {
+                Logger.debug('Track already in correct position, skipping', {
+                  trackName: track.name,
+                  artist: track.artists[0]?.name || 'Unknown Artist',
+                  position: targetPosition
+                });
+              }
+            }
+          }
+        }
+      }
+
+      Logger.info('Identified tracks for reordering', { 
+        reorderOperationsCount: reorderOperations.length,
+        totalSyncedTracks: syncedTracks.length,
+        tracksAlreadyInCorrectPosition: syncedTracks.length - reorderOperations.length
+      });
+
+      // If no tracks need reordering, skip the entire reordering phase
+      if (reorderOperations.length === 0) {
+        Logger.info('All tracks already in correct positions - skipping reordering phase');
+        sendProgressUpdate(playlistId, {
+          type: 'progress',
+          message: 'Playlist order verified',
+          details: `All ${syncedTracks.length} existing tracks are already in correct positions`,
+          percentage: 25
+        });
+        return;
+      }
+
+      // Sort reorder operations by target position to maintain order
+      reorderOperations.sort((a, b) => a.targetPosition - b.targetPosition);
+
+      // Execute reorder operations
+      let reorderedCount = 0;
+      for (const operation of reorderOperations) {
+        try {
+          await youtube.playlistItems.update({
+            part: ['snippet'],
+            requestBody: {
+              id: operation.playlistItemId,
+              snippet: {
+                playlistId: youtubePlaylistId,
+                position: operation.targetPosition,
+                resourceId: {
+                  kind: 'youtube#video',
+                  videoId: operation.videoId,
+                }
+              }
+            }
+          });
+
+          reorderedCount++;
+          logApiCall('reorder track', 50); // playlistItems.update costs 50 units
+          Logger.external('YouTube', 'Reordered track position', { 
+            trackName: operation.trackName,
+            artist: operation.artist,
+            newPosition: operation.targetPosition,
+            videoId: operation.videoId
+          });
+
+          // Update progress
+          const reorderProgress = (reorderedCount / reorderOperations.length) * 0.1; // 10% of total progress for reordering
+          const totalPercentage = Math.round((0.15 + reorderProgress) * 100);
+          
+          sendProgressUpdate(playlistId, {
+            type: 'progress',
+            message: 'Reordering existing tracks',
+            details: `Moved "${operation.trackName}" from position ${operation.currentPosition + 1} to ${operation.targetPosition + 1} (${reorderedCount}/${reorderOperations.length})`,
+            percentage: totalPercentage
+          });
+
+          // Rate limiting
+          await new Promise(resolve => setTimeout(resolve, 100));
+
+        } catch (error) {
+          Logger.error('Error reordering track', { 
+            trackName: operation.trackName,
+            targetPosition: operation.targetPosition 
+          }, error);
+        }
+      }
+
+      Logger.info('Playlist reordering complete', { 
+        reorderedCount,
+        totalOperations: reorderOperations.length 
+      });
+    };
     
     // Track API calls and quota usage accurately
     let apiCallCount = 0;
@@ -492,14 +694,17 @@ router.post('/playlist/:playlistId', async (req, res) => {
             unsyncedTracks.push(item);
             Logger.debug('Track identified as UNSYNCED', {
               trackName: spotifyTrack.name,
-              artist: spotifyTrack.artist
+              artist: spotifyTrack.artist,
+              existingVideoCount: existingVideos.length,
+              firstFewExistingTitles: existingVideos.slice(0, 3).map(v => v.title)
             });
           } else {
             syncedTracks.push(item);
             Logger.debug('Track identified as SYNCED', {
               trackName: spotifyTrack.name,
               artist: spotifyTrack.artist,
-              matchedVideoTitle: matchingVideo.title
+              matchedVideoTitle: matchingVideo.title,
+              matchedVideoId: matchingVideo.id
             });
           }
         }
@@ -511,6 +716,9 @@ router.post('/playlist/:playlistId', async (req, res) => {
         unsyncedTracks: unsyncedTracks.length,
         existingVideos: existingVideos.length
       });
+      
+      // STEP 2.5: Reorder existing tracks to match current Spotify playlist order
+      await reorderExistingTracks(youtube, youtubePlaylistId, tracks, syncedTracks, existingItemsMap, playlistId);
       
       // Limit to trackLimit unsynced tracks per operation
       tracksToSearch = unsyncedTracks.slice(0, trackLimit);
@@ -531,17 +739,23 @@ router.post('/playlist/:playlistId', async (req, res) => {
     
     // STEP 3: Search for YouTube videos
     const videoIds: string[] = [];
-    const searchResults: Array<{track: string, artist: string, found: boolean, videoId?: string}> = [];
+    const searchResults: Array<{track: string, artist: string, found: boolean, videoId?: string, spotifyPosition: number}> = [];
     let searchCount = 0;
     
     const searchMessage = isUpdateMode ? 'Checking for playlist updates' : 'Finding music videos';
     Logger.info(`Starting video search: ${searchMessage}`, { tracksToSearch: tracksToSearch.length });
     
-    for (const item of tracksToSearch) {
+    for (let i = 0; i < tracksToSearch.length; i++) {
+      const item = tracksToSearch[i];
       if (item.track && item.track.type === 'track') {
         const track = item.track;
         const artist = track.artists[0]?.name || 'Unknown Artist';
         const songName = track.name;
+        
+        // Calculate the original Spotify position
+        const spotifyPosition = isUpdateMode ? 
+          (existingYouTubeItems?.length || 0) + i : // Update mode: position after existing items
+          i; // Create mode: position from beginning
         
         try {
           Logger.debug('Searching for track', { trackNumber: searchCount + 1, totalTracks: tracksToSearch.length, artist, songName });
@@ -575,16 +789,18 @@ router.post('/playlist/:playlistId', async (req, res) => {
               track: songName,
               artist: artist,
               found: true,
-              videoId: videoId
+              videoId: videoId,
+              spotifyPosition: spotifyPosition
             });
-            Logger.info('Found video for track', { songName, artist, videoId });
+            Logger.info('Found video for track', { songName, artist, videoId, spotifyPosition });
           } else {
             searchResults.push({
               track: songName,
               artist: artist,
-              found: false
+              found: false,
+              spotifyPosition: spotifyPosition
             });
-            Logger.warn('No video found for track', { songName, artist });
+            Logger.warn('No video found for track', { songName, artist, spotifyPosition });
           }
           
           // Rate limiting: add delay between searches to be respectful
@@ -684,14 +900,22 @@ router.post('/playlist/:playlistId', async (req, res) => {
         percentage: Math.round(SEARCH_PHASE_WEIGHT * 100)
       });
       
-      // Add all videos to the new playlist
-      for (const videoId of videoIds) {
+      // Add all videos to the new playlist in correct order
+      // Sort search results by Spotify position to maintain order
+      const foundResults = searchResults.filter(result => result.found && result.videoId);
+      foundResults.sort((a, b) => a.spotifyPosition - b.spotifyPosition);
+      
+      for (let i = 0; i < foundResults.length; i++) {
+        const result = foundResults[i];
+        const videoId = result.videoId!;
+        
         try {
           await youtube.playlistItems.insert({
             part: ['snippet'],
             requestBody: {
               snippet: {
                 playlistId: youtubePlaylistId,
+                position: result.spotifyPosition, // Insert at correct position
                 resourceId: {
                   kind: 'youtube#video',
                   videoId: videoId,
@@ -700,23 +924,22 @@ router.post('/playlist/:playlistId', async (req, res) => {
             }
           });
           logApiCall('add video to new playlist', 50); // playlistItems.insert costs 50 units
-          Logger.external('YouTube', 'Added video to new playlist', { videoId });
-          const currentIndex = videoIds.indexOf(videoId) + 1;
+          Logger.external('YouTube', 'Added video to new playlist', { videoId, position: result.spotifyPosition });
+          const currentIndex = i + 1;
           // Calculate total progress: 70% (search complete) + 30% * (current/total) for playlist phase
-          const playlistProgress = (currentIndex / videoIds.length) * PLAYLIST_PHASE_WEIGHT;
+          const playlistProgress = (currentIndex / foundResults.length) * PLAYLIST_PHASE_WEIGHT;
           const totalPercentage = Math.round((SEARCH_PHASE_WEIGHT + playlistProgress) * 100);
           
-          // Find the corresponding song info for this video
-          const videoResult = searchResults.find(result => result.videoId === videoId);
-          const songName = videoResult?.track || 'Unknown Song';
-          const artistName = videoResult?.artist || 'Unknown Artist';
+          // Use the result we already have
+          const songName = result.track;
+          const artistName = result.artist;
           
           sendProgressUpdate(playlistId, {
             type: 'progress',
             message: `Adding videos to playlist`,
-            details: `Adding "${songName}" by ${artistName} (${currentIndex}/${videoIds.length})`,
+            details: `Adding "${songName}" by ${artistName} (${currentIndex}/${foundResults.length})`,
             currentTrack: currentIndex,
-            totalTracks: videoIds.length,
+            totalTracks: foundResults.length,
             currentSong: songName,
             currentArtist: artistName,
             percentage: totalPercentage
@@ -746,20 +969,26 @@ router.post('/playlist/:playlistId', async (req, res) => {
         percentage: Math.round(SEARCH_PHASE_WEIGHT * 100)
       });
       
-      // Add all videos found (these are only for the next unsynced tracks)
+      // Add all videos found (these are only for the next unsynced tracks) in correct order
+      const foundResults = searchResults.filter(result => result.found && result.videoId);
+      foundResults.sort((a, b) => a.spotifyPosition - b.spotifyPosition);
+      
       let addedCount = 0;
-      const totalToAdd = videoIds.length;
+      const totalToAdd = foundResults.length;
       
       if (totalToAdd > 0) {
         Logger.info('Adding new videos from next unsynced tracks', { count: totalToAdd });
         
-        for (const videoId of videoIds) {
+        for (const result of foundResults) {
+          const videoId = result.videoId!;
+          
           try {
             await youtube.playlistItems.insert({
               part: ['snippet'],
               requestBody: {
                 snippet: {
                   playlistId: youtubePlaylistId,
+                  position: result.spotifyPosition, // Insert at correct position
                   resourceId: {
                     kind: 'youtube#video',
                     videoId: videoId,
@@ -769,12 +998,11 @@ router.post('/playlist/:playlistId', async (req, res) => {
             });
             logApiCall('add new video', 50); // playlistItems.insert costs 50 units
             addedCount++;
-            Logger.external('YouTube', 'Added new video to playlist', { videoId });
+            Logger.external('YouTube', 'Added new video to playlist', { videoId, position: result.spotifyPosition });
             
-            // Find the corresponding song info for this video
-            const videoResult = searchResults.find(result => result.videoId === videoId);
-            const songName = videoResult?.track || 'Unknown Song';
-            const artistName = videoResult?.artist || 'Unknown Artist';
+            // Use the result we already have
+            const songName = result.track;
+            const artistName = result.artist;
             
             // Update progress
             const playlistProgress = (addedCount / Math.max(totalToAdd, 1)) * PLAYLIST_PHASE_WEIGHT;
@@ -865,12 +1093,42 @@ router.post('/playlist/:playlistId', async (req, res) => {
       quotaSaved: searchResults.length * 100
     });
     
-    // Generate user-friendly sync feedback
-    const syncFeedbackHtml = `
+    // Generate user-friendly sync feedback with unlinked track details
+    const videosFound = searchResults.filter(r => r.found).length;
+    const videosNotFound = searchResults.filter(r => !r.found).length;
+    const unlinkedTracks = searchResults.filter(r => !r.found);
+    
+    let syncFeedbackHtml = `
       <div class="sync-feedback alert alert-success alert-dismissible fade show" data-playlist-id="${playlistId}">
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         <div><strong>Playlist ${existingPlaylist ? 'updated' : 'created'} successfully!</strong></div>
-        <div class="small">Found ${searchResults.filter(r => r.found).length} out of ${searchResults.length} tracks${tracks.length > trackLimit ? ` (limited from ${tracks.length} total)` : ''}</div>
+        <div class="small">Found ${videosFound} out of ${searchResults.length} tracks${tracks.length > trackLimit ? ` (limited from ${tracks.length} total)` : ''}</div>`;
+    
+    // Add unlinked tracks information if any
+    if (videosNotFound > 0) {
+      syncFeedbackHtml += `
+        <div class="mt-2">
+          <div class="small text-warning">
+            <strong>${videosNotFound} track${videosNotFound > 1 ? 's' : ''} could not be linked:</strong>
+          </div>
+          <div class="small text-muted mt-1">`;
+      
+      unlinkedTracks.forEach((track, index) => {
+        syncFeedbackHtml += `${track.track} by ${track.artist}`;
+        if (index < unlinkedTracks.length - 1) {
+          syncFeedbackHtml += ', ';
+        }
+      });
+      
+      syncFeedbackHtml += `
+          </div>
+          <div class="small text-muted mt-1">
+            <em>These tracks will appear as unlinked in the playlist details view.</em>
+          </div>
+        </div>`;
+    }
+    
+    syncFeedbackHtml += `
       </div>
     `;
     
