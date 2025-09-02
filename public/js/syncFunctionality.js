@@ -56,10 +56,29 @@ function loadPlaylistsFromStorage() {
                         syncResult.innerHTML = '';
                     }
                     
-                    // Make manual HTMX request
+                    // Get selected batch size from dropdown
+                    const batchSizeSelect = document.getElementById('syncBatchSize');
+                    let batchSize = batchSizeSelect ? batchSizeSelect.value : '1';
+                    
+                    // If "all" is selected, get the actual track count from the playlist
+                    if (batchSize === 'all') {
+                        const trackCountElement = this.closest('.playlist-item')?.querySelector('.track-count');
+                        if (trackCountElement) {
+                            const trackCountText = trackCountElement.textContent || '';
+                            const trackCountMatch = trackCountText.match(/(\d+)\s+tracks?/);
+                            batchSize = trackCountMatch ? trackCountMatch[1] : '999';
+                        } else {
+                            batchSize = '999'; // Fallback for "all"
+                        }
+                    }
+                    
+                    Logger.info('Using batch size for sync', { batchSize, playlistId });
+                    
+                    // Make manual HTMX request with batch size
                     htmx.ajax('POST', url, {
                         target: targetId,
-                        swap: 'innerHTML'
+                        swap: 'innerHTML',
+                        values: { batchSize: batchSize }
                     }).then(() => {
                         // Hide the blue progress area since sync is complete
                         const progressDiv = document.getElementById(`progress-${playlistId}`);
@@ -288,7 +307,29 @@ function initializeSyncFunctionality() {
             const playlistId = button.dataset.playlistId;
             const playlistName = button.dataset.playlistName;
 
-            Logger.info('Starting sync for playlist', { playlistName, playlistId });
+            // Get selected batch size from dropdown
+            const batchSizeSelect = document.getElementById('syncBatchSize');
+            let batchSize = batchSizeSelect ? batchSizeSelect.value : '1';
+            
+            // If "all" is selected, get the actual track count from the playlist
+            if (batchSize === 'all') {
+                const trackCountElement = button.closest('.playlist-item')?.querySelector('.track-count');
+                if (trackCountElement) {
+                    const trackCountText = trackCountElement.textContent || '';
+                    const trackCountMatch = trackCountText.match(/(\d+)\s+tracks?/);
+                    batchSize = trackCountMatch ? trackCountMatch[1] : '999';
+                } else {
+                    batchSize = '999'; // Fallback for "all"
+                }
+            }
+            
+            // Add batch size to the request
+            if (!event.detail.requestConfig.parameters) {
+                event.detail.requestConfig.parameters = {};
+            }
+            event.detail.requestConfig.parameters.batchSize = batchSize;
+
+            Logger.info('Starting sync for playlist', { playlistName, playlistId, batchSize });
 
             // Start real-time progress updates
             if (typeof startProgressUpdates === 'function') {
@@ -349,6 +390,20 @@ function initializeSyncFunctionality() {
                     // Hide the summary initially - it will appear after refresh in correct position
                     syncResult.style.display = 'none';
                     
+                    // Check if playlist details are currently open and refresh them
+                    const detailsContainer = document.getElementById(`details-${playlistId}`);
+                    const expandArea = document.querySelector(`[onclick*="togglePlaylistDetails('${playlistId}'"]`);
+                    const isDetailsOpen = expandArea && expandArea.dataset.expanded === 'true';
+                    
+                    if (isDetailsOpen && detailsContainer) {
+                        Logger.info('Refreshing open playlist details after sync', { playlistId });
+                        // Store that details were open so we can refresh them after playlist reload
+                        sessionStorage.setItem('refreshDetailsAfterSync', JSON.stringify({
+                            playlistId: playlistId,
+                            wasOpen: true
+                        }));
+                    }
+                    
                     // Trigger playlist refresh for reordering
                     Logger.info('Triggering playlist refresh for reordering');
                     const refreshBtn = document.getElementById('refresh-playlists-btn');
@@ -374,6 +429,8 @@ function initializeSyncFunctionality() {
         // Handle playlist refresh completion to show sync feedback
         if (event.detail.requestConfig?.path?.includes('/auth/spotify/playlists')) {
             const pendingFeedback = sessionStorage.getItem('pendingSyncFeedback');
+            const pendingDetailsRefresh = sessionStorage.getItem('refreshDetailsAfterSync');
+            
             if (pendingFeedback && status >= 200 && status < 300) {
                 try {
                     const feedback = JSON.parse(pendingFeedback);
@@ -448,6 +505,58 @@ function initializeSyncFunctionality() {
                                 });
                                 Logger.info('Scrolled to synced playlist', { playlistId });
                             }, 200);
+                        }
+
+                        // Handle playlist details refresh if they were open
+                        if (pendingDetailsRefresh) {
+                            try {
+                                const detailsRefresh = JSON.parse(pendingDetailsRefresh);
+                                if (detailsRefresh.playlistId === playlistId && detailsRefresh.wasOpen) {
+                                    Logger.info('Refreshing playlist details after sync', { playlistId });
+                                    
+                                    // Wait a bit longer to ensure playlist is fully rendered
+                                    setTimeout(() => {
+                                        // Find the expand area in the refreshed playlist
+                                        const expandArea = document.querySelector(`[onclick*="togglePlaylistDetails('${playlistId}'"]`);
+                                        const detailsContainer = document.getElementById(`details-${playlistId}`);
+                                        
+                                        if (expandArea && detailsContainer) {
+                                            // Set the details as expanded
+                                            expandArea.dataset.expanded = 'true';
+                                            const indicator = expandArea.querySelector('.expand-indicator');
+                                            if (indicator) {
+                                                indicator.textContent = '▲';
+                                                indicator.style.color = '#ff0040';
+                                            }
+                                            expandArea.title = 'Hide track details';
+                                            
+                                            // Show the container and refresh the details
+                                            detailsContainer.style.display = 'block';
+                                            
+                                            // Use the refreshPlaylistDetails function if available
+                                            if (typeof refreshPlaylistDetails === 'function') {
+                                                refreshPlaylistDetails(playlistId);
+                                            } else {
+                                                // Fallback: manually refresh using HTMX
+                                                htmx.ajax('GET', `/api/playlistDetails/playlist/${playlistId}`, {
+                                                    target: `#details-${playlistId}`,
+                                                    swap: 'innerHTML'
+                                                }).then(() => {
+                                                    Logger.info('Playlist details refreshed after sync', { playlistId });
+                                                }).catch((error) => {
+                                                    Logger.error('Error refreshing playlist details after sync', { playlistId }, error);
+                                                });
+                                            }
+                                        }
+                                    }, 300);
+                                }
+                                
+                                // Clear the pending details refresh
+                                sessionStorage.removeItem('refreshDetailsAfterSync');
+                            } catch (error) {
+                                Logger.error('Error processing pending details refresh', {}, error);
+                                sessionStorage.removeItem('refreshDetailsAfterSync');
+                            }
                         }
 
                         // Clear the pending feedback
