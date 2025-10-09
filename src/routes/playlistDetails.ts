@@ -299,14 +299,14 @@ router.get('/playlist/:playlistId', async (req, res) => {
 
     // Generate HTML response
     const playlistDetailsHtml = `
-      <div class="playlist-details" data-playlist-id="${playlistId}">
+      <div class="playlist-details" data-playlist-id="${playlistId}" style="padding: 0 15px;">
         <div class="playlist-header mb-3">
           <h6>${spotifyPlaylistData.body.name}</h6>
           <div class="d-flex justify-content-between align-items-center">
             <span class="text-muted small">
               ${allTracks.length} tracks • ${mergedTracks.filter((t: any) => t.linked).length} linked
             </span>
-            <button type="button" class="btn btn-outline-secondary btn-sm" 
+            <button type="button" class="btn btn-outline-secondary btn-sm"
                     onclick="refreshPlaylistDetails('${playlistId}')"
                     title="Refresh playlist details">
               Refresh
