@@ -59,9 +59,9 @@ router.get('/login', (req, res) => {
   
   const spotifyApi = getSpotifyApi();
   const scopes = ['playlist-read-private', 'playlist-read-collaborative'];
-  const authorizeURL = spotifyApi.createAuthorizeURL(scopes);
+  const authorizeURL = spotifyApi.createAuthorizeURL(scopes, '');
   Logger.auth('Spotify', 'redirecting to authorization', { authorizeURL });
-  
+
   res.redirect(authorizeURL);
 });
 
@@ -142,7 +142,9 @@ router.get('/playlists', async (req, res) => {
       process.env.YOUTUBE_CLIENT_SECRET,
       process.env.YOUTUBE_REDIRECT_URI
     );
-    oauth2Client.setCredentials(req.session.youtubeTokens);
+    if (req.session.youtubeTokens) {
+      oauth2Client.setCredentials(req.session.youtubeTokens);
+    }
     const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
     
     // Get Spotify playlists
@@ -152,11 +154,11 @@ router.get('/playlists', async (req, res) => {
     // Filter for own playlists only if requested
     const ownOnly = req.query.ownOnly === 'true';
     if (ownOnly) {
-      spotifyPlaylists = spotifyPlaylists.filter(playlist => 
+      spotifyPlaylists = spotifyPlaylists.filter((playlist: any) =>
         playlist.owner.id === currentUserId
       );
     }
-    
+
     // Get YouTube playlists to check which Spotify playlists have been synced
     let youtubePlaylistNames = new Set<string>();
     let youtubePlaylistsMap = new Map<string, any>();
@@ -167,7 +169,7 @@ router.get('/playlists', async (req, res) => {
           mine: true,
           maxResults: 50
         });
-        
+
         if (youtubeResponse.data.items) {
           youtubeResponse.data.items.forEach(playlist => {
             const title = playlist.snippet?.title || '';
@@ -180,16 +182,16 @@ router.get('/playlists', async (req, res) => {
         // Continue without YouTube playlist info
       }
     }
-    
+
     // Categorize and sort playlists
     // Check if a Spotify playlist has been synced by looking for a YouTube playlist with " (from Spotify)" suffix
     const syncedPlaylists = spotifyPlaylists
-      .filter(playlist => youtubePlaylistNames.has(`${playlist.name} (from Spotify)`))
-      .sort((a, b) => a.name.localeCompare(b.name));
-    
+      .filter((playlist: any) => youtubePlaylistNames.has(`${playlist.name} (from Spotify)`))
+      .sort((a: any, b: any) => a.name.localeCompare(b.name));
+
     const unsyncedPlaylists = spotifyPlaylists
-      .filter(playlist => !youtubePlaylistNames.has(`${playlist.name} (from Spotify)`))
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .filter((playlist: any) => !youtubePlaylistNames.has(`${playlist.name} (from Spotify)`))
+      .sort((a: any, b: any) => a.name.localeCompare(b.name));
     
     // Combine with synced playlists first
     const sortedPlaylists = [...syncedPlaylists, ...unsyncedPlaylists];

@@ -242,7 +242,7 @@ async function ensureValidYouTubeToken(req: any): Promise<{ oauth2Client: any, q
 router.post('/playlist/:playlistId', async (req, res) => {
   const startTime = Date.now();
   const playlistId = req.params.playlistId;
-  
+
   Logger.requestStart('Sync Request Started', {
     playlistId,
     sessionId: req.sessionID,
@@ -256,6 +256,11 @@ router.post('/playlist/:playlistId', async (req, res) => {
     message: 'Starting sync...',
     details: 'Checking authentication and initializing APIs'
   });
+
+  // Declare variables outside try block so they're accessible in catch
+  let apiCallCount = 0;
+  let totalQuotaUsed = 0;
+  let existingPlaylist: any = null;
 
   try {
     // Check authentication
@@ -291,6 +296,7 @@ router.post('/playlist/:playlistId', async (req, res) => {
     Logger.info('Initializing API clients');
     const spotifyApi = await ensureValidSpotifyToken(req);
     const { oauth2Client, quotaUsed } = await ensureValidYouTubeToken(req);
+    totalQuotaUsed = quotaUsed; // Initialize totalQuotaUsed with initial quota
     const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
     Logger.info('API clients initialized');
 
@@ -324,15 +330,17 @@ router.post('/playlist/:playlistId', async (req, res) => {
     let offset = 0;
     const limit = 50;
     
+    let totalTracks = 0;
     do {
       const tracksResponse = await spotifyApi.getPlaylistTracks(playlistId, { limit, offset });
-      const trackItems = tracksResponse.body.items.filter(item => item.track && item.track.type === 'track');
+      const trackItems = tracksResponse.body.items.filter((item: any) => item.track && item.track.type === 'track');
       allTracks = allTracks.concat(trackItems);
       offset += limit;
-      
+      totalTracks = tracksResponse.body.total;
+
       // Break if we've fetched all tracks
       if (tracksResponse.body.items.length < limit) break;
-    } while (allTracks.length < tracksResponse.body.total);
+    } while (allTracks.length < totalTracks);
     
     const tracks = allTracks;
     Logger.info('Found valid tracks to analyze', { count: tracks.length, totalPlaylistTracks: playlist.tracks.total });
@@ -558,23 +566,18 @@ router.post('/playlist/:playlistId', async (req, res) => {
       });
     };
     
-    // Track API calls and quota usage accurately
-    let apiCallCount = 0;
-    let totalQuotaUsed = quotaUsed;
-    
     // Helper function to log API calls with correct quota costs
     const logApiCall = (operation: string, quotaCost: number) => {
       apiCallCount++;
       totalQuotaUsed += quotaCost;
       Logger.external('YouTube', `API call: ${operation}`, { callNumber: apiCallCount, quotaCost, totalQuotaUsed });
     };
-    
+
     // STEP 1: Check if a YouTube playlist already exists FIRST
     const playlistTitle = `${playlist.name} (from Spotify)`;
     Logger.external('YouTube', 'Checking for existing playlist before video search', { title: playlistTitle });
-    
-    let existingPlaylist: any = null;
-    let youtubePlaylistId: string;
+
+    let youtubePlaylistId: string = '';
     let existingVideoIds: Set<string> = new Set();
     let existingItemsMap: Map<string, any> = new Map();
     let isUpdateMode = false;
@@ -753,8 +756,8 @@ router.post('/playlist/:playlistId', async (req, res) => {
         const songName = track.name;
         
         // Calculate the original Spotify position
-        const spotifyPosition = isUpdateMode ? 
-          (existingYouTubeItems?.length || 0) + i : // Update mode: position after existing items
+        const spotifyPosition = isUpdateMode ?
+          existingVideoIds.size + i : // Update mode: position after existing items
           i; // Create mode: position from beginning
         
         try {
@@ -820,7 +823,8 @@ router.post('/playlist/:playlistId', async (req, res) => {
           searchResults.push({
             track: songName,
             artist: artist,
-            found: false
+            found: false,
+            spotifyPosition: spotifyPosition
           });
         }
       }
@@ -1065,7 +1069,7 @@ router.post('/playlist/:playlistId', async (req, res) => {
       });
     }
     
-    Logger.requestEnd('Sync Request Completed', { processingTimeMs: Date.now() - startTime });
+    Logger.requestEnd('Sync Request Completed', Date.now() - startTime);
     
     // Send completion progress update
     const youtubePlaylistUrl = `https://www.youtube.com/playlist?list=${youtubePlaylistId}`;
@@ -1149,11 +1153,11 @@ router.post('/playlist/:playlistId', async (req, res) => {
       details: error instanceof Error ? error.message : 'An unexpected error occurred'
     });
     
-    // Log YouTube API quota usage summary even on error (safely handle undefined variables)
+    // Log YouTube API quota usage summary even on error
     Logger.error('YouTube API Quota Usage Summary (ERROR)', {
-      totalApiCalls: typeof apiCallCount !== 'undefined' ? apiCallCount : 0,
-      totalQuotaUsed: typeof totalQuotaUsed !== 'undefined' ? totalQuotaUsed : quotaUsed,
-      operationAttempted: typeof existingPlaylist !== 'undefined' && existingPlaylist ? 'UPDATE' : 'SYNC'
+      totalApiCalls: apiCallCount,
+      totalQuotaUsed: totalQuotaUsed,
+      operationAttempted: existingPlaylist ? 'UPDATE' : 'SYNC'
     });
     
     // Check if it's a quota exceeded error

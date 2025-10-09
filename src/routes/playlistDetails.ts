@@ -276,10 +276,10 @@ router.get('/playlist/:playlistId', async (req, res) => {
 
     // Only include YouTube videos that weren't matched to any Spotify tracks
     const matchedVideoIds = mergedTracks
-      .filter(track => track.youtube)
-      .map(track => track.youtube.id);
-      
-    const unmatchedYoutubeVideos = youtubeVideos.filter((video: any) => 
+      .filter((track: any) => track.youtube)
+      .map((track: any) => track.youtube.id);
+
+    const unmatchedYoutubeVideos = youtubeVideos.filter((video: any) =>
       !matchedVideoIds.includes(video.id)
     );
 
@@ -292,8 +292,8 @@ router.get('/playlist/:playlistId', async (req, res) => {
     const allTracks = [...mergedTracks, ...orphanedVideos];
 
     Logger.info('Track matching results', {
-      matchedTracks: mergedTracks.filter(t => t.linked).length,
-      spotifyOnlyTracks: mergedTracks.filter(t => !t.linked).length,
+      matchedTracks: mergedTracks.filter((t: any) => t.linked).length,
+      spotifyOnlyTracks: mergedTracks.filter((t: any) => !t.linked).length,
       youtubeOnlyVideos: orphanedVideos.length
     });
 
@@ -304,7 +304,7 @@ router.get('/playlist/:playlistId', async (req, res) => {
           <h6>${spotifyPlaylistData.body.name}</h6>
           <div class="d-flex justify-content-between align-items-center">
             <span class="text-muted small">
-              ${allTracks.length} tracks • ${mergedTracks.filter(t => t.linked).length} linked
+              ${allTracks.length} tracks • ${mergedTracks.filter((t: any) => t.linked).length} linked
             </span>
             <button type="button" class="btn btn-outline-secondary btn-sm" 
                     onclick="refreshPlaylistDetails('${playlistId}')"
@@ -526,8 +526,8 @@ router.post('/replace/:trackId', async (req, res) => {
     // We need to find the YouTube playlist that corresponds to this Spotify playlist
     // First, get the Spotify playlist name to construct the YouTube playlist name
     const spotifyApi = getSpotifyApi();
-    spotifyApi.setAccessToken(req.session.spotifyTokens.accessToken);
-    spotifyApi.setRefreshToken(req.session.spotifyTokens.refreshToken);
+    spotifyApi.setAccessToken(req.session.spotifyTokens!.accessToken);
+    spotifyApi.setRefreshToken(req.session.spotifyTokens!.refreshToken);
     
     const spotifyPlaylistData = await spotifyApi.getPlaylist(playlistId);
     const expectedYouTubePlaylistName = `${spotifyPlaylistData.body.name} (from Spotify)`;
@@ -555,55 +555,80 @@ router.post('/replace/:trackId', async (req, res) => {
 
     Logger.external('YouTube', 'Found target playlist', { title: targetPlaylist.snippet?.title, id: targetPlaylist.id });
 
-    // Get playlist items to find the current video
-    const playlistItemsResponse = await youtube.playlistItems.list({
-      part: ['snippet', 'contentDetails'],
-      playlistId: targetPlaylist.id!,
-      maxResults: 50
-    });
+    // Check if this is adding a new video (unlinked track) or replacing an existing one
+    const isAddingNewVideo = !currentVideoId || currentVideoId === '';
 
-    // Look for the current video in this playlist
-    const playlistItemToReplace = playlistItemsResponse.data.items?.find(item => 
-      item.snippet?.resourceId?.videoId === currentVideoId
-    );
+    if (isAddingNewVideo) {
+      // ADD MODE: Simply add the new video to the end of the playlist
+      Logger.info('Adding new video to playlist', { newVideoId, trackId, playlistTitle: targetPlaylist.snippet?.title });
 
-    if (!playlistItemToReplace) {
-      Logger.error('Video not found in playlist', { currentVideoId, playlistTitle: targetPlaylist.snippet?.title });
-      return res.status(404).json({
-        error: 'Video not found',
-        message: `Could not find video ${currentVideoId} in the YouTube playlist`
-      });
-    }
-
-    Logger.info('Starting video replacement', { currentVideoId, newVideoId, playlistTitle: targetPlaylist.snippet?.title });
-
-    // Get the position of the current video so we can maintain order
-    const currentPosition = playlistItemToReplace.snippet?.position || 0;
-
-    // Add the new video at the same position
-    const insertResponse = await youtube.playlistItems.insert({
-      part: ['snippet'],
-      requestBody: {
-        snippet: {
-          playlistId: targetPlaylist.id!,
-          position: currentPosition,
-          resourceId: {
-            kind: 'youtube#video',
-            videoId: newVideoId
+      await youtube.playlistItems.insert({
+        part: ['snippet'],
+        requestBody: {
+          snippet: {
+            playlistId: targetPlaylist.id!,
+            resourceId: {
+              kind: 'youtube#video',
+              videoId: newVideoId
+            }
           }
         }
+      });
+
+      Logger.info('Added new video successfully', { newVideoId });
+    } else {
+      // REPLACE MODE: Find and replace the existing video
+      Logger.info('Replacing existing video', { currentVideoId, newVideoId, playlistTitle: targetPlaylist.snippet?.title });
+
+      // Get playlist items to find the current video
+      const playlistItemsResponse = await youtube.playlistItems.list({
+        part: ['snippet', 'contentDetails'],
+        playlistId: targetPlaylist.id!,
+        maxResults: 50
+      });
+
+      // Look for the current video in this playlist
+      const playlistItemToReplace = playlistItemsResponse.data.items?.find(item =>
+        item.snippet?.resourceId?.videoId === currentVideoId
+      );
+
+      if (!playlistItemToReplace) {
+        Logger.error('Video not found in playlist', { currentVideoId, playlistTitle: targetPlaylist.snippet?.title });
+        return res.status(404).json({
+          error: 'Video not found',
+          message: `Could not find video ${currentVideoId} in the YouTube playlist`
+        });
       }
-    });
 
-    Logger.info('Added new video', { newVideoId, position: currentPosition });
+      // Get the position of the current video so we can maintain order
+      const currentPosition = playlistItemToReplace.snippet?.position || 0;
 
-    // Remove the old video (it will now be at position + 1 due to the insert)
-    await youtube.playlistItems.delete({
-      id: playlistItemToReplace.id!
-    });
+      // Add the new video at the same position
+      await youtube.playlistItems.insert({
+        part: ['snippet'],
+        requestBody: {
+          snippet: {
+            playlistId: targetPlaylist.id!,
+            position: currentPosition,
+            resourceId: {
+              kind: 'youtube#video',
+              videoId: newVideoId
+            }
+          }
+        }
+      });
 
-    Logger.info('Removed old video', { currentVideoId });
-    Logger.info('Video replacement completed successfully');
+      Logger.info('Added new video', { newVideoId, position: currentPosition });
+
+      // Remove the old video (it will now be at position + 1 due to the insert)
+      await youtube.playlistItems.delete({
+        id: playlistItemToReplace.id!
+      });
+
+      Logger.info('Removed old video', { currentVideoId });
+    }
+
+    Logger.info('Video operation completed successfully', { operation: isAddingNewVideo ? 'add' : 'replace' });
 
     res.json({
       success: true,
