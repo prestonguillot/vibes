@@ -12,13 +12,15 @@ const getOAuth2Client = () => new google.auth.OAuth2(
 );
 
 // Helper function to refresh YouTube tokens if needed
-const ensureValidYouTubeToken = async (req: any) => {
-  if (!req.session.youtubeTokens) {
+const ensureValidYouTubeToken = async (req: any, res: any) => {
+  const youtubeTokens = req.cookies.youtube_tokens ? JSON.parse(req.cookies.youtube_tokens) : null;
+
+  if (!youtubeTokens) {
     throw new Error('No YouTube tokens found');
   }
 
   const oauth2Client = getOAuth2Client();
-  oauth2Client.setCredentials(req.session.youtubeTokens);
+  oauth2Client.setCredentials(youtubeTokens);
 
   try {
     // Test if current token is valid by making a simple API call
@@ -27,18 +29,23 @@ const ensureValidYouTubeToken = async (req: any) => {
     return oauth2Client;
   } catch (error: any) {
     // If token is expired (401), try to refresh it
-    if (error.code === 401 && req.session.youtubeTokens.refresh_token) {
+    if (error.code === 401 && youtubeTokens.refresh_token) {
       Logger.auth('YouTube', 'token expired, refreshing');
       try {
         const { credentials } = await oauth2Client.refreshAccessToken();
-        
-        // Update session with new tokens
-        req.session.youtubeTokens = {
-          ...req.session.youtubeTokens,
+
+        // Update cookie with new tokens
+        const updatedTokens = {
+          ...youtubeTokens,
           ...credentials
         };
-        oauth2Client.setCredentials(req.session.youtubeTokens);
-        
+        res.cookie('youtube_tokens', JSON.stringify(updatedTokens), {
+          httpOnly: true,
+          maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+          sameSite: 'lax'
+        });
+        oauth2Client.setCredentials(updatedTokens);
+
         Logger.auth('YouTube', 'token refreshed successfully');
         return oauth2Client;
       } catch (refreshError) {
@@ -54,7 +61,6 @@ const ensureValidYouTubeToken = async (req: any) => {
 // YouTube login
 router.get('/login', (req, res) => {
   Logger.requestStart('YouTube Login Request', {
-    sessionId: req.sessionID,
     requestUrl: req.originalUrl
   });
   
@@ -73,21 +79,26 @@ router.get('/login', (req, res) => {
 // YouTube callback
 router.get('/callback', async (req, res) => {
   Logger.requestStart('YouTube Callback Request', {
-    sessionId: req.sessionID,
     requestUrl: req.originalUrl,
     authCodePresent: !!req.query.code
   });
-  
+
   const { code } = req.query;
-  
+
   try {
     const oauth2Client = getOAuth2Client();
     const { tokens } = await oauth2Client.getToken(code as string);
     oauth2Client.setCredentials(tokens);
-    
-    // Store tokens in session
-    req.session.youtubeTokens = tokens;
-    
+
+    // Store tokens in httpOnly cookie
+    res.cookie('youtube_tokens', JSON.stringify(tokens), {
+      httpOnly: true,
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      sameSite: 'lax'
+    });
+
+    Logger.auth('YouTube', 'tokens stored in cookie');
+
     // Redirect back to main page
     res.redirect('/?youtube=connected');
   } catch (error) {

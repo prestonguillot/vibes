@@ -157,8 +157,10 @@ function calculateLevenshteinDistance(str1: string, str2: string): number {
 }
 
 // Helper functions for token refresh
-const ensureValidSpotifyToken = async (req: any) => {
-  if (!req.session.spotifyTokens) {
+const ensureValidSpotifyToken = async (req: any, res: any) => {
+  const spotifyTokens = req.cookies.spotify_tokens ? JSON.parse(req.cookies.spotify_tokens) : null;
+
+  if (!spotifyTokens) {
     throw new Error('No Spotify tokens found');
   }
 
@@ -167,23 +169,29 @@ const ensureValidSpotifyToken = async (req: any) => {
     clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
     redirectUri: process.env.SPOTIFY_REDIRECT_URI
   });
-  
-  spotifyApi.setAccessToken(req.session.spotifyTokens.accessToken);
-  spotifyApi.setRefreshToken(req.session.spotifyTokens.refreshToken);
+
+  spotifyApi.setAccessToken(spotifyTokens.accessToken);
+  spotifyApi.setRefreshToken(spotifyTokens.refreshToken);
 
   try {
     await spotifyApi.getMe();
     return spotifyApi;
   } catch (error: any) {
-    if (error.statusCode === 401 && req.session.spotifyTokens.refreshToken) {
+    if (error.statusCode === 401 && spotifyTokens.refreshToken) {
       Logger.auth('Spotify', 'token expired, refreshing');
       try {
         const data = await spotifyApi.refreshAccessToken();
         const { access_token } = data.body;
-        
-        req.session.spotifyTokens.accessToken = access_token;
+
+        // Update cookie with new token
+        const updatedTokens = { ...spotifyTokens, accessToken: access_token };
+        res.cookie('spotify_tokens', JSON.stringify(updatedTokens), {
+          httpOnly: true,
+          maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+          sameSite: 'lax'
+        });
         spotifyApi.setAccessToken(access_token);
-        
+
         Logger.auth('Spotify', 'token refreshed successfully');
         return spotifyApi;
       } catch (refreshError) {
@@ -197,8 +205,10 @@ const ensureValidSpotifyToken = async (req: any) => {
 };
 
 // Helper function to ensure valid YouTube token and return quota usage
-async function ensureValidYouTubeToken(req: any): Promise<{ oauth2Client: any, quotaUsed: number }> {
-  if (!req.session.youtubeTokens) {
+async function ensureValidYouTubeToken(req: any, res: any): Promise<{ oauth2Client: any, quotaUsed: number }> {
+  const youtubeTokens = req.cookies.youtube_tokens ? JSON.parse(req.cookies.youtube_tokens) : null;
+
+  if (!youtubeTokens) {
     throw new Error('YOUTUBE_AUTH_REQUIRED');
   }
 
@@ -208,7 +218,7 @@ async function ensureValidYouTubeToken(req: any): Promise<{ oauth2Client: any, q
     process.env.YOUTUBE_REDIRECT_URI
   );
 
-  oauth2Client.setCredentials(req.session.youtubeTokens);
+  oauth2Client.setCredentials(youtubeTokens);
 
   try {
     const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
@@ -216,17 +226,23 @@ async function ensureValidYouTubeToken(req: any): Promise<{ oauth2Client: any, q
     Logger.external('YouTube', 'Token validation successful', { quotaUsed: 1 });
     return { oauth2Client, quotaUsed: 1 }; // channels.list costs 1 unit
   } catch (error: any) {
-    if (error.code === 401 && req.session.youtubeTokens.refresh_token) {
+    if (error.code === 401 && youtubeTokens.refresh_token) {
       Logger.auth('YouTube', 'token expired, refreshing');
       try {
         const { credentials } = await oauth2Client.refreshAccessToken();
-        
-        req.session.youtubeTokens = {
-          ...req.session.youtubeTokens,
+
+        // Update cookie with new tokens
+        const updatedTokens = {
+          ...youtubeTokens,
           ...credentials
         };
-        oauth2Client.setCredentials(req.session.youtubeTokens);
-        
+        res.cookie('youtube_tokens', JSON.stringify(updatedTokens), {
+          httpOnly: true,
+          maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+          sameSite: 'lax'
+        });
+        oauth2Client.setCredentials(updatedTokens);
+
         Logger.auth('YouTube', 'token refreshed successfully');
         return { oauth2Client, quotaUsed: 1 }; // refreshAccessToken costs 1 unit
       } catch (refreshError) {
@@ -245,7 +261,6 @@ router.post('/playlist/:playlistId', async (req, res) => {
 
   Logger.requestStart('Sync Request Started', {
     playlistId,
-    sessionId: req.sessionID,
     requestUrl: req.originalUrl,
     method: req.method
   });
@@ -264,8 +279,11 @@ router.post('/playlist/:playlistId', async (req, res) => {
 
   try {
     // Check authentication
-    if (!req.session.spotifyTokens) {
-      Logger.error('No Spotify tokens in session');
+    const spotifyTokens = req.cookies.spotify_tokens ? JSON.parse(req.cookies.spotify_tokens) : null;
+    const youtubeTokens = req.cookies.youtube_tokens ? JSON.parse(req.cookies.youtube_tokens) : null;
+
+    if (!spotifyTokens) {
+      Logger.error('No Spotify tokens in cookies');
       sendProgressUpdate(playlistId, {
         type: 'error',
         message: 'Authentication required',
@@ -273,9 +291,9 @@ router.post('/playlist/:playlistId', async (req, res) => {
       });
       return res.status(401).send('<div class="alert alert-danger">Please connect to Spotify first</div>');
     }
-    
-    if (!req.session.youtubeTokens) {
-      Logger.error('No YouTube tokens in session');
+
+    if (!youtubeTokens) {
+      Logger.error('No YouTube tokens in cookies');
       sendProgressUpdate(playlistId, {
         type: 'error',
         message: 'Authentication required',
@@ -285,7 +303,7 @@ router.post('/playlist/:playlistId', async (req, res) => {
     }
 
     Logger.info('Authentication check passed');
-    
+
     sendProgressUpdate(playlistId, {
       type: 'progress',
       message: 'Authentication verified',
@@ -294,8 +312,8 @@ router.post('/playlist/:playlistId', async (req, res) => {
 
     // Initialize APIs
     Logger.info('Initializing API clients');
-    const spotifyApi = await ensureValidSpotifyToken(req);
-    const { oauth2Client, quotaUsed } = await ensureValidYouTubeToken(req);
+    const spotifyApi = await ensureValidSpotifyToken(req, res);
+    const { oauth2Client, quotaUsed } = await ensureValidYouTubeToken(req, res);
     totalQuotaUsed = quotaUsed; // Initialize totalQuotaUsed with initial quota
     const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
     Logger.info('API clients initialized');

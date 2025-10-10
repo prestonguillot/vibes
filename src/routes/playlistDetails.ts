@@ -30,14 +30,16 @@ router.get('/playlist/:playlistId', async (req, res) => {
   const { playlistId } = req.params;
   
   Logger.requestStart('Playlist Details Request', {
-    sessionId: req.sessionID,
     playlistId
   });
 
   try {
     // Check authentication
-    if (!req.session.spotifyTokens || !req.session.youtubeTokens) {
-      return res.status(401).json({ 
+    const spotifyTokens = req.cookies.spotify_tokens ? JSON.parse(req.cookies.spotify_tokens) : null;
+    const youtubeTokens = req.cookies.youtube_tokens ? JSON.parse(req.cookies.youtube_tokens) : null;
+
+    if (!spotifyTokens || !youtubeTokens) {
+      return res.status(401).json({
         error: 'Authentication required',
         message: 'Both Spotify and YouTube authentication required'
       });
@@ -45,12 +47,12 @@ router.get('/playlist/:playlistId', async (req, res) => {
 
     // Initialize Spotify API
     const spotifyApi = getSpotifyApi();
-    spotifyApi.setAccessToken(req.session.spotifyTokens.accessToken);
-    spotifyApi.setRefreshToken(req.session.spotifyTokens.refreshToken);
+    spotifyApi.setAccessToken(spotifyTokens.accessToken);
+    spotifyApi.setRefreshToken(spotifyTokens.refreshToken);
 
     // Initialize YouTube API
     const oauth2Client = getOAuth2Client();
-    oauth2Client.setCredentials(req.session.youtubeTokens);
+    oauth2Client.setCredentials(youtubeTokens);
     const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
 
     // Get Spotify playlist tracks
@@ -514,23 +516,33 @@ router.post('/replace/:trackId', async (req, res) => {
 
   try {
     // Check authentication
-    if (!req.session.youtubeTokens) {
-      return res.status(401).json({ 
+    const youtubeTokens = req.cookies.youtube_tokens ? JSON.parse(req.cookies.youtube_tokens) : null;
+    const spotifyTokens = req.cookies.spotify_tokens ? JSON.parse(req.cookies.spotify_tokens) : null;
+
+    if (!youtubeTokens) {
+      return res.status(401).json({
         error: 'Authentication required',
         message: 'YouTube authentication required'
       });
     }
 
+    if (!spotifyTokens) {
+      return res.status(401).json({
+        error: 'Authentication required',
+        message: 'Spotify authentication required'
+      });
+    }
+
     // Initialize YouTube API
     const oauth2Client = getOAuth2Client();
-    oauth2Client.setCredentials(req.session.youtubeTokens);
+    oauth2Client.setCredentials(youtubeTokens);
     const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
 
     // We need to find the YouTube playlist that corresponds to this Spotify playlist
     // First, get the Spotify playlist name to construct the YouTube playlist name
     const spotifyApi = getSpotifyApi();
-    spotifyApi.setAccessToken(req.session.spotifyTokens!.accessToken);
-    spotifyApi.setRefreshToken(req.session.spotifyTokens!.refreshToken);
+    spotifyApi.setAccessToken(spotifyTokens.accessToken);
+    spotifyApi.setRefreshToken(spotifyTokens.refreshToken);
     
     const spotifyPlaylistData = await spotifyApi.getPlaylist(playlistId);
     const expectedYouTubePlaylistName = `${spotifyPlaylistData.body.name} (from Spotify)`;

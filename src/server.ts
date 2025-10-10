@@ -2,7 +2,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import express from 'express';
-import session from 'express-session';
+import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import path from 'path';
 import { spotifyRouter } from './routes/spotify';
@@ -15,30 +15,13 @@ import { Logger } from './utils/logger';
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Temporary token storage for OAuth (in production, use Redis or database)
-export const tempTokenStorage = new Map<string, any>();
-
 // Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
-// Session middleware - MUST be before request logging to have sessionID available
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'dev-secret-change-in-production',
-  resave: false,
-  saveUninitialized: true, // Create session for all requests (needed for OAuth popup compatibility)
-  cookie: {
-    secure: false, // Set to true in production with HTTPS
-    httpOnly: true, // Prevent XSS attacks
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours in milliseconds
-    sameSite: 'lax' // CSRF protection while allowing OAuth redirects
-  },
-  name: 'spotify-youtube-session', // Custom session name
-  rolling: true // Reset expiration on each request
-}));
-
-// Request logging middleware - placed after session so we can log sessionID
+// Request logging middleware
 app.use((req, res, next) => {
   // Skip logging for static assets and favicon to reduce noise
   if (req.originalUrl.includes('.css') || req.originalUrl.includes('.js') ||
@@ -47,10 +30,13 @@ app.use((req, res, next) => {
     return next();
   }
 
+  const hasSpotifyToken = !!req.cookies.spotify_tokens;
+  const hasYoutubeToken = !!req.cookies.youtube_tokens;
+
   Logger.requestStart(`${req.method} ${req.originalUrl}`, {
     fullUrl: `${req.protocol}://${req.get('host')}${req.originalUrl}`,
     userAgent: req.get('User-Agent')?.slice(0, 100) || 'none',
-    sessionId: req.sessionID || 'none'
+    hasAuth: hasSpotifyToken || hasYoutubeToken
   });
 
   if (Object.keys(req.query).length > 0) {
@@ -108,64 +94,64 @@ app.get('/api/status', async (req, res) => {
   let youtubeConnected = false;
 
   // Test Spotify connection
-  if (req.session.spotifyTokens) {
+  const spotifyTokens = req.cookies.spotify_tokens ? JSON.parse(req.cookies.spotify_tokens) : null;
+  if (spotifyTokens) {
     try {
       const spotifyApi = new (require('spotify-web-api-node'))({
         clientId: process.env.SPOTIFY_CLIENT_ID,
         clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
         redirectUri: process.env.SPOTIFY_REDIRECT_URI
       });
-      
-      spotifyApi.setAccessToken(req.session.spotifyTokens.accessToken);
-      spotifyApi.setRefreshToken(req.session.spotifyTokens.refreshToken);
-      
+
+      spotifyApi.setAccessToken(spotifyTokens.accessToken);
+      spotifyApi.setRefreshToken(spotifyTokens.refreshToken);
+
       // Test with a lightweight API call
       await spotifyApi.getMe();
       spotifyConnected = true;
-      Logger.auth('Spotify', 'connection validated', { sessionId: req.sessionID });
+      Logger.auth('Spotify', 'connection validated');
     } catch (error: any) {
-      Logger.auth('Spotify', 'connection invalid', { sessionId: req.sessionID, error: error.message });
+      Logger.auth('Spotify', 'connection invalid', { error: error.message });
       // Try to refresh the token
-      if (error.statusCode === 401 && req.session.spotifyTokens.refreshToken) {
+      if (error.statusCode === 401 && spotifyTokens.refreshToken) {
         try {
           const spotifyApi = new (require('spotify-web-api-node'))({
             clientId: process.env.SPOTIFY_CLIENT_ID,
             clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
             redirectUri: process.env.SPOTIFY_REDIRECT_URI
           });
-          
-          spotifyApi.setAccessToken(req.session.spotifyTokens.accessToken);
-          spotifyApi.setRefreshToken(req.session.spotifyTokens.refreshToken);
-          
+
+          spotifyApi.setAccessToken(spotifyTokens.accessToken);
+          spotifyApi.setRefreshToken(spotifyTokens.refreshToken);
+
           const data = await spotifyApi.refreshAccessToken();
           const { access_token } = data.body;
-          
-          // Update session with new token
-          req.session.spotifyTokens.accessToken = access_token;
-          spotifyConnected = true;
-          Logger.auth('Spotify', 'token refreshed', { sessionId: req.sessionID });
-          
-          // Force session save to ensure token persists
-          await new Promise((resolve, reject) => {
-            req.session.save((err) => {
-              if (err) reject(err);
-              else resolve(true);
-            });
+
+          // Update cookie with new token
+          const updatedTokens = { ...spotifyTokens, accessToken: access_token };
+          res.cookie('spotify_tokens', JSON.stringify(updatedTokens), {
+            httpOnly: true,
+            maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+            sameSite: 'lax'
           });
+
+          spotifyConnected = true;
+          Logger.auth('Spotify', 'token refreshed');
         } catch (refreshError) {
-          Logger.auth('Spotify', 'failed to refresh token', { sessionId: req.sessionID });
+          Logger.auth('Spotify', 'failed to refresh token');
           // Clear invalid tokens
-          delete req.session.spotifyTokens;
+          res.clearCookie('spotify_tokens');
         }
       } else {
         // Clear invalid tokens
-        delete req.session.spotifyTokens;
+        res.clearCookie('spotify_tokens');
       }
     }
   }
 
   // Test YouTube connection
-  if (req.session.youtubeTokens) {
+  const youtubeTokens = req.cookies.youtube_tokens ? JSON.parse(req.cookies.youtube_tokens) : null;
+  if (youtubeTokens) {
     try {
       const { google } = require('googleapis');
       const oauth2Client = new google.auth.OAuth2(
@@ -173,18 +159,18 @@ app.get('/api/status', async (req, res) => {
         process.env.YOUTUBE_CLIENT_SECRET,
         process.env.YOUTUBE_REDIRECT_URI
       );
-      
-      oauth2Client.setCredentials(req.session.youtubeTokens);
+
+      oauth2Client.setCredentials(youtubeTokens);
       const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
-      
+
       // Test with a lightweight API call
       await youtube.channels.list({ part: ['id'], mine: true, maxResults: 1 });
       youtubeConnected = true;
-      Logger.auth('YouTube', 'connection validated', { sessionId: req.sessionID });
+      Logger.auth('YouTube', 'connection validated');
     } catch (error: any) {
-      Logger.auth('YouTube', 'connection invalid', { sessionId: req.sessionID, error: error.message });
+      Logger.auth('YouTube', 'connection invalid', { error: error.message });
       // Try to refresh the token
-      if (error.code === 401 && req.session.youtubeTokens.refresh_token) {
+      if (error.code === 401 && youtubeTokens.refresh_token) {
         try {
           const { google } = require('googleapis');
           const oauth2Client = new google.auth.OAuth2(
@@ -192,33 +178,28 @@ app.get('/api/status', async (req, res) => {
             process.env.YOUTUBE_CLIENT_SECRET,
             process.env.YOUTUBE_REDIRECT_URI
           );
-          
-          oauth2Client.setCredentials(req.session.youtubeTokens);
+
+          oauth2Client.setCredentials(youtubeTokens);
           const { credentials } = await oauth2Client.refreshAccessToken();
-          
-          // Update session with new tokens
-          req.session.youtubeTokens = {
-            ...req.session.youtubeTokens,
-            ...credentials
-          };
-          youtubeConnected = true;
-          Logger.auth('YouTube', 'token refreshed', { sessionId: req.sessionID });
-          
-          // Force session save to ensure token persists
-          await new Promise((resolve, reject) => {
-            req.session.save((err) => {
-              if (err) reject(err);
-              else resolve(true);
-            });
+
+          // Update cookie with new tokens
+          const updatedTokens = { ...youtubeTokens, ...credentials };
+          res.cookie('youtube_tokens', JSON.stringify(updatedTokens), {
+            httpOnly: true,
+            maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+            sameSite: 'lax'
           });
+
+          youtubeConnected = true;
+          Logger.auth('YouTube', 'token refreshed');
         } catch (refreshError) {
-          Logger.auth('YouTube', 'failed to refresh token', { sessionId: req.sessionID });
+          Logger.auth('YouTube', 'failed to refresh token');
           // Clear invalid tokens
-          delete req.session.youtubeTokens;
+          res.clearCookie('youtube_tokens');
         }
       } else {
         // Clear invalid tokens
-        delete req.session.youtubeTokens;
+        res.clearCookie('youtube_tokens');
       }
     }
   }
