@@ -23,38 +23,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Request logging middleware
-app.use((req, res, next) => {
-  // Skip logging for static assets and favicon to reduce noise
-  if (req.originalUrl.includes('.css') || req.originalUrl.includes('.js') || 
-      req.originalUrl.includes('.png') || req.originalUrl.includes('.ico') ||
-      req.originalUrl.includes('/favicon')) {
-    return next();
-  }
-  
-  Logger.requestStart(`${req.method} ${req.originalUrl}`, {
-    fullUrl: `${req.protocol}://${req.get('host')}${req.originalUrl}`,
-    userAgent: req.get('User-Agent')?.slice(0, 100) || 'none',
-    sessionId: req.sessionID || 'none'
-  });
-  
-  if (Object.keys(req.query).length > 0) {
-    Logger.debug('Request query parameters', { query: req.query });
-  }
-  if (Object.keys(req.body).length > 0) {
-    Logger.debug('Request body', { body: req.body });
-  }
-  
-  // Log response when it finishes
-  const originalSend = res.send;
-  res.send = function(data) {
-    Logger.debug('Response sent', { statusCode: res.statusCode, statusMessage: res.statusMessage, bytes: data?.length || 0 });
-    return originalSend.call(this, data);
-  };
-  
-  next();
-});
-
+// Session middleware - MUST be before request logging to have sessionID available
 app.use(session({
   secret: process.env.SESSION_SECRET || 'dev-secret-change-in-production',
   resave: false,
@@ -68,6 +37,38 @@ app.use(session({
   name: 'spotify-youtube-session', // Custom session name
   rolling: true // Reset expiration on each request
 }));
+
+// Request logging middleware - placed after session so we can log sessionID
+app.use((req, res, next) => {
+  // Skip logging for static assets and favicon to reduce noise
+  if (req.originalUrl.includes('.css') || req.originalUrl.includes('.js') ||
+      req.originalUrl.includes('.png') || req.originalUrl.includes('.ico') ||
+      req.originalUrl.includes('/favicon')) {
+    return next();
+  }
+
+  Logger.requestStart(`${req.method} ${req.originalUrl}`, {
+    fullUrl: `${req.protocol}://${req.get('host')}${req.originalUrl}`,
+    userAgent: req.get('User-Agent')?.slice(0, 100) || 'none',
+    sessionId: req.sessionID || 'none'
+  });
+
+  if (Object.keys(req.query).length > 0) {
+    Logger.debug('Request query parameters', { query: req.query });
+  }
+  if (Object.keys(req.body).length > 0) {
+    Logger.debug('Request body', { body: req.body });
+  }
+
+  // Log response when it finishes
+  const originalSend = res.send;
+  res.send = function(data) {
+    Logger.debug('Response sent', { statusCode: res.statusCode, statusMessage: res.statusMessage, bytes: data?.length || 0 });
+    return originalSend.call(this, data);
+  };
+
+  next();
+});
 
 // Static files
 app.use(express.static(path.join(__dirname, '../public')));
