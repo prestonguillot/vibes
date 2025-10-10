@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { google } from 'googleapis';
 import { scrapeYouTubeSearch } from '../utils/youtubeScraper';
 import { Logger } from '../utils/logger';
+import { errorMessage } from '../utils/htmlTemplates';
 const SpotifyWebApi = require('spotify-web-api-node');
 
 const router = Router();
@@ -401,13 +402,11 @@ router.get('/playlist/:playlistId', async (req, res) => {
     const duration = Date.now() - startTime;
     Logger.error('Error fetching playlist details', { playlistId, duration }, error);
     
-    res.status(500).send(`
-      <div class="alert alert-danger">
-        <h6>Error loading playlist details</h6>
-        <p>Unable to fetch playlist information. Please try again.</p>
-        <small class="text-muted">Error: ${error instanceof Error ? error.message : 'Unknown error'}</small>
-      </div>
-    `);
+    res.status(500).send(errorMessage({
+      title: 'Error loading playlist details',
+      message: 'Unable to fetch playlist information. Please try again.',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }));
   }
 });
 
@@ -492,13 +491,11 @@ router.get('/search/:trackId', async (req, res) => {
   } catch (error) {
     Logger.error('Error searching for alternative videos', { trackId, trackName, artistName }, error);
     
-    res.status(500).send(`
-      <div class="alert alert-danger">
-        <h6>Error searching for videos</h6>
-        <p>Unable to search for alternative videos. Please try again.</p>
-        <small class="text-muted">Error: ${error instanceof Error ? error.message : 'Unknown error'}</small>
-      </div>
-    `);
+    res.status(500).send(errorMessage({
+      title: 'Error searching for videos',
+      message: 'Unable to search for alternative videos. Please try again.',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }));
   }
 });
 

@@ -11,6 +11,7 @@ import { syncRouter } from './routes/sync';
 import { playlistDetailsRouter } from './routes/playlistDetails';
 import { progressRouter } from './routes/progress';
 import { Logger } from './utils/logger';
+import { connectionButton } from './utils/htmlTemplates';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -208,6 +209,58 @@ app.get('/api/status', async (req, res) => {
     spotify: spotifyConnected,
     youtube: youtubeConnected
   });
+});
+
+// Connection button endpoints (HTML for HTMX)
+app.get('/api/status/spotify/button', async (req, res) => {
+  let spotifyConnected = false;
+
+  const spotifyTokens = req.cookies.spotify_tokens ? JSON.parse(req.cookies.spotify_tokens) : null;
+  if (spotifyTokens) {
+    try {
+      const spotifyApi = new (require('spotify-web-api-node'))({
+        clientId: process.env.SPOTIFY_CLIENT_ID,
+        clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
+        redirectUri: process.env.SPOTIFY_REDIRECT_URI
+      });
+
+      spotifyApi.setAccessToken(spotifyTokens.accessToken);
+      spotifyApi.setRefreshToken(spotifyTokens.refreshToken);
+
+      await spotifyApi.getMe();
+      spotifyConnected = true;
+    } catch (error: any) {
+      Logger.auth('Spotify', 'button check failed', { error: error.message, statusCode: error.statusCode });
+    }
+  }
+
+  res.send(connectionButton({ service: 'spotify', connected: spotifyConnected }));
+});
+
+app.get('/api/status/youtube/button', async (req, res) => {
+  let youtubeConnected = false;
+
+  const youtubeTokens = req.cookies.youtube_tokens ? JSON.parse(req.cookies.youtube_tokens) : null;
+  if (youtubeTokens) {
+    try {
+      const { google } = require('googleapis');
+      const oauth2Client = new google.auth.OAuth2(
+        process.env.YOUTUBE_CLIENT_ID,
+        process.env.YOUTUBE_CLIENT_SECRET,
+        process.env.YOUTUBE_REDIRECT_URI
+      );
+
+      oauth2Client.setCredentials(youtubeTokens);
+      const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
+
+      await youtube.channels.list({ part: ['id'], mine: true, maxResults: 1 });
+      youtubeConnected = true;
+    } catch (error: any) {
+      Logger.auth('YouTube', 'button check failed', { error: error.message, code: error.code });
+    }
+  }
+
+  res.send(connectionButton({ service: 'youtube', connected: youtubeConnected }));
 });
 
 app.listen(PORT, () => {
