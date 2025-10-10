@@ -313,7 +313,7 @@ document.body.addEventListener('htmx:afterRequest', (e) => { ... })
 - [x] Phase 1: Extract HTML templates ✅ **COMPLETED**
 - [x] Phase 2A: Connection Status refactor ✅ **COMPLETED**
 - [x] Phase 2B: Sync Functionality refactor ✅ **COMPLETED**
-- [ ] Phase 2C: Playlist Details refactor
+- [x] Phase 2C: Playlist Details refactor ✅ **COMPLETED**
 - [ ] Phase 2D: Collapsible behavior refactor
 - [ ] Phase 2E: SSE Progress refactor
 - [ ] Phase 2F: Alert dismissal cleanup
@@ -491,17 +491,60 @@ This section tracks what has been completed, issues encountered, and changes to 
 
 ---
 
-### Phase 2C: Playlist Details [NOT STARTED]
+### Phase 2C: Playlist Details [COMPLETED ✅]
 
-**Target**: Remove ~200 lines from `playlistDetails.js`
+**Target**: Remove ~265 lines from `playlistDetails.js`
 
-**Progress**: Not started
+**Progress**:
+- [x] Converted refresh button to HTMX (`hx-get` with `hx-headers` for cache-control)
+- [x] Converted edit/link video buttons to HTMX with Bootstrap modal trigger
+- [x] Converted collapse button from inline onclick to Hyperscript
+- [x] Converted video selection modal to use Bootstrap Modal with HTMX/Hyperscript
+- [x] Replaced manual modal creation with declarative Bootstrap modal structure
+- [x] Converted video selection from onclick to Hyperscript click handlers
+- [x] Converted confirm button to HTMX POST with automatic modal close and refresh
+- [x] Deleted `playlistDetails.js` file (265 lines)
+- [x] Removed script tag from `index.html`
 
-**Issues Encountered**: None yet
+**Issues Encountered**:
+- **Initial approach used custom modal**: First attempt involved manual DOM manipulation in JavaScript
+- **Resolution**: Switched to Bootstrap 5 Modal (already loaded) with declarative HTMX attributes
+- **Modal lifecycle**: Used `data-bs-toggle="modal"` with HTMX `hx-get` to load content on button click
+- **Video selection state**: Stored selected video ID in button's `data-selected-video-id` attribute via Hyperscript
+- **Refresh after replace**: Used Hyperscript `htmx:afterRequest` event to close modal and trigger playlist refresh
 
-**Changes to Plan**: None yet
+**Changes to Plan**:
+- Used Bootstrap 5 Modal instead of custom modal creation (simpler, no JS needed)
+- Modal structure embedded in playlist details HTML (one modal per playlist)
+- HTMX loads modal content dynamically when edit button clicked
+- Hyperscript handles video selection visual feedback and state management
+- Confirm button uses `hx-vals` with JavaScript expression to read selected video ID from button attribute
+- Modal closes automatically after successful video replacement via Hyperscript event handler
 
-**Files Modified**: None yet
+**Files Created**:
+- None (added to existing files)
+
+**Files Modified**:
+- `src/routes/playlistDetails.ts` - Updated search endpoint to accept `playlistId` and `currentVideoId` query params
+- `src/routes/playlistDetails.ts` - Converted refresh button onclick to `hx-get` with cache-control header
+- `src/routes/playlistDetails.ts` - Converted edit/link buttons onclick to `hx-get` with Bootstrap modal attributes
+- `src/routes/playlistDetails.ts` - Converted collapse button from inline onclick to Hyperscript
+- `src/routes/playlistDetails.ts` - Added Bootstrap modal structure to playlist details HTML
+- `src/routes/playlistDetails.ts` - Converted video selection modal HTML to use Bootstrap modal structure with Hyperscript
+- `views/index.html` - Removed playlistDetails.js script tag
+
+**Files Deleted**:
+- `public/js/playlistDetails.js` - Deleted 265 lines of client-side JavaScript
+
+**Results**:
+- ✅ Reduced client-side JavaScript from 265 lines to 0 lines (100% reduction)
+- ✅ Eliminated all `onclick` handlers in playlist details
+- ✅ Eliminated manual DOM manipulation for modal creation
+- ✅ Eliminated manual `htmx.ajax()` calls - now using declarative `hx-get`/`hx-post`
+- ✅ Eliminated global function exposure (no more `window.function` assignments)
+- ✅ Video selection now fully declarative with Hyperscript
+- ✅ Modal lifecycle managed by Bootstrap + HTMX
+- ✅ Automatic playlist refresh after video replacement
 
 ---
 
@@ -593,5 +636,5 @@ This section captures important insights for future refactoring work.
 
 ---
 
-**Current Status**: Phase 2B COMPLETED ✅ - Sync functionality refactored, SSE progress fixed
-**Next Step**: Begin Phase 2C - Playlist Details refactor (`playlistDetails.js`)
+**Current Status**: Phase 2C COMPLETED ✅ - Playlist details refactored, eliminated 265 lines of JavaScript
+**Next Step**: Phase 2D (Collapsible), 2E (SSE Progress), and 2F (Alert dismissal) are already completed or no longer needed. Ready for Phase 3 (CSS refactoring) when requested.
