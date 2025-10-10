@@ -16,129 +16,128 @@ function processPlaylistsContent(target) {
     if (playlistItems.length > 0) {
         htmx.process(target);
         Logger.debug('HTMX processed on playlists');
-            
-            // Add manual event listeners for sync buttons since HTMX processing may not work
-            const syncButtons = target.querySelectorAll('.sync-btn');
-            Logger.debug('Found sync buttons to attach listeners', { count: syncButtons.length, source: 'cached' });
-            
-            syncButtons.forEach((button, index) => {
-                // Remove any existing listeners to prevent duplicates
-                const newButton = button.cloneNode(true);
-                button.parentNode.replaceChild(newButton, button);
-                
-                newButton.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    Logger.userAction('Sync button clicked', { buttonIndex: index + 1, source: 'cached' });
-                    
-                    const playlistId = this.dataset.playlistId;
-                    const playlistName = this.dataset.playlistName;
-                    const targetId = this.getAttribute('hx-target');
-                    const url = this.getAttribute('hx-post');
-                    
-                    Logger.userAction('Manual sync initiated', { playlistName, playlistId });
-                    Logger.debug('Sync request details', { targetId, url });
-                    
-                    // Start real-time progress updates
-                    if (typeof startProgressUpdates === 'function') {
-                        startProgressUpdates(playlistId, playlistName);
+
+        // Add manual event listeners for sync buttons since HTMX processing may not work
+        const syncButtons = target.querySelectorAll('.sync-btn');
+        Logger.debug('Found sync buttons to attach listeners', { count: syncButtons.length, source: 'cached' });
+
+        syncButtons.forEach((button, index) => {
+            // Remove any existing listeners to prevent duplicates
+            const newButton = button.cloneNode(true);
+            button.parentNode.replaceChild(newButton, button);
+
+            newButton.addEventListener('click', function(e) {
+                e.preventDefault();
+                Logger.userAction('Sync button clicked', { buttonIndex: index + 1, source: 'cached' });
+
+                const playlistId = this.dataset.playlistId;
+                const playlistName = this.dataset.playlistName;
+                const targetId = this.getAttribute('hx-target');
+                const url = this.getAttribute('hx-post');
+
+                Logger.userAction('Manual sync initiated', { playlistName, playlistId });
+                Logger.debug('Sync request details', { targetId, url });
+
+                // Start real-time progress updates
+                if (typeof startProgressUpdates === 'function') {
+                    startProgressUpdates(playlistId, playlistName);
+                }
+
+                // Disable all sync buttons during sync
+                document.querySelectorAll('.sync-btn').forEach(btn => {
+                    btn.disabled = true;
+                    btn.classList.add('disabled');
+                });
+
+                // Clear previous sync results
+                const syncResult = document.getElementById(`sync-result-${playlistId}`);
+                if (syncResult) {
+                    syncResult.innerHTML = '';
+                }
+
+                // Get selected batch size from dropdown
+                const batchSizeSelect = document.getElementById('syncBatchSize');
+                let batchSize = batchSizeSelect ? batchSizeSelect.value : '1';
+
+                // If "all" is selected, get the actual track count from the playlist
+                if (batchSize === 'all') {
+                    const trackCountElement = this.closest('.playlist-item')?.querySelector('.track-count');
+                    if (trackCountElement) {
+                        const trackCountText = trackCountElement.textContent || '';
+                        const trackCountMatch = trackCountText.match(/(\d+)\s+tracks?/);
+                        batchSize = trackCountMatch ? trackCountMatch[1] : '999';
+                    } else {
+                        batchSize = '999'; // Fallback for "all"
                     }
-                    
-                    // Disable all sync buttons during sync
-                    document.querySelectorAll('.sync-btn').forEach(btn => {
-                        btn.disabled = true;
-                        btn.classList.add('disabled');
-                    });
-                    
-                    // Clear previous sync results
+                }
+
+                Logger.info('Using batch size for sync', { batchSize, playlistId });
+
+                // Make manual HTMX request with batch size
+                htmx.ajax('POST', url, {
+                    target: targetId,
+                    swap: 'innerHTML',
+                    values: { batchSize: batchSize }
+                }).then(() => {
+                    // Hide the blue progress area since sync is complete
+                    const progressDiv = document.getElementById(`progress-${playlistId}`);
+                    if (progressDiv) {
+                        progressDiv.style.display = 'none';
+                    }
+
+                    // Show the sync result area after content is loaded
                     const syncResult = document.getElementById(`sync-result-${playlistId}`);
-                    if (syncResult) {
-                        syncResult.innerHTML = '';
-                    }
-                    
-                    // Get selected batch size from dropdown
-                    const batchSizeSelect = document.getElementById('syncBatchSize');
-                    let batchSize = batchSizeSelect ? batchSizeSelect.value : '1';
-                    
-                    // If "all" is selected, get the actual track count from the playlist
-                    if (batchSize === 'all') {
-                        const trackCountElement = this.closest('.playlist-item')?.querySelector('.track-count');
-                        if (trackCountElement) {
-                            const trackCountText = trackCountElement.textContent || '';
-                            const trackCountMatch = trackCountText.match(/(\d+)\s+tracks?/);
-                            batchSize = trackCountMatch ? trackCountMatch[1] : '999';
-                        } else {
-                            batchSize = '999'; // Fallback for "all"
-                        }
-                    }
-                    
-                    Logger.info('Using batch size for sync', { batchSize, playlistId });
-                    
-                    // Make manual HTMX request with batch size
-                    htmx.ajax('POST', url, {
-                        target: targetId,
-                        swap: 'innerHTML',
-                        values: { batchSize: batchSize }
-                    }).then(() => {
-                        // Hide the blue progress area since sync is complete
-                        const progressDiv = document.getElementById(`progress-${playlistId}`);
-                        if (progressDiv) {
-                            progressDiv.style.display = 'none';
-                        }
-                        
-                        // Show the sync result area after content is loaded
-                        const syncResult = document.getElementById(`sync-result-${playlistId}`);
-                        if (syncResult && syncResult.innerHTML.trim() !== '') {
-                            // Check if sync was successful by looking for success indicators
-                            const isSuccessful = syncResult.innerHTML.includes('successfully') || 
-                                                syncResult.innerHTML.includes('data-sync-success="true"');
-                            
-                            if (isSuccessful) {
-                                // For successful syncs, store feedback and trigger playlist refresh for reordering
-                                sessionStorage.setItem('pendingSyncFeedback', JSON.stringify({
-                                    playlistId: playlistId,
-                                    feedbackHtml: syncResult.innerHTML
-                                }));
-                                
-                                // Hide the summary initially - it will appear after refresh in correct position
-                                syncResult.style.display = 'none';
-                                
-                                // Trigger playlist refresh for reordering
-                                Logger.info('Triggering playlist refresh for reordering');
-                                const refreshBtn = document.getElementById('refresh-playlists-btn');
-                                if (refreshBtn) {
-                                    htmx.trigger(refreshBtn, 'click');
-                                }
-                            } else {
-                                // Re-enable all sync buttons for failed syncs
-                                document.querySelectorAll('.sync-btn').forEach(btn => {
-                                    btn.disabled = false;
-                                    btn.classList.remove('disabled');
-                                });
+                    if (syncResult && syncResult.innerHTML.trim() !== '') {
+                        // Check if sync was successful by looking for success indicators
+                        const isSuccessful = syncResult.innerHTML.includes('successfully') ||
+                                            syncResult.innerHTML.includes('data-sync-success="true"');
+
+                        if (isSuccessful) {
+                            // For successful syncs, store feedback and trigger playlist refresh for reordering
+                            sessionStorage.setItem('pendingSyncFeedback', JSON.stringify({
+                                playlistId: playlistId,
+                                feedbackHtml: syncResult.innerHTML
+                            }));
+
+                            // Hide the summary initially - it will appear after refresh in correct position
+                            syncResult.style.display = 'none';
+
+                            // Trigger playlist refresh for reordering
+                            Logger.info('Triggering playlist refresh for reordering');
+                            const refreshBtn = document.getElementById('refresh-playlists-btn');
+                            if (refreshBtn) {
+                                htmx.trigger(refreshBtn, 'click');
                             }
                         } else {
-                            // Re-enable all sync buttons
+                            // Re-enable all sync buttons for failed syncs
                             document.querySelectorAll('.sync-btn').forEach(btn => {
                                 btn.disabled = false;
                                 btn.classList.remove('disabled');
                             });
                         }
-                    }).catch((error) => {
-                        Logger.error('Sync request failed', { playlistId, playlistName }, error);
-                        
-                        // Re-enable all sync buttons even on error
+                    } else {
+                        // Re-enable all sync buttons
                         document.querySelectorAll('.sync-btn').forEach(btn => {
                             btn.disabled = false;
                             btn.classList.remove('disabled');
                         });
+                    }
+                }).catch((error) => {
+                    Logger.error('Sync request failed', { playlistId, playlistName }, error);
+
+                    // Re-enable all sync buttons even on error
+                    document.querySelectorAll('.sync-btn').forEach(btn => {
+                        btn.disabled = false;
+                        btn.classList.remove('disabled');
                     });
                 });
             });
-            Logger.debug('Added manual event listeners to sync buttons', { count: syncButtons.length, source: 'cached' });
-        }
-        
+        });
+        Logger.debug('Added manual event listeners to sync buttons', { count: syncButtons.length, source: 'cached' });
+
         return true;
     }
-    
+
     return false;
 }
 
