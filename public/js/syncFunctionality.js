@@ -3,20 +3,19 @@
  * Handles playlist sync operations, HTMX events, and feedback processing
  */
 
-// Function to load playlists from storage (called from HTML connection status script)
+// Function to load playlists (called from HTML connection status script)
+// Note: Caching is now handled by HTTP cache headers, no localStorage needed
 function loadPlaylistsFromStorage() {
-    const cachedData = getCachedPlaylistsData();
-    
-    if (cachedData.isValid) {
-        Logger.cache('load', 'spotify_playlists', { ageMinutes: cachedData.ageMinutes });
-        const target = document.getElementById('playlists-content');
-        target.innerHTML = cachedData.html;
-        
-        // Process HTMX attributes on cached content
-        const playlistItems = target.querySelectorAll('.playlist-item');
-        if (playlistItems.length > 0) {
-            htmx.process(target);
-            Logger.debug('HTMX processed on cached playlists');
+    // Always return false to trigger fresh load (browser HTTP cache will handle caching)
+    return false;
+}
+
+// Legacy function - kept for backward compatibility but unused
+function processPlaylistsContent(target) {
+    const playlistItems = target.querySelectorAll('.playlist-item');
+    if (playlistItems.length > 0) {
+        htmx.process(target);
+        Logger.debug('HTMX processed on playlists');
             
             // Add manual event listeners for sync buttons since HTMX processing may not work
             const syncButtons = target.querySelectorAll('.sync-btn');
