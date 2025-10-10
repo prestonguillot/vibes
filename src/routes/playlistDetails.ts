@@ -310,7 +310,11 @@ router.get('/playlist/:playlistId', async (req, res) => {
               ${allTracks.length} tracks • ${mergedTracks.filter((t: any) => t.linked).length} linked
             </span>
             <button type="button" class="btn btn-outline-secondary btn-sm"
-                    onclick="refreshPlaylistDetails('${playlistId}')"
+                    data-refresh-playlist="${playlistId}"
+                    hx-get="/api/playlistDetails/playlist/${playlistId}"
+                    hx-target="#details-${playlistId}"
+                    hx-swap="outerHTML"
+                    hx-headers='{"Cache-Control": "no-cache"}'
                     title="Refresh playlist details">
               Refresh
             </button>
@@ -348,24 +352,28 @@ router.get('/playlist/:playlistId', async (req, res) => {
               </div>
               
               <div class="track-status ms-2 d-flex align-items-center gap-2">
-                ${track.linked ? 
+                ${track.linked ?
                   `<span class="badge bg-success">Linked</span>
-                   <button type="button" class="btn btn-outline-secondary btn-sm" 
-                           onclick="editTrackVideo('${playlistId}', '${track.spotify.id}', '${track.spotify.name.replace(/'/g, "\\'")}', '${track.spotify.artist.replace(/'/g, "\\'")}', '${track.youtube?.id || ''}')"
+                   <button type="button" class="btn btn-outline-secondary btn-sm"
+                           hx-get="/api/playlistDetails/search/${track.spotify.id}?trackName=${encodeURIComponent(track.spotify.name)}&artistName=${encodeURIComponent(track.spotify.artist)}&playlistId=${playlistId}&currentVideoId=${track.youtube?.id || ''}"
+                           hx-target="#video-modal-content"
+                           hx-swap="innerHTML"
                            title="Edit linked video">
                      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
                        <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
                      </svg>
-                   </button>` : 
-                  track.spotify ? 
+                   </button>` :
+                  track.spotify ?
                     `<span class="badge bg-warning">Unlinked</span>
-                     <button type="button" class="btn btn-outline-secondary btn-sm" 
-                             onclick="editTrackVideo('${playlistId}', '${track.spotify.id}', '${track.spotify.name.replace(/'/g, "\\'")}', '${track.spotify.artist.replace(/'/g, "\\'")}', '')"
+                     <button type="button" class="btn btn-outline-secondary btn-sm"
+                             hx-get="/api/playlistDetails/search/${track.spotify.id}?trackName=${encodeURIComponent(track.spotify.name)}&artistName=${encodeURIComponent(track.spotify.artist)}&playlistId=${playlistId}&currentVideoId="
+                             hx-target="#video-modal-content"
+                             hx-swap="innerHTML"
                              title="Link video to this track">
                        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
                          <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
                        </svg>
-                     </button>` : 
+                     </button>` :
                     '<span class="badge bg-info">YouTube Only</span>'
                 }
               </div>
@@ -374,17 +382,13 @@ router.get('/playlist/:playlistId', async (req, res) => {
         </div>
         
         <!-- Collapse area at bottom of expanded details -->
-        <div class="playlist-collapse-area" 
+        <div class="playlist-collapse-area"
              data-playlist-id="${playlistId}"
-             onclick="
-               const expandArea = document.querySelector('.playlist-expand-area[data-playlist-id=&quot;${playlistId}&quot;]');
-               if (expandArea) {
-                 expandArea.click();
-                 setTimeout(() => {
-                   expandArea.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                 }, 100);
-               }
-             "
+             _="on click
+                  get the first .playlist-expand-area[@data-playlist-id='${playlistId}'] then
+                  trigger click on it then
+                  wait 100ms then
+                  call it.scrollIntoView({behavior: 'smooth', block: 'center'})"
              style="position: relative; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: center; height: 50px; margin: 0; margin-bottom: -15px; padding-bottom: 15px;">
           <span class="collapse-indicator" style="font-size: 16px; color: #ff0040; padding: 8px 90px; border-radius: 3px; transition: all 0.2s;">▲</span>
         </div>
@@ -413,12 +417,14 @@ router.get('/playlist/:playlistId', async (req, res) => {
 // Search for alternative YouTube videos for a track
 router.get('/search/:trackId', async (req, res) => {
   const { trackId } = req.params;
-  const { trackName, artistName } = req.query;
-  
+  const { trackName, artistName, playlistId, currentVideoId } = req.query;
+
   Logger.requestStart('Track Video Search Request', {
     trackId,
     trackName,
-    artistName
+    artistName,
+    playlistId,
+    currentVideoId
   });
 
   try {
@@ -442,20 +448,36 @@ router.get('/search/:trackId', async (req, res) => {
 
     // Generate HTML response with video selection interface
     const videoSelectionHtml = `
-      <div class="video-selection-modal" data-track-id="${trackId}">
-        <div class="modal-header mb-3">
-          <h5>Select Alternative Video</h5>
-          <p class="text-muted mb-0">Choose a different YouTube video for: <strong>${trackName}</strong> by <strong>${artistName}</strong></p>
-        </div>
-        
-        <div class="video-options" style="max-height: 400px; overflow-y: auto;">
+      <div class="modal-header">
+        <h5 class="modal-title">Select Alternative Video</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted mb-3">Choose a different YouTube video for: <strong>${trackName}</strong> by <strong>${artistName}</strong></p>
+
+        <div class="video-options">
           ${videos.map((video, index) => `
-            <div class="video-option p-3 border rounded mb-2" 
+            <div class="video-option p-3 border rounded mb-2"
                  data-video-id="${video.id}"
                  style="cursor: pointer; transition: all 0.2s;"
-                 onclick="selectVideo('${video.id}', this)">
+                 _="on click
+                      -- Deselect all other options
+                      for opt in <.video-option/>
+                        remove .selected from opt
+                        set opt.style.backgroundColor to ''
+                        set opt.style.borderColor to ''
+                        set the *display of the first .selection-indicator in opt to 'none'
+                      end
+                      -- Select this option
+                      add .selected to me
+                      set my style.backgroundColor to '#e8f5e8'
+                      set my style.borderColor to '#28a745'
+                      set the *display of the first .selection-indicator in me to 'block'
+                      -- Enable confirm button and store selected video ID
+                      set #confirm-selection-btn.disabled to false
+                      set @data-selected-video-id of #confirm-selection-btn to '${video.id}'">
               <div class="d-flex align-items-start">
-                <img src="${video.thumbnail}" alt="Video thumbnail" 
+                <img src="${video.thumbnail}" alt="Video thumbnail"
                      style="width: 120px; height: 90px; object-fit: cover; border-radius: 4px;" class="me-3">
                 <div class="flex-grow-1">
                   <h6 class="mb-1">${video.title}</h6>
@@ -473,16 +495,32 @@ router.get('/search/:trackId', async (req, res) => {
             </div>
           `).join('')}
         </div>
-        
-        <div class="modal-footer mt-3 d-flex justify-content-between">
-          <button type="button" class="btn btn-secondary" onclick="cancelVideoSelection()">
-            Cancel
-          </button>
-          <button type="button" class="btn btn-primary" id="confirm-selection-btn" 
-                  onclick="confirmVideoSelection('${trackId}')" disabled>
-            Confirm Selection
-          </button>
-        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          Cancel
+        </button>
+        <button type="button" class="btn btn-primary" id="confirm-selection-btn"
+                data-track-id="${trackId}"
+                data-playlist-id="${playlistId}"
+                data-current-video-id="${currentVideoId || ''}"
+                hx-post="/api/playlistDetails/replace/${trackId}"
+                hx-vals='js:{newVideoId: document.getElementById("confirm-selection-btn").getAttribute("data-selected-video-id"), currentVideoId: document.getElementById("confirm-selection-btn").getAttribute("data-current-video-id"), playlistId: document.getElementById("confirm-selection-btn").getAttribute("data-playlist-id")}'
+                hx-swap="none"
+                _="on htmx:afterRequest
+                     if event.detail.successful
+                       js
+                         const modal = bootstrap.Modal.getInstance(document.getElementById('videoSelectionModal'));
+                         if (modal) modal.hide();
+                         setTimeout(() => {
+                           const refreshBtn = document.querySelector('[data-refresh-playlist=&quot;${playlistId}&quot;]');
+                           if (refreshBtn) refreshBtn.click();
+                         }, 300);
+                       end
+                     end"
+                disabled>
+          Confirm Selection
+        </button>
       </div>
     `;
 
