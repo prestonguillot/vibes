@@ -4,6 +4,7 @@ import { google } from 'googleapis';
 import { searchMusicVideo } from '../utils/youtubeScraper';
 import { sendProgressUpdate } from './progress';
 import { Logger } from '../utils/logger';
+import { errorMessage, syncFeedback } from '../utils/htmlTemplates';
 
 const router = Router();
 
@@ -289,7 +290,7 @@ router.post('/playlist/:playlistId', async (req, res) => {
         message: 'Authentication required',
         details: 'Please connect to Spotify first'
       });
-      return res.status(401).send('<div class="alert alert-danger">Please connect to Spotify first</div>');
+      return res.status(401).send(errorMessage({ message: 'Please connect to Spotify first' }));
     }
 
     if (!youtubeTokens) {
@@ -299,7 +300,7 @@ router.post('/playlist/:playlistId', async (req, res) => {
         message: 'Authentication required',
         details: 'Please connect to YouTube first'
       });
-      return res.status(401).send('<div class="alert alert-danger">Please connect to YouTube first</div>');
+      return res.status(401).send(errorMessage({ message: 'Please connect to YouTube first' }));
     }
 
     Logger.info('Authentication check passed');
@@ -378,7 +379,7 @@ router.post('/playlist/:playlistId', async (req, res) => {
         message: 'No tracks found',
         details: 'No tracks found in the playlist'
       });
-      return res.send('<div class="alert alert-warning">No tracks found to sync</div>');
+      return res.send(errorMessage({ type: 'warning', message: 'No tracks found to sync' }));
     }
 
     // Calculate total progress phases: search (70%) + playlist operations (30%)
@@ -887,13 +888,12 @@ router.post('/playlist/:playlistId', async (req, res) => {
         message: 'No videos found',
         details: 'No videos found in the playlist'
       });
-      return res.send(`
-        <div class="alert alert-warning">
-          <h5>No videos found</h5>
-          <p>Could not find any YouTube videos for the tracks in this playlist.</p>
-          <p>API calls made: ${apiCallCount} (${totalQuotaUsed} quota units)</p>
-        </div>
-      `);
+      return res.send(errorMessage({
+        type: 'warning',
+        title: 'No videos found',
+        message: 'Could not find any YouTube videos for the tracks in this playlist.',
+        details: `API calls made: ${apiCallCount} (${totalQuotaUsed} quota units)`
+      }));
     }
     
     // Create playlist if it doesn't exist
@@ -1117,42 +1117,20 @@ router.post('/playlist/:playlistId', async (req, res) => {
     
     // Generate user-friendly sync feedback with unlinked track details
     const videosFound = searchResults.filter(r => r.found).length;
-    const videosNotFound = searchResults.filter(r => !r.found).length;
-    const unlinkedTracks = searchResults.filter(r => !r.found);
-    
-    let syncFeedbackHtml = `
-      <div class="sync-feedback alert alert-success alert-dismissible fade show" data-playlist-id="${playlistId}">
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        <div><strong>Playlist ${existingPlaylist ? 'updated' : 'created'} successfully!</strong></div>
-        <div class="small">Found ${videosFound} out of ${searchResults.length} tracks${tracks.length > trackLimit ? ` (limited from ${tracks.length} total)` : ''}</div>`;
-    
-    // Add unlinked tracks information if any
-    if (videosNotFound > 0) {
-      syncFeedbackHtml += `
-        <div class="mt-2">
-          <div class="small text-warning">
-            <strong>${videosNotFound} track${videosNotFound > 1 ? 's' : ''} could not be linked:</strong>
-          </div>
-          <div class="small text-muted mt-1">`;
-      
-      unlinkedTracks.forEach((track, index) => {
-        syncFeedbackHtml += `${track.track} by ${track.artist}`;
-        if (index < unlinkedTracks.length - 1) {
-          syncFeedbackHtml += ', ';
-        }
-      });
-      
-      syncFeedbackHtml += `
-          </div>
-          <div class="small text-muted mt-1">
-            <em>These tracks will appear as unlinked in the playlist details view.</em>
-          </div>
-        </div>`;
-    }
-    
-    syncFeedbackHtml += `
-      </div>
-    `;
+    const unlinkedTracks = searchResults.filter(r => !r.found).map(r => ({
+      track: r.track,
+      artist: r.artist
+    }));
+
+    const syncFeedbackHtml = syncFeedback({
+      playlistId,
+      isUpdate: !!existingPlaylist,
+      videosFound,
+      totalSearched: searchResults.length,
+      isLimited: tracks.length > trackLimit,
+      totalTracks: tracks.length,
+      unlinkedTracks
+    });
     
     // Return response with both feedback and refresh trigger
     res.send(`
@@ -1183,26 +1161,24 @@ router.post('/playlist/:playlistId', async (req, res) => {
       const gaxiosError = error as any;
       if (gaxiosError.errors && gaxiosError.errors.some((e: any) => e.reason === 'quotaExceeded')) {
         Logger.warn('YouTube API quota exceeded - sync stopped gracefully');
-        return res.status(429).send(`
-          <div class="alert alert-warning">
-            <h5>YouTube API Quota Exceeded</h5>
-            <p>You've reached the daily YouTube API quota limit. The sync was stopped to prevent further errors.</p>
-            <p>Please try again tomorrow when the quota resets, or consider reducing the number of tracks processed per sync.</p>
-            <p>Some tracks may have been successfully added before hitting the quota limit.</p>
-          </div>
-        `);
+        return res.status(429).send(errorMessage({
+          type: 'warning',
+          title: 'YouTube API Quota Exceeded',
+          message: "You've reached the daily YouTube API quota limit. The sync was stopped to prevent further errors.",
+          details: 'Please try again tomorrow when the quota resets, or consider reducing the number of tracks processed per sync. Some tracks may have been successfully added before hitting the quota limit.'
+        }));
       }
     }
     
     // Check if it's an authentication error
     if (error instanceof Error && (
-      error.message === 'SPOTIFY_AUTH_REQUIRED' || 
+      error.message === 'SPOTIFY_AUTH_REQUIRED' ||
       error.message === 'YOUTUBE_AUTH_REQUIRED'
     )) {
       const service = error.message === 'SPOTIFY_AUTH_REQUIRED' ? 'Spotify' : 'YouTube';
-      const loginUrl = error.message === 'SPOTIFY_AUTH_REQUIRED' ? 
+      const loginUrl = error.message === 'SPOTIFY_AUTH_REQUIRED' ?
         '/auth/spotify/login' : '/auth/youtube/login';
-      
+
       return res.status(401).send(`
         <div class="alert alert-warning">
           <h5>Authentication Required</h5>
@@ -1214,13 +1190,11 @@ router.post('/playlist/:playlistId', async (req, res) => {
       `);
     }
     
-    res.status(500).send(`
-      <div class="alert alert-danger">
-        <h5>Error syncing playlist</h5>
-        <p>Something went wrong during the sync process. Please try again.</p>
-        <small class="text-muted">Error: ${error instanceof Error ? error.message : 'Unknown error'}</small>
-      </div>
-    `);
+    res.status(500).send(errorMessage({
+      title: 'Error syncing playlist',
+      message: 'Something went wrong during the sync process. Please try again.',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }));
   }
 });
 

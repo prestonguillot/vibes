@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { Logger } from '../utils/logger';
+import { progressUpdate } from '../utils/htmlTemplates';
 
 const router = Router();
 
@@ -67,17 +68,25 @@ export function sendProgressUpdate(playlistId: string, update: {
     return;
   }
 
-  const data = JSON.stringify({
-    ...update,
-    timestamp: update.timestamp || new Date().toISOString()
+  // Generate HTML for the progress update
+  const html = progressUpdate({
+    message: update.message,
+    details: update.details,
+    percentage: update.percentage || 0,
+    type: update.type
   });
+
+  // Minify HTML to single line for SSE format compliance
+  // SSE requires data to be on a single line or each line prefixed with "data: "
+  const minifiedHtml = html.replace(/\s+/g, ' ').trim();
 
   Logger.debug('Sending progress update', { playlistId, clientCount: connections.length, message: update.message });
 
   // Send to all connected clients for this playlist
+  // Use 'message' event type for HTMX SSE extension
   connections.forEach((res, index) => {
     try {
-      res.write(`data: ${data}\n\n`);
+      res.write(`event: message\ndata: ${minifiedHtml}\n\n`);
     } catch (error) {
       Logger.warn('Failed to send progress update to client', { playlistId, clientIndex: index }, error);
       // Remove failed connection

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { google } from 'googleapis';
 import { Logger } from '../utils/logger';
+import { oauthErrorPage } from '../utils/htmlTemplates';
 
 const router = Router();
 
@@ -103,27 +104,7 @@ router.get('/callback', async (req, res) => {
     res.redirect('/?youtube=connected');
   } catch (error) {
     Logger.error('Error getting YouTube tokens', {}, error);
-    res.send(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>YouTube Connection Failed</title>
-        <style>
-          body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #dc3545; color: white; }
-          .error { font-size: 24px; margin-bottom: 20px; }
-        </style>
-      </head>
-      <body>
-        <div class="error">YouTube Connection Failed</div>
-        <p>Please try again. You can close this window.</p>
-        <script>
-          setTimeout(() => {
-            window.close();
-          }, 3000);
-        </script>
-      </body>
-      </html>
-    `);
+    res.send(oauthErrorPage('YouTube'));
   }
 });
 
