@@ -4,7 +4,9 @@
       "Bash(npm run type-check:*)",
       "Bash(npm run build:*)",
       "Bash(npm run dev:*)",
-      "Read(//Users/prestonguillot/Desktop/**)"
+      "Read(//Users/prestonguillot/Desktop/**)",
+      "Bash(npm install:*)",
+      "Bash(npm uninstall:*)"
     ],
     "deny": [],
     "ask": []

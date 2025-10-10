@@ -19,12 +19,11 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@types/express-session": "^1.17.5",
     "cheerio": "^1.0.0-rc.12",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.0.3",
     "express": "^4.18.2",
-    "express-session": "^1.17.3",
     "googleapis": "^118.0.0",
     "node-fetch": "^3.3.2",
     "spotify-web-api-node": "^5.0.2"

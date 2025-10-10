@@ -13,14 +13,16 @@ const getSpotifyApi = () => new SpotifyWebApi({
 });
 
 // Helper function to refresh Spotify tokens if needed
-const ensureValidSpotifyToken = async (req: any) => {
-  if (!req.session.spotifyTokens) {
+const ensureValidSpotifyToken = async (req: any, res: any) => {
+  const spotifyTokens = req.cookies.spotify_tokens ? JSON.parse(req.cookies.spotify_tokens) : null;
+
+  if (!spotifyTokens) {
     throw new Error('No Spotify tokens found');
   }
 
   const spotifyApi = getSpotifyApi();
-  spotifyApi.setAccessToken(req.session.spotifyTokens.accessToken);
-  spotifyApi.setRefreshToken(req.session.spotifyTokens.refreshToken);
+  spotifyApi.setAccessToken(spotifyTokens.accessToken);
+  spotifyApi.setRefreshToken(spotifyTokens.refreshToken);
 
   try {
     // Test if current token is valid by making a simple API call
@@ -28,16 +30,21 @@ const ensureValidSpotifyToken = async (req: any) => {
     return spotifyApi;
   } catch (error: any) {
     // If token is expired (401), try to refresh it
-    if (error.statusCode === 401 && req.session.spotifyTokens.refreshToken) {
+    if (error.statusCode === 401 && spotifyTokens.refreshToken) {
       Logger.auth('Spotify', 'token expired, refreshing');
       try {
         const data = await spotifyApi.refreshAccessToken();
         const { access_token } = data.body;
-        
-        // Update session with new token
-        req.session.spotifyTokens.accessToken = access_token;
+
+        // Update cookie with new token
+        const updatedTokens = { ...spotifyTokens, accessToken: access_token };
+        res.cookie('spotify_tokens', JSON.stringify(updatedTokens), {
+          httpOnly: true,
+          maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+          sameSite: 'lax'
+        });
         spotifyApi.setAccessToken(access_token);
-        
+
         Logger.auth('Spotify', 'token refreshed successfully');
         return spotifyApi;
       } catch (refreshError) {
@@ -53,7 +60,6 @@ const ensureValidSpotifyToken = async (req: any) => {
 // Spotify login
 router.get('/login', (req, res) => {
   Logger.requestStart('Spotify Login Request', {
-    sessionId: req.sessionID,
     requestUrl: req.originalUrl
   });
   
@@ -68,27 +74,32 @@ router.get('/login', (req, res) => {
 // Spotify callback
 router.get('/callback', async (req, res) => {
   Logger.requestStart('Spotify Callback Request', {
-    sessionId: req.sessionID,
     requestUrl: req.originalUrl,
     authCodePresent: !!req.query.code
   });
-  
+
   const { code } = req.query;
-  
+
   try {
     const spotifyApi = getSpotifyApi();
     const data = await spotifyApi.authorizationCodeGrant(code as string);
     const { access_token, refresh_token } = data.body;
-    
+
     spotifyApi.setAccessToken(access_token);
     spotifyApi.setRefreshToken(refresh_token);
-    
-    // Store tokens in session
-    req.session.spotifyTokens = {
+
+    // Store tokens in httpOnly cookie
+    res.cookie('spotify_tokens', JSON.stringify({
       accessToken: access_token,
       refreshToken: refresh_token
-    };
-    
+    }), {
+      httpOnly: true,
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      sameSite: 'lax'
+    });
+
+    Logger.auth('Spotify', 'tokens stored in cookie');
+
     // Redirect back to main page
     res.redirect('/?spotify=connected');
   } catch (error) {
@@ -120,17 +131,17 @@ router.get('/callback', async (req, res) => {
 // Get user's playlists with improved layout - testing hot reload
 router.get('/playlists', async (req, res) => {
   Logger.requestStart('Spotify Playlists Request', {
-    sessionId: req.sessionID,
     requestUrl: req.originalUrl,
     queryParams: req.query
   });
-  
-  if (!req.session.spotifyTokens) {
+
+  const spotifyTokens = req.cookies.spotify_tokens ? JSON.parse(req.cookies.spotify_tokens) : null;
+  if (!spotifyTokens) {
     return res.status(401).send('<div style="margin: 0; padding: 0;">Please connect to Spotify first</div>');
   }
-  
+
   try {
-    const spotifyApi = await ensureValidSpotifyToken(req);
+    const spotifyApi = await ensureValidSpotifyToken(req, res);
     
     // Get current user info for ownership filtering
     const userInfo = await spotifyApi.getMe();
@@ -142,8 +153,9 @@ router.get('/playlists', async (req, res) => {
       process.env.YOUTUBE_CLIENT_SECRET,
       process.env.YOUTUBE_REDIRECT_URI
     );
-    if (req.session.youtubeTokens) {
-      oauth2Client.setCredentials(req.session.youtubeTokens);
+    const youtubeTokens = req.cookies.youtube_tokens ? JSON.parse(req.cookies.youtube_tokens) : null;
+    if (youtubeTokens) {
+      oauth2Client.setCredentials(youtubeTokens);
     }
     const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
     
@@ -162,7 +174,7 @@ router.get('/playlists', async (req, res) => {
     // Get YouTube playlists to check which Spotify playlists have been synced
     let youtubePlaylistNames = new Set<string>();
     let youtubePlaylistsMap = new Map<string, any>();
-    if (req.session.youtubeTokens) {
+    if (youtubeTokens) {
       try {
         const youtubeResponse = await youtube.playlists.list({
           part: ['snippet'],
