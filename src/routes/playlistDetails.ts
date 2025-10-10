@@ -390,6 +390,9 @@ router.get('/playlist/:playlistId', async (req, res) => {
 
     const duration = Date.now() - startTime;
     Logger.requestEnd('Playlist Details Request', duration, { playlistId });
+
+    // Cache for 10 minutes to save YouTube API quota
+    res.set('Cache-Control', 'private, max-age=600');
     res.send(playlistDetailsHtml);
 
   } catch (error) {

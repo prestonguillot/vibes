@@ -287,10 +287,13 @@ router.get('/playlists', async (req, res) => {
     `
     }).join('');
     
-    const summaryText = syncedPlaylists.length > 0 
+    const summaryText = syncedPlaylists.length > 0
       ? `Showing ${syncedPlaylists.length} synced and ${unsyncedPlaylists.length} unsynced playlists${ownOnly ? ' (your playlists only)' : ''}`
       : `Showing ${unsyncedPlaylists.length} playlists${ownOnly ? ' (your playlists only)' : ''} (none synced yet)`;
-    
+
+    // Cache for 30 minutes to save YouTube API quota
+    res.set('Cache-Control', 'private, max-age=1800');
+    Logger.info('Setting cache header for playlists response', { cacheControl: 'private, max-age=1800' });
     res.send(`
       <div>
         <p style="margin: 0; padding: 0;">${summaryText}</p>

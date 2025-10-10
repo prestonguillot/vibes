@@ -59,7 +59,7 @@ app.use(session({
   secret: process.env.SESSION_SECRET || 'dev-secret-change-in-production',
   resave: false,
   saveUninitialized: true, // Create session for all requests (needed for OAuth popup compatibility)
-  cookie: { 
+  cookie: {
     secure: false, // Set to true in production with HTTPS
     httpOnly: true, // Prevent XSS attacks
     maxAge: 24 * 60 * 60 * 1000, // 24 hours in milliseconds

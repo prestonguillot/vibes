@@ -1,55 +1,8 @@
 /**
  * Playlist Details Module
- * Handles playlist expansion/collapse functionality and detail caching
+ * Handles playlist expansion/collapse functionality
+ * Caching is handled by HTTP cache headers on the server
  */
-
-// Playlist details storage functions
-function savePlaylistDetailsToStorage(playlistId, detailsHtml) {
-    try {
-        const storageKey = `playlist_details_${playlistId}`;
-        localStorage.setItem(storageKey, detailsHtml);
-        localStorage.setItem(`${storageKey}_timestamp`, Date.now().toString());
-        Logger.cache('save', `playlist_details_${playlistId}`);
-    } catch (error) {
-        Logger.warn('Failed to save playlist details to localStorage', { playlistId }, error);
-    }
-}
-
-function loadPlaylistDetailsFromStorage(playlistId) {
-    try {
-        const storageKey = `playlist_details_${playlistId}`;
-        const timestamp = localStorage.getItem(`${storageKey}_timestamp`);
-        const detailsHtml = localStorage.getItem(storageKey);
-
-        if (timestamp && detailsHtml) {
-            const ageMs = Date.now() - parseInt(timestamp);
-            const ageMinutes = ageMs / (1000 * 60);
-
-            // Cache expires after 10 minutes (shorter than main playlist cache)
-            if (ageMinutes < 10) {
-                Logger.cache('load', `playlist_details_${playlistId}`, { ageMinutes: Math.round(ageMinutes) });
-                return detailsHtml;
-            } else {
-                Logger.cache('expired', `playlist_details_${playlistId}`, { ageMinutes: Math.round(ageMinutes) });
-                clearPlaylistDetailsStorage(playlistId);
-            }
-        }
-    } catch (error) {
-        Logger.warn('Failed to load playlist details from localStorage', { playlistId }, error);
-    }
-    return null;
-}
-
-function clearPlaylistDetailsStorage(playlistId) {
-    try {
-        const storageKey = `playlist_details_${playlistId}`;
-        localStorage.removeItem(storageKey);
-        localStorage.removeItem(`${storageKey}_timestamp`);
-        Logger.cache('clear', `playlist_details_${playlistId}`);
-    } catch (error) {
-        Logger.warn('Failed to clear playlist details cache', { playlistId }, error);
-    }
-}
 
 // Global function for toggling playlist details
 function togglePlaylistDetails(playlistId, expandArea) {
@@ -67,79 +20,55 @@ function togglePlaylistDetails(playlistId, expandArea) {
         expandArea.title = 'Show track details';
         Logger.debug('Collapsed playlist details', { playlistId });
     } else {
-        Logger.debug('Expanding playlist details', { playlistId });
-        const cachedDetails = loadPlaylistDetailsFromStorage(playlistId);
+        // Load from API (browser HTTP cache will handle caching)
+        Logger.info('Loading playlist details from API', { playlistId });
+        detailsContainer.style.display = 'block';
+        indicator.textContent = '...';
+        indicator.style.color = '#999';
+        expandArea.style.pointerEvents = 'none';
+        expandArea.style.display = 'none';
 
-        if (cachedDetails) {
-            // Use cached data
-            detailsContainer.innerHTML = cachedDetails;
-            detailsContainer.style.display = 'block';
+        // Use HTMX to fetch details
+        htmx.ajax('GET', `/api/playlistDetails/playlist/${playlistId}`, {
+            target: `#details-${playlistId}`,
+            swap: 'innerHTML'
+        }).then(() => {
+            // Success - update indicator
             indicator.textContent = '▲';
             indicator.style.color = '#ff0040';
             expandArea.dataset.expanded = 'true';
+            expandArea.style.pointerEvents = 'auto';
+            expandArea.style.display = 'flex';
             expandArea.title = 'Hide track details';
-            Logger.debug('Expanded with cached data', { playlistId });
-        } else {
-            // Load from API
-            Logger.info('Loading playlist details from API', { playlistId });
-            detailsContainer.style.display = 'block';
-            indicator.textContent = '...';
-            indicator.style.color = '#999';
-            expandArea.style.pointerEvents = 'none';
-            expandArea.style.display = 'none';
 
-            // Use HTMX to fetch details
-            htmx.ajax('GET', `/api/playlistDetails/playlist/${playlistId}`, {
-                target: `#details-${playlistId}`,
-                swap: 'innerHTML'
-            }).then(() => {
-                // Success - update indicator
-                indicator.textContent = '▲';
-                indicator.style.color = '#ff0040';
-                expandArea.dataset.expanded = 'true';
-                expandArea.style.pointerEvents = 'auto';
-                expandArea.style.display = 'flex';
-                expandArea.title = 'Hide track details';
-
-                // Save to cache
-                const detailsHtml = detailsContainer.innerHTML;
-                savePlaylistDetailsToStorage(playlistId, detailsHtml);
-
-                Logger.info('Loaded and cached playlist details', { playlistId });
-            }).catch((error) => {
-                // Error - reset indicator
-                Logger.error('Error loading playlist details', { playlistId }, error);
-                indicator.textContent = '▼';
-                indicator.style.color = '#666';
-                expandArea.dataset.expanded = 'false';
-                expandArea.style.pointerEvents = 'auto';
-                expandArea.style.display = 'flex';
-                expandArea.title = 'Show track details';
-                detailsContainer.style.display = 'none';
-            });
-        }
+            Logger.info('Loaded playlist details', { playlistId });
+        }).catch((error) => {
+            // Error - reset indicator
+            Logger.error('Error loading playlist details', { playlistId }, error);
+            indicator.textContent = '▼';
+            indicator.style.color = '#666';
+            expandArea.dataset.expanded = 'false';
+            expandArea.style.pointerEvents = 'auto';
+            expandArea.style.display = 'flex';
+            expandArea.title = 'Show track details';
+            detailsContainer.style.display = 'none';
+        });
     }
 }
 
 // Function to refresh playlist details
 function refreshPlaylistDetails(playlistId) {
     Logger.userAction('Refresh playlist details', { playlistId });
-    
-    // Clear cached details first
-    clearPlaylistDetailsStorage(playlistId);
-    
-    // Use HTMX to fetch fresh details
+
+    // Use HTMX to fetch fresh details, bypassing browser cache
     htmx.ajax('GET', `/api/playlistDetails/playlist/${playlistId}`, {
         target: `#details-${playlistId}`,
-        swap: 'innerHTML'
+        swap: 'innerHTML',
+        headers: {
+            'Cache-Control': 'no-cache'
+        }
     }).then(() => {
         Logger.info('Refreshed playlist details', { playlistId });
-        
-        // Save fresh details to cache
-        const detailsContainer = document.getElementById(`details-${playlistId}`);
-        if (detailsContainer) {
-            savePlaylistDetailsToStorage(playlistId, detailsContainer.innerHTML);
-        }
     }).catch((error) => {
         Logger.error('Error refreshing playlist details', { playlistId }, error);
     });
@@ -327,9 +256,6 @@ function confirmVideoSelection(trackId) {
 }
 
 // Make functions available globally
-window.savePlaylistDetailsToStorage = savePlaylistDetailsToStorage;
-window.loadPlaylistDetailsFromStorage = loadPlaylistDetailsFromStorage;
-window.clearPlaylistDetailsStorage = clearPlaylistDetailsStorage;
 window.togglePlaylistDetails = togglePlaylistDetails;
 window.refreshPlaylistDetails = refreshPlaylistDetails;
 window.editTrackVideo = editTrackVideo;
