@@ -3,7 +3,6 @@ dotenv.config();
 
 import express from 'express';
 import cookieParser from 'cookie-parser';
-import cors from 'cors';
 import path from 'path';
 import { spotifyRouter } from './routes/spotify';
 import { youtubeRouter } from './routes/youtube';
@@ -16,7 +15,6 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());

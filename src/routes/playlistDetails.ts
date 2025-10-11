@@ -41,10 +41,11 @@ router.get('/playlist/:playlistId', async (req, res) => {
     const youtubeTokens = req.cookies.youtube_tokens ? JSON.parse(req.cookies.youtube_tokens) : null;
 
     if (!spotifyTokens || !youtubeTokens) {
-      return res.status(401).json({
-        error: 'Authentication required',
-        message: 'Both Spotify and YouTube authentication required'
+      const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
+        type: 'warning',
+        message: 'Please connect to both Spotify and YouTube first'
       });
+      return res.status(401).send(html);
     }
 
     // Initialize Spotify API
@@ -559,17 +560,19 @@ router.post('/replace/:trackId', async (req, res) => {
     const spotifyTokens = req.cookies.spotify_tokens ? JSON.parse(req.cookies.spotify_tokens) : null;
 
     if (!youtubeTokens) {
-      return res.status(401).json({
-        error: 'Authentication required',
-        message: 'YouTube authentication required'
+      const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
+        type: 'warning',
+        message: 'Please connect to YouTube first'
       });
+      return res.status(401).send(html);
     }
 
     if (!spotifyTokens) {
-      return res.status(401).json({
-        error: 'Authentication required',
-        message: 'Spotify authentication required'
+      const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
+        type: 'warning',
+        message: 'Please connect to Spotify first'
       });
+      return res.status(401).send(html);
     }
 
     // Initialize YouTube API
@@ -601,10 +604,12 @@ router.post('/replace/:trackId', async (req, res) => {
 
     if (!targetPlaylist) {
       Logger.error('YouTube playlist not found', { name: expectedYouTubePlaylistName });
-      return res.status(404).json({
-        error: 'Playlist not found',
+      const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
+        type: 'danger',
+        title: 'Playlist not found',
         message: `Could not find YouTube playlist: "${expectedYouTubePlaylistName}"`
       });
+      return res.status(404).send(html);
     }
 
     Logger.external('YouTube', 'Found target playlist', { title: targetPlaylist.snippet?.title, id: targetPlaylist.id });
@@ -648,10 +653,12 @@ router.post('/replace/:trackId', async (req, res) => {
 
       if (!playlistItemToReplace) {
         Logger.error('Video not found in playlist', { currentVideoId, playlistTitle: targetPlaylist.snippet?.title });
-        return res.status(404).json({
-          error: 'Video not found',
+        const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
+          type: 'danger',
+          title: 'Video not found',
           message: `Could not find video ${currentVideoId} in the YouTube playlist`
         });
+        return res.status(404).send(html);
       }
 
       // Get the position of the current video so we can maintain order
@@ -684,21 +691,26 @@ router.post('/replace/:trackId', async (req, res) => {
 
     Logger.info('Video operation completed successfully', { operation: isAddingNewVideo ? 'add' : 'replace' });
 
-    res.json({
-      success: true,
-      message: 'Video replaced successfully',
-      oldVideoId: currentVideoId,
-      newVideoId: newVideoId,
-      playlistId: targetPlaylist.id
+    const successMessage = isAddingNewVideo
+      ? 'Video linked successfully!'
+      : 'Video replaced successfully!';
+
+    const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/video-replace-success.ejs'), {
+      message: successMessage
     });
+
+    res.send(html);
 
   } catch (error) {
     Logger.error('Error replacing video', { trackId, currentVideoId, newVideoId }, error);
-    
-    res.status(500).json({
-      error: 'Video replacement failed',
-      message: error instanceof Error ? error.message : 'Unknown error occurred'
+
+    const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
+      type: 'danger',
+      title: 'Video replacement failed',
+      message: 'Unable to update the playlist. Please try again.',
+      details: error instanceof Error ? error.message : 'Unknown error occurred'
     });
+    res.status(500).send(html);
   }
 });
 

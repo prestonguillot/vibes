@@ -341,7 +341,15 @@ router.post('/playlist/:playlistId', async (req, res) => {
     });
 
     // Get batch size from request, default to 1 if not provided
-    const batchSize = req.body.batchSize ? parseInt(req.body.batchSize) : 1;
+    let batchSize = 1;
+    if (req.body.batchSize) {
+      if (req.body.batchSize === 'all') {
+        // "all" means process all tracks (use playlist total)
+        batchSize = playlist.tracks.total || 999;
+      } else {
+        batchSize = parseInt(req.body.batchSize);
+      }
+    }
     const trackLimit = batchSize; // Use user-selected batch size
     
     Logger.info('Using user-selected batch size', { batchSize, trackLimit });

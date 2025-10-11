@@ -1,0 +1,28 @@
+<%
+const hasUnlinkedTracks = unlinkedTracks && unlinkedTracks.length > 0;
+const multipleUnlinked = unlinkedTracks && unlinkedTracks.length > 1;
+%>
+
+<div class="sync-feedback alert alert-success alert-dismissible fade show" data-playlist-id="<%= playlistId %>">
+  <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+  <div><strong>Playlist <%= isUpdate ? 'updated' : 'created' %> successfully!</strong></div>
+  <div class="small">
+    Found <%= videosFound %> out of <%= totalSearched %> tracks<%= isLimited ? ` (limited from ${totalTracks} total)` : '' %>
+  </div>
+
+  <% if (hasUnlinkedTracks) { %>
+    <div class="mt-2">
+      <div class="small text-warning">
+        <strong><%= unlinkedTracks.length %> track<%= multipleUnlinked ? 's' : '' %> could not be linked:</strong>
+      </div>
+      <div class="small text-muted mt-1">
+        <% unlinkedTracks.forEach((track, i) => { %>
+          <%= track.track %> by <%= track.artist %><%= i < unlinkedTracks.length - 1 ? ', ' : '' %>
+        <% }); %>
+      </div>
+      <div class="small text-muted mt-1">
+        <em>These tracks will appear as unlinked in the playlist details view.</em>
+      </div>
+    </div>
+  <% } %>
+</div>
