@@ -1,0 +1,9 @@
+<div class="alert alert-<%= typeof type !== 'undefined' ? type : 'danger' %>">
+  <% if (typeof title !== 'undefined' && title) { %>
+    <h6><%= title %></h6>
+  <% } %>
+  <p><%= message %></p>
+  <% if (typeof details !== 'undefined' && details) { %>
+    <small class="text-muted"><%= details %></small>
+  <% } %>
+</div>
