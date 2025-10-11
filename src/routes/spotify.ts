@@ -2,6 +2,7 @@ import { Router } from 'express';
 import SpotifyWebApi from 'spotify-web-api-node';
 import { google } from 'googleapis';
 import { Logger } from '../utils/logger';
+import { getSecureCookieOptions } from '../utils/authValidation';
 import ejs from 'ejs';
 import path from 'path';
 
@@ -40,11 +41,7 @@ const ensureValidSpotifyToken = async (req: any, res: any) => {
 
         // Update cookie with new token
         const updatedTokens = { ...spotifyTokens, accessToken: access_token };
-        res.cookie('spotify_tokens', JSON.stringify(updatedTokens), {
-          httpOnly: true,
-          maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-          sameSite: 'lax'
-        });
+        res.cookie('spotify_tokens', JSON.stringify(updatedTokens), getSecureCookieOptions());
         spotifyApi.setAccessToken(access_token);
 
         Logger.auth('Spotify', 'token refreshed successfully');
@@ -94,11 +91,7 @@ router.get('/callback', async (req, res) => {
     res.cookie('spotify_tokens', JSON.stringify({
       accessToken: access_token,
       refreshToken: refresh_token
-    }), {
-      httpOnly: true,
-      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-      sameSite: 'lax'
-    });
+    }), getSecureCookieOptions());
 
     Logger.auth('Spotify', 'tokens stored in cookie');
 
