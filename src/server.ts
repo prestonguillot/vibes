@@ -11,7 +11,6 @@ import { syncRouter } from './routes/sync';
 import { playlistDetailsRouter } from './routes/playlistDetails';
 import { progressRouter } from './routes/progress';
 import { Logger } from './utils/logger';
-import { connectionButton } from './utils/htmlTemplates';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -60,17 +59,9 @@ app.use((req, res, next) => {
 // Static files
 app.use(express.static(path.join(__dirname, '../public')));
 
-// View engine setup (for serving HTML templates)
+// View engine setup (EJS for templating)
 app.set('views', path.join(__dirname, '../views'));
-app.set('view engine', 'html');
-app.engine('html', (filePath, options, callback) => {
-  const fs = require('fs');
-  fs.readFile(filePath, (err: any, content: Buffer) => {
-    if (err) return callback(err);
-    const rendered = content.toString();
-    return callback(null, rendered);
-  });
-});
+app.set('view engine', 'ejs');
 
 // Routes
 app.use('/auth/spotify', spotifyRouter);
@@ -234,7 +225,7 @@ app.get('/api/status/spotify/button', async (req, res) => {
     }
   }
 
-  res.send(connectionButton({ service: 'spotify', connected: spotifyConnected }));
+  res.render('partials/connection-button', { service: 'spotify', connected: spotifyConnected });
 });
 
 app.get('/api/status/youtube/button', async (req, res) => {
@@ -260,7 +251,7 @@ app.get('/api/status/youtube/button', async (req, res) => {
     }
   }
 
-  res.send(connectionButton({ service: 'youtube', connected: youtubeConnected }));
+  res.render('partials/connection-button', { service: 'youtube', connected: youtubeConnected });
 });
 
 app.listen(PORT, () => {

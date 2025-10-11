@@ -314,10 +314,10 @@ document.body.addEventListener('htmx:afterRequest', (e) => { ... })
 - [x] Phase 2A: Connection Status refactor ✅ **COMPLETED**
 - [x] Phase 2B: Sync Functionality refactor ✅ **COMPLETED**
 - [x] Phase 2C: Playlist Details refactor ✅ **COMPLETED**
-- [ ] Phase 2D: Collapsible behavior refactor
-- [ ] Phase 2E: SSE Progress refactor
-- [ ] Phase 2F: Alert dismissal cleanup
-- [ ] Phase 3: CSS refactoring
+- [x] Phase 2D: Collapsible behavior refactor ✅ **COMPLETED** (already done in Phase 2C)
+- [x] Phase 2E: SSE Progress refactor ✅ **COMPLETED** (already done in Phase 2B)
+- [x] Phase 2F: Alert dismissal cleanup ✅ **COMPLETED** (not needed - Bootstrap handles natively)
+- [x] Phase 3: CSS refactoring ✅ **COMPLETED**
 - [ ] Phase 4: HTMX extensions & enhancements
 
 ---
@@ -509,42 +509,50 @@ This section tracks what has been completed, issues encountered, and changes to 
 **Issues Encountered**:
 - **Initial approach used custom modal**: First attempt involved manual DOM manipulation in JavaScript
 - **Resolution**: Switched to Bootstrap 5 Modal (already loaded) with declarative HTMX attributes
-- **Modal lifecycle**: Used `data-bs-toggle="modal"` with HTMX `hx-get` to load content on button click
+- **Modal not appearing**: After multiple attempts with Hyperscript event handlers on buttons, modal never opened
+- **Root cause discovered**: HTMX events (`htmx:afterSwap`, `htmx:afterSettle`) bubble up from the **target element** (#video-modal-content), NOT from the triggering element (the button). Hyperscript handlers on buttons were never receiving the events.
+- **Final solution**: Created dedicated `public/js/videoModal.js` module that listens for `htmx:afterSwap` events at the **document level**, checks if the target was `#video-modal-content`, and opens the modal programmatically
+- **Modal positioning fixed**: Moved modal from inside playlist details container to root level in `index.html` to prevent z-index issues
 - **Video selection state**: Stored selected video ID in button's `data-selected-video-id` attribute via Hyperscript
 - **Refresh after replace**: Used Hyperscript `htmx:afterRequest` event to close modal and trigger playlist refresh
 
 **Changes to Plan**:
-- Used Bootstrap 5 Modal instead of custom modal creation (simpler, no JS needed)
-- Modal structure embedded in playlist details HTML (one modal per playlist)
-- HTMX loads modal content dynamically when edit button clicked
+- Used Bootstrap 5 Modal instead of custom modal creation (simpler, cleaner)
+- Global modal structure in `index.html` (one modal shared by all playlists)
+- HTMX loads modal content dynamically into `#video-modal-content` when edit/link button clicked
+- Document-level event listener in `videoModal.js` catches swap events and opens modal
 - Hyperscript handles video selection visual feedback and state management
 - Confirm button uses `hx-vals` with JavaScript expression to read selected video ID from button attribute
 - Modal closes automatically after successful video replacement via Hyperscript event handler
 
 **Files Created**:
-- None (added to existing files)
+- `public/js/videoModal.js` - Document-level event handler for modal opening (39 lines)
 
 **Files Modified**:
 - `src/routes/playlistDetails.ts` - Updated search endpoint to accept `playlistId` and `currentVideoId` query params
 - `src/routes/playlistDetails.ts` - Converted refresh button onclick to `hx-get` with cache-control header
-- `src/routes/playlistDetails.ts` - Converted edit/link buttons onclick to `hx-get` with Bootstrap modal attributes
+- `src/routes/playlistDetails.ts` - Converted edit/link buttons onclick to `hx-get` (removed all Hyperscript attempts)
 - `src/routes/playlistDetails.ts` - Converted collapse button from inline onclick to Hyperscript
-- `src/routes/playlistDetails.ts` - Added Bootstrap modal structure to playlist details HTML
 - `src/routes/playlistDetails.ts` - Converted video selection modal HTML to use Bootstrap modal structure with Hyperscript
+- `src/routes/playlistDetails.ts` - Added `data-refresh-playlist` attribute for safer DOM querying
+- `views/index.html` - Added global Bootstrap modal structure at root level
+- `views/index.html` - Added videoModal.js script tag
 - `views/index.html` - Removed playlistDetails.js script tag
+- `public/js/eventLogging.js` - Temporarily added event logging for debugging (later cleaned up)
 
 **Files Deleted**:
 - `public/js/playlistDetails.js` - Deleted 265 lines of client-side JavaScript
 
 **Results**:
-- ✅ Reduced client-side JavaScript from 265 lines to 0 lines (100% reduction)
+- ✅ Reduced client-side JavaScript from 265 lines to 39 lines (85% reduction)
 - ✅ Eliminated all `onclick` handlers in playlist details
-- ✅ Eliminated manual DOM manipulation for modal creation
+- ✅ Eliminated manual DOM manipulation for modal creation (except opening)
 - ✅ Eliminated manual `htmx.ajax()` calls - now using declarative `hx-get`/`hx-post`
 - ✅ Eliminated global function exposure (no more `window.function` assignments)
 - ✅ Video selection now fully declarative with Hyperscript
-- ✅ Modal lifecycle managed by Bootstrap + HTMX
+- ✅ Modal lifecycle managed by Bootstrap + HTMX + minimal JavaScript
 - ✅ Automatic playlist refresh after video replacement
+- ✅ Modal properly positioned and interactive
 
 ---
 
@@ -590,17 +598,62 @@ This section tracks what has been completed, issues encountered, and changes to 
 
 ---
 
-### Phase 3: CSS Refactoring [NOT STARTED]
+### Phase 3: CSS Refactoring [COMPLETED ✅]
 
 **Target**: Remove ~50 inline style instances, add ~100 lines of semantic CSS
 
-**Progress**: Not started
+**Progress**:
+- [x] Audited all inline styles in codebase (found 15 instances in routes/views)
+- [x] Audited all onclick handlers (found 1 instance in sync.ts)
+- [x] Created semantic CSS classes for all inline styles
+- [x] Removed all inline styles from index.html (5 instances)
+- [x] Removed all inline styles from playlistDetails.ts (10 instances)
+- [x] Removed onclick handler from sync.ts (1 instance)
 
-**Issues Encountered**: None yet
+**Issues Encountered**: None
 
-**Changes to Plan**: None yet
+**Changes to Plan**:
+- Found fewer inline styles than originally estimated (15 vs ~50), which made the refactoring simpler
+- All inline styles were concentrated in just 2 files (index.html and playlistDetails.ts)
+- Only 1 onclick handler remained (in sync.ts authentication error message)
 
-**Files Modified**: None yet
+**Files Created**:
+- None (added to existing CSS file)
+
+**Files Modified**:
+- `public/css/style.css` - Added semantic CSS classes:
+  - `.spinner-xs` - Small spinner size variant
+  - `.form-select-auto` - Auto-width for select inputs
+  - `.loading-indicator` - Hidden by default loading indicator
+  - `.video-option__description--truncated` - Truncated description text
+  - `.selection-indicator--hidden` - Hidden selection indicator
+  - `.custom-punk-spinner` - Inline punk-style spinner
+- `views/index.html` - Removed 5 inline style instances:
+  - Replaced `style="width: 0.8rem; height: 0.8rem;"` with `.spinner-xs` class (2 instances)
+  - Replaced `style="width: auto;"` with `.form-select-auto` class
+  - Replaced `style="display: none;"` with `.loading-indicator` class
+  - Replaced complex inline spinner styles with `.custom-punk-spinner` class
+- `src/routes/playlistDetails.ts` - Removed 10 inline style instances:
+  - Removed `style="padding: 0 15px;"` from playlist-details (already in CSS)
+  - Replaced `style="border-radius: 4px;"` with CSS class
+  - Replaced `style="min-width: 30px;"` with existing `.track-number` class
+  - Replaced YouTube thumbnail inline styles with `.youtube-video__thumbnail` class
+  - Removed collapse area inline positioning styles (already in CSS)
+  - Removed collapse indicator inline styles (already in CSS)
+  - Replaced video option inline styles with existing `.video-option` class
+  - Replaced video thumbnail inline styles with `.video-option__thumbnail` class
+  - Replaced video description inline styles with `.video-option__description--truncated` class
+  - Replaced selection indicator inline styles with `.selection-indicator--hidden` class
+- `src/routes/sync.ts` - Removed 1 onclick handler:
+  - Replaced `onclick="window.location.href='...'"` with anchor link `<a href="...">`
+
+**Results**:
+- ✅ Eliminated 100% of inline styles from routes and views (15/15 removed)
+- ✅ Eliminated 100% of onclick handlers from routes and views (1/1 removed)
+- ✅ Added ~40 lines of semantic CSS (less than estimated due to reusing existing classes)
+- ✅ All styling now uses CSS classes instead of inline styles
+- ✅ Code is cleaner and more maintainable
+- ✅ Verified with grep: 0 instances of `style="` and 0 instances of `onclick="` in src/routes and views
 
 ---
 
@@ -634,7 +687,9 @@ This section captures important insights for future refactoring work.
 
 6. **Type safety matters**: TypeScript interfaces for template parameters catch errors at compile time and improve developer experience.
 
+7. **HTMX events bubble from the target, not the trigger**: HTMX events like `htmx:afterSwap` and `htmx:afterSettle` are fired on the **target element** (where content is swapped), not the triggering element (button/link). If you need to catch these events, listen at the document level or on the target element itself. Hyperscript handlers on the trigger element won't receive these events.
+
 ---
 
-**Current Status**: Phase 2C COMPLETED ✅ - Playlist details refactored, eliminated 265 lines of JavaScript
-**Next Step**: Phase 2D (Collapsible), 2E (SSE Progress), and 2F (Alert dismissal) are already completed or no longer needed. Ready for Phase 3 (CSS refactoring) when requested.
+**Current Status**: Phase 3 COMPLETED ✅ - CSS refactoring completed, eliminated all 15 inline styles and 1 onclick handler
+**Next Step**: Ready for Phase 4 (HTMX extensions & enhancements) when requested, or refactoring is essentially complete!

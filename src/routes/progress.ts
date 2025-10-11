@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { Logger } from '../utils/logger';
-import { progressUpdate } from '../utils/htmlTemplates';
+import ejs from 'ejs';
+import path from 'path';
 
 const router = Router();
 
@@ -52,7 +53,7 @@ router.get('/playlist/:playlistId', (req: Request, res: Response) => {
 });
 
 // Function to send progress update to all connected clients for a playlist
-export function sendProgressUpdate(playlistId: string, update: {
+export async function sendProgressUpdate(playlistId: string, update: {
   type: 'progress' | 'complete' | 'error';
   message: string;
   details?: string;
@@ -68,8 +69,9 @@ export function sendProgressUpdate(playlistId: string, update: {
     return;
   }
 
-  // Generate HTML for the progress update
-  const html = progressUpdate({
+  // Generate HTML for the progress update using EJS
+  const viewsPath = path.join(__dirname, '../../views');
+  const html = await ejs.renderFile(path.join(viewsPath, 'partials/progress-update.ejs'), {
     message: update.message,
     details: update.details,
     percentage: update.percentage || 0,

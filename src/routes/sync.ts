@@ -4,7 +4,8 @@ import { google } from 'googleapis';
 import { searchMusicVideo } from '../utils/youtubeScraper';
 import { sendProgressUpdate } from './progress';
 import { Logger } from '../utils/logger';
-import { errorMessage, syncFeedback } from '../utils/htmlTemplates';
+import ejs from 'ejs';
+import path from 'path';
 
 const router = Router();
 
@@ -290,7 +291,8 @@ router.post('/playlist/:playlistId', async (req, res) => {
         message: 'Authentication required',
         details: 'Please connect to Spotify first'
       });
-      return res.status(401).send(errorMessage({ message: 'Please connect to Spotify first' }));
+      const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), { message: 'Please connect to Spotify first' });
+      return res.status(401).send(html);
     }
 
     if (!youtubeTokens) {
@@ -300,7 +302,8 @@ router.post('/playlist/:playlistId', async (req, res) => {
         message: 'Authentication required',
         details: 'Please connect to YouTube first'
       });
-      return res.status(401).send(errorMessage({ message: 'Please connect to YouTube first' }));
+      const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), { message: 'Please connect to YouTube first' });
+      return res.status(401).send(html);
     }
 
     Logger.info('Authentication check passed');
@@ -379,7 +382,8 @@ router.post('/playlist/:playlistId', async (req, res) => {
         message: 'No tracks found',
         details: 'No tracks found in the playlist'
       });
-      return res.send(errorMessage({ type: 'warning', message: 'No tracks found to sync' }));
+      const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), { type: 'warning', message: 'No tracks found to sync' });
+      return res.send(html);
     }
 
     // Calculate total progress phases: search (70%) + playlist operations (30%)
@@ -888,12 +892,13 @@ router.post('/playlist/:playlistId', async (req, res) => {
         message: 'No videos found',
         details: 'No videos found in the playlist'
       });
-      return res.send(errorMessage({
+      const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
         type: 'warning',
         title: 'No videos found',
         message: 'Could not find any YouTube videos for the tracks in this playlist.',
         details: `API calls made: ${apiCallCount} (${totalQuotaUsed} quota units)`
-      }));
+      });
+      return res.send(html);
     }
     
     // Create playlist if it doesn't exist
@@ -1122,7 +1127,7 @@ router.post('/playlist/:playlistId', async (req, res) => {
       artist: r.artist
     }));
 
-    const syncFeedbackHtml = syncFeedback({
+    const syncFeedbackHtml = await ejs.renderFile(path.join(__dirname, '../../views/partials/sync-feedback.ejs'), {
       playlistId,
       isUpdate: !!existingPlaylist,
       videosFound,
@@ -1161,12 +1166,13 @@ router.post('/playlist/:playlistId', async (req, res) => {
       const gaxiosError = error as any;
       if (gaxiosError.errors && gaxiosError.errors.some((e: any) => e.reason === 'quotaExceeded')) {
         Logger.warn('YouTube API quota exceeded - sync stopped gracefully');
-        return res.status(429).send(errorMessage({
+        const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
           type: 'warning',
           title: 'YouTube API Quota Exceeded',
           message: "You've reached the daily YouTube API quota limit. The sync was stopped to prevent further errors.",
           details: 'Please try again tomorrow when the quota resets, or consider reducing the number of tracks processed per sync. Some tracks may have been successfully added before hitting the quota limit.'
-        }));
+        });
+        return res.status(429).send(html);
       }
     }
     
@@ -1183,18 +1189,19 @@ router.post('/playlist/:playlistId', async (req, res) => {
         <div class="alert alert-warning">
           <h5>Authentication Required</h5>
           <p>${service} session has expired. Please reconnect to continue syncing.</p>
-          <button class="btn btn-success btn-sm" onclick="window.location.href='${loginUrl}'">
+          <a href="${loginUrl}" class="btn btn-success btn-sm">
             Reconnect to ${service}
-          </button>
+          </a>
         </div>
       `);
     }
     
-    res.status(500).send(errorMessage({
+    const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
       title: 'Error syncing playlist',
       message: 'Something went wrong during the sync process. Please try again.',
       details: error instanceof Error ? error.message : 'Unknown error'
-    }));
+    });
+    res.status(500).send(html);
   }
 });
 

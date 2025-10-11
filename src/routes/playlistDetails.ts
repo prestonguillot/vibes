@@ -2,7 +2,8 @@ import { Router } from 'express';
 import { google } from 'googleapis';
 import { scrapeYouTubeSearch } from '../utils/youtubeScraper';
 import { Logger } from '../utils/logger';
-import { errorMessage } from '../utils/htmlTemplates';
+import ejs from 'ejs';
+import path from 'path';
 const SpotifyWebApi = require('spotify-web-api-node');
 
 const router = Router();
@@ -302,7 +303,7 @@ router.get('/playlist/:playlistId', async (req, res) => {
 
     // Generate HTML response
     const playlistDetailsHtml = `
-      <div class="playlist-details" data-playlist-id="${playlistId}" style="padding: 0 15px;">
+      <div class="playlist-details" data-playlist-id="${playlistId}">
         <div class="playlist-header mb-3">
           <h6>${spotifyPlaylistData.body.name}</h6>
           <div class="d-flex justify-content-between align-items-center">
@@ -323,8 +324,8 @@ router.get('/playlist/:playlistId', async (req, res) => {
         
         <div id="details-${playlistId}" class="tracks-list">
           ${allTracks.map((track, index) => `
-            <div class="track-item d-flex align-items-center py-2 ${index % 2 === 0 ? 'bg-light' : ''}" style="border-radius: 4px;">
-              <div class="track-number me-3 text-muted small" style="min-width: 30px;">
+            <div class="track-item ${index % 2 === 0 ? 'track-item--even' : ''}">
+              <div class="track-number">
                 ${index + 1}
               </div>
               
@@ -339,8 +340,8 @@ router.get('/playlist/:playlistId', async (req, res) => {
                 ${track.youtube ? `
                   <div class="youtube-video ${track.spotify ? 'mt-1' : ''}">
                     <div class="d-flex align-items-center">
-                      <img src="${track.youtube.thumbnail}" alt="Video thumbnail" 
-                           style="width: 40px; height: 30px; object-fit: cover; border-radius: 3px;" class="me-2">
+                      <img src="${track.youtube.thumbnail}" alt="Video thumbnail"
+                           class="youtube-video__thumbnail">
                       <div class="flex-grow-1">
                         <a href="${track.youtube.url}" target="_blank" class="text-decoration-none small">
                           ${track.youtube.title}
@@ -389,8 +390,8 @@ router.get('/playlist/:playlistId', async (req, res) => {
                   trigger click on it then
                   wait 100ms then
                   call it.scrollIntoView({behavior: 'smooth', block: 'center'})"
-             style="position: relative; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: center; height: 50px; margin: 0; margin-bottom: -15px; padding-bottom: 15px;">
-          <span class="collapse-indicator" style="font-size: 16px; color: #ff0040; padding: 8px 90px; border-radius: 3px; transition: all 0.2s;">▲</span>
+">
+          <span class="collapse-indicator">▲</span>
         </div>
       </div>
     `;
@@ -406,11 +407,12 @@ router.get('/playlist/:playlistId', async (req, res) => {
     const duration = Date.now() - startTime;
     Logger.error('Error fetching playlist details', { playlistId, duration }, error);
     
-    res.status(500).send(errorMessage({
+    const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
       title: 'Error loading playlist details',
       message: 'Unable to fetch playlist information. Please try again.',
       details: error instanceof Error ? error.message : 'Unknown error'
-    }));
+    });
+    res.status(500).send(html);
   }
 });
 
@@ -459,7 +461,6 @@ router.get('/search/:trackId', async (req, res) => {
           ${videos.map((video, index) => `
             <div class="video-option p-3 border rounded mb-2"
                  data-video-id="${video.id}"
-                 style="cursor: pointer; transition: all 0.2s;"
                  _="on click
                       -- Deselect all other options
                       for opt in <.video-option/>
@@ -478,15 +479,15 @@ router.get('/search/:trackId', async (req, res) => {
                       set @data-selected-video-id of #confirm-selection-btn to '${video.id}'">
               <div class="d-flex align-items-start">
                 <img src="${video.thumbnail}" alt="Video thumbnail"
-                     style="width: 120px; height: 90px; object-fit: cover; border-radius: 4px;" class="me-3">
+                     class="video-option__thumbnail me-3">
                 <div class="flex-grow-1">
                   <h6 class="mb-1">${video.title}</h6>
                   <p class="text-muted small mb-1">by ${video.channelTitle}</p>
-                  <p class="small mb-0" style="max-height: 60px; overflow: hidden;">
+                  <p class="small mb-0 video-option__description--truncated">
                     ${video.description.substring(0, 150)}${video.description.length > 150 ? '...' : ''}
                   </p>
                 </div>
-                <div class="selection-indicator ms-2" style="display: none;">
+                <div class="selection-indicator selection-indicator--hidden ms-2">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="#28a745">
                     <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
                   </svg>
@@ -529,11 +530,12 @@ router.get('/search/:trackId', async (req, res) => {
   } catch (error) {
     Logger.error('Error searching for alternative videos', { trackId, trackName, artistName }, error);
     
-    res.status(500).send(errorMessage({
+    const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
       title: 'Error searching for videos',
       message: 'Unable to search for alternative videos. Please try again.',
       details: error instanceof Error ? error.message : 'Unknown error'
-    }));
+    });
+    res.status(500).send(html);
   }
 });
 
