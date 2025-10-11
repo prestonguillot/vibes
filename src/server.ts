@@ -4,12 +4,14 @@ dotenv.config();
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import path from 'path';
+import rateLimit from 'express-rate-limit';
 import { spotifyRouter } from './routes/spotify';
 import { youtubeRouter } from './routes/youtube';
 import { syncRouter } from './routes/sync';
 import { playlistDetailsRouter } from './routes/playlistDetails';
 import { progressRouter } from './routes/progress';
 import { Logger } from './utils/logger';
+import { validateSpotifyConnection, validateYouTubeConnection } from './utils/authValidation';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -18,6 +20,15 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+
+// Rate limiting for status check endpoints
+const statusLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute window
+  max: 30, // Limit each IP to 30 requests per minute
+  message: 'Too many status check requests, please try again later',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // Request logging middleware
 app.use((req, res, next) => {
@@ -44,12 +55,13 @@ app.use((req, res, next) => {
     Logger.debug('Request body', { body: req.body });
   }
 
-  // Log response when it finishes
-  const originalSend = res.send;
-  res.send = function(data) {
-    Logger.debug('Response sent', { statusCode: res.statusCode, statusMessage: res.statusMessage, bytes: data?.length || 0 });
-    return originalSend.call(this, data);
-  };
+  // Track response completion
+  res.on('finish', () => {
+    Logger.debug('Response sent', {
+      statusCode: res.statusCode,
+      statusMessage: res.statusMessage
+    });
+  });
 
   next();
 });
@@ -78,180 +90,52 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Connection status check
-app.get('/api/status', async (req, res) => {
-  let spotifyConnected = false;
-  let youtubeConnected = false;
-
-  // Test Spotify connection
+// Connection status button endpoints (with rate limiting)
+app.get('/api/status/spotify/button', statusLimiter, async (req, res) => {
   const spotifyTokens = req.cookies.spotify_tokens ? JSON.parse(req.cookies.spotify_tokens) : null;
-  if (spotifyTokens) {
-    try {
-      const spotifyApi = new (require('spotify-web-api-node'))({
-        clientId: process.env.SPOTIFY_CLIENT_ID,
-        clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
-        redirectUri: process.env.SPOTIFY_REDIRECT_URI
-      });
+  const spotifyConnected = await validateSpotifyConnection(spotifyTokens, res);
 
-      spotifyApi.setAccessToken(spotifyTokens.accessToken);
-      spotifyApi.setRefreshToken(spotifyTokens.refreshToken);
-
-      // Test with a lightweight API call
-      await spotifyApi.getMe();
-      spotifyConnected = true;
-      Logger.auth('Spotify', 'connection validated');
-    } catch (error: any) {
-      Logger.auth('Spotify', 'connection invalid', { error: error.message });
-      // Try to refresh the token
-      if (error.statusCode === 401 && spotifyTokens.refreshToken) {
-        try {
-          const spotifyApi = new (require('spotify-web-api-node'))({
-            clientId: process.env.SPOTIFY_CLIENT_ID,
-            clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
-            redirectUri: process.env.SPOTIFY_REDIRECT_URI
-          });
-
-          spotifyApi.setAccessToken(spotifyTokens.accessToken);
-          spotifyApi.setRefreshToken(spotifyTokens.refreshToken);
-
-          const data = await spotifyApi.refreshAccessToken();
-          const { access_token } = data.body;
-
-          // Update cookie with new token
-          const updatedTokens = { ...spotifyTokens, accessToken: access_token };
-          res.cookie('spotify_tokens', JSON.stringify(updatedTokens), {
-            httpOnly: true,
-            maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-            sameSite: 'lax'
-          });
-
-          spotifyConnected = true;
-          Logger.auth('Spotify', 'token refreshed');
-        } catch (refreshError) {
-          Logger.auth('Spotify', 'failed to refresh token');
-          // Clear invalid tokens
-          res.clearCookie('spotify_tokens');
-        }
-      } else {
-        // Clear invalid tokens
-        res.clearCookie('spotify_tokens');
-      }
-    }
-  }
-
-  // Test YouTube connection
-  const youtubeTokens = req.cookies.youtube_tokens ? JSON.parse(req.cookies.youtube_tokens) : null;
-  if (youtubeTokens) {
-    try {
-      const { google } = require('googleapis');
-      const oauth2Client = new google.auth.OAuth2(
-        process.env.YOUTUBE_CLIENT_ID,
-        process.env.YOUTUBE_CLIENT_SECRET,
-        process.env.YOUTUBE_REDIRECT_URI
-      );
-
-      oauth2Client.setCredentials(youtubeTokens);
-      const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
-
-      // Test with a lightweight API call
-      await youtube.channels.list({ part: ['id'], mine: true, maxResults: 1 });
-      youtubeConnected = true;
-      Logger.auth('YouTube', 'connection validated');
-    } catch (error: any) {
-      Logger.auth('YouTube', 'connection invalid', { error: error.message });
-      // Try to refresh the token
-      if (error.code === 401 && youtubeTokens.refresh_token) {
-        try {
-          const { google } = require('googleapis');
-          const oauth2Client = new google.auth.OAuth2(
-            process.env.YOUTUBE_CLIENT_ID,
-            process.env.YOUTUBE_CLIENT_SECRET,
-            process.env.YOUTUBE_REDIRECT_URI
-          );
-
-          oauth2Client.setCredentials(youtubeTokens);
-          const { credentials } = await oauth2Client.refreshAccessToken();
-
-          // Update cookie with new tokens
-          const updatedTokens = { ...youtubeTokens, ...credentials };
-          res.cookie('youtube_tokens', JSON.stringify(updatedTokens), {
-            httpOnly: true,
-            maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-            sameSite: 'lax'
-          });
-
-          youtubeConnected = true;
-          Logger.auth('YouTube', 'token refreshed');
-        } catch (refreshError) {
-          Logger.auth('YouTube', 'failed to refresh token');
-          // Clear invalid tokens
-          res.clearCookie('youtube_tokens');
-        }
-      } else {
-        // Clear invalid tokens
-        res.clearCookie('youtube_tokens');
-      }
-    }
-  }
-
-  res.json({
-    spotify: spotifyConnected,
-    youtube: youtubeConnected
+  res.render('partials/connection-button', {
+    service: 'spotify',
+    connected: spotifyConnected,
+    loading: false
   });
 });
 
-// Connection button endpoints (HTML for HTMX)
-app.get('/api/status/spotify/button', async (req, res) => {
-  let spotifyConnected = false;
+app.get('/api/status/youtube/button', statusLimiter, async (req, res) => {
+  const youtubeTokens = req.cookies.youtube_tokens ? JSON.parse(req.cookies.youtube_tokens) : null;
+  const youtubeConnected = await validateYouTubeConnection(youtubeTokens, res);
 
-  const spotifyTokens = req.cookies.spotify_tokens ? JSON.parse(req.cookies.spotify_tokens) : null;
-  if (spotifyTokens) {
-    try {
-      const spotifyApi = new (require('spotify-web-api-node'))({
-        clientId: process.env.SPOTIFY_CLIENT_ID,
-        clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
-        redirectUri: process.env.SPOTIFY_REDIRECT_URI
-      });
-
-      spotifyApi.setAccessToken(spotifyTokens.accessToken);
-      spotifyApi.setRefreshToken(spotifyTokens.refreshToken);
-
-      await spotifyApi.getMe();
-      spotifyConnected = true;
-    } catch (error: any) {
-      Logger.auth('Spotify', 'button check failed', { error: error.message, statusCode: error.statusCode });
-    }
-  }
-
-  res.render('partials/connection-button', { service: 'spotify', connected: spotifyConnected, loading: false });
+  res.render('partials/connection-button', {
+    service: 'youtube',
+    connected: youtubeConnected,
+    loading: false
+  });
 });
 
-app.get('/api/status/youtube/button', async (req, res) => {
-  let youtubeConnected = false;
+// 404 handler - must come after all other routes
+app.use((req, res) => {
+  res.status(404).render('partials/error-message', {
+    type: 'warning',
+    message: 'Page not found',
+    details: `Cannot ${req.method} ${req.originalUrl}`
+  });
+});
 
-  const youtubeTokens = req.cookies.youtube_tokens ? JSON.parse(req.cookies.youtube_tokens) : null;
-  if (youtubeTokens) {
-    try {
-      const { google } = require('googleapis');
-      const oauth2Client = new google.auth.OAuth2(
-        process.env.YOUTUBE_CLIENT_ID,
-        process.env.YOUTUBE_CLIENT_SECRET,
-        process.env.YOUTUBE_REDIRECT_URI
-      );
+// Global error handler - must be last
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  Logger.error('Unhandled error', { url: req.originalUrl, method: req.method }, err);
 
-      oauth2Client.setCredentials(youtubeTokens);
-      const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
+  // Don't expose error details in production
+  const errorDetails = process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong';
 
-      await youtube.channels.list({ part: ['id'], mine: true, maxResults: 1 });
-      youtubeConnected = true;
-    } catch (error: any) {
-      Logger.auth('YouTube', 'button check failed', { error: error.message, code: error.code });
-    }
-  }
-
-  res.render('partials/connection-button', { service: 'youtube', connected: youtubeConnected, loading: false });
+  res.status(err.status || 500).render('partials/error-message', {
+    type: 'danger',
+    message: 'Internal server error',
+    details: errorDetails
+  });
 });
 
 app.listen(PORT, () => {
-  Logger.info('Server started', { port: PORT, url: `http://localhost:${PORT}` });
+  Logger.info('Server started', { port: PORT, url: `http://localhost:${PORT}`, env: process.env.NODE_ENV || 'development' });
 });

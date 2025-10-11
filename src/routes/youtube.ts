@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { google } from 'googleapis';
 import { Logger } from '../utils/logger';
+import { getSecureCookieOptions } from '../utils/authValidation';
 
 const router = Router();
 
@@ -39,11 +40,7 @@ const ensureValidYouTubeToken = async (req: any, res: any) => {
           ...youtubeTokens,
           ...credentials
         };
-        res.cookie('youtube_tokens', JSON.stringify(updatedTokens), {
-          httpOnly: true,
-          maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-          sameSite: 'lax'
-        });
+        res.cookie('youtube_tokens', JSON.stringify(updatedTokens), getSecureCookieOptions());
         oauth2Client.setCredentials(updatedTokens);
 
         Logger.auth('YouTube', 'token refreshed successfully');
@@ -91,11 +88,7 @@ router.get('/callback', async (req, res) => {
     oauth2Client.setCredentials(tokens);
 
     // Store tokens in httpOnly cookie
-    res.cookie('youtube_tokens', JSON.stringify(tokens), {
-      httpOnly: true,
-      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-      sameSite: 'lax'
-    });
+    res.cookie('youtube_tokens', JSON.stringify(tokens), getSecureCookieOptions());
 
     Logger.auth('YouTube', 'tokens stored in cookie');
 

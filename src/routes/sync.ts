@@ -4,6 +4,7 @@ import { google } from 'googleapis';
 import { searchMusicVideo } from '../utils/youtubeScraper';
 import { sendProgressUpdate } from './progress';
 import { Logger } from '../utils/logger';
+import { getSecureCookieOptions } from '../utils/authValidation';
 import ejs from 'ejs';
 import path from 'path';
 
@@ -187,11 +188,7 @@ const ensureValidSpotifyToken = async (req: any, res: any) => {
 
         // Update cookie with new token
         const updatedTokens = { ...spotifyTokens, accessToken: access_token };
-        res.cookie('spotify_tokens', JSON.stringify(updatedTokens), {
-          httpOnly: true,
-          maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-          sameSite: 'lax'
-        });
+        res.cookie('spotify_tokens', JSON.stringify(updatedTokens), getSecureCookieOptions());
         spotifyApi.setAccessToken(access_token);
 
         Logger.auth('Spotify', 'token refreshed successfully');
@@ -238,11 +235,7 @@ async function ensureValidYouTubeToken(req: any, res: any): Promise<{ oauth2Clie
           ...youtubeTokens,
           ...credentials
         };
-        res.cookie('youtube_tokens', JSON.stringify(updatedTokens), {
-          httpOnly: true,
-          maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-          sameSite: 'lax'
-        });
+        res.cookie('youtube_tokens', JSON.stringify(updatedTokens), getSecureCookieOptions());
         oauth2Client.setCredentials(updatedTokens);
 
         Logger.auth('YouTube', 'token refreshed successfully');

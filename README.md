@@ -14,7 +14,7 @@ A web application that syncs your Spotify playlists to YouTube playlists with mu
 ## Tech Stack
 
 - **Backend**: Node.js with TypeScript, Express
-- **Frontend**: HTMX, Hyperscript, Bootstrap 5
+- **Frontend**: HTMX, Bootstrap 5
 - **APIs**: Spotify Web API, YouTube Data API v3
 
 ## Setup
@@ -41,7 +41,6 @@ cp .env.example .env
 # Server Configuration
 PORT=3000
 NODE_ENV=development
-SESSION_SECRET=your-random-session-secret
 
 # Spotify API Configuration
 SPOTIFY_CLIENT_ID=your-spotify-client-id
