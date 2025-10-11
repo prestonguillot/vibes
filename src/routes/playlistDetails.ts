@@ -408,6 +408,7 @@ router.get('/playlist/:playlistId', async (req, res) => {
     Logger.error('Error fetching playlist details', { playlistId, duration }, error);
     
     const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
+      type: 'danger',
       title: 'Error loading playlist details',
       message: 'Unable to fetch playlist information. Please try again.',
       details: error instanceof Error ? error.message : 'Unknown error'
@@ -531,6 +532,7 @@ router.get('/search/:trackId', async (req, res) => {
     Logger.error('Error searching for alternative videos', { trackId, trackName, artistName }, error);
     
     const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
+      type: 'danger',
       title: 'Error searching for videos',
       message: 'Unable to search for alternative videos. Please try again.',
       details: error instanceof Error ? error.message : 'Unknown error'

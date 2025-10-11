@@ -119,7 +119,7 @@ router.get('/playlists', async (req, res) => {
 
   const spotifyTokens = req.cookies.spotify_tokens ? JSON.parse(req.cookies.spotify_tokens) : null;
   if (!spotifyTokens) {
-    return res.status(401).render('partials/error-message', { message: 'Please connect to Spotify first' });
+    return res.status(401).render('partials/error-message', { message: 'Please connect to Spotify first', type: 'warning' });
   }
 
   try {
@@ -191,11 +191,6 @@ router.get('/playlists', async (req, res) => {
     const sortedPlaylists = [...syncedPlaylists, ...unsyncedPlaylists];
 
     const viewsPath = path.join(__dirname, '../../views');
-    const playlistItemTemplate = await ejs.renderFile(
-      path.join(viewsPath, 'partials/playlist-item.ejs'),
-      {},
-      { async: true }
-    );
 
     const playlistsHtml = await Promise.all(sortedPlaylists.map(async (playlist: any) => {
       const isSynced = youtubePlaylistNames.has(`${playlist.name} (from Spotify)`);
@@ -231,13 +226,13 @@ router.get('/playlists', async (req, res) => {
     res.render('partials/playlist-list-container', { summaryText, playlistsHtml });
   } catch (error) {
     Logger.error('Error fetching playlists', {}, error);
-    
+
     // Check if it's an authentication error
     if (error instanceof Error && error.message === 'SPOTIFY_AUTH_REQUIRED') {
       return res.status(401).render('partials/auth-expired', { service: 'Spotify' });
     }
 
-    res.status(500).render('partials/error-message', { message: 'Error fetching playlists' });
+    res.status(500).render('partials/error-message', { message: 'Error fetching playlists', type: 'danger' });
   }
 });
 

@@ -46,9 +46,18 @@ function initializeEventLogging() {
         }
     });
 
-    // Log HTMX errors
+    // Handle and log HTMX errors
     document.addEventListener('htmx:responseError', function(event) {
         Logger.error('HTMX response error', event.detail);
+
+        // If the response contains HTML error content, swap it into the target
+        const xhr = event.detail.xhr;
+        if (xhr && xhr.responseText && xhr.getResponseHeader('Content-Type')?.includes('text/html')) {
+            const target = event.detail.target;
+            if (target) {
+                target.innerHTML = xhr.responseText;
+            }
+        }
     });
 
     document.addEventListener('htmx:sendError', function(event) {
