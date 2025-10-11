@@ -291,7 +291,7 @@ router.post('/playlist/:playlistId', async (req, res) => {
         message: 'Authentication required',
         details: 'Please connect to Spotify first'
       });
-      const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), { message: 'Please connect to Spotify first' });
+      const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), { message: 'Please connect to Spotify first', type: 'warning' });
       return res.status(401).send(html);
     }
 
@@ -302,7 +302,7 @@ router.post('/playlist/:playlistId', async (req, res) => {
         message: 'Authentication required',
         details: 'Please connect to YouTube first'
       });
-      const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), { message: 'Please connect to YouTube first' });
+      const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), { message: 'Please connect to YouTube first', type: 'warning' });
       return res.status(401).send(html);
     }
 
@@ -1197,6 +1197,7 @@ router.post('/playlist/:playlistId', async (req, res) => {
     }
     
     const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
+      type: 'danger',
       title: 'Error syncing playlist',
       message: 'Something went wrong during the sync process. Please try again.',
       details: error instanceof Error ? error.message : 'Unknown error'

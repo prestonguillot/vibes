@@ -225,7 +225,7 @@ app.get('/api/status/spotify/button', async (req, res) => {
     }
   }
 
-  res.render('partials/connection-button', { service: 'spotify', connected: spotifyConnected });
+  res.render('partials/connection-button', { service: 'spotify', connected: spotifyConnected, loading: false });
 });
 
 app.get('/api/status/youtube/button', async (req, res) => {
@@ -251,7 +251,7 @@ app.get('/api/status/youtube/button', async (req, res) => {
     }
   }
 
-  res.render('partials/connection-button', { service: 'youtube', connected: youtubeConnected });
+  res.render('partials/connection-button', { service: 'youtube', connected: youtubeConnected, loading: false });
 });
 
 app.listen(PORT, () => {
