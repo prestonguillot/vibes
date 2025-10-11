@@ -27,12 +27,14 @@
   - [x] Proper content negotiation
 - [x] Fix JSON responses in playlistDetails.ts (replaced with EJS templates)
 - [x] Create video-replace-success.ejs template
-- [ ] **Issue: Remove Hyperscript dependency**
-  - [ ] Replace playlist expand/collapse with HTMX + CSS
-  - [ ] Replace video selection state management with HTMX patterns
-- [ ] **Issue: Simplify client-side state management**
-  - [ ] Move batch size selection to query parameter or hidden form field
-  - [ ] Remove `js:` usage in hx-vals where possible
+- [x] **Issue: Remove Hyperscript dependency**
+  - [x] Replace playlist expand/collapse with HTMX + CSS (checkbox-based)
+  - [x] Replace video selection state management with HTMX patterns (radio buttons + CSS)
+  - [x] Replace modal close handler with vanilla JS in videoModal.js
+  - [x] Remove Hyperscript script tag from index.ejs
+- [x] **Issue: Simplify client-side state management**
+  - [x] Move batch size selection to form field with hx-include
+  - [x] Remove all `js:` usage in hx-vals
 
 ### 3. Explicitly Audit server.ts
 - [ ] Review server configuration

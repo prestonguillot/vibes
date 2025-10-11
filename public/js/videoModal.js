@@ -26,6 +26,36 @@ function initializeVideoModal() {
             }
         }
     });
+
+    // Listen for HTMX afterRequest events to close modal and refresh playlist after successful video replacement
+    document.addEventListener('htmx:afterRequest', function(event) {
+        // Check if this is the confirm selection button
+        const target = event.detail.elt;
+        if (target && target.id === 'confirm-selection-btn') {
+            // Check if request was successful
+            if (event.detail.successful) {
+                // Close the modal
+                const modalEl = document.getElementById('videoSelectionModal');
+                if (modalEl) {
+                    const modal = bootstrap.Modal.getInstance(modalEl);
+                    if (modal) {
+                        modal.hide();
+                    }
+                }
+
+                // Refresh the playlist details after a short delay
+                setTimeout(() => {
+                    const playlistId = target.getAttribute('data-playlist-id');
+                    if (playlistId) {
+                        const refreshBtn = document.querySelector(`[data-refresh-playlist="${playlistId}"]`);
+                        if (refreshBtn) {
+                            refreshBtn.click();
+                        }
+                    }
+                }, 300);
+            }
+        }
+    });
 }
 
 // Auto-initialize when DOM is ready
