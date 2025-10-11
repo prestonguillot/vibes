@@ -2,7 +2,8 @@ import { Router } from 'express';
 import SpotifyWebApi from 'spotify-web-api-node';
 import { google } from 'googleapis';
 import { Logger } from '../utils/logger';
-import { oauthErrorPage, playlistItem, playlistListContainer, authExpiredMessage, errorMessage } from '../utils/htmlTemplates';
+import ejs from 'ejs';
+import path from 'path';
 
 const router = Router();
 
@@ -105,7 +106,7 @@ router.get('/callback', async (req, res) => {
     res.redirect('/?spotify=connected');
   } catch (error) {
     Logger.error('Error getting Spotify tokens', {}, error);
-    res.send(oauthErrorPage('Spotify'));
+    res.render('partials/oauth-error', { service: 'Spotify' });
   }
 });
 
@@ -118,7 +119,7 @@ router.get('/playlists', async (req, res) => {
 
   const spotifyTokens = req.cookies.spotify_tokens ? JSON.parse(req.cookies.spotify_tokens) : null;
   if (!spotifyTokens) {
-    return res.status(401).send(errorMessage({ message: 'Please connect to Spotify first' }));
+    return res.status(401).render('partials/error-message', { message: 'Please connect to Spotify first' });
   }
 
   try {
@@ -189,7 +190,14 @@ router.get('/playlists', async (req, res) => {
     // Combine with synced playlists first
     const sortedPlaylists = [...syncedPlaylists, ...unsyncedPlaylists];
 
-    const playlistsHtml = sortedPlaylists.map((playlist: any) => {
+    const viewsPath = path.join(__dirname, '../../views');
+    const playlistItemTemplate = await ejs.renderFile(
+      path.join(viewsPath, 'partials/playlist-item.ejs'),
+      {},
+      { async: true }
+    );
+
+    const playlistsHtml = await Promise.all(sortedPlaylists.map(async (playlist: any) => {
       const isSynced = youtubePlaylistNames.has(`${playlist.name} (from Spotify)`);
       const syncIcon = isSynced ? '' : '';
       const buttonText = isSynced ? 'Update YouTube Playlist' : 'Sync to YouTube';
@@ -200,7 +208,7 @@ router.get('/playlists', async (req, res) => {
       const youtubePlaylistUrl = youtubePlaylist ?
         `https://www.youtube.com/playlist?list=${youtubePlaylist.id}` : undefined;
 
-      return playlistItem({
+      return await ejs.renderFile(path.join(viewsPath, 'partials/playlist-item.ejs'), {
         id: playlist.id,
         name: playlist.name,
         tracksTotal: playlist.tracks.total,
@@ -211,7 +219,7 @@ router.get('/playlists', async (req, res) => {
         buttonText,
         buttonClass
       });
-    }).join('');
+    })).then(items => items.join(''));
     
     const summaryText = syncedPlaylists.length > 0
       ? `Showing ${syncedPlaylists.length} synced and ${unsyncedPlaylists.length} unsynced playlists${ownOnly ? ' (your playlists only)' : ''}`
@@ -220,16 +228,16 @@ router.get('/playlists', async (req, res) => {
     // Cache for 30 minutes to save YouTube API quota
     res.set('Cache-Control', 'private, max-age=1800');
     Logger.info('Setting cache header for playlists response', { cacheControl: 'private, max-age=1800' });
-    res.send(playlistListContainer({ summaryText, playlistsHtml }));
+    res.render('partials/playlist-list-container', { summaryText, playlistsHtml });
   } catch (error) {
     Logger.error('Error fetching playlists', {}, error);
     
     // Check if it's an authentication error
     if (error instanceof Error && error.message === 'SPOTIFY_AUTH_REQUIRED') {
-      return res.status(401).send(authExpiredMessage('Spotify'));
+      return res.status(401).render('partials/auth-expired', { service: 'Spotify' });
     }
 
-    res.status(500).send(errorMessage({ message: 'Error fetching playlists' }));
+    res.status(500).render('partials/error-message', { message: 'Error fetching playlists' });
   }
 });
 

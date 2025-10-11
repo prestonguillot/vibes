@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import { google } from 'googleapis';
 import { Logger } from '../utils/logger';
-import { oauthErrorPage } from '../utils/htmlTemplates';
 
 const router = Router();
 
@@ -104,7 +103,7 @@ router.get('/callback', async (req, res) => {
     res.redirect('/?youtube=connected');
   } catch (error) {
     Logger.error('Error getting YouTube tokens', {}, error);
-    res.send(oauthErrorPage('YouTube'));
+    res.render('partials/oauth-error', { service: 'YouTube' });
   }
 });
 
