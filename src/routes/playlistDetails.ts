@@ -384,16 +384,9 @@ router.get('/playlist/:playlistId', async (req, res) => {
         </div>
         
         <!-- Collapse area at bottom of expanded details -->
-        <div class="playlist-collapse-area"
-             data-playlist-id="${playlistId}"
-             _="on click
-                  get the first .playlist-expand-area[@data-playlist-id='${playlistId}'] then
-                  trigger click on it then
-                  wait 100ms then
-                  call it.scrollIntoView({behavior: 'smooth', block: 'center'})"
-">
+        <label for="expand-${playlistId}" class="playlist-collapse-area" data-playlist-id="${playlistId}">
           <span class="collapse-indicator">▲</span>
-        </div>
+        </label>
       </div>
     `;
 
@@ -461,24 +454,10 @@ router.get('/search/:trackId', async (req, res) => {
 
         <div class="video-options">
           ${videos.map((video, index) => `
-            <div class="video-option p-3 border rounded mb-2"
-                 data-video-id="${video.id}"
-                 _="on click
-                      -- Deselect all other options
-                      for opt in <.video-option/>
-                        remove .selected from opt
-                        set opt.style.backgroundColor to ''
-                        set opt.style.borderColor to ''
-                        set the *display of the first .selection-indicator in opt to 'none'
-                      end
-                      -- Select this option
-                      add .selected to me
-                      set my style.backgroundColor to '#e8f5e8'
-                      set my style.borderColor to '#28a745'
-                      set the *display of the first .selection-indicator in me to 'block'
-                      -- Enable confirm button and store selected video ID
-                      set #confirm-selection-btn.disabled to false
-                      set @data-selected-video-id of #confirm-selection-btn to '${video.id}'">
+            <input type="radio" name="video-selection" id="video-${video.id}" value="${video.id}"
+                   class="video-option-radio" style="display: none;"
+                   onchange="document.getElementById('hidden-new-video-id').value = this.value; document.getElementById('confirm-selection-btn').disabled = false;">
+            <label for="video-${video.id}" class="video-option p-3 border rounded mb-2" data-video-id="${video.id}">
               <div class="d-flex align-items-start">
                 <img src="${video.thumbnail}" alt="Video thumbnail"
                      class="video-option__thumbnail me-3">
@@ -489,41 +468,34 @@ router.get('/search/:trackId', async (req, res) => {
                     ${video.description.substring(0, 150)}${video.description.length > 150 ? '...' : ''}
                   </p>
                 </div>
-                <div class="selection-indicator selection-indicator--hidden ms-2">
+                <div class="selection-indicator ms-2">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="#28a745">
                     <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
                   </svg>
                 </div>
               </div>
-            </div>
+            </label>
           `).join('')}
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-          Cancel
-        </button>
-        <button type="button" class="btn btn-primary" id="confirm-selection-btn"
-                data-track-id="${trackId}"
-                data-playlist-id="${playlistId}"
-                data-current-video-id="${currentVideoId || ''}"
-                hx-post="/api/playlistDetails/replace/${trackId}"
-                hx-vals='js:{newVideoId: document.getElementById("confirm-selection-btn").getAttribute("data-selected-video-id"), currentVideoId: document.getElementById("confirm-selection-btn").getAttribute("data-current-video-id"), playlistId: document.getElementById("confirm-selection-btn").getAttribute("data-playlist-id")}'
-                hx-swap="none"
-                _="on htmx:afterRequest
-                     if event.detail.successful
-                       js
-                         const modal = bootstrap.Modal.getInstance(document.getElementById('videoSelectionModal'));
-                         if (modal) modal.hide();
-                         setTimeout(() => {
-                           const refreshBtn = document.querySelector('[data-refresh-playlist=&quot;${playlistId}&quot;]');
-                           if (refreshBtn) refreshBtn.click();
-                         }, 300);
-                       end
-                     end"
-                disabled>
-          Confirm Selection
-        </button>
+        <form id="video-selection-form">
+          <input type="hidden" name="newVideoId" id="hidden-new-video-id" value="">
+          <input type="hidden" name="currentVideoId" value="${currentVideoId || ''}">
+          <input type="hidden" name="playlistId" value="${playlistId}">
+
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+            Cancel
+          </button>
+          <button type="button" class="btn btn-primary" id="confirm-selection-btn"
+                  hx-post="/api/playlistDetails/replace/${trackId}"
+                  hx-include="#video-selection-form"
+                  hx-swap="none"
+                  data-playlist-id="${playlistId}"
+                  disabled>
+            Confirm Selection
+          </button>
+        </form>
       </div>
     `;
 

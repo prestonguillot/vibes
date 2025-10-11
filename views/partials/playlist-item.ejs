@@ -54,28 +54,18 @@
   </div>
 
   <% if (isSynced) { %>
-    <div class="playlist-expand-area"
-         data-playlist-id="<%= id %>"
-         data-expanded="false"
-         hx-get="/api/playlistDetails/playlist/<%= id %>"
-         hx-target="#details-<%= id %>"
-         hx-swap="innerHTML"
-         hx-trigger="click once"
-         _="on click
-            if @data-expanded is 'false'
-              then set @data-expanded to 'true'
-                   add .expanded to me
-                   show #details-<%= id %>
-              else set @data-expanded to 'false'
-                   remove .expanded from me
-                   hide #details-<%= id %>
-            end">
+    <input type="checkbox" id="expand-<%= id %>" class="playlist-expand-toggle" style="display: none;">
+    <label for="expand-<%= id %>" class="playlist-expand-area" data-playlist-id="<%= id %>">
       <span class="expand-indicator">▼</span>
-    </div>
-    <div class="playlist-details-container" id="details-<%= id %>" style="display: none;">
-      <div class="playlist-loading">
+    </label>
+    <div class="playlist-details-container" id="details-<%= id %>">
+      <div class="playlist-loading"
+           hx-get="/api/playlistDetails/playlist/<%= id %>"
+           hx-trigger="intersect once"
+           hx-target="#details-<%= id %>"
+           hx-swap="innerHTML">
         <div class="loading-spinner"></div>
-        Click to load playlist details...
+        Loading playlist details...
       </div>
     </div>
   <% } %>
