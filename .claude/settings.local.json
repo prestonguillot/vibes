@@ -12,7 +12,9 @@
       "Bash(npm run dev:server:*)",
       "Bash(npm run test:run:*)",
       "Bash(git ls-tree:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []

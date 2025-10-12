@@ -36,6 +36,25 @@ document.body.addEventListener('htmx:afterRequest', (event) => {
   }, 2000);
 });
 
+// Handle HTMX errors specifically for sync operations
+document.body.addEventListener('htmx:sendError', (event) => {
+  const path = event.detail?.requestConfig?.path;
+  if (!path || !path.includes('/sync/playlist/')) return;
+
+  console.error('HTMX send error for sync request:', event.detail);
+
+  const playlistId = path.split('/').pop();
+
+  // Clean up SSE connection on error
+  closeSSE(playlistId);
+
+  // Hide progress on error
+  const progressDiv = document.getElementById(`progress-${playlistId}`);
+  if (progressDiv) {
+    progressDiv.style.display = 'none';
+  }
+});
+
 // Start SSE connection for a playlist
 function startSSE(playlistId) {
   // Close any existing connection first
@@ -59,9 +78,20 @@ function startSSE(playlistId) {
     progressDiv.innerHTML = event.data;
   };
 
-  eventSource.onerror = () => {
-    eventSource.close();
-    sseConnections.delete(playlistId);
+  // Listen for the "close" event from server (graceful shutdown)
+  eventSource.addEventListener('close', () => {
+    console.log(`SSE connection closed gracefully for playlist ${playlistId}`);
+    closeSSE(playlistId);
+  });
+
+  eventSource.onerror = (error) => {
+    // Only clean up this specific connection, don't interfere with anything else
+    console.log(`SSE connection error for playlist ${playlistId}`, error);
+    const conn = sseConnections.get(playlistId);
+    if (conn === eventSource) {
+      eventSource.close();
+      sseConnections.delete(playlistId);
+    }
   };
 }
 
@@ -69,7 +99,16 @@ function startSSE(playlistId) {
 function closeSSE(playlistId) {
   const eventSource = sseConnections.get(playlistId);
   if (eventSource) {
-    eventSource.close();
-    sseConnections.delete(playlistId);
+    try {
+      // Check if connection is still open before closing
+      if (eventSource.readyState !== EventSource.CLOSED) {
+        eventSource.close();
+      }
+    } catch (error) {
+      console.warn(`Error closing SSE connection for playlist ${playlistId}:`, error);
+    } finally {
+      // Always remove from map, regardless of close success
+      sseConnections.delete(playlistId);
+    }
   }
 }
