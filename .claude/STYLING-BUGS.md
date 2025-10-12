@@ -48,53 +48,61 @@
 - Consolidated duplicate `.spinner-xs` definition
 - Created clearer separation between class-based and attribute-based styling
 
-### STYLE-006: Card transform rotations may cause layout issues
-**Location**: `public/css/style.css:448-457`
-**Description**: Cards use CSS transforms (rotate) that could:
-- Cause text to appear slightly blurry on some displays
-- Create unexpected spacing issues
-- May not work well on all browsers/devices
-**Impact**: Potential visual artifacts and layout shifts
-**Fix**: Consider reducing rotation angles or making them optional
+### ✅ STYLE-006: Card transform rotations may cause layout issues
+**Location**: `public/css/style.css:442-457`
+**Status**: FIXED
+**Fix Applied**: Reduced rotation angles to minimize visual artifacts:
+- Reduced card rotation from 0.2deg/-0.3deg to 0.05deg/-0.05deg (75% reduction)
+- Removed rotation from hover state to prevent text blurriness during interaction
+- Added explanatory comments documenting the rationale
+- Maintains subtle punk aesthetic while improving text readability
 
-### STYLE-007: Form control styling inconsistency
-**Location**: `public/css/style.css:987-1002`, `views/index.ejs:83-88`
-**Description**: Form controls (checkboxes, selects) have:
-- Checkbox styling with border-radius: 0 (line 989)
-- But select elements don't have matching punk styling
-- Form labels are uppercase but select options are not
-**Impact**: Visual inconsistency in form elements
-**Fix**: Apply consistent punk styling to all form controls
+### ✅ STYLE-007: Form control styling inconsistency
+**Location**: `public/css/style.css:1015-1051`, `views/index.ejs:83-88`
+**Status**: FIXED
+**Fix Applied**: Applied consistent punk styling to all form controls:
+- Added comprehensive styling for `.form-select` and `select` elements
+- Matched checkbox styling: square borders (border-radius: 0), 2px solid black
+- Applied Courier Prime monospace font with uppercase text and letter-spacing
+- Added punk-themed focus states (red border with shadow)
+- All form controls now share consistent aesthetic with rest of UI
 
 ## Priority: LOW
 
-### STYLE-008: Text overflow handling is inconsistent
-**Location**: `public/css/style.css:813-818, 735-738`
-**Description**: Text truncation with ellipsis is applied to:
-- `.track-title`, `.track-artist`, `.youtube-video a` (line 813)
-- But not consistently to playlist names or other long text
-- `.playlist-info` has word-wrap but not ellipsis (line 735)
-**Impact**: Some text overflows while other text wraps awkwardly
-**Fix**: Apply consistent text overflow strategy across similar elements
+### ✅ STYLE-008: Text overflow handling is inconsistent
+**Location**: `public/css/style.css:742-746, 805-810`
+**Status**: REVIEWED - INTENTIONAL DESIGN
+**Findings**: After review, the text overflow strategy is intentionally different for good UX reasons:
+- **Playlist names** (`.playlist-info`, lines 742-746): Use word-wrap to show full title - important for identifying playlists
+- **Track titles/artists** (lines 805-810): Use ellipsis truncation - prevents long lists from becoming unwieldy
+- This is a deliberate UX choice, not a bug
+**Conclusion**: No changes needed - current implementation is optimal
 
-### STYLE-009: Unused or redundant CSS selectors
-**Location**: `public/css/style.css:1022-1026, 1028-1031`
-**Description**: Classes defined but may not be used:
-- `.video-option__description--truncated` (line 1023)
-- `.selection-indicator--hidden` (line 1029)
-- These use BEM modifier syntax but may be redundant
-**Impact**: Code bloat, confusion about which classes to use
-**Fix**: Audit template usage and remove unused classes
+### ✅ STYLE-009: Unused or redundant CSS selectors
+**Location**: `public/css/style.css:1053-1077`
+**Status**: FIXED
+**Fix Applied**: Removed unused BEM modifier classes:
+- Removed `.video-option__description--truncated` (not used in any templates)
+- Removed `.selection-indicator--hidden` (not used in any templates)
+- Verified via grep search across all `.ejs`, `.html`, and `.js` files
+- Renamed section from "NEW SEMANTIC CLASSES FOR PHASE 3" to "UTILITY CLASSES"
+- Kept only actively-used utility classes (`.form-select-auto`, `.loading-indicator`)
 
 ### STYLE-010: Color values are hard-coded throughout
 **Location**: `public/css/style.css` (throughout)
+**Status**: DEFERRED - FUTURE ENHANCEMENT
 **Description**: Colors are hard-coded as hex values:
-- `#ff0040` (red/pink) appears 20+ times
-- `#00ff00` (green) appears 10+ times
-- `#0066ff` (blue) appears 10+ times
+- `#ff0040` (punk red) appears 20+ times
+- `#00ff00` (punk green) appears 10+ times
+- `#0066ff` (punk blue) appears 10+ times
 - `#000` (black) appears 50+ times
-**Impact**: Difficult to maintain consistent color scheme, hard to theme
-**Fix**: Consider using CSS custom properties (variables) for color palette
+**Impact**: Would improve maintainability and enable future theming
+**Recommendation**: Defer to future refactor due to:
+- Large scope (100+ occurrences across entire stylesheet)
+- Risk of introducing bugs with mass find/replace
+- Current color usage is consistent and working well
+- Would benefit from dedicated testing after implementation
+**Future Implementation**: Use CSS custom properties (`:root` variables) for main color palette
 
 ## Summary
 
