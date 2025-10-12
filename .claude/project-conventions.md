@@ -49,3 +49,9 @@
   - **Less likely (but possible):** The test case itself needs updating
 - **Write tests that verify behavior, not implementation** - tests should validate what the code does, not how it does it
 - **Test both happy paths and error cases** - include tests for validation failures, edge cases, and error handling
+
+### Git Commit Workflow
+- **Before pausing for input, commit all changes** using the user's previous input as the commit message
+- Command to use: `git add -A && git commit -m "<user's previous input>"`
+- Example: If user said "fix the bug with the button", commit with that exact message
+- This ensures work is saved incrementally and commit messages reflect the actual work done
