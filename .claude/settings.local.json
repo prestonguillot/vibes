@@ -7,7 +7,8 @@
       "Read(//Users/prestonguillot/Desktop/**)",
       "Bash(npm install:*)",
       "Bash(npm uninstall:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []

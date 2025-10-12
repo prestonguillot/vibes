@@ -3,6 +3,8 @@ import SpotifyWebApi from 'spotify-web-api-node';
 import { google } from 'googleapis';
 import { Logger } from '../utils/logger';
 import { getSecureCookieOptions } from '../utils/authValidation';
+import { validate, schemas } from '../utils/validation';
+import { z } from 'zod';
 import ejs from 'ejs';
 import path from 'path';
 
@@ -71,7 +73,13 @@ router.get('/login', (req, res) => {
 });
 
 // Spotify callback
-router.get('/callback', async (req, res) => {
+router.get('/callback',
+  validate({
+    query: z.object({
+      code: schemas.oauthCode
+    })
+  }),
+  async (req, res) => {
   Logger.requestStart('Spotify Callback Request', {
     requestUrl: req.originalUrl,
     authCodePresent: !!req.query.code
@@ -104,7 +112,13 @@ router.get('/callback', async (req, res) => {
 });
 
 // Get user's playlists with improved layout - testing hot reload
-router.get('/playlists', async (req, res) => {
+router.get('/playlists',
+  validate({
+    query: z.object({
+      ownOnly: schemas.booleanFlag.optional()
+    })
+  }),
+  async (req, res) => {
   Logger.requestStart('Spotify Playlists Request', {
     requestUrl: req.originalUrl,
     queryParams: req.query

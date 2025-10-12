@@ -21,6 +21,19 @@ function initializeVideoModal() {
                 // Create and show the modal
                 const modal = new bootstrap.Modal(modalEl);
                 modal.show();
+
+                // Set up radio button listeners for video selection
+                const radioButtons = document.querySelectorAll('.video-option-radio');
+                radioButtons.forEach(radio => {
+                    radio.addEventListener('change', function() {
+                        const hiddenInput = document.getElementById('hidden-new-video-id');
+                        const confirmBtn = document.getElementById('confirm-selection-btn');
+                        if (hiddenInput && confirmBtn) {
+                            hiddenInput.value = this.value;
+                            confirmBtn.disabled = false;
+                        }
+                    });
+                });
             } else {
                 Logger.error('Video selection modal element not found');
             }

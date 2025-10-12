@@ -5,6 +5,9 @@ import { searchMusicVideo } from '../utils/youtubeScraper';
 import { sendProgressUpdate } from './progress';
 import { Logger } from '../utils/logger';
 import { getSecureCookieOptions } from '../utils/authValidation';
+import { validate, schemas } from '../utils/validation';
+import { csrfValidationMiddleware } from '../utils/csrf';
+import { z } from 'zod';
 import ejs from 'ejs';
 import path from 'path';
 
@@ -250,7 +253,17 @@ async function ensureValidYouTubeToken(req: any, res: any): Promise<{ oauth2Clie
   }
 };
 
-router.post('/playlist/:playlistId', async (req, res) => {
+router.post('/playlist/:playlistId',
+  csrfValidationMiddleware, // CSRF protection - re-enabled with improved logging
+  validate({
+    params: z.object({
+      playlistId: schemas.spotifyPlaylistId
+    }),
+    body: z.object({
+      batchSize: schemas.batchSize.optional()
+    })
+  }),
+  async (req, res) => {
   const startTime = Date.now();
   const playlistId = req.params.playlistId;
 

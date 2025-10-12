@@ -18,10 +18,54 @@ function formatTimestamp(): string {
     return new Date().toISOString();
 }
 
+// Sensitive keys that should be redacted from logs
+const SENSITIVE_KEYS = [
+    'accessToken',
+    'access_token',
+    'refreshToken',
+    'refresh_token',
+    'password',
+    'secret',
+    'apiKey',
+    'api_key',
+    'token',
+    'tokens',
+    'credentials',
+    'authorization',
+    'cookie',
+    'cookies'
+];
+
+// Helper function to sanitize context by removing sensitive data
+function sanitizeContext(context: Record<string, any>): Record<string, any> {
+    const sanitized: Record<string, any> = {};
+
+    for (const [key, value] of Object.entries(context)) {
+        const lowerKey = key.toLowerCase();
+
+        // Check if key contains any sensitive keywords
+        const isSensitive = SENSITIVE_KEYS.some(sensitiveKey =>
+            lowerKey.includes(sensitiveKey.toLowerCase())
+        );
+
+        if (isSensitive) {
+            sanitized[key] = '[REDACTED]';
+        } else if (value && typeof value === 'object') {
+            // Recursively sanitize nested objects
+            sanitized[key] = sanitizeContext(value);
+        } else {
+            sanitized[key] = value;
+        }
+    }
+
+    return sanitized;
+}
+
 // Helper function to format context
 function formatContext(context: Record<string, any> = {}): string {
     if (Object.keys(context).length === 0) return '';
-    return ` | ${JSON.stringify(context)}`;
+    const sanitized = sanitizeContext(context);
+    return ` | ${JSON.stringify(sanitized)}`;
 }
 
 // Emoji mappings for different log types and operations

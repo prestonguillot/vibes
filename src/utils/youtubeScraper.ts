@@ -10,8 +10,48 @@ interface SearchResult {
 }
 
 /**
+ * ⚠️ **LEGAL DISCLAIMER** ⚠️
+ *
+ * This module scrapes YouTube search results to avoid the expensive YouTube Data API search endpoint,
+ * which costs 100 quota units per search (10,000 daily quota = only 100 searches per day).
+ *
+ * **IMPORTANT CONSIDERATIONS:**
+ *
+ * 1. **Terms of Service**: This scraping approach may violate YouTube's Terms of Service.
+ *    Use at your own risk and consider the legal implications for your jurisdiction.
+ *
+ * 2. **Rate Limiting**: YouTube may detect and block scraping attempts. This implementation includes:
+ *    - Realistic browser user-agent headers
+ *    - Delays between requests (1 second)
+ *    - Limited number of results per query
+ *
+ * 3. **Fragility**: YouTube's HTML structure may change at any time, breaking this scraper.
+ *    Regular maintenance may be required.
+ *
+ * 4. **Alternative**: For production use or commercial applications, use the official YouTube Data API
+ *    despite the quota costs, or apply for quota increases at:
+ *    https://support.google.com/youtube/contact/yt_api_form
+ *
+ * 5. **Recommended Use Cases**:
+ *    - Personal/hobby projects with low traffic
+ *    - Development/testing environments
+ *    - Proof-of-concept implementations
+ *
+ * For production deployments, strongly consider either:
+ * - Purchasing additional YouTube API quota
+ * - Implementing a caching layer to reduce API calls
+ * - Using the official API search with selective caching
+ * - Implementing user-driven search (users manually select videos)
+ */
+
+/**
  * Scrape YouTube search results for a given query
  * This avoids the expensive YouTube API search which costs 100 quota units per search
+ *
+ * @param query - Search query string
+ * @param maxResults - Maximum number of results to return (default: 3)
+ * @returns Array of search results with video IDs, titles, durations, views, and channels
+ * @throws Error if scraping fails or is blocked by YouTube
  */
 export async function scrapeYouTubeSearch(query: string, maxResults: number = 3): Promise<SearchResult[]> {
   const startTime = Date.now();
