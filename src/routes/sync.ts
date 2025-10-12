@@ -1,16 +1,32 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import rateLimit from 'express-rate-limit';
 import SpotifyWebApi from 'spotify-web-api-node';
-import { google } from 'googleapis';
+import { google, youtube_v3 } from 'googleapis';
+import { OAuth2Client } from 'google-auth-library';
 import { searchMusicVideo } from '../utils/youtubeScraper';
 import { sendProgressUpdate, closeProgressConnections } from './progress';
 import { Logger } from '../utils/logger';
 import { getSecureCookieOptions } from '../utils/authValidation';
-import { validate, schemas } from '../utils/validation';
+import { validate, schemas, ValidatedRequest } from '../utils/validation';
 import { csrfValidationMiddleware } from '../utils/csrf';
+import { SpotifyTokens, YouTubeTokens } from '../types/oauth';
 import { z } from 'zod';
 import ejs from 'ejs';
 import path from 'path';
+
+// Internal types for sync operations
+interface SimplifiedTrack {
+  id: string;
+  name: string;
+  artist: string;
+}
+
+interface SimplifiedVideo {
+  id: string;
+  title: string;
+  description: string;
+  playlistItemId?: string;
+}
 
 const router = Router();
 
@@ -44,7 +60,7 @@ const syncLimiter = rateLimit({
 });
 
 // Track matching functions (from playlist details)
-function findBestMatch(spotifyTrack: any, youtubeVideos: any[]) {
+function findBestMatch(spotifyTrack: SimplifiedTrack, youtubeVideos: SimplifiedVideo[]): SimplifiedVideo | null {
   let bestMatch = null;
   let bestScore = 0;
   const minScore = 0.4; // Minimum similarity threshold
@@ -60,7 +76,7 @@ function findBestMatch(spotifyTrack: any, youtubeVideos: any[]) {
   return bestMatch;
 }
 
-function calculateMatchScore(spotifyTrack: any, youtubeVideo: any): number {
+function calculateMatchScore(spotifyTrack: SimplifiedTrack, youtubeVideo: SimplifiedVideo): number {
   // Extract core titles by removing metadata
   const coreTrackName = extractCoreTitle(spotifyTrack.name);
   const coreArtistName = normalizeText(spotifyTrack.artist);
@@ -193,8 +209,8 @@ function calculateLevenshteinDistance(str1: string, str2: string): number {
 }
 
 // Helper functions for token refresh
-const ensureValidSpotifyToken = async (req: any, res: any) => {
-  const spotifyTokens = req.cookies.spotify_tokens ? JSON.parse(req.cookies.spotify_tokens) : null;
+const ensureValidSpotifyToken = async (req: Request, res: Response): Promise<SpotifyWebApi> => {
+  const spotifyTokens: SpotifyTokens | null = req.cookies.spotify_tokens ? JSON.parse(req.cookies.spotify_tokens) : null;
 
   if (!spotifyTokens) {
     throw new Error('No Spotify tokens found');
@@ -212,8 +228,9 @@ const ensureValidSpotifyToken = async (req: any, res: any) => {
   try {
     await spotifyApi.getMe();
     return spotifyApi;
-  } catch (error: any) {
-    if (error.statusCode === 401 && spotifyTokens.refreshToken) {
+  } catch (error: unknown) {
+    const statusCode = (error as { statusCode?: number }).statusCode;
+    if (statusCode === 401 && spotifyTokens.refreshToken) {
       Logger.auth('Spotify', 'token expired, refreshing');
       try {
         const data = await spotifyApi.refreshAccessToken();
@@ -237,8 +254,8 @@ const ensureValidSpotifyToken = async (req: any, res: any) => {
 };
 
 // Helper function to ensure valid YouTube token and return quota usage
-async function ensureValidYouTubeToken(req: any, res: any): Promise<{ oauth2Client: any, quotaUsed: number }> {
-  const youtubeTokens = req.cookies.youtube_tokens ? JSON.parse(req.cookies.youtube_tokens) : null;
+async function ensureValidYouTubeToken(req: Request, res: Response): Promise<{ oauth2Client: OAuth2Client, quotaUsed: number }> {
+  const youtubeTokens: YouTubeTokens | null = req.cookies.youtube_tokens ? JSON.parse(req.cookies.youtube_tokens) : null;
 
   if (!youtubeTokens) {
     throw new Error('YOUTUBE_AUTH_REQUIRED');
@@ -257,8 +274,9 @@ async function ensureValidYouTubeToken(req: any, res: any): Promise<{ oauth2Clie
     await youtube.channels.list({ part: ['id'], mine: true, maxResults: 1 });
     Logger.external('YouTube', 'Token validation successful', { quotaUsed: 1 });
     return { oauth2Client, quotaUsed: 1 }; // channels.list costs 1 unit
-  } catch (error: any) {
-    if (error.code === 401 && youtubeTokens.refresh_token) {
+  } catch (error: unknown) {
+    const errorCode = (error as { code?: number }).code;
+    if (errorCode === 401 && youtubeTokens.refresh_token) {
       Logger.auth('YouTube', 'token expired, refreshing');
       try {
         const { credentials } = await oauth2Client.refreshAccessToken();
@@ -299,7 +317,11 @@ router.post('/playlist/:playlistId',
       batchSize: schemas.batchSize.optional()
     })
   }),
-  async (req, res) => {
+  async (req: ValidatedRequest<
+    { playlistId: string },
+    Record<string, unknown>,
+    { batchSize?: '1' | '5' | '10' | 'all' }
+  >, res) => {
   const startTime = Date.now();
   const playlistId = req.params.playlistId;
 
@@ -319,12 +341,12 @@ router.post('/playlist/:playlistId',
   // Declare variables outside try block so they're accessible in catch
   let apiCallCount = 0;
   let totalQuotaUsed = 0;
-  let existingPlaylist: any = null;
+  let existingPlaylist: youtube_v3.Schema$Playlist | null = null;
 
   try {
     // Check authentication
-    const spotifyTokens = req.cookies.spotify_tokens ? JSON.parse(req.cookies.spotify_tokens) : null;
-    const youtubeTokens = req.cookies.youtube_tokens ? JSON.parse(req.cookies.youtube_tokens) : null;
+    const spotifyTokens: SpotifyTokens | null = req.cookies.spotify_tokens ? JSON.parse(req.cookies.spotify_tokens) : null;
+    const youtubeTokens: YouTubeTokens | null = req.cookies.youtube_tokens ? JSON.parse(req.cookies.youtube_tokens) : null;
 
     if (!spotifyTokens) {
       Logger.error('No Spotify tokens in cookies');
@@ -358,8 +380,8 @@ router.post('/playlist/:playlistId',
 
     // Initialize APIs
     Logger.info('Initializing API clients');
-    const spotifyApi = await ensureValidSpotifyToken(req, res);
-    const { oauth2Client, quotaUsed } = await ensureValidYouTubeToken(req, res);
+    const spotifyApi = await ensureValidSpotifyToken(req as Request, res);
+    const { oauth2Client, quotaUsed } = await ensureValidYouTubeToken(req as Request, res);
     totalQuotaUsed = quotaUsed; // Initialize totalQuotaUsed with initial quota
     const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
     Logger.info('API clients initialized');
@@ -396,16 +418,19 @@ router.post('/playlist/:playlistId',
     
     Logger.info('Using user-selected batch size', { batchSize, trackLimit });
     Logger.external('Spotify', 'Fetching all tracks for analysis');
-    
+
     // Fetch all tracks (handle pagination if needed)
-    let allTracks: any[] = [];
+    let allTracks: unknown[] = [];
     let offset = 0;
     const limit = 50;
-    
+
     let totalTracks = 0;
     do {
       const tracksResponse = await spotifyApi.getPlaylistTracks(playlistId, { limit, offset });
-      const trackItems = tracksResponse.body.items.filter((item: any) => item.track && item.track.type === 'track');
+      const trackItems = tracksResponse.body.items.filter((item: unknown) => {
+        const typedItem = item as { track: { type?: string } | null };
+        return typedItem.track && typedItem.track.type === 'track';
+      });
       allTracks = allTracks.concat(trackItems);
       offset += limit;
       totalTracks = tracksResponse.body.total;
@@ -442,11 +467,11 @@ router.post('/playlist/:playlistId',
     
     // Reorder existing YouTube playlist tracks to match current Spotify playlist order
     const reorderExistingTracks = async (
-      youtube: any, 
-      youtubePlaylistId: string, 
-      spotifyTracks: any[], 
-      syncedTracks: any[], 
-      existingItemsMap: Map<string, any>,
+      youtube: youtube_v3.Youtube,
+      youtubePlaylistId: string,
+      spotifyTracks: unknown[],
+      syncedTracks: unknown[],
+      existingItemsMap: Map<string, youtube_v3.Schema$PlaylistItem>,
       playlistId: string
     ) => {
       if (syncedTracks.length === 0) {
@@ -470,8 +495,9 @@ router.post('/playlist/:playlistId',
       const spotifyTrackPositions = new Map();
       for (let i = 0; i < spotifyTracks.length; i++) {
         const item = spotifyTracks[i];
-        if (item.track && item.track.type === 'track') {
-          const track = item.track;
+        const typedItem = item as { track: { name: string; artists: Array<{ name?: string }>; type?: string } | null };
+        if (typedItem.track && typedItem.track.type === 'track') {
+          const track = typedItem.track;
           const trackKey = `${track.name.toLowerCase()}-${track.artists[0]?.name?.toLowerCase() || ''}`;
           spotifyTrackPositions.set(trackKey, i);
         }
@@ -503,8 +529,9 @@ router.post('/playlist/:playlistId',
       const reorderOperations = [];
       
       for (const syncedTrack of syncedTracks) {
-        if (syncedTrack.track && syncedTrack.track.type === 'track') {
-          const track = syncedTrack.track;
+        const typedSyncedTrack = syncedTrack as { track: { id: string; name: string; artists: Array<{ name?: string }>; type?: string } | null };
+        if (typedSyncedTrack.track && typedSyncedTrack.track.type === 'track') {
+          const track = typedSyncedTrack.track;
           const trackKey = `${track.name.toLowerCase()}-${track.artists[0]?.name?.toLowerCase() || ''}`;
           const targetPosition = spotifyTrackPositions.get(trackKey);
           
@@ -517,13 +544,13 @@ router.post('/playlist/:playlistId',
             };
             
             // Get existing videos for matching
-            const existingVideos = [];
+            const existingVideos: SimplifiedVideo[] = [];
             for (const item of existingItemsMap.values()) {
-              if (item.snippet?.resourceId?.videoId) {
+              if (item.snippet?.resourceId?.videoId && item.id) {
                 existingVideos.push({
                   id: item.snippet.resourceId.videoId,
-                  title: item.snippet.title || 'Unknown',
-                  description: item.snippet.description || '',
+                  title: item.snippet?.title || 'Unknown',
+                  description: item.snippet?.description || '',
                   playlistItemId: item.id
                 });
               }
@@ -652,7 +679,7 @@ router.post('/playlist/:playlistId',
 
     let youtubePlaylistId: string = '';
     let existingVideoIds: Set<string> = new Set();
-    let existingItemsMap: Map<string, any> = new Map();
+    let existingItemsMap: Map<string, youtube_v3.Schema$PlaylistItem> = new Map();
     let isUpdateMode = false;
     
     try {
@@ -665,9 +692,9 @@ router.post('/playlist/:playlistId',
       logApiCall('playlist search', 1);
       
       if (existingPlaylists.data.items) {
-        existingPlaylist = existingPlaylists.data.items.find(p => 
+        existingPlaylist = existingPlaylists.data.items?.find(p =>
           p.snippet?.title === playlistTitle
-        );
+        ) || null;
       }
       
       if (existingPlaylist) {
@@ -704,7 +731,7 @@ router.post('/playlist/:playlistId',
     }
     
     // STEP 2: Determine which tracks need video search based on mode
-    let tracksToSearch: any[] = [];
+    let tracksToSearch: unknown[] = [];
     
     if (isUpdateMode) {
       // UPDATE MODE: Use track matching to identify which tracks are actually unsynced
@@ -724,13 +751,13 @@ router.post('/playlist/:playlistId',
       });
       
       // Get existing YouTube videos with details for matching
-      const existingVideos = [];
+      const existingVideos: SimplifiedVideo[] = [];
       for (const item of existingItemsMap.values()) {
         if (item.snippet?.resourceId?.videoId) {
-          const video = {
+          const video: SimplifiedVideo = {
             id: item.snippet.resourceId.videoId,
-            title: item.snippet.title || 'Unknown',
-            description: item.snippet.description || ''
+            title: item.snippet!.title || 'Unknown',
+            description: item.snippet!.description || ''
           };
           existingVideos.push(video);
           Logger.debug('Existing YouTube video for matching', {
@@ -739,15 +766,15 @@ router.post('/playlist/:playlistId',
           });
         }
       }
-      
+
       Logger.info('Prepared existing videos for matching', {
         existingVideosCount: existingVideos.length,
         existingVideoTitles: existingVideos.map(v => v.title).slice(0, 3) // Show first 3 titles
       });
-      
+
       // Match Spotify tracks to existing YouTube videos to identify unsynced tracks
-      const unsyncedTracks = [];
-      const syncedTracks = [];
+      const unsyncedTracks: unknown[] = [];
+      const syncedTracks: unknown[] = [];
       
       Logger.info('Starting track matching analysis', {
         totalSpotifyTracks: tracks.length,
@@ -755,8 +782,9 @@ router.post('/playlist/:playlistId',
       });
       
       for (const item of tracks) {
-        if (item.track && item.track.type === 'track') {
-          const track = item.track;
+        const typedItem = item as { track: { id: string; name: string; artists: Array<{ name?: string }>; type?: string } | null };
+        if (typedItem.track && typedItem.track.type === 'track') {
+          const track = typedItem.track;
           const spotifyTrack = {
             id: track.id,
             name: track.name,
@@ -823,8 +851,9 @@ router.post('/playlist/:playlistId',
     
     for (let i = 0; i < tracksToSearch.length; i++) {
       const item = tracksToSearch[i];
-      if (item.track && item.track.type === 'track') {
-        const track = item.track;
+      const typedItem = item as { track: { id: string; name: string; artists: Array<{ name?: string }>; type?: string } | null };
+      if (typedItem.track && typedItem.track.type === 'track') {
+        const track = typedItem.track;
         const artist = track.artists[0]?.name || 'Unknown Artist';
         const songName = track.name;
         
@@ -1219,8 +1248,8 @@ router.post('/playlist/:playlistId',
     
     // Check if it's a quota exceeded error
     if (error && typeof error === 'object' && 'code' in error && error.code === 403) {
-      const gaxiosError = error as any;
-      if (gaxiosError.errors && gaxiosError.errors.some((e: any) => e.reason === 'quotaExceeded')) {
+      const gaxiosError = error as { errors?: Array<{ reason?: string }> };
+      if (gaxiosError.errors && gaxiosError.errors.some((e) => e.reason === 'quotaExceeded')) {
         Logger.warn('YouTube API quota exceeded - sync stopped gracefully');
         const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
           type: 'warning',
