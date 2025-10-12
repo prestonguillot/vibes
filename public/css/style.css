@@ -144,9 +144,7 @@ body {
   flex-shrink: 0;
 }
 
-.sync-btn {
-  white-space: nowrap;
-}
+/* .sync-btn consolidated definition is at line ~582 */
 
 .playlist-progress {
   background: #e3f2fd;
@@ -580,14 +578,22 @@ body {
 
 /* === SHARED SYNC/UPDATE BUTTON STYLING === */
 .sync-btn {
-    box-shadow: 3px 3px 0px rgba(0,0,0,0.3) !important;
+    /* Layout & Sizing */
+    min-width: 180px;
+    height: 38px;
+    white-space: nowrap;
+
+    /* Typography */
     font-family: 'Courier Prime', monospace !important;
     font-weight: 700 !important;
-    border-radius: 0 !important;
+    font-size: 0.9rem;
     text-transform: uppercase !important;
     letter-spacing: 1px !important;
-    border-width: 2px !important;
-    border-style: solid !important;
+
+    /* Borders & Styling */
+    border: 2px solid #000;
+    border-radius: 0 !important;
+    box-shadow: 3px 3px 0px rgba(0,0,0,0.3) !important;
 }
 
 .sync-btn:hover {
@@ -750,18 +756,7 @@ body {
     font-family: 'Courier Prime', monospace;
 }
 
-.sync-btn {
-    min-width: 180px;
-    height: 38px;
-    font-weight: 700;
-    white-space: nowrap;
-    font-size: 0.9rem;
-    font-family: 'Courier Prime', monospace;
-    border: 2px solid #000;
-    border-radius: 0;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-}
+/* .sync-btn definition consolidated at line ~580 */
 
 .expand-btn {
     height: 38px;
@@ -783,13 +778,8 @@ body {
     background: #f8f8f8 !important;
     font-family: 'Courier Prime', monospace;
     margin-top: 15px;
-    padding: 15px;
-    margin-left: -15px;
-    margin-right: -15px;
-    padding-left: 15px;
-    padding-right: 15px;
-    text-align: center;
     padding: 2rem;
+    text-align: center;
 }
 
 .playlist-details-container * {
@@ -933,51 +923,15 @@ div[style*="border: 4px solid rgba(0, 0, 0, 0.1)"] {
 }
 
 /* === PLAYLIST EXPAND/COLLAPSE AREAS === */
-.playlist-expand-area:hover::before {
-    content: '';
-    position: absolute;
-    left: 50%;
-    top: 0;
-    bottom: 5px;
-    width: 180px;
-    transform: translateX(-50%);
-    background-color: rgba(255, 0, 64, 0.1);
-    border: 1px solid rgba(255, 0, 64, 0.3);
-    border-radius: 3px;
-    z-index: 1;
-}
-
-.playlist-expand-area:hover .expand-indicator {
-    color: #ff0040 !important;
-    transform: scale(1.1);
-    position: relative;
-    z-index: 2;
-}
-
+/* Simplified hover effects - clearer visual affordance */
+.playlist-expand-area:hover .expand-indicator,
 .playlist-collapse-area:hover .collapse-indicator {
-    color: #ff0040 !important;
-    transform: scale(1.1);
-    position: relative;
-    z-index: 2;
-}
-
-.playlist-collapse-area:hover::before {
-    content: '';
-    position: absolute;
-    left: 50%;
-    top: 0;
-    bottom: 0;
-    width: 180px;
-    transform: translateX(-50%);
-    background-color: rgba(255, 0, 64, 0.1);
-    border: 1px solid rgba(255, 0, 64, 0.3);
-    border-radius: 3px;
-    z-index: 1;
+    color: #ff0040;
 }
 
 .expand-indicator,
 .collapse-indicator {
-    transition: all 0.2s ease;
+    transition: color 0.2s ease;
     font-weight: bold;
 }
 

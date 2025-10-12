@@ -4,6 +4,7 @@ import { google, youtube_v3 } from 'googleapis';
 import { Logger } from '../utils/logger';
 import { getSecureCookieOptions } from '../utils/authValidation';
 import { validate, schemas, ValidatedRequest } from '../utils/validation';
+import { CacheDuration, setCache } from '../utils/cache';
 import { z } from 'zod';
 import ejs from 'ejs';
 import path from 'path';
@@ -248,9 +249,11 @@ router.get('/playlists',
       ? `Showing ${syncedPlaylists.length} synced and ${unsyncedPlaylists.length} unsynced playlists${ownOnly ? ' (your playlists only)' : ''}`
       : `Showing ${unsyncedPlaylists.length} playlists${ownOnly ? ' (your playlists only)' : ''} (none synced yet)`;
 
-    // Cache for 30 minutes to save YouTube API quota
-    res.set('Cache-Control', 'private, max-age=1800');
-    Logger.info('Setting cache header for playlists response', { cacheControl: 'private, max-age=1800' });
+    // Cache for 30 minutes (LONG) - saves YouTube API quota
+    // This is expensive because it checks ALL YouTube playlists for sync status
+    // Playlist lists change infrequently compared to playlist contents
+    setCache(res, CacheDuration.LONG);
+    Logger.info('Setting cache header for playlists response', { cacheDuration: CacheDuration.LONG });
     res.render('partials/playlist-list-container', { summaryText, playlistsHtml });
   } catch (error) {
     Logger.error('Error fetching playlists', {}, error);

@@ -144,12 +144,33 @@
     - [x] playlistDetails.ts: Added details to playlist not found error (line 713)
     - [x] sync.ts: Added helpful titles and details to auth errors (lines 358-380)
     - [x] sync.ts: Added details to no tracks found error (lines 470-475)
-- [ ] Fix low priority bugs (BUG-008 through BUG-009)
+- [x] Fix low priority bugs
+  - [x] BUG-008: Documented and standardized cache strategy
+    - [x] Created src/utils/cache.ts with centralized cache configuration
+    - [x] Documented cache rationale (NO_CACHE, SHORT=5min, MEDIUM=10min, LONG=30min, VERY_LONG=1hr)
+    - [x] Updated playlistDetails.ts to use CacheDuration.MEDIUM (10 min)
+    - [x] Updated spotify.ts to use CacheDuration.LONG (30 min)
+  - [x] BUG-009: Add loading states for long operations
+    - [x] Verified all long-running operations have loading indicators:
+      - Connection status checks: Spinner with "Checking connection..." (index.ejs:30-35, 48-53)
+      - Playlist expansion: Built-in loading div with "Loading playlist details..." (playlist-item.ejs:62-69)
+      - Sync operations: Global #loading indicator with custom spinner (index.ejs:113-117)
+      - SSE progress: Real-time spinner during sync (progress-update.ejs:19-22)
+      - Video modal: Bootstrap spinner with "Loading video options..." (index.ejs:126-132)
+      - Playlist refresh: Uses global #loading indicator (index.ejs:69)
 
 ### 8. Build and Work on Styling Bugs List
-- [ ] Identify styling issues
-- [ ] Prioritize styling fixes
-- [ ] Apply fixes
+- [x] Identify styling issues
+  - [x] Created STYLING-BUGS.md with 10 identified issues
+  - [x] 3 High priority (CSS conflicts, duplicate definitions)
+  - [x] 4 Medium priority (responsive design, !important overuse, transforms, forms)
+  - [x] 3 Low priority (text overflow, unused classes, color management)
+- [x] Fix high-priority styling bugs
+  - [x] STYLE-001: Fixed redundant CSS in playlist-details-container
+  - [x] STYLE-002: Simplified expand/collapse hover effects
+  - [x] STYLE-003: Consolidated duplicate .sync-btn definitions
+- [ ] Fix medium-priority styling bugs (4 remaining)
+- [ ] Fix low-priority styling bugs (3 remaining)
 
 ### 8. Add End-to-End Tests
 - [ ] Create separate E2E test suite with real API credentials
@@ -157,11 +178,28 @@
 - [ ] Document E2E test setup and requirements
 
 ## Current Status
-Task 7 (Behavior Bugs) - 🔄 IN PROGRESS
+Tasks 7 & 8 - 🔄 IN PROGRESS
+
+### Task 7: Behavior Bugs - ✅ COMPLETE
 - ✅ Fixed all critical bugs (BUG-001, BUG-002) with comprehensive tests
 - ✅ Fixed all high-priority bugs (BUG-003, BUG-004, BUG-005) with comprehensive tests
-- ✅ Fixed BUG-006 (pagination) with comprehensive tests
-- 📊 Test count: 120 passed, 2 skipped (122 total) - up from 38 at start
+- ✅ Fixed all medium-priority bugs (BUG-006, BUG-007) with comprehensive tests
+- ✅ Fixed all low-priority bugs (BUG-008, BUG-009)
+  - BUG-008: Created centralized cache configuration
+  - BUG-009: Verified comprehensive loading indicators already implemented
+
+### Task 8: Styling Bugs - 🔄 IN PROGRESS
+- ✅ High-priority styling bugs fixed (3/3)
+  - STYLE-001: Consolidated playlist-details-container CSS
+  - STYLE-002: Simplified expand/collapse hover effects
+  - STYLE-003: Consolidated duplicate .sync-btn definitions
+- ⏳ Medium-priority bugs: 0/4 complete
+- ⏳ Low-priority bugs: 0/3 complete
+
+### Test Suite Status
+- 📊 Test count: **122 passed, 0 skipped** (122 total) - up from 38 at start
+- ✅ Fixed flaky Spotify API test by adding proper mocking
+- ✅ Un-skipped 2 validation tests (now all passing)
 - Test files added:
   - tests/unit/oauth.test.ts (20 tests)
   - tests/unit/sync.test.ts (14 tests)
@@ -169,5 +207,6 @@ Task 7 (Behavior Bugs) - 🔄 IN PROGRESS
   - tests/integration/connectionButton.test.ts (10 tests)
   - tests/unit/playlistDetailsPagination.test.ts (13 tests)
   - tests/unit/pagination.test.ts (16 tests)
+  - tests/integration/spotify.test.ts (8 tests - now fully mocked)
 
-Remaining: BUG-007, BUG-008, BUG-009 (medium/low priority)
+All behavior bugs from BUGS.md have been resolved!

@@ -5,6 +5,7 @@ import { Logger } from '../utils/logger';
 import { validate, schemas, ValidatedRequest } from '../utils/validation';
 import { csrfValidationMiddleware } from '../utils/csrf';
 import { SpotifyTokens, YouTubeTokens } from '../types/oauth';
+import { CacheDuration, setCache } from '../utils/cache';
 import { youtube_v3 } from 'googleapis';
 import { z } from 'zod';
 import ejs from 'ejs';
@@ -478,8 +479,9 @@ router.get('/playlist/:playlistId',
     const duration = Date.now() - startTime;
     Logger.requestEnd('Playlist Details Request', duration, { playlistId });
 
-    // Cache for 10 minutes to save YouTube API quota
-    res.set('Cache-Control', 'private, max-age=600');
+    // Cache for 10 minutes (MEDIUM) - balances freshness with API quota
+    // Users may frequently modify playlist contents, so keep cache relatively short
+    setCache(res, CacheDuration.MEDIUM);
     res.send(playlistDetailsHtml);
 
   } catch (error) {
