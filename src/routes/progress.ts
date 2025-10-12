@@ -1,5 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { Logger } from '../utils/logger';
+import { validate, schemas } from '../utils/validation';
+import { z } from 'zod';
 import ejs from 'ejs';
 import path from 'path';
 
@@ -9,7 +11,13 @@ const router = Router();
 const progressConnections = new Map<string, Response[]>();
 
 // SSE endpoint for real-time progress updates
-router.get('/playlist/:playlistId', (req: Request, res: Response) => {
+router.get('/playlist/:playlistId',
+  validate({
+    params: z.object({
+      playlistId: schemas.spotifyPlaylistId
+    })
+  }),
+  (req: Request, res: Response) => {
   const playlistId = req.params.playlistId;
   
   Logger.info('SSE connection established', { playlistId });
@@ -18,9 +26,8 @@ router.get('/playlist/:playlistId', (req: Request, res: Response) => {
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
-    'Connection': 'keep-alive',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Cache-Control'
+    'Connection': 'keep-alive'
+    // Note: No CORS headers - SSE connections should be same-origin only
   });
 
   // Add this connection to the playlist's connection list

@@ -36,11 +36,20 @@
   - [x] Move batch size selection to form field with hx-include
   - [x] Remove all `js:` usage in hx-vals
 
-### 3. Explicitly Audit server.ts
-- [ ] Review server configuration
-- [ ] Check middleware setup
-- [ ] Verify routing patterns
-- [ ] Assess error handling
+### 3. Explicitly Audit server.ts ✅
+- [x] Review server configuration
+- [x] Check middleware setup
+- [x] Verify routing patterns
+- [x] Assess error handling
+- [x] **Fixed Issues:**
+  - [x] Deleted unused /api/status endpoint (120 lines of dead code)
+  - [x] Extracted auth validation helpers to src/utils/authValidation.ts (eliminated ~200 lines of duplication)
+  - [x] Added rate limiting middleware (express-rate-limit: 30 req/min for status endpoints)
+  - [x] Fixed cookie security (added secure flag for production, changed sameSite 'lax' → 'strict')
+  - [x] Added global error handling (404 handler + error middleware with env-aware error details)
+  - [x] Replaced all require() with ES imports
+  - [x] Improved response logging (replaced res.send monkey-patching with res.on('finish'))
+  - [x] Removed unused SESSION_SECRET from .env files
 
 ### 4. Security Audit
 - [ ] Review authentication and authorization patterns
@@ -67,4 +76,4 @@
 - [ ] Apply fixes
 
 ## Current Status
-Working on: Tasks 1 & 2 Complete ✅ - Ready for Task 3 (server.ts Audit)
+Working on: Tasks 1, 2 & 3 Complete ✅ - Ready for Task 4 (Security Audit)

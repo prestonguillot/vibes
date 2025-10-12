@@ -2,6 +2,9 @@ import { Router } from 'express';
 import { google } from 'googleapis';
 import { scrapeYouTubeSearch } from '../utils/youtubeScraper';
 import { Logger } from '../utils/logger';
+import { validate, schemas } from '../utils/validation';
+import { csrfValidationMiddleware } from '../utils/csrf';
+import { z } from 'zod';
 import ejs from 'ejs';
 import path from 'path';
 const SpotifyWebApi = require('spotify-web-api-node');
@@ -27,7 +30,13 @@ function getOAuth2Client() {
 }
 
 // Get detailed playlist information (Spotify tracks + YouTube videos)
-router.get('/playlist/:playlistId', async (req, res) => {
+router.get('/playlist/:playlistId',
+  validate({
+    params: z.object({
+      playlistId: schemas.spotifyPlaylistId
+    })
+  }),
+  async (req, res) => {
   const startTime = Date.now();
   const { playlistId } = req.params;
   
@@ -412,7 +421,19 @@ router.get('/playlist/:playlistId', async (req, res) => {
 });
 
 // Search for alternative YouTube videos for a track
-router.get('/search/:trackId', async (req, res) => {
+router.get('/search/:trackId',
+  validate({
+    params: z.object({
+      trackId: schemas.alphanumericId
+    }),
+    query: z.object({
+      trackName: schemas.trackName,
+      artistName: schemas.artistName,
+      playlistId: schemas.spotifyPlaylistId,
+      currentVideoId: schemas.youtubeVideoId.optional().or(z.literal(''))
+    })
+  }),
+  async (req, res) => {
   const { trackId } = req.params;
   const { trackName, artistName, playlistId, currentVideoId } = req.query;
 
@@ -455,8 +476,7 @@ router.get('/search/:trackId', async (req, res) => {
         <div class="video-options">
           ${videos.map((video, index) => `
             <input type="radio" name="video-selection" id="video-${video.id}" value="${video.id}"
-                   class="video-option-radio" style="display: none;"
-                   onchange="document.getElementById('hidden-new-video-id').value = this.value; document.getElementById('confirm-selection-btn').disabled = false;">
+                   class="video-option-radio" style="display: none;">
             <label for="video-${video.id}" class="video-option p-3 border rounded mb-2" data-video-id="${video.id}">
               <div class="d-flex align-items-start">
                 <img src="${video.thumbnail}" alt="Video thumbnail"
@@ -515,7 +535,19 @@ router.get('/search/:trackId', async (req, res) => {
 });
 
 // Replace a video in a YouTube playlist
-router.post('/replace/:trackId', async (req, res) => {
+router.post('/replace/:trackId',
+  csrfValidationMiddleware, // CSRF protection - re-enabled with improved logging
+  validate({
+    params: z.object({
+      trackId: schemas.alphanumericId
+    }),
+    body: z.object({
+      newVideoId: schemas.youtubeVideoId,
+      currentVideoId: schemas.youtubeVideoId.optional().or(z.literal('')),
+      playlistId: schemas.spotifyPlaylistId
+    })
+  }),
+  async (req, res) => {
   const { trackId } = req.params;
   const { newVideoId, currentVideoId, playlistId } = req.body;
   

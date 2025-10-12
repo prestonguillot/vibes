@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { google } from 'googleapis';
 import { Logger } from '../utils/logger';
 import { getSecureCookieOptions } from '../utils/authValidation';
+import { validate, schemas } from '../utils/validation';
+import { z } from 'zod';
 
 const router = Router();
 
@@ -74,7 +76,13 @@ router.get('/login', (req, res) => {
 });
 
 // YouTube callback
-router.get('/callback', async (req, res) => {
+router.get('/callback',
+  validate({
+    query: z.object({
+      code: schemas.oauthCode
+    })
+  }),
+  async (req, res) => {
   Logger.requestStart('YouTube Callback Request', {
     requestUrl: req.originalUrl,
     authCodePresent: !!req.query.code
