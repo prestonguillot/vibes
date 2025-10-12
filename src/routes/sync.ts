@@ -3,7 +3,7 @@ import rateLimit from 'express-rate-limit';
 import SpotifyWebApi from 'spotify-web-api-node';
 import { google } from 'googleapis';
 import { searchMusicVideo } from '../utils/youtubeScraper';
-import { sendProgressUpdate } from './progress';
+import { sendProgressUpdate, closeProgressConnections } from './progress';
 import { Logger } from '../utils/logger';
 import { getSecureCookieOptions } from '../utils/authValidation';
 import { validate, schemas } from '../utils/validation';
@@ -1154,7 +1154,10 @@ router.post('/playlist/:playlistId',
       totalTracks: searchResults.length,
       percentage: 100
     });
-    
+
+    // Close SSE connections after completion
+    closeProgressConnections(playlistId);
+
     // Log comprehensive YouTube API quota usage summary
     Logger.info('YouTube API Quota Usage Summary', {
       totalApiCalls: apiCallCount,
@@ -1196,14 +1199,17 @@ router.post('/playlist/:playlistId',
     
   } catch (error) {
     Logger.error('Error syncing playlist', { processingTimeMs: Date.now() - startTime }, error);
-    
+
     // Send error progress update
     sendProgressUpdate(playlistId, {
       type: 'error',
       message: 'Sync failed',
       details: error instanceof Error ? error.message : 'An unexpected error occurred'
     });
-    
+
+    // Close SSE connections after error
+    closeProgressConnections(playlistId);
+
     // Log YouTube API quota usage summary even on error
     Logger.error('YouTube API Quota Usage Summary (ERROR)', {
       totalApiCalls: apiCallCount,
