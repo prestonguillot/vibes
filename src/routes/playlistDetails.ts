@@ -653,16 +653,27 @@ router.post('/replace/:trackId',
     
     Logger.external('YouTube', 'Looking for playlist', { name: expectedYouTubePlaylistName });
 
-    // Get all user's YouTube playlists to find the matching one
-    const playlistsResponse = await youtube.playlists.list({
-      part: ['snippet'],
-      mine: true,
-      maxResults: 50
-    });
+    // Get all user's YouTube playlists to find the matching one (with pagination)
+    let targetPlaylist: youtube_v3.Schema$Playlist | undefined = undefined;
+    let nextPageToken: string | undefined = undefined;
 
-    const targetPlaylist = playlistsResponse.data.items?.find(playlist => 
-      playlist.snippet?.title === expectedYouTubePlaylistName
-    );
+    do {
+      const playlistsResponse: youtube_v3.Schema$PlaylistListResponse = await youtube.playlists.list({
+        part: ['snippet'],
+        mine: true,
+        maxResults: 50,
+        pageToken: nextPageToken
+      }).then(res => res.data);
+
+      targetPlaylist = playlistsResponse.items?.find((playlist: youtube_v3.Schema$Playlist) =>
+        playlist.snippet?.title === expectedYouTubePlaylistName
+      );
+
+      // If we found it, break early
+      if (targetPlaylist) break;
+
+      nextPageToken = playlistsResponse.nextPageToken || undefined;
+    } while (nextPageToken);
 
     if (!targetPlaylist) {
       Logger.error('YouTube playlist not found', { name: expectedYouTubePlaylistName });
@@ -701,24 +712,47 @@ router.post('/replace/:trackId',
       // REPLACE MODE: Find and replace the existing video
       Logger.info('Replacing existing video', { currentVideoId, newVideoId, playlistTitle: targetPlaylist.snippet?.title });
 
-      // Get playlist items to find the current video
-      const playlistItemsResponse = await youtube.playlistItems.list({
-        part: ['snippet', 'contentDetails'],
-        playlistId: targetPlaylist.id!,
-        maxResults: 50
-      });
+      // Get ALL playlist items to find the current video (with pagination)
+      let playlistItemToReplace: youtube_v3.Schema$PlaylistItem | undefined = undefined;
+      let nextPageToken: string | undefined = undefined;
+      let itemsFetched = 0;
 
-      // Look for the current video in this playlist
-      const playlistItemToReplace = playlistItemsResponse.data.items?.find(item =>
-        item.snippet?.resourceId?.videoId === currentVideoId
-      );
+      do {
+        const playlistItemsResponse: youtube_v3.Schema$PlaylistItemListResponse = await youtube.playlistItems.list({
+          part: ['snippet', 'contentDetails'],
+          playlistId: targetPlaylist.id!,
+          maxResults: 50,
+          pageToken: nextPageToken
+        }).then(res => res.data);
+
+        itemsFetched += playlistItemsResponse.items?.length || 0;
+
+        // Look for the current video in this page
+        playlistItemToReplace = playlistItemsResponse.items?.find((item: youtube_v3.Schema$PlaylistItem) =>
+          item.snippet?.resourceId?.videoId === currentVideoId
+        );
+
+        // If we found it, break early
+        if (playlistItemToReplace) {
+          Logger.info('Found video to replace', { currentVideoId, itemsFetched });
+          break;
+        }
+
+        nextPageToken = playlistItemsResponse.nextPageToken || undefined;
+      } while (nextPageToken);
 
       if (!playlistItemToReplace) {
-        Logger.error('Video not found in playlist', { currentVideoId, playlistTitle: targetPlaylist.snippet?.title });
+        Logger.error('Video not found in playlist after checking all pages', {
+          currentVideoId,
+          playlistTitle: targetPlaylist.snippet?.title,
+          totalItemsChecked: itemsFetched
+        });
+
         const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
           type: 'danger',
           title: 'Video not found',
-          message: `Could not find video ${currentVideoId} in the YouTube playlist`
+          message: `Could not find the video in the YouTube playlist after checking all ${itemsFetched} items.`,
+          details: 'The video may have been removed from the playlist, or the playlist data may be out of sync. Try refreshing the playlist details and trying again.'
         });
         return res.status(404).send(html);
       }
