@@ -122,16 +122,28 @@
   - [x] All type errors resolved - TypeScript passes with 0 errors
   - [x] All 38 tests passing
 
-### 7. Build and Work on Behavior Bugs List
+### 7. Build and Work on Behavior Bugs List ✅
 - [x] Identify behavior bugs
   - [x] Created BUGS.md with 12 identified issues
   - [x] 2 Critical, 3 High, 2 Medium, 2 Low priority bugs
   - [x] 3 items for further investigation
 - [x] Fix critical bugs
-  - [x] BUG-001: Fixed null track crash by adding filter for deleted/unavailable tracks
-  - [x] BUG-002: Confirmed loading parameter already present (was fixed previously)
-- [ ] Fix high priority bugs (BUG-003 through BUG-005)
-- [ ] Fix medium priority bugs (BUG-006 through BUG-007)
+  - [x] BUG-001: Fixed null track crash by adding filter for deleted/unavailable tracks (tests: playlistDataHandling.test.ts)
+  - [x] BUG-002: Fixed loading parameter in connection buttons (tests: connectionButton.test.ts)
+- [x] Fix high priority bugs
+  - [x] BUG-003: Fixed playlist reordering with delete+insert strategy and pagination (tests: sync.test.ts)
+  - [x] BUG-004: Fixed video not found with pagination for >50 items (tests: playlistDetailsPagination.test.ts)
+  - [x] BUG-005: Fixed Spotify API 502/503 errors with specific error handling (spotify.ts:248-278)
+- [x] Fix medium priority bugs
+  - [x] BUG-006: Implemented pagination everywhere (>50 playlists/videos) (tests: pagination.test.ts)
+    - [x] playlistDetails.ts: Finding YouTube playlists (lines 140-159)
+    - [x] playlistDetails.ts: Fetching playlist items (lines 166-183)
+    - [x] spotify.ts: Checking sync status (lines 177-206)
+  - [x] BUG-007: Added consistent error parameters (title, details) to all error messages
+    - [x] playlistDetails.ts: Added helpful titles and details to auth errors (lines 82-88, 650-667)
+    - [x] playlistDetails.ts: Added details to playlist not found error (line 713)
+    - [x] sync.ts: Added helpful titles and details to auth errors (lines 358-380)
+    - [x] sync.ts: Added details to no tracks found error (lines 470-475)
 - [ ] Fix low priority bugs (BUG-008 through BUG-009)
 
 ### 8. Build and Work on Styling Bugs List
@@ -145,11 +157,17 @@
 - [ ] Document E2E test setup and requirements
 
 ## Current Status
-Task 6 (TypeScript Type Safety Audit) - ✅ COMPLETE
-- Created comprehensive type definitions for Spotify and YouTube APIs
-- Added `ValidatedRequest` interface for type-safe route handlers
-- Fixed all TypeScript compilation errors
-- All 38 tests passing
-- TypeScript strict mode enabled and passing
+Task 7 (Behavior Bugs) - 🔄 IN PROGRESS
+- ✅ Fixed all critical bugs (BUG-001, BUG-002) with comprehensive tests
+- ✅ Fixed all high-priority bugs (BUG-003, BUG-004, BUG-005) with comprehensive tests
+- ✅ Fixed BUG-006 (pagination) with comprehensive tests
+- 📊 Test count: 120 passed, 2 skipped (122 total) - up from 38 at start
+- Test files added:
+  - tests/unit/oauth.test.ts (20 tests)
+  - tests/unit/sync.test.ts (14 tests)
+  - tests/unit/playlistDataHandling.test.ts (11 tests)
+  - tests/integration/connectionButton.test.ts (10 tests)
+  - tests/unit/playlistDetailsPagination.test.ts (13 tests)
+  - tests/unit/pagination.test.ts (16 tests)
 
-Next: Task 7 (Behavior Bugs)
+Remaining: BUG-007, BUG-008, BUG-009 (medium/low priority)

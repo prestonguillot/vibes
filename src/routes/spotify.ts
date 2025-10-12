@@ -1,6 +1,6 @@
 import { Router, Request } from 'express';
 import SpotifyWebApi from 'spotify-web-api-node';
-import { google } from 'googleapis';
+import { google, youtube_v3 } from 'googleapis';
 import { Logger } from '../utils/logger';
 import { getSecureCookieOptions } from '../utils/authValidation';
 import { validate, schemas, ValidatedRequest } from '../utils/validation';
@@ -174,24 +174,31 @@ router.get('/playlists',
       });
     }
 
-    // Get YouTube playlists to check which Spotify playlists have been synced
+    // Get ALL YouTube playlists to check which Spotify playlists have been synced (with pagination)
     let youtubePlaylistNames = new Set<string>();
     let youtubePlaylistsMap = new Map<string, any>();
     if (youtubeTokens) {
       try {
-        const youtubeResponse = await youtube.playlists.list({
-          part: ['snippet'],
-          mine: true,
-          maxResults: 50
-        });
+        let nextPageToken: string | undefined = undefined;
 
-        if (youtubeResponse.data.items) {
-          youtubeResponse.data.items.forEach(playlist => {
-            const title = playlist.snippet?.title || '';
-            youtubePlaylistNames.add(title);
-            youtubePlaylistsMap.set(title, playlist);
-          });
-        }
+        do {
+          const youtubeResponse: youtube_v3.Schema$PlaylistListResponse = await youtube.playlists.list({
+            part: ['snippet'],
+            mine: true,
+            maxResults: 50,
+            pageToken: nextPageToken
+          }).then(res => res.data);
+
+          if (youtubeResponse.items) {
+            youtubeResponse.items.forEach((playlist: youtube_v3.Schema$Playlist) => {
+              const title = playlist.snippet?.title || '';
+              youtubePlaylistNames.add(title);
+              youtubePlaylistsMap.set(title, playlist);
+            });
+          }
+
+          nextPageToken = youtubeResponse.nextPageToken || undefined;
+        } while (nextPageToken);
       } catch (error) {
         Logger.warn('Could not fetch YouTube playlists for sorting', {}, error);
         // Continue without YouTube playlist info
@@ -251,6 +258,27 @@ router.get('/playlists',
     // Check if it's an authentication error
     if (error instanceof Error && error.message === 'SPOTIFY_AUTH_REQUIRED') {
       return res.status(401).render('partials/auth-expired', { service: 'Spotify' });
+    }
+
+    // Check if it's a Spotify API server error (502/503)
+    const statusCode = (error as any)?.statusCode || (error as any)?.status;
+    if (statusCode === 502 || statusCode === 503) {
+      Logger.warn('Spotify API temporary error', { statusCode });
+      return res.status(503).render('partials/error-message', {
+        message: 'Spotify is temporarily unavailable',
+        type: 'warning',
+        details: 'Spotify\'s servers are experiencing issues. Please try again in a few moments.'
+      });
+    }
+
+    // Check for rate limiting (429)
+    if (statusCode === 429) {
+      Logger.warn('Spotify API rate limit exceeded', { statusCode });
+      return res.status(429).render('partials/error-message', {
+        message: 'Too many requests to Spotify',
+        type: 'warning',
+        details: 'Please wait a moment before trying again.'
+      });
     }
 
     res.status(500).render('partials/error-message', { message: 'Error fetching playlists', type: 'danger' });
