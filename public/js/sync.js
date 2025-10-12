@@ -46,10 +46,17 @@ function startSSE(playlistId) {
 
   eventSource.onmessage = (event) => {
     const progressDiv = document.getElementById(`progress-${playlistId}`);
-    if (progressDiv) {
-      // Server sends HTML directly - just swap it in
-      progressDiv.innerHTML = event.data;
+    if (!progressDiv) return;
+
+    // Check if this is a control message (JSON) or HTML content
+    // Control messages like {"type":"connected"} should be ignored
+    if (event.data.startsWith('{') || event.data.startsWith('[')) {
+      // This is JSON - ignore it (it's a control message)
+      return;
     }
+
+    // Server sends HTML directly - just swap it in
+    progressDiv.innerHTML = event.data;
   };
 
   eventSource.onerror = () => {

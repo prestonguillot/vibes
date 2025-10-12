@@ -36,12 +36,8 @@ router.get('/playlist/:playlistId',
   }
   progressConnections.get(playlistId)!.push(res);
 
-  // Send initial connection confirmation
-  res.write(`data: ${JSON.stringify({
-    type: 'connected',
-    message: 'Progress updates connected',
-    timestamp: new Date().toISOString()
-  })}\n\n`);
+  // Send initial keepalive comment (prevents connection timeout)
+  res.write(`: SSE connection established\n\n`);
 
   // Handle client disconnect
   req.on('close', () => {
@@ -116,7 +112,7 @@ export function closeProgressConnections(playlistId: string) {
     Logger.info('Closing SSE connections', { playlistId, connectionCount: connections.length });
     connections.forEach(res => {
       try {
-        res.write(`data: ${JSON.stringify({ type: 'close' })}\n\n`);
+        // Just end the connection cleanly without sending data
         res.end();
       } catch (error) {
         Logger.warn('Error closing SSE connection', { playlistId }, error);
