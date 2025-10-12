@@ -355,7 +355,12 @@ router.post('/playlist/:playlistId',
         message: 'Authentication required',
         details: 'Please connect to Spotify first'
       });
-      const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), { message: 'Please connect to Spotify first', type: 'warning' });
+      const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
+        type: 'warning',
+        title: 'Spotify Authentication Required',
+        message: 'Please connect to Spotify first',
+        details: 'Use the Spotify connection button at the top of the page to authenticate.'
+      });
       return res.status(401).send(html);
     }
 
@@ -366,7 +371,12 @@ router.post('/playlist/:playlistId',
         message: 'Authentication required',
         details: 'Please connect to YouTube first'
       });
-      const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), { message: 'Please connect to YouTube first', type: 'warning' });
+      const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
+        type: 'warning',
+        title: 'YouTube Authentication Required',
+        message: 'Please connect to YouTube first',
+        details: 'Use the YouTube connection button at the top of the page to authenticate.'
+      });
       return res.status(401).send(html);
     }
 
@@ -457,7 +467,12 @@ router.post('/playlist/:playlistId',
         message: 'No tracks found',
         details: 'No tracks found in the playlist'
       });
-      const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), { type: 'warning', message: 'No tracks found to sync' });
+      const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
+        type: 'warning',
+        title: 'No Tracks Found',
+        message: 'No tracks found to sync',
+        details: 'This playlist appears to be empty or contains only unplayable tracks.'
+      });
       return res.send(html);
     }
 

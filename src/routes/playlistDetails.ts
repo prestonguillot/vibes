@@ -81,7 +81,9 @@ router.get('/playlist/:playlistId',
     if (!spotifyTokens || !youtubeTokens) {
       const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
         type: 'warning',
-        message: 'Please connect to both Spotify and YouTube first'
+        title: 'Authentication Required',
+        message: 'Please connect to both Spotify and YouTube first',
+        details: 'Use the connection buttons at the top of the page to authenticate with both services.'
       });
       return res.status(401).send(html);
     }
@@ -133,40 +135,63 @@ router.get('/playlist/:playlistId',
 
     Logger.info('Found Spotify tracks', { count: spotifyTracks.length });
 
-    // Find corresponding YouTube playlist
+    // Find corresponding YouTube playlist (with pagination to handle >50 playlists)
     const youtubePlaylistTitle = `${spotifyPlaylistData.body.name} (from Spotify)`;
     Logger.external('YouTube', 'Looking for playlist', { title: youtubePlaylistTitle });
-    
-    const youtubePlaylistsResponse = await youtube.playlists.list({
-      part: ['snippet'],
-      mine: true,
-      maxResults: 50
-    });
 
-    const youtubePlaylist = youtubePlaylistsResponse.data.items?.find(
-      playlist => playlist.snippet?.title === youtubePlaylistTitle
-    );
+    let youtubePlaylist: youtube_v3.Schema$Playlist | undefined = undefined;
+    let nextPageToken: string | undefined = undefined;
+
+    do {
+      const youtubePlaylistsResponse: youtube_v3.Schema$PlaylistListResponse = await youtube.playlists.list({
+        part: ['snippet'],
+        mine: true,
+        maxResults: 50,
+        pageToken: nextPageToken
+      }).then(res => res.data);
+
+      youtubePlaylist = youtubePlaylistsResponse.items?.find(
+        (playlist: youtube_v3.Schema$Playlist) => playlist.snippet?.title === youtubePlaylistTitle
+      );
+
+      // If we found it, break early
+      if (youtubePlaylist) break;
+
+      nextPageToken = youtubePlaylistsResponse.nextPageToken || undefined;
+    } while (nextPageToken);
 
     let youtubeVideos: SimplifiedVideo[] = [];
 
     if (youtubePlaylist) {
       Logger.external('YouTube', 'Found matching playlist', { playlistId: youtubePlaylist.id });
 
-      // Get YouTube playlist videos
-      const youtubeVideosResponse = await youtube.playlistItems.list({
-        part: ['snippet', 'contentDetails'],
-        playlistId: youtubePlaylist.id!,
-        maxResults: 50
-      });
+      // Get ALL YouTube playlist videos (with pagination to handle >50 videos)
+      const allPlaylistItems: youtube_v3.Schema$PlaylistItem[] = [];
+      let nextPageToken: string | undefined = undefined;
 
-      youtubeVideos = youtubeVideosResponse.data.items?.map((item: youtube_v3.Schema$PlaylistItem): SimplifiedVideo => ({
+      do {
+        const youtubeVideosResponse: youtube_v3.Schema$PlaylistItemListResponse = await youtube.playlistItems.list({
+          part: ['snippet', 'contentDetails'],
+          playlistId: youtubePlaylist.id!,
+          maxResults: 50,
+          pageToken: nextPageToken
+        }).then(res => res.data);
+
+        if (youtubeVideosResponse.items) {
+          allPlaylistItems.push(...youtubeVideosResponse.items);
+        }
+
+        nextPageToken = youtubeVideosResponse.nextPageToken || undefined;
+      } while (nextPageToken);
+
+      youtubeVideos = allPlaylistItems.map((item: youtube_v3.Schema$PlaylistItem): SimplifiedVideo => ({
         id: item.snippet?.resourceId?.videoId || '',
         title: item.snippet?.title || '',
         description: item.snippet?.description || '',
         thumbnail: item.snippet?.thumbnails?.medium?.url || item.snippet?.thumbnails?.default?.url || '',
         publishedAt: item.snippet?.publishedAt || '',
         url: `https://www.youtube.com/watch?v=${item.snippet?.resourceId?.videoId || ''}`
-      })) || [];
+      }));
 
       Logger.info('Found YouTube videos', { count: youtubeVideos.length });
     } else {
@@ -624,7 +649,9 @@ router.post('/replace/:trackId',
     if (!youtubeTokens) {
       const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
         type: 'warning',
-        message: 'Please connect to YouTube first'
+        title: 'YouTube Authentication Required',
+        message: 'Please connect to YouTube first',
+        details: 'Use the YouTube connection button at the top of the page to authenticate.'
       });
       return res.status(401).send(html);
     }
@@ -632,7 +659,9 @@ router.post('/replace/:trackId',
     if (!spotifyTokens) {
       const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
         type: 'warning',
-        message: 'Please connect to Spotify first'
+        title: 'Spotify Authentication Required',
+        message: 'Please connect to Spotify first',
+        details: 'Use the Spotify connection button at the top of the page to authenticate.'
       });
       return res.status(401).send(html);
     }
@@ -680,7 +709,8 @@ router.post('/replace/:trackId',
       const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
         type: 'danger',
         title: 'Playlist not found',
-        message: `Could not find YouTube playlist: "${expectedYouTubePlaylistName}"`
+        message: `Could not find YouTube playlist: "${expectedYouTubePlaylistName}"`,
+        details: 'This playlist may not have been synced yet. Try syncing it from the Spotify playlists page first.'
       });
       return res.status(404).send(html);
     }

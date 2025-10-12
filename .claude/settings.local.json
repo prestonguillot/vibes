@@ -11,7 +11,8 @@
       "Bash(curl:*)",
       "Bash(npm run dev:server:*)",
       "Bash(npm run test:run:*)",
-      "Bash(git ls-tree:*)"
+      "Bash(git ls-tree:*)",
+      "Bash(npm run:*)"
     ],
     "deny": [],
     "ask": []
