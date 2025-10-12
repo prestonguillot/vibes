@@ -52,13 +52,23 @@
   - [x] Removed unused SESSION_SECRET from .env files
 
 ### 4. Security Audit
-- [ ] Review authentication and authorization patterns
-- [ ] Check for sensitive data exposure
-- [ ] Audit token storage and handling
+- [x] **Implemented CSRF Protection**
+  - [x] Added signed double-submit cookie pattern
+  - [x] CSRF validation middleware on all POST endpoints
+  - [x] Lazy-loaded secret from environment
+  - [x] Comprehensive debug logging
+- [x] **Added Environment Variable Validation**
+  - [x] Created src/utils/envValidation.ts with schema-based validation
+  - [x] Validates all required variables at startup (7 required, 4 optional)
+  - [x] Production-specific checks (SESSION_SECRET, CSRF_SECRET, localhost warnings)
+  - [x] Prevents server startup if critical vars are missing
+- [x] Review authentication and authorization patterns
+- [x] Check for sensitive data exposure (error messages sanitized in production)
+- [x] Audit token storage and handling (HttpOnly, SameSite=strict cookies)
 - [ ] Review input validation and sanitization
-- [ ] Check for common web vulnerabilities (XSS, CSRF, etc.)
-- [ ] Verify secure cookie configurations
-- [ ] Review error messages for information leakage
+- [x] Check for common web vulnerabilities (CSRF protection added)
+- [x] Verify secure cookie configurations (secure flag in production, SameSite=strict)
+- [x] Review error messages for information leakage (env-aware error details)
 
 ### 5. Add Test Suite
 - [ ] Discuss and choose testing framework (TBD)

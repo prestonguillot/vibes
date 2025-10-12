@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
 import SpotifyWebApi from 'spotify-web-api-node';
 import { google } from 'googleapis';
 import { searchMusicVideo } from '../utils/youtubeScraper';
@@ -12,6 +13,35 @@ import ejs from 'ejs';
 import path from 'path';
 
 const router = Router();
+
+// Rate limiter for sync operations
+// Sync is resource-intensive (YouTube scraping, API calls, playlist operations)
+// Limit to 5 sync operations per 5 minutes per IP
+const syncLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000, // 5 minutes
+  max: 5, // Limit each IP to 5 requests per window
+  message: 'Too many sync requests from this IP, please try again in a few minutes',
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: false,
+  // Custom handler for rate limit exceeded
+  handler: async (req, res) => {
+    Logger.warn('Sync rate limit exceeded', {
+      ip: req.ip,
+      url: req.originalUrl,
+      method: req.method
+    });
+
+    const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
+      type: 'warning',
+      title: 'Too Many Sync Requests',
+      message: 'You\'ve made too many sync requests in a short period.',
+      details: 'Please wait a few minutes before trying again. This limit helps prevent abuse and ensures the service remains available for everyone.'
+    });
+
+    res.status(429).send(html);
+  }
+});
 
 // Track matching functions (from playlist details)
 function findBestMatch(spotifyTrack: any, youtubeVideos: any[]) {
@@ -253,8 +283,14 @@ async function ensureValidYouTubeToken(req: any, res: any): Promise<{ oauth2Clie
   }
 };
 
+// Conditionally apply rate limiting middleware based on environment variable
+const rateLimitingEnabled = process.env.ENABLE_RATE_LIMITING === 'true';
+const syncMiddleware = rateLimitingEnabled ? [syncLimiter, csrfValidationMiddleware] : [csrfValidationMiddleware];
+
+Logger.info('Sync rate limiting configuration', { enabled: rateLimitingEnabled });
+
 router.post('/playlist/:playlistId',
-  csrfValidationMiddleware, // CSRF protection - re-enabled with improved logging
+  ...syncMiddleware, // Conditionally apply rate limiting (default: OFF)
   validate({
     params: z.object({
       playlistId: schemas.spotifyPlaylistId

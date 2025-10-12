@@ -1,6 +1,10 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
+// Validate environment variables before starting server
+import { validateEnvironment } from './utils/envValidation';
+validateEnvironment();
+
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
