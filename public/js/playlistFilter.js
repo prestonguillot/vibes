@@ -14,8 +14,6 @@ document.addEventListener('DOMContentLoaded', function() {
       const isChecked = this.checked;
       const ownOnlyValue = isChecked ? 'true' : 'false';
 
-      console.log('Toggle htmx:configRequest - isChecked:', isChecked);
-
       // Modify the request path to include the correct parameter
       event.detail.path = `/auth/spotify/playlists?ownOnly=${ownOnlyValue}`;
     });
@@ -25,8 +23,6 @@ document.addEventListener('DOMContentLoaded', function() {
       // Read the current toggle state
       const isChecked = toggle.checked;
       const ownOnlyValue = isChecked ? 'true' : 'false';
-
-      console.log('Refresh button htmx:configRequest - isChecked:', isChecked);
 
       // Modify the request path to include the correct parameter
       event.detail.path = `/auth/spotify/playlists?ownOnly=${ownOnlyValue}`;

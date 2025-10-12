@@ -167,4 +167,43 @@ describe('Validation Schemas', () => {
       });
     });
   });
+
+  describe('booleanFlag', () => {
+    it('should accept "true" and transform to boolean true', () => {
+      const result = schemas.booleanFlag.parse('true');
+      expect(result).toBe(true);
+      expect(typeof result).toBe('boolean');
+    });
+
+    it('should accept "false" and transform to boolean false', () => {
+      const result = schemas.booleanFlag.parse('false');
+      expect(result).toBe(false);
+      expect(typeof result).toBe('boolean');
+    });
+
+    it('should reject invalid boolean strings', () => {
+      const invalidValues = ['1', '0', 'yes', 'no', 'TRUE', 'FALSE', '', 'null'];
+
+      invalidValues.forEach(value => {
+        expect(() => schemas.booleanFlag.parse(value)).toThrow();
+      });
+    });
+
+    it('should ensure transformed boolean can be compared with === true/false', () => {
+      // This test ensures the bug we fixed doesn't regress
+      // The bug was: req.query.ownOnly === 'true' (string comparison)
+      // Should be: req.query.ownOnly === true (boolean comparison)
+
+      const trueResult = schemas.booleanFlag.parse('true');
+      const falseResult = schemas.booleanFlag.parse('false');
+
+      // These should work (correct comparison)
+      expect(trueResult === true).toBe(true);
+      expect(falseResult === false).toBe(true);
+
+      // These should fail (the bug we fixed)
+      expect(trueResult === 'true').toBe(false);
+      expect(falseResult === 'false').toBe(false);
+    });
+  });
 });
