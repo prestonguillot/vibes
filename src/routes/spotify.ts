@@ -151,13 +151,27 @@ router.get('/playlists',
     // Get Spotify playlists
     const data = await spotifyApi.getUserPlaylists();
     let spotifyPlaylists = data.body.items;
-    
+
     // Filter for own playlists only if requested
-    const ownOnly = req.query.ownOnly === 'true';
+    // Note: Zod transforms the string 'true'/'false' to boolean true/false
+    const ownOnly = req.query.ownOnly === true;
+    Logger.debug('Playlist filtering', {
+      ownOnly,
+      currentUserId,
+      totalPlaylists: spotifyPlaylists.length,
+      rawQueryParam: req.query.ownOnly
+    });
+
     if (ownOnly) {
+      const beforeFilter = spotifyPlaylists.length;
       spotifyPlaylists = spotifyPlaylists.filter((playlist: any) =>
         playlist.owner.id === currentUserId
       );
+      Logger.debug('Applied ownOnly filter', {
+        before: beforeFilter,
+        after: spotifyPlaylists.length,
+        currentUserId
+      });
     }
 
     // Get YouTube playlists to check which Spotify playlists have been synced

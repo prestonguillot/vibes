@@ -32,3 +32,11 @@
 - Use HTTP standards (headers, status codes, caching) over custom mechanisms
 - Keep server logic simple and stateless
 - Let the browser handle caching, cookies, and state where appropriate
+
+### Type Safety
+- **Be as type-safe as possible at all times**
+- Avoid `as any` casts - they suppress TypeScript's type checking and can hide bugs
+- Use proper TypeScript types and interfaces instead of `any`
+- Leverage Zod schemas for runtime validation AND type inference
+- Ensure middleware that transforms data (like validation) properly types the transformed values
+- Enable strict TypeScript compiler options where possible

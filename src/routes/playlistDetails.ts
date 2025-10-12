@@ -70,15 +70,31 @@ router.get('/playlist/:playlistId',
     // Get Spotify playlist tracks
     Logger.external('Spotify', 'Fetching playlist tracks', { playlistId });
     const spotifyPlaylistData = await spotifyApi.getPlaylist(playlistId);
-    const spotifyTracks = spotifyPlaylistData.body.tracks.items.map((item: any) => ({
-      id: item.track.id,
-      name: item.track.name,
-      artist: item.track.artists[0]?.name || 'Unknown Artist',
-      album: item.track.album?.name || 'Unknown Album',
-      duration_ms: item.track.duration_ms,
-      external_urls: item.track.external_urls,
-      preview_url: item.track.preview_url
-    }));
+
+    // Filter out null/deleted tracks and map to our format
+    const spotifyTracks = spotifyPlaylistData.body.tracks.items
+      .filter((item: any) => item.track !== null) // Skip deleted/unavailable tracks
+      .map((item: any) => ({
+        id: item.track.id,
+        name: item.track.name,
+        artist: item.track.artists[0]?.name || 'Unknown Artist',
+        album: item.track.album?.name || 'Unknown Album',
+        duration_ms: item.track.duration_ms,
+        external_urls: item.track.external_urls,
+        preview_url: item.track.preview_url
+      }));
+
+    const totalTracksInPlaylist = spotifyPlaylistData.body.tracks.items.length;
+    const nullTracksCount = totalTracksInPlaylist - spotifyTracks.length;
+
+    if (nullTracksCount > 0) {
+      Logger.warn('Playlist contains unavailable tracks', {
+        playlistId,
+        totalTracks: totalTracksInPlaylist,
+        availableTracks: spotifyTracks.length,
+        unavailableTracks: nullTracksCount
+      });
+    }
 
     Logger.info('Found Spotify tracks', { count: spotifyTracks.length });
 
