@@ -10,6 +10,24 @@ interface SearchResult {
 }
 
 /**
+ * YouTube's scraped video data structure (partial)
+ * Note: This is an incomplete type definition - YouTube's actual structure is much larger
+ */
+interface YouTubeScrapedVideoData {
+  videoRenderer?: {
+    videoId?: string;
+    title?: {
+      runs?: Array<{ text?: string }>;
+      simpleText?: string;
+    };
+    lengthText?: { simpleText?: string };
+    viewCountText?: { simpleText?: string };
+    ownerText?: { runs?: Array<{ text?: string }> };
+    longBylineText?: { runs?: Array<{ text?: string }> };
+  };
+}
+
+/**
  * ⚠️ **LEGAL DISCLAIMER** ⚠️
  *
  * This module scrapes YouTube search results to avoid the expensive YouTube Data API search endpoint,
@@ -88,7 +106,7 @@ export async function scrapeYouTubeSearch(query: string, maxResults: number = 3)
     const results: SearchResult[] = [];
     
     // Look for video data in script tags (YouTube embeds data in JSON)
-    let videoData: any[] = [];
+    let videoData: YouTubeScrapedVideoData[] = [];
     
     $('script').each((i, elem) => {
       const scriptContent = $(elem).html();

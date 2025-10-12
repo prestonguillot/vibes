@@ -40,3 +40,12 @@
 - Leverage Zod schemas for runtime validation AND type inference
 - Ensure middleware that transforms data (like validation) properly types the transformed values
 - Enable strict TypeScript compiler options where possible
+
+### Testing Requirements
+- **Run the test suite after every change** - use `npm run test:run` to verify all tests pass
+- **Ensure all changes are covered by tests** - add unit or integration tests for new functionality
+- **When tests fail, assess the root cause:**
+  - **More likely:** The newly added code needs to be fixed
+  - **Less likely (but possible):** The test case itself needs updating
+- **Write tests that verify behavior, not implementation** - tests should validate what the code does, not how it does it
+- **Test both happy paths and error cases** - include tests for validation failures, edge cases, and error handling

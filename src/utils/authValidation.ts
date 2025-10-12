@@ -2,6 +2,7 @@ import { Response } from 'express';
 import SpotifyWebApi from 'spotify-web-api-node';
 import { google } from 'googleapis';
 import { Logger } from './logger';
+import { SpotifyTokens, YouTubeTokens } from '../types/oauth';
 
 /**
  * Cookie configuration for authentication tokens
@@ -20,7 +21,7 @@ export function getSecureCookieOptions() {
  * @returns true if connection is valid, false otherwise
  */
 export async function validateSpotifyConnection(
-  spotifyTokens: any,
+  spotifyTokens: SpotifyTokens | null,
   res: Response
 ): Promise<boolean> {
   if (!spotifyTokens) {
@@ -41,11 +42,13 @@ export async function validateSpotifyConnection(
     await spotifyApi.getMe();
     Logger.auth('Spotify', 'connection validated');
     return true;
-  } catch (error: any) {
-    Logger.auth('Spotify', 'connection invalid', { error: error.message, statusCode: error.statusCode });
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const statusCode = (error as { statusCode?: number }).statusCode;
+    Logger.auth('Spotify', 'connection invalid', { error: errorMessage, statusCode });
 
     // Try to refresh the token on 401
-    if (error.statusCode === 401 && spotifyTokens.refreshToken) {
+    if (statusCode === 401 && spotifyTokens.refreshToken) {
       try {
         const spotifyApi = new SpotifyWebApi({
           clientId: process.env.SPOTIFY_CLIENT_ID,
@@ -83,7 +86,7 @@ export async function validateSpotifyConnection(
  * @returns true if connection is valid, false otherwise
  */
 export async function validateYouTubeConnection(
-  youtubeTokens: any,
+  youtubeTokens: YouTubeTokens | null,
   res: Response
 ): Promise<boolean> {
   if (!youtubeTokens) {
@@ -104,11 +107,13 @@ export async function validateYouTubeConnection(
     await youtube.channels.list({ part: ['id'], mine: true, maxResults: 1 });
     Logger.auth('YouTube', 'connection validated');
     return true;
-  } catch (error: any) {
-    Logger.auth('YouTube', 'connection invalid', { error: error.message, code: error.code });
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorCode = (error as { code?: number }).code;
+    Logger.auth('YouTube', 'connection invalid', { error: errorMessage, code: errorCode });
 
     // Try to refresh the token on 401
-    if (error.code === 401 && youtubeTokens.refresh_token) {
+    if (errorCode === 401 && youtubeTokens.refresh_token) {
       try {
         const oauth2Client = new google.auth.OAuth2(
           process.env.YOUTUBE_CLIENT_ID,

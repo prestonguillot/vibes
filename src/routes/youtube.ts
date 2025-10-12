@@ -1,8 +1,9 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { google } from 'googleapis';
 import { Logger } from '../utils/logger';
 import { getSecureCookieOptions } from '../utils/authValidation';
-import { validate, schemas } from '../utils/validation';
+import { validate, schemas, ValidatedRequest } from '../utils/validation';
+import { YouTubeTokens } from '../types/oauth';
 import { z } from 'zod';
 
 const router = Router();
@@ -15,8 +16,8 @@ const getOAuth2Client = () => new google.auth.OAuth2(
 );
 
 // Helper function to refresh YouTube tokens if needed
-const ensureValidYouTubeToken = async (req: any, res: any) => {
-  const youtubeTokens = req.cookies.youtube_tokens ? JSON.parse(req.cookies.youtube_tokens) : null;
+const ensureValidYouTubeToken = async (req: Request, res: Response) => {
+  const youtubeTokens: YouTubeTokens | null = req.cookies.youtube_tokens ? JSON.parse(req.cookies.youtube_tokens) : null;
 
   if (!youtubeTokens) {
     throw new Error('No YouTube tokens found');
@@ -30,9 +31,10 @@ const ensureValidYouTubeToken = async (req: any, res: any) => {
     const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
     await youtube.channels.list({ part: ['id'], mine: true, maxResults: 1 });
     return oauth2Client;
-  } catch (error: any) {
+  } catch (error: unknown) {
     // If token is expired (401), try to refresh it
-    if (error.code === 401 && youtubeTokens.refresh_token) {
+    const errorCode = (error as { code?: number }).code;
+    if (errorCode === 401 && youtubeTokens.refresh_token) {
       Logger.auth('YouTube', 'token expired, refreshing');
       try {
         const { credentials } = await oauth2Client.refreshAccessToken();
@@ -82,7 +84,7 @@ router.get('/callback',
       code: schemas.oauthCode
     })
   }),
-  async (req, res) => {
+  async (req: ValidatedRequest<Record<string, string>, { code: string }>, res) => {
   Logger.requestStart('YouTube Callback Request', {
     requestUrl: req.originalUrl,
     authCodePresent: !!req.query.code

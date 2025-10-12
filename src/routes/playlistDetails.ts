@@ -2,12 +2,41 @@ import { Router } from 'express';
 import { google } from 'googleapis';
 import { scrapeYouTubeSearch } from '../utils/youtubeScraper';
 import { Logger } from '../utils/logger';
-import { validate, schemas } from '../utils/validation';
+import { validate, schemas, ValidatedRequest } from '../utils/validation';
 import { csrfValidationMiddleware } from '../utils/csrf';
+import { SpotifyTokens, YouTubeTokens } from '../types/oauth';
+import { youtube_v3 } from 'googleapis';
 import { z } from 'zod';
 import ejs from 'ejs';
 import path from 'path';
 const SpotifyWebApi = require('spotify-web-api-node');
+
+// Internal types for this route
+interface SimplifiedTrack {
+  id: string;
+  name: string;
+  artist: string;
+  album: string;
+  duration_ms: number;
+  external_urls: { spotify: string };
+  preview_url: string | null;
+}
+
+interface SimplifiedVideo {
+  id: string;
+  title: string;
+  description: string;
+  thumbnail: string;
+  publishedAt: string;
+  url: string;
+  channelTitle?: string;
+}
+
+interface MergedTrack {
+  spotify: SimplifiedTrack | null;
+  youtube: SimplifiedVideo | null;
+  linked: boolean;
+}
 
 const router = Router();
 
@@ -36,7 +65,7 @@ router.get('/playlist/:playlistId',
       playlistId: schemas.spotifyPlaylistId
     })
   }),
-  async (req, res) => {
+  async (req: ValidatedRequest<{ playlistId: string }>, res) => {
   const startTime = Date.now();
   const { playlistId } = req.params;
   
@@ -46,8 +75,8 @@ router.get('/playlist/:playlistId',
 
   try {
     // Check authentication
-    const spotifyTokens = req.cookies.spotify_tokens ? JSON.parse(req.cookies.spotify_tokens) : null;
-    const youtubeTokens = req.cookies.youtube_tokens ? JSON.parse(req.cookies.youtube_tokens) : null;
+    const spotifyTokens: SpotifyTokens | null = req.cookies.spotify_tokens ? JSON.parse(req.cookies.spotify_tokens) : null;
+    const youtubeTokens: YouTubeTokens | null = req.cookies.youtube_tokens ? JSON.parse(req.cookies.youtube_tokens) : null;
 
     if (!spotifyTokens || !youtubeTokens) {
       const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
@@ -72,17 +101,23 @@ router.get('/playlist/:playlistId',
     const spotifyPlaylistData = await spotifyApi.getPlaylist(playlistId);
 
     // Filter out null/deleted tracks and map to our format
-    const spotifyTracks = spotifyPlaylistData.body.tracks.items
-      .filter((item: any) => item.track !== null) // Skip deleted/unavailable tracks
-      .map((item: any) => ({
-        id: item.track.id,
-        name: item.track.name,
-        artist: item.track.artists[0]?.name || 'Unknown Artist',
-        album: item.track.album?.name || 'Unknown Album',
-        duration_ms: item.track.duration_ms,
-        external_urls: item.track.external_urls,
-        preview_url: item.track.preview_url
-      }));
+    const spotifyTracks: SimplifiedTrack[] = spotifyPlaylistData.body.tracks.items
+      .filter((item: unknown) => {
+        const typedItem = item as { track: unknown | null };
+        return typedItem.track !== null;
+      }) // Skip deleted/unavailable tracks
+      .map((item: unknown): SimplifiedTrack => {
+        const typedItem = item as { track: { id: string; name: string; artists: Array<{ name?: string }>; album?: { name?: string }; duration_ms: number; external_urls: { spotify: string }; preview_url?: string | null } };
+        return {
+          id: typedItem.track.id,
+          name: typedItem.track.name,
+          artist: typedItem.track.artists[0]?.name || 'Unknown Artist',
+          album: typedItem.track.album?.name || 'Unknown Album',
+          duration_ms: typedItem.track.duration_ms,
+          external_urls: typedItem.track.external_urls,
+          preview_url: typedItem.track.preview_url || null
+        };
+      });
 
     const totalTracksInPlaylist = spotifyPlaylistData.body.tracks.items.length;
     const nullTracksCount = totalTracksInPlaylist - spotifyTracks.length;
@@ -112,11 +147,11 @@ router.get('/playlist/:playlistId',
       playlist => playlist.snippet?.title === youtubePlaylistTitle
     );
 
-    let youtubeVideos: any[] = [];
-    
+    let youtubeVideos: SimplifiedVideo[] = [];
+
     if (youtubePlaylist) {
       Logger.external('YouTube', 'Found matching playlist', { playlistId: youtubePlaylist.id });
-      
+
       // Get YouTube playlist videos
       const youtubeVideosResponse = await youtube.playlistItems.list({
         part: ['snippet', 'contentDetails'],
@@ -124,13 +159,13 @@ router.get('/playlist/:playlistId',
         maxResults: 50
       });
 
-      youtubeVideos = youtubeVideosResponse.data.items?.map((item: any) => ({
-        id: item.snippet.resourceId.videoId,
-        title: item.snippet.title,
-        description: item.snippet.description || '',
-        thumbnail: item.snippet.thumbnails?.medium?.url || item.snippet.thumbnails?.default?.url,
-        publishedAt: item.snippet.publishedAt,
-        url: `https://www.youtube.com/watch?v=${item.snippet.resourceId.videoId}`
+      youtubeVideos = youtubeVideosResponse.data.items?.map((item: youtube_v3.Schema$PlaylistItem): SimplifiedVideo => ({
+        id: item.snippet?.resourceId?.videoId || '',
+        title: item.snippet?.title || '',
+        description: item.snippet?.description || '',
+        thumbnail: item.snippet?.thumbnails?.medium?.url || item.snippet?.thumbnails?.default?.url || '',
+        publishedAt: item.snippet?.publishedAt || '',
+        url: `https://www.youtube.com/watch?v=${item.snippet?.resourceId?.videoId || ''}`
       })) || [];
 
       Logger.info('Found YouTube videos', { count: youtubeVideos.length });
@@ -139,10 +174,10 @@ router.get('/playlist/:playlistId',
     }
 
     // Create merged view of tracks with their YouTube counterparts using improved matching
-    const mergedTracks = spotifyTracks.map((track: any) => {
+    const mergedTracks: MergedTrack[] = spotifyTracks.map((track: SimplifiedTrack): MergedTrack => {
       // Find matching YouTube video using flexible matching algorithm
       const matchingVideo = findBestMatch(track, youtubeVideos);
-      
+
       return {
         spotify: track,
         youtube: matchingVideo || null,
@@ -151,7 +186,7 @@ router.get('/playlist/:playlistId',
     });
 
     // Helper function for flexible track matching
-    function findBestMatch(spotifyTrack: any, youtubeVideos: any[]) {
+    function findBestMatch(spotifyTrack: SimplifiedTrack, youtubeVideos: SimplifiedVideo[]): SimplifiedVideo | null {
       let bestMatch = null;
       let bestScore = 0;
       const minScore = 0.4; // Minimum similarity threshold
@@ -168,7 +203,7 @@ router.get('/playlist/:playlistId',
     }
     
     // Calculate similarity score between Spotify track and YouTube video
-    function calculateMatchScore(spotifyTrack: any, youtubeVideo: any): number {
+    function calculateMatchScore(spotifyTrack: SimplifiedTrack, youtubeVideo: SimplifiedVideo): number {
       // Extract core titles by removing metadata
       const coreTrackName = extractCoreTitle(spotifyTrack.name);
       const coreArtistName = normalizeText(spotifyTrack.artist);
@@ -306,24 +341,24 @@ router.get('/playlist/:playlistId',
 
     // Only include YouTube videos that weren't matched to any Spotify tracks
     const matchedVideoIds = mergedTracks
-      .filter((track: any) => track.youtube)
-      .map((track: any) => track.youtube.id);
+      .filter((track: MergedTrack) => track.youtube)
+      .map((track: MergedTrack) => track.youtube!.id);
 
-    const unmatchedYoutubeVideos = youtubeVideos.filter((video: any) =>
+    const unmatchedYoutubeVideos = youtubeVideos.filter((video: SimplifiedVideo) =>
       !matchedVideoIds.includes(video.id)
     );
 
-    const orphanedVideos = unmatchedYoutubeVideos.map((video: any) => ({
+    const orphanedVideos: MergedTrack[] = unmatchedYoutubeVideos.map((video: SimplifiedVideo): MergedTrack => ({
       spotify: null,
       youtube: video,
       linked: false
     }));
 
-    const allTracks = [...mergedTracks, ...orphanedVideos];
+    const allTracks: MergedTrack[] = [...mergedTracks, ...orphanedVideos];
 
     Logger.info('Track matching results', {
-      matchedTracks: mergedTracks.filter((t: any) => t.linked).length,
-      spotifyOnlyTracks: mergedTracks.filter((t: any) => !t.linked).length,
+      matchedTracks: mergedTracks.filter((t: MergedTrack) => t.linked).length,
+      spotifyOnlyTracks: mergedTracks.filter((t: MergedTrack) => !t.linked).length,
       youtubeOnlyVideos: orphanedVideos.length
     });
 
@@ -334,7 +369,7 @@ router.get('/playlist/:playlistId',
           <h6>${spotifyPlaylistData.body.name}</h6>
           <div class="d-flex justify-content-between align-items-center">
             <span class="text-muted small">
-              ${allTracks.length} tracks • ${mergedTracks.filter((t: any) => t.linked).length} linked
+              ${allTracks.length} tracks • ${mergedTracks.filter((t: MergedTrack) => t.linked).length} linked
             </span>
             <button type="button" class="btn btn-outline-secondary btn-sm"
                     data-refresh-playlist="${playlistId}"
@@ -382,7 +417,7 @@ router.get('/playlist/:playlistId',
                 ${track.linked ?
                   `<span class="badge bg-success">Linked</span>
                    <button type="button" class="btn btn-outline-secondary btn-sm"
-                           hx-get="/api/playlistDetails/search/${track.spotify.id}?trackName=${encodeURIComponent(track.spotify.name)}&artistName=${encodeURIComponent(track.spotify.artist)}&playlistId=${playlistId}&currentVideoId=${track.youtube?.id || ''}"
+                           hx-get="/api/playlistDetails/search/${track.spotify!.id}?trackName=${encodeURIComponent(track.spotify!.name)}&artistName=${encodeURIComponent(track.spotify!.artist)}&playlistId=${playlistId}&currentVideoId=${track.youtube?.id || ''}"
                            hx-target="#video-modal-content"
                            hx-swap="innerHTML"
                            title="Edit linked video">
@@ -393,7 +428,7 @@ router.get('/playlist/:playlistId',
                   track.spotify ?
                     `<span class="badge bg-warning">Unlinked</span>
                      <button type="button" class="btn btn-outline-secondary btn-sm"
-                             hx-get="/api/playlistDetails/search/${track.spotify.id}?trackName=${encodeURIComponent(track.spotify.name)}&artistName=${encodeURIComponent(track.spotify.artist)}&playlistId=${playlistId}&currentVideoId="
+                             hx-get="/api/playlistDetails/search/${track.spotify!.id}?trackName=${encodeURIComponent(track.spotify!.name)}&artistName=${encodeURIComponent(track.spotify!.artist)}&playlistId=${playlistId}&currentVideoId="
                              hx-target="#video-modal-content"
                              hx-swap="innerHTML"
                              title="Link video to this track">
@@ -449,7 +484,10 @@ router.get('/search/:trackId',
       currentVideoId: schemas.youtubeVideoId.optional().or(z.literal(''))
     })
   }),
-  async (req, res) => {
+  async (req: ValidatedRequest<
+    { trackId: string },
+    { trackName: string; artistName: string; playlistId: string; currentVideoId?: string }
+  >, res) => {
   const { trackId } = req.params;
   const { trackName, artistName, playlistId, currentVideoId } = req.query;
 
@@ -563,7 +601,11 @@ router.post('/replace/:trackId',
       playlistId: schemas.spotifyPlaylistId
     })
   }),
-  async (req, res) => {
+  async (req: ValidatedRequest<
+    { trackId: string },
+    Record<string, unknown>,
+    { newVideoId: string; currentVideoId?: string; playlistId: string }
+  >, res) => {
   const { trackId } = req.params;
   const { newVideoId, currentVideoId, playlistId } = req.body;
   
@@ -576,8 +618,8 @@ router.post('/replace/:trackId',
 
   try {
     // Check authentication
-    const youtubeTokens = req.cookies.youtube_tokens ? JSON.parse(req.cookies.youtube_tokens) : null;
-    const spotifyTokens = req.cookies.spotify_tokens ? JSON.parse(req.cookies.spotify_tokens) : null;
+    const youtubeTokens: YouTubeTokens | null = req.cookies.youtube_tokens ? JSON.parse(req.cookies.youtube_tokens) : null;
+    const spotifyTokens: SpotifyTokens | null = req.cookies.spotify_tokens ? JSON.parse(req.cookies.spotify_tokens) : null;
 
     if (!youtubeTokens) {
       const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {

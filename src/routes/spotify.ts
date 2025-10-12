@@ -1,9 +1,9 @@
-import { Router } from 'express';
+import { Router, Request } from 'express';
 import SpotifyWebApi from 'spotify-web-api-node';
 import { google } from 'googleapis';
 import { Logger } from '../utils/logger';
 import { getSecureCookieOptions } from '../utils/authValidation';
-import { validate, schemas } from '../utils/validation';
+import { validate, schemas, ValidatedRequest } from '../utils/validation';
 import { z } from 'zod';
 import ejs from 'ejs';
 import path from 'path';
@@ -118,7 +118,7 @@ router.get('/playlists',
       ownOnly: schemas.booleanFlag.optional()
     })
   }),
-  async (req, res) => {
+  async (req: ValidatedRequest<Record<string, string>, { ownOnly?: boolean }>, res) => {
   Logger.requestStart('Spotify Playlists Request', {
     requestUrl: req.originalUrl,
     queryParams: req.query
@@ -131,11 +131,11 @@ router.get('/playlists',
 
   try {
     const spotifyApi = await ensureValidSpotifyToken(req, res);
-    
+
     // Get current user info for ownership filtering
     const userInfo = await spotifyApi.getMe();
     const currentUserId = userInfo.body.id;
-    
+
     // Set up YouTube API to check for existing playlists
     const oauth2Client = new google.auth.OAuth2(
       process.env.YOUTUBE_CLIENT_ID,
@@ -147,7 +147,7 @@ router.get('/playlists',
       oauth2Client.setCredentials(youtubeTokens);
     }
     const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
-    
+
     // Get Spotify playlists
     const data = await spotifyApi.getUserPlaylists();
     let spotifyPlaylists = data.body.items;

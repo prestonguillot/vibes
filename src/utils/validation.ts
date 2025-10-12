@@ -1,45 +1,78 @@
 import { Request, Response, NextFunction } from 'express';
-import { z, ZodSchema } from 'zod';
+import { z, ZodSchema, ZodError, ZodIssue } from 'zod';
 import { Logger } from './logger';
+
+/**
+ * Extended Express Request type that includes validated and transformed data
+ * Note: This is a utility type for documentation purposes.
+ * Actual runtime typing depends on the middleware modifying req.params/query/body
+ */
+export interface ValidatedRequest<
+  TParams = Record<string, string>,
+  TQuery = Record<string, unknown>,
+  TBody = Record<string, unknown>
+> extends Omit<Request, 'params' | 'query' | 'body'> {
+  params: TParams;
+  query: TQuery;
+  body: TBody;
+}
 
 /**
  * Middleware factory for validating request data with Zod schemas
  * Validates params, query, and body based on provided schemas
+ *
+ * @example
+ * router.get('/playlist/:id',
+ *   validate({
+ *     params: z.object({ id: schemas.spotifyPlaylistId }),
+ *     query: z.object({ ownOnly: schemas.booleanFlag.optional() })
+ *   }),
+ *   (req: ValidatedRequest<{ id: string }, { ownOnly?: boolean }>, res) => {
+ *     // req.params.id is string
+ *     // req.query.ownOnly is boolean | undefined (properly typed!)
+ *   }
+ * );
  */
-export function validate(schemas: {
-  params?: ZodSchema;
-  query?: ZodSchema;
-  body?: ZodSchema;
+export function validate<
+  TParams extends ZodSchema = ZodSchema,
+  TQuery extends ZodSchema = ZodSchema,
+  TBody extends ZodSchema = ZodSchema
+>(schemas: {
+  params?: TParams;
+  query?: TQuery;
+  body?: TBody;
 }) {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      // Validate params
+      // Validate and transform params
       if (schemas.params) {
-        req.params = schemas.params.parse(req.params);
+        req.params = schemas.params.parse(req.params) as any;
       }
 
-      // Validate query
+      // Validate and transform query
+      // Note: Zod transformations (like booleanFlag) convert the data type
+      // For example, string 'true' becomes boolean true
       if (schemas.query) {
         req.query = schemas.query.parse(req.query) as any;
       }
 
-      // Validate body
+      // Validate and transform body
       if (schemas.body) {
         req.body = schemas.body.parse(req.body);
       }
 
       next();
     } catch (error) {
-      if (error instanceof z.ZodError) {
+      if (error instanceof ZodError) {
         Logger.warn('Request validation failed', {
           path: req.path,
-          errors: error.errors
+          errors: error.issues
         });
 
         return res.status(400).render('partials/error-message', {
           type: 'danger',
           message: 'Invalid request data',
-          details: error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')
+          details: error.issues.map((e: ZodIssue) => `${e.path.join('.')}: ${e.message}`).join(', ')
         });
       }
 
