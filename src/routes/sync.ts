@@ -504,14 +504,31 @@ router.post('/playlist/:playlistId',
       }
 
       // Get current YouTube playlist order to compare with target order
-      const currentPlaylistItems = await youtube.playlistItems.list({
-        part: ['id', 'snippet'],
-        playlistId: youtubePlaylistId,
-        maxResults: 50
+      // Use pagination to fetch ALL items, not just first 50
+      const currentPlaylistItems: youtube_v3.Schema$PlaylistItem[] = [];
+      let nextPageToken: string | undefined = undefined;
+
+      do {
+        const response: youtube_v3.Schema$PlaylistItemListResponse = await youtube.playlistItems.list({
+          part: ['id', 'snippet'],
+          playlistId: youtubePlaylistId,
+          maxResults: 50,
+          pageToken: nextPageToken
+        }).then(res => res.data);
+        logApiCall('get current playlist order', 1);
+
+        if (response.items) {
+          currentPlaylistItems.push(...response.items);
+        }
+
+        nextPageToken = response.nextPageToken || undefined;
+      } while (nextPageToken);
+
+      Logger.info('Fetched all playlist items for reordering', {
+        totalItems: currentPlaylistItems.length
       });
-      logApiCall('get current playlist order', 1);
-      
-      const currentYouTubeOrder = currentPlaylistItems.data.items || [];
+
+      const currentYouTubeOrder = currentPlaylistItems;
       
       // Create a map of current YouTube positions
       const currentPositions = new Map();
@@ -610,14 +627,21 @@ router.post('/playlist/:playlistId',
       // Sort reorder operations by target position to maintain order
       reorderOperations.sort((a, b) => a.targetPosition - b.targetPosition);
 
-      // Execute reorder operations
+      // Execute reorder operations using delete + insert strategy
+      // YouTube's API has issues with position updates, so we delete and re-insert instead
       let reorderedCount = 0;
       for (const operation of reorderOperations) {
         try {
-          await youtube.playlistItems.update({
+          // Step 1: Delete the item from its current position
+          await youtube.playlistItems.delete({
+            id: operation.playlistItemId
+          });
+          logApiCall('delete for reorder', 50); // playlistItems.delete costs 50 units
+
+          // Step 2: Insert it at the target position
+          await youtube.playlistItems.insert({
             part: ['snippet'],
             requestBody: {
-              id: operation.playlistItemId,
               snippet: {
                 playlistId: youtubePlaylistId,
                 position: operation.targetPosition,
@@ -628,20 +652,21 @@ router.post('/playlist/:playlistId',
               }
             }
           });
+          logApiCall('insert for reorder', 50); // playlistItems.insert costs 50 units
 
           reorderedCount++;
-          logApiCall('reorder track', 50); // playlistItems.update costs 50 units
-          Logger.external('YouTube', 'Reordered track position', { 
+          Logger.external('YouTube', 'Reordered track position', {
             trackName: operation.trackName,
             artist: operation.artist,
-            newPosition: operation.targetPosition,
+            fromPosition: operation.currentPosition,
+            toPosition: operation.targetPosition,
             videoId: operation.videoId
           });
 
           // Update progress
           const reorderProgress = (reorderedCount / reorderOperations.length) * 0.1; // 10% of total progress for reordering
           const totalPercentage = Math.round((0.15 + reorderProgress) * 100);
-          
+
           sendProgressUpdate(playlistId, {
             type: 'progress',
             message: 'Reordering existing tracks',
@@ -649,14 +674,17 @@ router.post('/playlist/:playlistId',
             percentage: totalPercentage
           });
 
-          // Rate limiting
-          await new Promise(resolve => setTimeout(resolve, 100));
+          // Rate limiting - slightly longer delay for two API calls
+          await new Promise(resolve => setTimeout(resolve, 200));
 
         } catch (error) {
-          Logger.error('Error reordering track', { 
+          Logger.error('Error reordering track', {
             trackName: operation.trackName,
-            targetPosition: operation.targetPosition 
+            currentPosition: operation.currentPosition,
+            targetPosition: operation.targetPosition,
+            videoId: operation.videoId
           }, error);
+          // Continue with next operation even if this one fails
         }
       }
 
