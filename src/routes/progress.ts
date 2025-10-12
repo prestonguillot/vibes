@@ -89,15 +89,35 @@ export async function sendProgressUpdate(playlistId: string, update: {
 
   // Send to all connected clients for this playlist
   // Use 'message' event type for HTMX SSE extension
-  connections.forEach((res, index) => {
+  // Keep track of failed connections to remove after iteration
+  const failedConnections: Response[] = [];
+
+  connections.forEach((res) => {
     try {
-      res.write(`event: message\ndata: ${minifiedHtml}\n\n`);
+      // Check if the response is still writable before attempting to write
+      if (res.writable && !res.writableEnded) {
+        res.write(`event: message\ndata: ${minifiedHtml}\n\n`);
+      } else {
+        // Connection is no longer writable, mark for removal
+        failedConnections.push(res);
+      }
     } catch (error) {
-      Logger.warn('Failed to send progress update to client', { playlistId, clientIndex: index }, error);
-      // Remove failed connection
-      connections.splice(index, 1);
+      Logger.warn('Failed to send progress update to client', { playlistId }, error);
+      // Mark failed connection for removal
+      failedConnections.push(res);
     }
   });
+
+  // Remove failed connections after iteration to avoid index issues
+  if (failedConnections.length > 0) {
+    failedConnections.forEach(failedRes => {
+      const index = connections.indexOf(failedRes);
+      if (index !== -1) {
+        connections.splice(index, 1);
+      }
+    });
+    Logger.debug('Removed dead SSE connections', { playlistId, removedCount: failedConnections.length, remainingCount: connections.length });
+  }
 
   // Clean up empty connection arrays
   if (connections.length === 0) {
@@ -112,7 +132,9 @@ export function closeProgressConnections(playlistId: string) {
     Logger.info('Closing SSE connections', { playlistId, connectionCount: connections.length });
     connections.forEach(res => {
       try {
-        // Just end the connection cleanly without sending data
+        // Send a "close" event to signal graceful shutdown, then end the connection
+        // This helps the client distinguish between expected closure and errors
+        res.write(`event: close\ndata: ${JSON.stringify({ type: 'close', message: 'Sync complete' })}\n\n`);
         res.end();
       } catch (error) {
         Logger.warn('Error closing SSE connection', { playlistId }, error);
