@@ -8,9 +8,51 @@
  * and return user-friendly messages instead of raw API errors with HTML tags.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import { createApp } from '@/app';
+
+// Mock spotify-web-api-node
+vi.mock('spotify-web-api-node', () => {
+  const SpotifyWebApi = vi.fn();
+  SpotifyWebApi.prototype.setAccessToken = vi.fn();
+  SpotifyWebApi.prototype.setRefreshToken = vi.fn();
+  SpotifyWebApi.prototype.getPlaylist = vi.fn(() =>
+    Promise.resolve({
+      body: {
+        name: 'Test Playlist',
+        tracks: {
+          items: [
+            {
+              track: {
+                id: 'track1',
+                name: 'Test Track 1',
+                artists: [{ name: 'Test Artist 1' }],
+                album: { name: 'Test Album 1' },
+                duration_ms: 180000,
+                external_urls: { spotify: 'https://open.spotify.com/track/track1' },
+                preview_url: 'https://preview.url'
+              }
+            },
+            {
+              track: {
+                id: 'track2',
+                name: 'Test Track 2',
+                artists: [{ name: 'Test Artist 2' }],
+                album: { name: 'Test Album 2' },
+                duration_ms: 200000,
+                external_urls: { spotify: 'https://open.spotify.com/track/track2' },
+                preview_url: null
+              }
+            }
+          ]
+        }
+      }
+    })
+  );
+
+  return { default: SpotifyWebApi };
+});
 
 const app = createApp();
 
@@ -89,7 +131,43 @@ describe('Playlist Details Error Handling', () => {
   });
 
   describe('Spotify-Only Mode', () => {
-    it('should not require YouTube authentication (allows Spotify-only access)', async () => {
+    it('should successfully render playlist details with only Spotify connected', async () => {
+      // Mock Spotify API dynamically for this test
+      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
+      SpotifyWebApi.prototype.getPlaylist = vi.fn(() =>
+        Promise.resolve({
+          body: {
+            name: 'Test Playlist',
+            tracks: {
+              items: [
+                {
+                  track: {
+                    id: 'track1',
+                    name: 'Test Track 1',
+                    artists: [{ name: 'Test Artist 1' }],
+                    album: { name: 'Test Album 1' },
+                    duration_ms: 180000,
+                    external_urls: { spotify: 'https://open.spotify.com/track/track1' },
+                    preview_url: 'https://preview.url'
+                  }
+                },
+                {
+                  track: {
+                    id: 'track2',
+                    name: 'Test Track 2',
+                    artists: [{ name: 'Test Artist 2' }],
+                    album: { name: 'Test Album 2' },
+                    duration_ms: 200000,
+                    external_urls: { spotify: 'https://open.spotify.com/track/track2' },
+                    preview_url: null
+                  }
+                }
+              ]
+            }
+          }
+        })
+      );
+
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-spotify-token',
         refreshToken: 'test-spotify-refresh'
@@ -99,16 +177,248 @@ describe('Playlist Details Error Handling', () => {
         .get('/api/playlistDetails/playlist/1234567890123456789012')
         .set('Cookie', [`spotify_tokens=${spotifyTokens}`]);
 
-      // The key test: should NOT return 401 when YouTube is missing
-      // May return 500 due to invalid tokens, but that's OK - we're testing
-      // that YouTube is optional, not that invalid tokens work
-      expect(response.status).not.toBe(401);
+      // Should return 200 OK
+      expect(response.status).toBe(200);
 
-      // If we get a 401, the error message should NOT mention YouTube
-      if (response.status === 401) {
-        expect(response.text).not.toContain('YouTube');
-        expect(response.text).not.toContain('both');
-      }
+      // Should show playlist name
+      expect(response.text).toContain('Test Playlist');
+
+      // Should show Spotify tracks
+      expect(response.text).toContain('Test Track 1');
+      expect(response.text).toContain('Test Artist 1');
+      expect(response.text).toContain('Test Album 1');
+      expect(response.text).toContain('Test Track 2');
+      expect(response.text).toContain('Test Artist 2');
+      expect(response.text).toContain('Test Album 2');
+    });
+
+    it('should not show "linked" count when YouTube is not connected', async () => {
+      // Mock Spotify API
+      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
+      SpotifyWebApi.prototype.getPlaylist = vi.fn(() =>
+        Promise.resolve({
+          body: {
+            name: 'Test Playlist',
+            tracks: {
+              items: [
+                {
+                  track: {
+                    id: 'track1',
+                    name: 'Track 1',
+                    artists: [{ name: 'Artist 1' }],
+                    album: { name: 'Album 1' },
+                    duration_ms: 180000,
+                    external_urls: { spotify: 'https://open.spotify.com/track/track1' },
+                    preview_url: null
+                  }
+                },
+                {
+                  track: {
+                    id: 'track2',
+                    name: 'Track 2',
+                    artists: [{ name: 'Artist 2' }],
+                    album: { name: 'Album 2' },
+                    duration_ms: 200000,
+                    external_urls: { spotify: 'https://open.spotify.com/track/track2' },
+                    preview_url: null
+                  }
+                }
+              ]
+            }
+          }
+        })
+      );
+
+      const spotifyTokens = JSON.stringify({
+        accessToken: 'test-spotify-token',
+        refreshToken: 'test-spotify-refresh'
+      });
+
+      const response = await request(app)
+        .get('/api/playlistDetails/playlist/1234567890123456789012')
+        .set('Cookie', [`spotify_tokens=${spotifyTokens}`]);
+
+      expect(response.status).toBe(200);
+
+      // Should show track count
+      expect(response.text).toMatch(/2 tracks/);
+
+      // Should NOT show "linked" count since YouTube is not connected
+      expect(response.text).not.toMatch(/\d+ linked/);
+      expect(response.text).not.toContain('linked');
+    });
+
+    it('should not show YouTube video elements when YouTube is not connected', async () => {
+      // Mock Spotify API
+      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
+      SpotifyWebApi.prototype.getPlaylist = vi.fn(() =>
+        Promise.resolve({
+          body: {
+            name: 'Test Playlist',
+            tracks: {
+              items: [
+                {
+                  track: {
+                    id: 'track1',
+                    name: 'Track 1',
+                    artists: [{ name: 'Artist 1' }],
+                    album: { name: 'Album 1' },
+                    duration_ms: 180000,
+                    external_urls: { spotify: 'https://open.spotify.com/track/track1' },
+                    preview_url: null
+                  }
+                }
+              ]
+            }
+          }
+        })
+      );
+
+      const spotifyTokens = JSON.stringify({
+        accessToken: 'test-spotify-token',
+        refreshToken: 'test-spotify-refresh'
+      });
+
+      const response = await request(app)
+        .get('/api/playlistDetails/playlist/1234567890123456789012')
+        .set('Cookie', [`spotify_tokens=${spotifyTokens}`]);
+
+      expect(response.status).toBe(200);
+
+      // Should NOT show YouTube video elements
+      expect(response.text).not.toContain('youtube-video');
+      expect(response.text).not.toContain('img.youtube.com');
+      expect(response.text).not.toContain('youtube.com/watch');
+      expect(response.text).not.toContain('Video thumbnail');
+    });
+
+    it('should not show link/unlink badges when YouTube is not connected', async () => {
+      // Mock Spotify API
+      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
+      SpotifyWebApi.prototype.getPlaylist = vi.fn(() =>
+        Promise.resolve({
+          body: {
+            name: 'Test Playlist',
+            tracks: {
+              items: [
+                {
+                  track: {
+                    id: 'track1',
+                    name: 'Track 1',
+                    artists: [{ name: 'Artist 1' }],
+                    album: { name: 'Album 1' },
+                    duration_ms: 180000,
+                    external_urls: { spotify: 'https://open.spotify.com/track/track1' },
+                    preview_url: null
+                  }
+                }
+              ]
+            }
+          }
+        })
+      );
+
+      const spotifyTokens = JSON.stringify({
+        accessToken: 'test-spotify-token',
+        refreshToken: 'test-spotify-refresh'
+      });
+
+      const response = await request(app)
+        .get('/api/playlistDetails/playlist/1234567890123456789012')
+        .set('Cookie', [`spotify_tokens=${spotifyTokens}`]);
+
+      expect(response.status).toBe(200);
+
+      // Should NOT show linked/unlinked badges
+      expect(response.text).not.toContain('badge bg-success');
+      expect(response.text).not.toContain('badge bg-warning');
+      expect(response.text).not.toContain('badge bg-info');
+      expect(response.text).not.toContain('Linked');
+      expect(response.text).not.toContain('Unlinked');
+    });
+
+    it('should not show edit buttons when YouTube is not connected', async () => {
+      // Mock Spotify API
+      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
+      SpotifyWebApi.prototype.getPlaylist = vi.fn(() =>
+        Promise.resolve({
+          body: {
+            name: 'Test Playlist',
+            tracks: {
+              items: [
+                {
+                  track: {
+                    id: 'track1',
+                    name: 'Track 1',
+                    artists: [{ name: 'Artist 1' }],
+                    album: { name: 'Album 1' },
+                    duration_ms: 180000,
+                    external_urls: { spotify: 'https://open.spotify.com/track/track1' },
+                    preview_url: null
+                  }
+                }
+              ]
+            }
+          }
+        })
+      );
+
+      const spotifyTokens = JSON.stringify({
+        accessToken: 'test-spotify-token',
+        refreshToken: 'test-spotify-refresh'
+      });
+
+      const response = await request(app)
+        .get('/api/playlistDetails/playlist/1234567890123456789012')
+        .set('Cookie', [`spotify_tokens=${spotifyTokens}`]);
+
+      expect(response.status).toBe(200);
+
+      // Should NOT show edit/link buttons
+      expect(response.text).not.toContain('Edit linked video');
+      expect(response.text).not.toContain('Link video to this track');
+      expect(response.text).not.toContain('/api/playlistDetails/search/');
+    });
+
+    it('should not show "YouTube Only" badge when YouTube is not connected', async () => {
+      // Mock Spotify API
+      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
+      SpotifyWebApi.prototype.getPlaylist = vi.fn(() =>
+        Promise.resolve({
+          body: {
+            name: 'Test Playlist',
+            tracks: {
+              items: [
+                {
+                  track: {
+                    id: 'track1',
+                    name: 'Track 1',
+                    artists: [{ name: 'Artist 1' }],
+                    album: { name: 'Album 1' },
+                    duration_ms: 180000,
+                    external_urls: { spotify: 'https://open.spotify.com/track/track1' },
+                    preview_url: null
+                  }
+                }
+              ]
+            }
+          }
+        })
+      );
+
+      const spotifyTokens = JSON.stringify({
+        accessToken: 'test-spotify-token',
+        refreshToken: 'test-spotify-refresh'
+      });
+
+      const response = await request(app)
+        .get('/api/playlistDetails/playlist/1234567890123456789012')
+        .set('Cookie', [`spotify_tokens=${spotifyTokens}`]);
+
+      expect(response.status).toBe(200);
+
+      // Should NOT show "YouTube Only" badge (can't have YouTube-only videos without YouTube connected)
+      expect(response.text).not.toContain('YouTube Only');
     });
   });
 });
