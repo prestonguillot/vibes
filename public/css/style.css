@@ -286,11 +286,6 @@ body {
   align-items: center;
   padding: 12px 8px;
   border-radius: 0;
-  transition: background-color 0.2s ease;
-}
-
-.track-item:hover {
-  background-color: rgba(255, 0, 64, 0.05);
 }
 
 .track-item--even {
@@ -303,10 +298,6 @@ body {
       rgba(0, 0, 0, 0.02) 10px,
       rgba(0, 0, 0, 0.02) 20px
     );
-}
-
-.track-item--even:hover {
-  background-color: rgba(255, 0, 64, 0.08);
 }
 
 .track-number {
