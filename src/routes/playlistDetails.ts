@@ -406,16 +406,16 @@ router.get('/playlist/:playlistId',
             <button type="button" class="btn btn-outline-secondary btn-sm"
                     data-refresh-playlist="${playlistId}"
                     hx-get="/api/playlistDetails/playlist/${playlistId}"
-                    hx-target="#details-${playlistId}"
-                    hx-swap="outerHTML"
+                    hx-target="closest .playlist-details-container"
+                    hx-swap="innerHTML"
                     hx-headers='{"Cache-Control": "no-cache"}'
                     title="Refresh playlist details">
               Refresh
             </button>
           </div>
         </div>
-        
-        <div id="details-${playlistId}" class="tracks-list">
+
+        <div class="tracks-list">
           ${allTracks.map((track, index) => `
             <div class="track-item ${index % 2 === 0 ? 'track-item--even' : ''}">
               <div class="track-number">
