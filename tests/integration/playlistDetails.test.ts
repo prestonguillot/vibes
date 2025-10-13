@@ -421,4 +421,255 @@ describe('Playlist Details Error Handling', () => {
       expect(response.text).not.toContain('YouTube Only');
     });
   });
+
+  describe('Refresh Button Functionality', () => {
+    it('should include refresh button in playlist details', async () => {
+      // Mock Spotify API
+      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
+      SpotifyWebApi.prototype.getPlaylist = vi.fn(() =>
+        Promise.resolve({
+          body: {
+            name: 'Test Playlist',
+            tracks: {
+              items: [
+                {
+                  track: {
+                    id: 'track1',
+                    name: 'Track 1',
+                    artists: [{ name: 'Artist 1' }],
+                    album: { name: 'Album 1' },
+                    duration_ms: 180000,
+                    external_urls: { spotify: 'https://open.spotify.com/track/track1' },
+                    preview_url: null
+                  }
+                }
+              ]
+            }
+          }
+        })
+      );
+
+      const spotifyTokens = JSON.stringify({
+        accessToken: 'test-spotify-token',
+        refreshToken: 'test-spotify-refresh'
+      });
+
+      const response = await request(app)
+        .get('/api/playlistDetails/playlist/1234567890123456789012')
+        .set('Cookie', [`spotify_tokens=${spotifyTokens}`]);
+
+      expect(response.status).toBe(200);
+
+      // Should include refresh button
+      expect(response.text).toContain('Refresh');
+      expect(response.text).toContain('data-refresh-playlist="1234567890123456789012"');
+    });
+
+    it('should use correct HTMX attributes to prevent nesting', async () => {
+      // Mock Spotify API
+      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
+      SpotifyWebApi.prototype.getPlaylist = vi.fn(() =>
+        Promise.resolve({
+          body: {
+            name: 'Test Playlist',
+            tracks: {
+              items: [
+                {
+                  track: {
+                    id: 'track1',
+                    name: 'Track 1',
+                    artists: [{ name: 'Artist 1' }],
+                    album: { name: 'Album 1' },
+                    duration_ms: 180000,
+                    external_urls: { spotify: 'https://open.spotify.com/track/track1' },
+                    preview_url: null
+                  }
+                }
+              ]
+            }
+          }
+        })
+      );
+
+      const spotifyTokens = JSON.stringify({
+        accessToken: 'test-spotify-token',
+        refreshToken: 'test-spotify-refresh'
+      });
+
+      const response = await request(app)
+        .get('/api/playlistDetails/playlist/1234567890123456789012')
+        .set('Cookie', [`spotify_tokens=${spotifyTokens}`]);
+
+      expect(response.status).toBe(200);
+
+      // Should use "closest .playlist-details-container" as target (not #details-{id})
+      expect(response.text).toContain('hx-target="closest .playlist-details-container"');
+
+      // Should use "innerHTML" swap strategy (not outerHTML)
+      expect(response.text).toContain('hx-swap="innerHTML"');
+
+      // Should NOT have hx-target pointing to #details-{id}
+      expect(response.text).not.toContain('hx-target="#details-1234567890123456789012"');
+
+      // Should NOT use outerHTML swap
+      expect(response.text).not.toContain('hx-swap="outerHTML"');
+    });
+
+    it('should not include duplicate id attributes that cause nesting', async () => {
+      // Mock Spotify API
+      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
+      SpotifyWebApi.prototype.getPlaylist = vi.fn(() =>
+        Promise.resolve({
+          body: {
+            name: 'Test Playlist',
+            tracks: {
+              items: [
+                {
+                  track: {
+                    id: 'track1',
+                    name: 'Track 1',
+                    artists: [{ name: 'Artist 1' }],
+                    album: { name: 'Album 1' },
+                    duration_ms: 180000,
+                    external_urls: { spotify: 'https://open.spotify.com/track/track1' },
+                    preview_url: null
+                  }
+                }
+              ]
+            }
+          }
+        })
+      );
+
+      const spotifyTokens = JSON.stringify({
+        accessToken: 'test-spotify-token',
+        refreshToken: 'test-spotify-refresh'
+      });
+
+      const response = await request(app)
+        .get('/api/playlistDetails/playlist/1234567890123456789012')
+        .set('Cookie', [`spotify_tokens=${spotifyTokens}`]);
+
+      expect(response.status).toBe(200);
+
+      // Should NOT include id="details-{playlistId}" in the response
+      // (This would cause nesting when using innerHTML swap)
+      expect(response.text).not.toContain('id="details-1234567890123456789012"');
+
+      // Should use data-playlist-id instead
+      expect(response.text).toContain('data-playlist-id="1234567890123456789012"');
+    });
+
+    it('should return same structure on refresh as initial load', async () => {
+      // Mock Spotify API
+      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
+      SpotifyWebApi.prototype.getPlaylist = vi.fn(() =>
+        Promise.resolve({
+          body: {
+            name: 'Test Playlist',
+            tracks: {
+              items: [
+                {
+                  track: {
+                    id: 'track1',
+                    name: 'Track 1',
+                    artists: [{ name: 'Artist 1' }],
+                    album: { name: 'Album 1' },
+                    duration_ms: 180000,
+                    external_urls: { spotify: 'https://open.spotify.com/track/track1' },
+                    preview_url: null
+                  }
+                }
+              ]
+            }
+          }
+        })
+      );
+
+      const spotifyTokens = JSON.stringify({
+        accessToken: 'test-spotify-token',
+        refreshToken: 'test-spotify-refresh'
+      });
+
+      // Make initial request
+      const initialResponse = await request(app)
+        .get('/api/playlistDetails/playlist/1234567890123456789012')
+        .set('Cookie', [`spotify_tokens=${spotifyTokens}`]);
+
+      expect(initialResponse.status).toBe(200);
+
+      // Make refresh request (simulating what HTMX would do)
+      const refreshResponse = await request(app)
+        .get('/api/playlistDetails/playlist/1234567890123456789012')
+        .set('Cookie', [`spotify_tokens=${spotifyTokens}`])
+        .set('Cache-Control', 'no-cache');
+
+      expect(refreshResponse.status).toBe(200);
+
+      // Both responses should have the same structure
+      // Both should include the refresh button
+      expect(initialResponse.text).toContain('Refresh');
+      expect(refreshResponse.text).toContain('Refresh');
+
+      // Both should include the playlist header
+      expect(initialResponse.text).toContain('playlist-header');
+      expect(refreshResponse.text).toContain('playlist-header');
+
+      // Both should include the tracks list
+      expect(initialResponse.text).toContain('tracks-list');
+      expect(refreshResponse.text).toContain('tracks-list');
+
+      // Both should include the track data
+      expect(initialResponse.text).toContain('Track 1');
+      expect(refreshResponse.text).toContain('Track 1');
+    });
+
+    it('should only return one refresh button per response', async () => {
+      // Mock Spotify API
+      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
+      SpotifyWebApi.prototype.getPlaylist = vi.fn(() =>
+        Promise.resolve({
+          body: {
+            name: 'Test Playlist',
+            tracks: {
+              items: [
+                {
+                  track: {
+                    id: 'track1',
+                    name: 'Track 1',
+                    artists: [{ name: 'Artist 1' }],
+                    album: { name: 'Album 1' },
+                    duration_ms: 180000,
+                    external_urls: { spotify: 'https://open.spotify.com/track/track1' },
+                    preview_url: null
+                  }
+                }
+              ]
+            }
+          }
+        })
+      );
+
+      const spotifyTokens = JSON.stringify({
+        accessToken: 'test-spotify-token',
+        refreshToken: 'test-spotify-refresh'
+      });
+
+      const response = await request(app)
+        .get('/api/playlistDetails/playlist/1234567890123456789012')
+        .set('Cookie', [`spotify_tokens=${spotifyTokens}`]);
+
+      expect(response.status).toBe(200);
+
+      // Count how many times the refresh button appears
+      const refreshButtonMatches = response.text.match(/data-refresh-playlist="/g);
+      expect(refreshButtonMatches).not.toBeNull();
+      expect(refreshButtonMatches?.length).toBe(1);
+
+      // Should only have one button with "Refresh" text in playlist header context
+      const refreshTextMatches = response.text.match(/<button[^>]*>[\s\S]*?Refresh[\s\S]*?<\/button>/g);
+      expect(refreshTextMatches).not.toBeNull();
+      expect(refreshTextMatches?.length).toBe(1);
+    });
+  });
 });
