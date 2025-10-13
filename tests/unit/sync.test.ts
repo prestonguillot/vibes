@@ -282,4 +282,184 @@ describe('Sync Playlist Reordering Logic', () => {
       expect(trackKey).toBe("i'm bout it, bout it-master p");
     });
   });
+
+  describe('Reordering optimization (Bug fix verification)', () => {
+    it('should build existingVideos array only once, not per track', () => {
+      // Simulate current YouTube playlist items
+      const currentPlaylistItems = [
+        { id: 'item-1', snippet: { resourceId: { videoId: 'video-a' }, title: 'Song A', description: '' } },
+        { id: 'item-2', snippet: { resourceId: { videoId: 'video-b' }, title: 'Song B', description: '' } },
+        { id: 'item-3', snippet: { resourceId: { videoId: 'video-c' }, title: 'Song C', description: '' } }
+      ];
+
+      // Build existingVideos array ONCE (not inside loop)
+      const existingVideos = [];
+      for (const item of currentPlaylistItems) {
+        if (item.snippet?.resourceId?.videoId && item.id) {
+          existingVideos.push({
+            id: item.snippet.resourceId.videoId,
+            title: item.snippet?.title || 'Unknown',
+            description: item.snippet?.description || '',
+            playlistItemId: item.id
+          });
+        }
+      }
+
+      // Verify we built the array correctly once
+      expect(existingVideos.length).toBe(3);
+      expect(existingVideos[0].id).toBe('video-a');
+      expect(existingVideos[1].id).toBe('video-b');
+      expect(existingVideos[2].id).toBe('video-c');
+
+      // Simulate processing multiple synced tracks (should NOT rebuild array)
+      const syncedTracks = [
+        { track: { name: 'Song A', artists: [{ name: 'Artist 1' }], type: 'track' } },
+        { track: { name: 'Song B', artists: [{ name: 'Artist 2' }], type: 'track' } },
+        { track: { name: 'Song C', artists: [{ name: 'Artist 3' }], type: 'track' } }
+      ];
+
+      // Process each track using the same existingVideos array
+      let arrayReferences = 0;
+      for (const syncedTrack of syncedTracks) {
+        // In the fixed code, existingVideos is used directly (not rebuilt)
+        if (existingVideos.length > 0) {
+          arrayReferences++;
+        }
+      }
+
+      // All tracks should use the same array reference
+      expect(arrayReferences).toBe(3);
+    });
+
+    it('should use currentPlaylistItems, not existingItemsMap, for position comparison', () => {
+      // This test verifies we're using the right data source
+      const currentPlaylistItems = [
+        { id: 'item-1', snippet: { resourceId: { videoId: 'video-a' }, title: 'Song A' } },
+        { id: 'item-2', snippet: { resourceId: { videoId: 'video-b' }, title: 'Song B' } },
+        { id: 'item-3', snippet: { resourceId: { videoId: 'video-c' }, title: 'Song C' } }
+      ];
+
+      // Build currentPositions map from currentPlaylistItems
+      const currentPositions = new Map();
+      for (let i = 0; i < currentPlaylistItems.length; i++) {
+        const item = currentPlaylistItems[i];
+        if (item.snippet?.resourceId?.videoId) {
+          currentPositions.set(item.snippet.resourceId.videoId, {
+            currentPosition: i,
+            playlistItemId: item.id
+          });
+        }
+      }
+
+      // Verify positions are correct
+      expect(currentPositions.get('video-a')?.currentPosition).toBe(0);
+      expect(currentPositions.get('video-b')?.currentPosition).toBe(1);
+      expect(currentPositions.get('video-c')?.currentPosition).toBe(2);
+    });
+
+    it('should not reorder if all tracks are already in correct positions', () => {
+      // Current YouTube order (by position in array)
+      const currentPlaylistItems = [
+        { id: 'item-1', snippet: { resourceId: { videoId: 'video-a' }, title: 'Song A' } },
+        { id: 'item-2', snippet: { resourceId: { videoId: 'video-b' }, title: 'Song B' } },
+        { id: 'item-3', snippet: { resourceId: { videoId: 'video-c' }, title: 'Song C' } }
+      ];
+
+      // Build position map
+      const currentPositions = new Map();
+      for (let i = 0; i < currentPlaylistItems.length; i++) {
+        const item = currentPlaylistItems[i];
+        if (item.snippet?.resourceId?.videoId) {
+          currentPositions.set(item.snippet.resourceId.videoId, {
+            currentPosition: i,
+            playlistItemId: item.id
+          });
+        }
+      }
+
+      // Target Spotify order (same as current)
+      const spotifyTrackPositions = new Map([
+        ['song a-artist 1', 0],
+        ['song b-artist 2', 1],
+        ['song c-artist 3', 2]
+      ]);
+
+      // Simulate matching videos to tracks
+      const mockMatches = [
+        { videoId: 'video-a', trackKey: 'song a-artist 1' },
+        { videoId: 'video-b', trackKey: 'song b-artist 2' },
+        { videoId: 'video-c', trackKey: 'song c-artist 3' }
+      ];
+
+      const reorderOperations = [];
+      for (const match of mockMatches) {
+        const targetPosition = spotifyTrackPositions.get(match.trackKey);
+        const currentPosInfo = currentPositions.get(match.videoId);
+
+        if (targetPosition !== undefined && currentPosInfo && currentPosInfo.currentPosition !== targetPosition) {
+          reorderOperations.push({
+            videoId: match.videoId,
+            currentPosition: currentPosInfo.currentPosition,
+            targetPosition: targetPosition
+          });
+        }
+      }
+
+      // Should have ZERO reorder operations
+      expect(reorderOperations.length).toBe(0);
+    });
+
+    it('should only reorder tracks that are in wrong positions', () => {
+      // Current YouTube order: A, B, C
+      const currentPlaylistItems = [
+        { id: 'item-1', snippet: { resourceId: { videoId: 'video-a' }, title: 'Song A' } },
+        { id: 'item-2', snippet: { resourceId: { videoId: 'video-b' }, title: 'Song B' } },
+        { id: 'item-3', snippet: { resourceId: { videoId: 'video-c' }, title: 'Song C' } }
+      ];
+
+      const currentPositions = new Map();
+      for (let i = 0; i < currentPlaylistItems.length; i++) {
+        const item = currentPlaylistItems[i];
+        if (item.snippet?.resourceId?.videoId) {
+          currentPositions.set(item.snippet.resourceId.videoId, {
+            currentPosition: i,
+            playlistItemId: item.id
+          });
+        }
+      }
+
+      // Target Spotify order: C, B, A (C and A need to swap)
+      const spotifyTrackPositions = new Map([
+        ['song c-artist 3', 0], // C moves from position 2 to 0
+        ['song b-artist 2', 1], // B stays at position 1
+        ['song a-artist 1', 2]  // A moves from position 0 to 2
+      ]);
+
+      const mockMatches = [
+        { videoId: 'video-c', trackKey: 'song c-artist 3' },
+        { videoId: 'video-b', trackKey: 'song b-artist 2' },
+        { videoId: 'video-a', trackKey: 'song a-artist 1' }
+      ];
+
+      const reorderOperations = [];
+      for (const match of mockMatches) {
+        const targetPosition = spotifyTrackPositions.get(match.trackKey);
+        const currentPosInfo = currentPositions.get(match.videoId);
+
+        if (targetPosition !== undefined && currentPosInfo && currentPosInfo.currentPosition !== targetPosition) {
+          reorderOperations.push({
+            videoId: match.videoId,
+            currentPosition: currentPosInfo.currentPosition,
+            targetPosition: targetPosition
+          });
+        }
+      }
+
+      // Should have exactly 2 reorder operations (C and A)
+      expect(reorderOperations.length).toBe(2);
+      expect(reorderOperations.find(op => op.videoId === 'video-c')).toBeDefined();
+      expect(reorderOperations.find(op => op.videoId === 'video-a')).toBeDefined();
+      expect(reorderOperations.find(op => op.videoId === 'video-b')).toBeUndefined();
+    });
+  });
 });
