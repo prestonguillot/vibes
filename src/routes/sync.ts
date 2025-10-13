@@ -544,8 +544,8 @@ router.post('/playlist/:playlistId',
       });
 
       const currentYouTubeOrder = currentPlaylistItems;
-      
-      // Create a map of current YouTube positions
+
+      // Create a map of current YouTube positions (by video ID)
       const currentPositions = new Map();
       for (let i = 0; i < currentYouTubeOrder.length; i++) {
         const item = currentYouTubeOrder[i];
@@ -557,16 +557,29 @@ router.post('/playlist/:playlistId',
         }
       }
 
+      // Build existingVideos array ONCE (not inside the loop)
+      const existingVideos: SimplifiedVideo[] = [];
+      for (const item of currentPlaylistItems) {
+        if (item.snippet?.resourceId?.videoId && item.id) {
+          existingVideos.push({
+            id: item.snippet.resourceId.videoId,
+            title: item.snippet?.title || 'Unknown',
+            description: item.snippet?.description || '',
+            playlistItemId: item.id
+          });
+        }
+      }
+
       // Find existing YouTube videos that need reordering (only those in wrong positions)
       const reorderOperations = [];
-      
+
       for (const syncedTrack of syncedTracks) {
         const typedSyncedTrack = syncedTrack as { track: { id: string; name: string; artists: Array<{ name?: string }>; type?: string } | null };
         if (typedSyncedTrack.track && typedSyncedTrack.track.type === 'track') {
           const track = typedSyncedTrack.track;
           const trackKey = `${track.name.toLowerCase()}-${track.artists[0]?.name?.toLowerCase() || ''}`;
           const targetPosition = spotifyTrackPositions.get(trackKey);
-          
+
           if (targetPosition !== undefined) {
             // Find the corresponding YouTube video
             const spotifyTrackInfo = {
@@ -574,24 +587,12 @@ router.post('/playlist/:playlistId',
               name: track.name,
               artist: track.artists[0]?.name || 'Unknown Artist'
             };
-            
-            // Get existing videos for matching
-            const existingVideos: SimplifiedVideo[] = [];
-            for (const item of existingItemsMap.values()) {
-              if (item.snippet?.resourceId?.videoId && item.id) {
-                existingVideos.push({
-                  id: item.snippet.resourceId.videoId,
-                  title: item.snippet?.title || 'Unknown',
-                  description: item.snippet?.description || '',
-                  playlistItemId: item.id
-                });
-              }
-            }
-            
+
+            // Use the existingVideos array we built once above
             const matchingVideo = findBestMatch(spotifyTrackInfo, existingVideos);
             if (matchingVideo && matchingVideo.playlistItemId) {
               const currentPosInfo = currentPositions.get(matchingVideo.id);
-              
+
               // CRITICAL FIX: Only add to reorder operations if position is actually wrong
               if (currentPosInfo && currentPosInfo.currentPosition !== targetPosition) {
                 reorderOperations.push({
@@ -602,7 +603,7 @@ router.post('/playlist/:playlistId',
                   trackName: track.name,
                   artist: track.artists[0]?.name || 'Unknown Artist'
                 });
-                
+
                 Logger.debug('Track needs repositioning', {
                   trackName: track.name,
                   artist: track.artists[0]?.name || 'Unknown Artist',
