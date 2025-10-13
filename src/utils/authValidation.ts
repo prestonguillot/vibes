@@ -3,6 +3,7 @@ import SpotifyWebApi from 'spotify-web-api-node';
 import { google } from 'googleapis';
 import { Logger } from './logger';
 import { SpotifyTokens, YouTubeTokens } from '../types/oauth';
+import { youtubeCircuitBreaker } from './circuitBreaker';
 
 /**
  * Cookie configuration for authentication tokens
@@ -93,6 +94,14 @@ export async function validateYouTubeConnection(
     return false;
   }
 
+  // Check circuit breaker before making API call
+  if (!youtubeCircuitBreaker.canProceed()) {
+    Logger.auth('YouTube', 'circuit breaker is OPEN, skipping validation', {
+      state: youtubeCircuitBreaker.getState()
+    });
+    return false;
+  }
+
   try {
     const oauth2Client = new google.auth.OAuth2(
       process.env.YOUTUBE_CLIENT_ID,
@@ -106,11 +115,19 @@ export async function validateYouTubeConnection(
     // Test with a lightweight API call
     await youtube.channels.list({ part: ['id'], mine: true, maxResults: 1 });
     Logger.auth('YouTube', 'connection validated');
+    youtubeCircuitBreaker.recordSuccess();
     return true;
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     const errorCode = (error as { code?: number }).code;
     Logger.auth('YouTube', 'connection invalid', { error: errorMessage, code: errorCode });
+
+    // Quota exceeded - open circuit breaker
+    if (errorCode === 403) {
+      youtubeCircuitBreaker.open();
+    } else {
+      youtubeCircuitBreaker.recordFailure(error);
+    }
 
     // Try to refresh the token on 401
     if (errorCode === 401 && youtubeTokens.refresh_token) {
@@ -136,8 +153,10 @@ export async function validateYouTubeConnection(
         return false;
       }
     } else {
-      // Clear invalid tokens
-      res.clearCookie('youtube_tokens');
+      // Don't clear tokens on quota errors - tokens are still valid
+      if (errorCode !== 403) {
+        res.clearCookie('youtube_tokens');
+      }
       return false;
     }
   }

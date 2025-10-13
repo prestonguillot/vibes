@@ -27,7 +27,15 @@
       </div>
     </div>
     <div class="playlist-actions">
-      <% if (isYouTubeConnected) { %>
+      <% if (!isYouTubeConnected) { %>
+        <button class="btn btn-secondary sync-btn" disabled title="Connect to YouTube first">
+          Connect to YouTube to Sync
+        </button>
+      <% } else if (isDisabled) { %>
+        <button class="btn <%= buttonClass %> sync-btn" disabled title="YouTube API quota exceeded. Try again later.">
+          <%= buttonText %>
+        </button>
+      <% } else { %>
         <button class="btn <%= buttonClass %> sync-btn"
                 id="sync-btn-<%= id %>"
                 hx-post="/api/sync/playlist/<%= id %>"
@@ -40,12 +48,6 @@
                 data-playlist-id="<%= id %>"
                 data-track-count="<%= tracksTotal %>">
           <%= buttonText %>
-        </button>
-      <% } else { %>
-        <button class="btn btn-secondary sync-btn"
-                disabled
-                title="Connect to YouTube first">
-          Connect to YouTube to Sync
         </button>
       <% } %>
     </div>
