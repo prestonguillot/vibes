@@ -22,6 +22,29 @@ vi.mock('spotify-web-api-node', () => {
   return { default: SpotifyWebApi };
 });
 
+// Mock googleapis
+vi.mock('googleapis', () => {
+  const mockPlaylists = {
+    list: vi.fn(() => Promise.resolve({ data: { items: [] } }))
+  };
+
+  const mockYoutube = vi.fn(() => ({
+    playlists: mockPlaylists
+  }));
+
+  const mockOAuth2 = vi.fn();
+  mockOAuth2.prototype.setCredentials = vi.fn();
+
+  return {
+    google: {
+      youtube: mockYoutube,
+      auth: {
+        OAuth2: mockOAuth2
+      }
+    }
+  };
+});
+
 const app = createApp();
 
 describe('Spotify Playlists', () => {
@@ -238,6 +261,212 @@ describe('Spotify Playlists', () => {
 
       // For unsynced playlists, should show "Sync to YouTube"
       expect(response.text).toContain('Sync to YouTube');
+    });
+  });
+
+  describe('Playlist Summary Text Based on YouTube Connection', () => {
+    it('should show "connect YouTube to check sync status" when YouTube is not connected', async () => {
+      // Mock Spotify API
+      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
+      SpotifyWebApi.prototype.getMe = vi.fn(() =>
+        Promise.resolve({ body: { id: 'test-user' } })
+      );
+      SpotifyWebApi.prototype.getUserPlaylists = vi.fn(() =>
+        Promise.resolve({
+          body: {
+            items: [
+              {
+                id: '1234567890123456789012',
+                name: 'Test Playlist 1',
+                tracks: { total: 10 },
+                external_urls: { spotify: 'https://open.spotify.com/playlist/123' },
+                owner: { id: 'test-user' }
+              },
+              {
+                id: '2234567890123456789012',
+                name: 'Test Playlist 2',
+                tracks: { total: 5 },
+                external_urls: { spotify: 'https://open.spotify.com/playlist/456' },
+                owner: { id: 'test-user' }
+              }
+            ]
+          }
+        })
+      );
+
+      // Set only Spotify cookie (no YouTube)
+      const spotifyTokens = JSON.stringify({
+        accessToken: 'test-access-token',
+        refreshToken: 'test-refresh-token'
+      });
+
+      const response = await request(app)
+        .get('/auth/spotify/playlists')
+        .set('Cookie', [`spotify_tokens=${spotifyTokens}`])
+        .expect(200);
+
+      // Should show message indicating YouTube connection needed to check sync status
+      expect(response.text).toContain('connect YouTube to check sync status');
+      expect(response.text).toContain('Showing 2 playlists');
+      // Should NOT show "none synced yet" since we can't determine sync status
+      expect(response.text).not.toContain('none synced yet');
+    });
+
+    it('should show "none synced yet" when YouTube is connected but no playlists are synced', async () => {
+      // Mock Spotify API
+      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
+      SpotifyWebApi.prototype.getMe = vi.fn(() =>
+        Promise.resolve({ body: { id: 'test-user' } })
+      );
+      SpotifyWebApi.prototype.getUserPlaylists = vi.fn(() =>
+        Promise.resolve({
+          body: {
+            items: [
+              {
+                id: '1234567890123456789012',
+                name: 'Unsynced Playlist',
+                tracks: { total: 10 },
+                external_urls: { spotify: 'https://open.spotify.com/playlist/123' },
+                owner: { id: 'test-user' }
+              }
+            ]
+          }
+        })
+      );
+
+      // Set both Spotify and YouTube cookies
+      const spotifyTokens = JSON.stringify({
+        accessToken: 'test-spotify-token',
+        refreshToken: 'test-spotify-refresh'
+      });
+      const youtubeTokens = JSON.stringify({
+        access_token: 'test-youtube-token',
+        refresh_token: 'test-youtube-refresh'
+      });
+
+      const response = await request(app)
+        .get('/auth/spotify/playlists')
+        .set('Cookie', [
+          `spotify_tokens=${spotifyTokens}`,
+          `youtube_tokens=${youtubeTokens}`
+        ])
+        .expect(200);
+
+      // Should show "none synced yet" since YouTube is connected but no playlists match
+      expect(response.text).toContain('none synced yet');
+      expect(response.text).toContain('Showing 1 playlists');
+      // Should NOT show "connect YouTube" message
+      expect(response.text).not.toContain('connect YouTube to check sync status');
+    });
+
+    it('should show synced/unsynced counts when YouTube is connected and playlists are synced', async () => {
+      // Mock Spotify API
+      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
+      SpotifyWebApi.prototype.getMe = vi.fn(() =>
+        Promise.resolve({ body: { id: 'test-user' } })
+      );
+      SpotifyWebApi.prototype.getUserPlaylists = vi.fn(() =>
+        Promise.resolve({
+          body: {
+            items: [
+              {
+                id: '1234567890123456789012',
+                name: 'Synced Playlist',
+                tracks: { total: 10 },
+                external_urls: { spotify: 'https://open.spotify.com/playlist/123' },
+                owner: { id: 'test-user' }
+              },
+              {
+                id: '2234567890123456789012',
+                name: 'Unsynced Playlist',
+                tracks: { total: 5 },
+                external_urls: { spotify: 'https://open.spotify.com/playlist/456' },
+                owner: { id: 'test-user' }
+              }
+            ]
+          }
+        })
+      );
+
+      // Mock YouTube API to return a synced playlist
+      const googleapis = await import('googleapis');
+      const mockYoutubeApi = googleapis.google.youtube({} as any);
+      mockYoutubeApi.playlists.list = vi.fn(() =>
+        Promise.resolve({
+          data: {
+            items: [
+              {
+                id: 'yt_playlist_id',
+                snippet: {
+                  title: 'Synced Playlist (from Spotify)' // This matches "Synced Playlist" + " (from Spotify)"
+                }
+              }
+            ]
+          }
+        })
+      ) as any;
+
+      // Set both cookies
+      const spotifyTokens = JSON.stringify({
+        accessToken: 'test-spotify-token',
+        refreshToken: 'test-spotify-refresh'
+      });
+      const youtubeTokens = JSON.stringify({
+        access_token: 'test-youtube-token',
+        refresh_token: 'test-youtube-refresh'
+      });
+
+      const response = await request(app)
+        .get('/auth/spotify/playlists')
+        .set('Cookie', [
+          `spotify_tokens=${spotifyTokens}`,
+          `youtube_tokens=${youtubeTokens}`
+        ])
+        .expect(200);
+
+      // Should show synced and unsynced counts since at least one is synced
+      // "Synced Playlist" matches "Synced Playlist (from Spotify)" on YouTube
+      expect(response.text).toContain('synced');
+      expect(response.text).toContain('unsynced');
+    });
+
+    it('should include "your playlists only" when ownOnly=true and YouTube not connected', async () => {
+      // Mock Spotify API
+      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
+      SpotifyWebApi.prototype.getMe = vi.fn(() =>
+        Promise.resolve({ body: { id: 'test-user' } })
+      );
+      SpotifyWebApi.prototype.getUserPlaylists = vi.fn(() =>
+        Promise.resolve({
+          body: {
+            items: [
+              {
+                id: '1234567890123456789012',
+                name: 'My Playlist',
+                tracks: { total: 10 },
+                external_urls: { spotify: 'https://open.spotify.com/playlist/123' },
+                owner: { id: 'test-user' }
+              }
+            ]
+          }
+        })
+      );
+
+      // Set only Spotify cookie
+      const spotifyTokens = JSON.stringify({
+        accessToken: 'test-access-token',
+        refreshToken: 'test-refresh-token'
+      });
+
+      const response = await request(app)
+        .get('/auth/spotify/playlists')
+        .query({ ownOnly: 'true' })
+        .set('Cookie', [`spotify_tokens=${spotifyTokens}`])
+        .expect(200);
+
+      // Should show both "your playlists only" and "connect YouTube" message
+      expect(response.text).toContain('your playlists only');
+      expect(response.text).toContain('connect YouTube to check sync status');
     });
   });
 });
