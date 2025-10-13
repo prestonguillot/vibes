@@ -75,16 +75,16 @@ router.get('/playlist/:playlistId',
   });
 
   try {
-    // Check authentication
+    // Check authentication - Spotify is required, YouTube is optional
     const spotifyTokens: SpotifyTokens | null = req.cookies.spotify_tokens ? JSON.parse(req.cookies.spotify_tokens) : null;
     const youtubeTokens: YouTubeTokens | null = req.cookies.youtube_tokens ? JSON.parse(req.cookies.youtube_tokens) : null;
 
-    if (!spotifyTokens || !youtubeTokens) {
+    if (!spotifyTokens) {
       const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
         type: 'warning',
-        title: 'Authentication Required',
-        message: 'Please connect to both Spotify and YouTube first',
-        details: 'Use the connection buttons at the top of the page to authenticate with both services.'
+        title: 'Spotify Authentication Required',
+        message: 'Please connect to Spotify first',
+        details: 'Use the Spotify connection button at the top of the page to authenticate.'
       });
       return res.status(401).send(html);
     }
@@ -94,10 +94,12 @@ router.get('/playlist/:playlistId',
     spotifyApi.setAccessToken(spotifyTokens.accessToken);
     spotifyApi.setRefreshToken(spotifyTokens.refreshToken);
 
-    // Initialize YouTube API
-    const oauth2Client = getOAuth2Client();
-    oauth2Client.setCredentials(youtubeTokens);
-    const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
+    // Initialize YouTube API (optional - only if user is connected)
+    const youtube = youtubeTokens ? (() => {
+      const oauth2Client = getOAuth2Client();
+      oauth2Client.setCredentials(youtubeTokens);
+      return google.youtube({ version: 'v3', auth: oauth2Client });
+    })() : null;
 
     // Get Spotify playlist tracks
     Logger.external('Spotify', 'Fetching playlist tracks', { playlistId });
@@ -136,34 +138,35 @@ router.get('/playlist/:playlistId',
 
     Logger.info('Found Spotify tracks', { count: spotifyTracks.length });
 
-    // Find corresponding YouTube playlist (with pagination to handle >50 playlists)
-    const youtubePlaylistTitle = `${spotifyPlaylistData.body.name} (from Spotify)`;
-    Logger.external('YouTube', 'Looking for playlist', { title: youtubePlaylistTitle });
-
+    // Find corresponding YouTube playlist (only if YouTube is connected)
     let youtubePlaylist: youtube_v3.Schema$Playlist | undefined = undefined;
-    let nextPageToken: string | undefined = undefined;
-
-    do {
-      const youtubePlaylistsResponse: youtube_v3.Schema$PlaylistListResponse = await youtube.playlists.list({
-        part: ['snippet'],
-        mine: true,
-        maxResults: 50,
-        pageToken: nextPageToken
-      }).then(res => res.data);
-
-      youtubePlaylist = youtubePlaylistsResponse.items?.find(
-        (playlist: youtube_v3.Schema$Playlist) => playlist.snippet?.title === youtubePlaylistTitle
-      );
-
-      // If we found it, break early
-      if (youtubePlaylist) break;
-
-      nextPageToken = youtubePlaylistsResponse.nextPageToken || undefined;
-    } while (nextPageToken);
-
     let youtubeVideos: SimplifiedVideo[] = [];
 
-    if (youtubePlaylist) {
+    if (youtube && youtubeTokens) {
+      const youtubePlaylistTitle = `${spotifyPlaylistData.body.name} (from Spotify)`;
+      Logger.external('YouTube', 'Looking for playlist', { title: youtubePlaylistTitle });
+
+      let nextPageToken: string | undefined = undefined;
+
+      do {
+        const youtubePlaylistsResponse: youtube_v3.Schema$PlaylistListResponse = await youtube.playlists.list({
+          part: ['snippet'],
+          mine: true,
+          maxResults: 50,
+          pageToken: nextPageToken
+        }).then(res => res.data);
+
+        youtubePlaylist = youtubePlaylistsResponse.items?.find(
+          (playlist: youtube_v3.Schema$Playlist) => playlist.snippet?.title === youtubePlaylistTitle
+        );
+
+        // If we found it, break early
+        if (youtubePlaylist) break;
+
+        nextPageToken = youtubePlaylistsResponse.nextPageToken || undefined;
+      } while (nextPageToken);
+
+      if (youtubePlaylist) {
       Logger.external('YouTube', 'Found matching playlist', { playlistId: youtubePlaylist.id });
 
       // Get ALL YouTube playlist videos (with pagination to handle >50 videos)
@@ -194,9 +197,12 @@ router.get('/playlist/:playlistId',
         url: `https://www.youtube.com/watch?v=${item.snippet?.resourceId?.videoId || ''}`
       }));
 
-      Logger.info('Found YouTube videos', { count: youtubeVideos.length });
+        Logger.info('Found YouTube videos', { count: youtubeVideos.length });
+      } else {
+        Logger.info('No corresponding YouTube playlist found');
+      }
     } else {
-      Logger.info('No corresponding YouTube playlist found');
+      Logger.info('YouTube not connected, skipping YouTube playlist lookup');
     }
 
     // Create merged view of tracks with their YouTube counterparts using improved matching
@@ -395,7 +401,7 @@ router.get('/playlist/:playlistId',
           <h6>${spotifyPlaylistData.body.name}</h6>
           <div class="d-flex justify-content-between align-items-center">
             <span class="text-muted small">
-              ${allTracks.length} tracks • ${mergedTracks.filter((t: MergedTrack) => t.linked).length} linked
+              ${allTracks.length} tracks${youtubeTokens ? ` • ${mergedTracks.filter((t: MergedTrack) => t.linked).length} linked` : ''}
             </span>
             <button type="button" class="btn btn-outline-secondary btn-sm"
                     data-refresh-playlist="${playlistId}"
@@ -423,8 +429,8 @@ router.get('/playlist/:playlistId',
                     <div class="track-artist text-muted small">${track.spotify.artist} • ${track.spotify.album}</div>
                   </div>
                 ` : ''}
-                
-                ${track.youtube ? `
+
+                ${youtubeTokens && track.youtube ? `
                   <div class="youtube-video ${track.spotify ? 'mt-1' : ''}">
                     <div class="d-flex align-items-center">
                       <img src="${track.youtube.thumbnail}" alt="Video thumbnail"
@@ -438,32 +444,33 @@ router.get('/playlist/:playlistId',
                   </div>
                 ` : ''}
               </div>
-              
+
               <div class="track-status ms-2 d-flex align-items-center gap-2">
-                ${track.linked ?
-                  `<span class="badge bg-success">Linked</span>
-                   <button type="button" class="btn btn-outline-secondary btn-sm"
-                           hx-get="/api/playlistDetails/search/${track.spotify!.id}?trackName=${encodeURIComponent(track.spotify!.name)}&artistName=${encodeURIComponent(track.spotify!.artist)}&playlistId=${playlistId}&currentVideoId=${track.youtube?.id || ''}"
-                           hx-target="#video-modal-content"
-                           hx-swap="innerHTML"
-                           title="Edit linked video">
-                     <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                       <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-                     </svg>
-                   </button>` :
-                  track.spotify ?
-                    `<span class="badge bg-warning">Unlinked</span>
+                ${youtubeTokens ? (
+                  track.linked ?
+                    `<span class="badge bg-success">Linked</span>
                      <button type="button" class="btn btn-outline-secondary btn-sm"
-                             hx-get="/api/playlistDetails/search/${track.spotify!.id}?trackName=${encodeURIComponent(track.spotify!.name)}&artistName=${encodeURIComponent(track.spotify!.artist)}&playlistId=${playlistId}&currentVideoId="
+                             hx-get="/api/playlistDetails/search/${track.spotify!.id}?trackName=${encodeURIComponent(track.spotify!.name)}&artistName=${encodeURIComponent(track.spotify!.artist)}&playlistId=${playlistId}&currentVideoId=${track.youtube?.id || ''}"
                              hx-target="#video-modal-content"
                              hx-swap="innerHTML"
-                             title="Link video to this track">
+                             title="Edit linked video">
                        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                         <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                         <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
                        </svg>
                      </button>` :
-                    '<span class="badge bg-info">YouTube Only</span>'
-                }
+                    track.spotify ?
+                      `<span class="badge bg-warning">Unlinked</span>
+                       <button type="button" class="btn btn-outline-secondary btn-sm"
+                               hx-get="/api/playlistDetails/search/${track.spotify!.id}?trackName=${encodeURIComponent(track.spotify!.name)}&artistName=${encodeURIComponent(track.spotify!.artist)}&playlistId=${playlistId}&currentVideoId="
+                               hx-target="#video-modal-content"
+                               hx-swap="innerHTML"
+                               title="Link video to this track">
+                         <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                           <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                         </svg>
+                       </button>` :
+                      '<span class="badge bg-info">YouTube Only</span>'
+                ) : ''}
               </div>
             </div>
           `).join('')}

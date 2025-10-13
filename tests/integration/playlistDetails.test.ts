@@ -39,8 +39,8 @@ describe('Playlist Details Error Handling', () => {
       expect(response.status).toBeGreaterThanOrEqual(400);
     });
 
-    it('should require YouTube authentication', async () => {
-      // Only set Spotify cookie, not YouTube
+    it('should allow viewing playlist details with only Spotify connected', async () => {
+      // Only set Spotify cookie, not YouTube - this should now work!
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-spotify-token',
         refreshToken: 'test-spotify-refresh'
@@ -50,8 +50,9 @@ describe('Playlist Details Error Handling', () => {
         .get('/api/playlistDetails/playlist/1234567890123456789012')
         .set('Cookie', [`spotify_tokens=${spotifyTokens}`]);
 
-      // Should return error about missing YouTube authentication
-      expect(response.status).toBeGreaterThanOrEqual(400);
+      // Should NOT return 401 unauthorized, since Spotify is sufficient
+      // May return 500 or other errors due to mocking, but not 401
+      expect(response.status).not.toBe(401);
     });
   });
 
@@ -84,6 +85,30 @@ describe('Playlist Details Error Handling', () => {
       // Should not reject based on validation (may fail for auth or other reasons)
       // The key is it shouldn't be a 400 validation error
       expect(response.status).not.toBe(400);
+    });
+  });
+
+  describe('Spotify-Only Mode', () => {
+    it('should not require YouTube authentication (allows Spotify-only access)', async () => {
+      const spotifyTokens = JSON.stringify({
+        accessToken: 'test-spotify-token',
+        refreshToken: 'test-spotify-refresh'
+      });
+
+      const response = await request(app)
+        .get('/api/playlistDetails/playlist/1234567890123456789012')
+        .set('Cookie', [`spotify_tokens=${spotifyTokens}`]);
+
+      // The key test: should NOT return 401 when YouTube is missing
+      // May return 500 due to invalid tokens, but that's OK - we're testing
+      // that YouTube is optional, not that invalid tokens work
+      expect(response.status).not.toBe(401);
+
+      // If we get a 401, the error message should NOT mention YouTube
+      if (response.status === 401) {
+        expect(response.text).not.toContain('YouTube');
+        expect(response.text).not.toContain('both');
+      }
     });
   });
 });
