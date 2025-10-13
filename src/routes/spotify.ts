@@ -241,7 +241,8 @@ router.get('/playlists',
         isSynced,
         syncIcon,
         buttonText,
-        buttonClass
+        buttonClass,
+        isYouTubeConnected: !!youtubeTokens
       });
     })).then(items => items.join(''));
     

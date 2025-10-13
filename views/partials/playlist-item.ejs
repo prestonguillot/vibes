@@ -27,19 +27,27 @@
       </div>
     </div>
     <div class="playlist-actions">
-      <button class="btn <%= buttonClass %> sync-btn"
-              id="sync-btn-<%= id %>"
-              hx-post="/api/sync/playlist/<%= id %>"
-              hx-target="#sync-result-<%= id %>"
-              hx-swap="innerHTML"
-              hx-indicator="#loading"
-              hx-include="#syncBatchSize"
-              hx-disabled-elt=".sync-btn"
-              data-playlist-name="<%= name %>"
-              data-playlist-id="<%= id %>"
-              data-track-count="<%= tracksTotal %>">
-        <%= buttonText %>
-      </button>
+      <% if (isYouTubeConnected) { %>
+        <button class="btn <%= buttonClass %> sync-btn"
+                id="sync-btn-<%= id %>"
+                hx-post="/api/sync/playlist/<%= id %>"
+                hx-target="#sync-result-<%= id %>"
+                hx-swap="innerHTML"
+                hx-indicator="#loading"
+                hx-include="#syncBatchSize"
+                hx-disabled-elt=".sync-btn"
+                data-playlist-name="<%= name %>"
+                data-playlist-id="<%= id %>"
+                data-track-count="<%= tracksTotal %>">
+          <%= buttonText %>
+        </button>
+      <% } else { %>
+        <button class="btn btn-secondary sync-btn"
+                disabled
+                title="Connect to YouTube first">
+          Connect to YouTube to Sync
+        </button>
+      <% } %>
     </div>
   </div>
 
