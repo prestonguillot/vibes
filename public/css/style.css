@@ -795,6 +795,17 @@ body {
     border-radius: 0 !important;
 }
 
+/* Disabled state for small primary buttons on dark backgrounds */
+.btn-outline-primary.btn-sm:disabled,
+.btn-outline-primary.btn-sm.disabled {
+    background-color: #333 !important;
+    border-color: #666 !important;
+    color: #888 !important;
+    box-shadow: none !important;
+    opacity: 0.6 !important;
+    cursor: not-allowed !important;
+}
+
 /* === PLAYLIST ITEMS === */
 .playlist-item {
     width: 100%;

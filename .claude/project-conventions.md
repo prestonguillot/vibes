@@ -52,6 +52,18 @@
 
 ### Git Commit Workflow
 - **Before pausing for input, commit all changes** using the user's previous input as the commit message
-- Command to use: `git add -A && git commit -m "<user's previous input>"`
-- Example: If user said "fix the bug with the button", commit with that exact message
-- This ensures work is saved incrementally and commit messages reflect the actual work done
+- **IMPORTANT: Always include the user's EXACT prompt/input as the first line of the commit message**
+- You can add additional context, summary, and technical details after the user's exact words
+- Command to use: `git add -A && git commit -m "<user's exact input>\n\n<your additional context and details>"`
+- Example format:
+  ```
+  here's an easy one, the "refresh" button shouldn't be usable unless you're connected to both spotify and youtube
+
+  Disabled refresh button until both services are connected.
+
+  Changes:
+  - Added data attributes to connection buttons
+  - Updated JavaScript to check both connection states
+  - Refresh button now requires both services
+  ```
+- This ensures the commit history shows what the user actually asked for, not just your interpretation
