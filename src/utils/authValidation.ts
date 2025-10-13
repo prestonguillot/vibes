@@ -96,9 +96,11 @@ export async function validateYouTubeConnection(
 
   // Check circuit breaker before making API call
   if (!youtubeCircuitBreaker.canProceed()) {
-    Logger.auth('YouTube', 'circuit breaker is OPEN, skipping validation', {
+    Logger.auth('YouTube', 'circuit breaker is OPEN, clearing tokens', {
       state: youtubeCircuitBreaker.getState()
     });
+    // Clear tokens so user sees disconnected state
+    res.clearCookie('youtube_tokens');
     return false;
   }
 
@@ -122,9 +124,12 @@ export async function validateYouTubeConnection(
     const errorCode = (error as { code?: number }).code;
     Logger.auth('YouTube', 'connection invalid', { error: errorMessage, code: errorCode });
 
-    // Quota exceeded - open circuit breaker
+    // Quota exceeded - open circuit breaker and clear tokens
     if (errorCode === 403) {
       youtubeCircuitBreaker.open();
+      // Clear tokens so user sees disconnected state
+      res.clearCookie('youtube_tokens');
+      return false;
     } else {
       youtubeCircuitBreaker.recordFailure(error);
     }
@@ -153,10 +158,7 @@ export async function validateYouTubeConnection(
         return false;
       }
     } else {
-      // Don't clear tokens on quota errors - tokens are still valid
-      if (errorCode !== 403) {
-        res.clearCookie('youtube_tokens');
-      }
+      res.clearCookie('youtube_tokens');
       return false;
     }
   }

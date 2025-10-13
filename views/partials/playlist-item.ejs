@@ -31,10 +31,6 @@
         <button class="btn btn-secondary sync-btn" disabled title="Connect to YouTube first">
           Connect to YouTube to Sync
         </button>
-      <% } else if (isDisabled) { %>
-        <button class="btn <%= buttonClass %> sync-btn" disabled title="YouTube API quota exceeded. Try again later.">
-          <%= buttonText %>
-        </button>
       <% } else { %>
         <button class="btn <%= buttonClass %> sync-btn"
                 id="sync-btn-<%= id %>"
