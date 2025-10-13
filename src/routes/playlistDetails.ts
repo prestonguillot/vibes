@@ -10,7 +10,7 @@ import { youtube_v3 } from 'googleapis';
 import { z } from 'zod';
 import ejs from 'ejs';
 import path from 'path';
-const SpotifyWebApi = require('spotify-web-api-node');
+import SpotifyWebApi from 'spotify-web-api-node';
 
 // Internal types for this route
 interface SimplifiedTrack {
