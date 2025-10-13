@@ -62,12 +62,13 @@
                     <div class="card-header">
                         <div class="d-flex justify-content-between align-items-center">
                             <h5 class="mb-0">Your Playlists</h5>
-                            <button id="refresh-playlists-btn" class="btn btn-outline-primary btn-sm"
+                            <button id="refresh-playlists-btn" class="btn btn-outline-primary btn-sm disabled"
+                                    disabled
                                     hx-get="/auth/spotify/playlists?ownOnly=true"
                                     hx-target="#playlists-content"
                                     hx-headers='{"Cache-Control": "no-cache"}'
                                     hx-indicator="#loading"
-                                    title="Refresh playlists">
+                                    title="Connect to both Spotify and YouTube to refresh">
                                 Refresh
                             </button>
                         </div>
