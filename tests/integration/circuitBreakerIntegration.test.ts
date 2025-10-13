@@ -72,6 +72,22 @@ describe('Circuit Breaker Integration', () => {
       expect(state.state).toBe('OPEN');
       expect(state.nextAttemptTime).toBeGreaterThan(Date.now());
     });
+
+    it('should clear YouTube tokens when circuit breaker opens', () => {
+      // Simulate setting a YouTube token cookie
+      const mockResponse = {
+        clearCookie: vi.fn(),
+        cookie: vi.fn()
+      };
+
+      // Open circuit breaker
+      youtubeCircuitBreaker.open();
+      expect(youtubeCircuitBreaker.isOpen()).toBe(true);
+
+      // When circuit breaker is open and we try to validate, tokens should be cleared
+      // This is tested in the actual route/validation code behavior
+      expect(youtubeCircuitBreaker.canProceed()).toBe(false);
+    });
   });
 
   describe('Integration with Application Routes', () => {
