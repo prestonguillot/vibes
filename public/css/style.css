@@ -619,55 +619,75 @@ body {
 /* === SYNC BUTTON COLORS (RED) === */
 .btn-primary.sync-btn {
     background-color: #ff0040 !important;
-    border-color: #ff0040 !important;
+    border-color: #000 !important;
     color: #fff !important;
 }
 
 .btn-primary.sync-btn:hover {
     background-color: #cc0033 !important;
     color: #fff !important;
-    border-color: #cc0033 !important;
+    border-color: #000 !important;
 }
 
 .btn-primary.sync-btn:active,
 .btn-primary.sync-btn.active {
     background-color: #ff0040 !important;
-    border-color: #ff0040 !important;
+    border-color: #000 !important;
     color: #fff !important;
 }
 
 .btn-primary.sync-btn:disabled,
 .btn-primary.sync-btn.disabled {
     background-color: #ff0040 !important;
-    border-color: #ff0040 !important;
+    border-color: #000 !important;
     color: #fff !important;
 }
 
 /* === UPDATE BUTTON COLORS (GREEN) === */
 .btn-outline-success.sync-btn {
     background-color: #00ff00 !important;
-    border-color: #00ff00 !important;
+    border-color: #000 !important;
     color: #000 !important;
 }
 
 .btn-outline-success.sync-btn:hover {
     background-color: #00cc00 !important;
     color: #000 !important;
-    border-color: #00cc00 !important;
+    border-color: #000 !important;
 }
 
 .btn-outline-success.sync-btn:active,
 .btn-outline-success.sync-btn.active {
     background-color: #00ff00 !important;
-    border-color: #00ff00 !important;
+    border-color: #000 !important;
     color: #000 !important;
 }
 
 .btn-outline-success.sync-btn:disabled,
 .btn-outline-success.sync-btn.disabled {
     background-color: #00ff00 !important;
-    border-color: #00ff00 !important;
+    border-color: #000 !important;
     color: #000 !important;
+}
+
+.btn-secondary,
+.btn-secondary.sync-btn {
+    background-color: #6c757d !important;
+    border-color: #000 !important;
+    color: #fff !important;
+    box-shadow: 2px 2px 0px rgba(0,0,0,0.3) !important;
+    font-family: 'Courier Prime', monospace !important;
+    font-weight: 700 !important;
+    border: 2px solid #000 !important;
+    border-radius: 0 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 1px !important;
+}
+
+.btn-secondary:hover {
+    background-color: #5a6268 !important;
+    border-color: #000 !important;
+    color: #fff !important;
 }
 
 .btn-outline-secondary {
@@ -693,7 +713,7 @@ body {
 
 .btn-outline-primary {
     background-color: #0066ff;
-    border: 2px solid #0066ff !important;
+    border: 2px solid #000 !important;
     color: #fff;
     box-shadow: 3px 3px 0px rgba(0,0,0,0.3);
     font-family: 'Courier Prime', monospace;
@@ -705,7 +725,7 @@ body {
 
 .btn-outline-primary:hover {
     background-color: #0052cc;
-    border: 2px solid #0052cc !important;
+    border: 2px solid #000 !important;
     color: #fff;
     transform: translateY(-1px);
     box-shadow: 4px 4px 0px rgba(0,0,0,0.5);
@@ -714,7 +734,7 @@ body {
 .btn-outline-primary:active,
 .btn-outline-primary.active {
     background-color: #0066ff !important;
-    border: 2px solid #0066ff !important;
+    border: 2px solid #000 !important;
     color: #fff !important;
     box-shadow: 3px 3px 0px rgba(0,0,0,0.3) !important;
 }
