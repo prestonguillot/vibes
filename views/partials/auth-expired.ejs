@@ -1,12 +1,12 @@
 <%
 const loginUrl = service === 'Spotify' ? '/auth/spotify/login' : '/auth/youtube/login';
-const color = service === 'Spotify' ? '#1DB954' : '#FF0000';
+const btnClass = service === 'Spotify' ? 'btn-spotify-reconnect' : 'btn-youtube-reconnect';
 %>
 
-<div style="margin: 0; padding: 0;">
+<div class="auth-expired-container">
   <h6><%= service %> session expired</h6>
   <p>Please reconnect to <%= service %> to continue.</p>
-  <a href="<%= loginUrl %>" class="btn" style="background-color: <%= color %>; color: white; border: 2px solid #000; padding: 8px 16px; font-size: 16px;">
+  <a href="<%= loginUrl %>" class="btn <%= btnClass %>">
     Reconnect to <%= service %>
   </a>
 </div>
