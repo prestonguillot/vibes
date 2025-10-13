@@ -246,28 +246,34 @@ body {
 
 .playlist-collapse-area {
   position: relative;
+  height: 50px;
   cursor: pointer;
   user-select: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 50px;
   margin: 0;
   margin-bottom: -15px;
+  padding: 0 20px;
   padding-bottom: 15px;
-  transition: background-color 0.2s;
+  transition: all 0.2s;
+  border: 2px solid transparent;
 }
 
 .playlist-collapse-area:hover {
-  background-color: rgba(0, 0, 0, 0.02);
+  background-color: rgba(255, 0, 64, 0.08);
+  border: 2px solid #ff0040;
 }
 
 .collapse-indicator {
   font-size: 16px;
+  color: #666;
+  font-weight: bold;
+  transition: color 0.2s ease, transform 0.3s ease;
+}
+
+.playlist-collapse-area:hover .collapse-indicator {
   color: #ff0040;
-  padding: 8px 90px;
-  border-radius: 3px;
-  transition: all 0.2s;
 }
 
 /* Playlist Details Styles */
