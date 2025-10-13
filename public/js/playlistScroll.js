@@ -25,26 +25,30 @@
       return; // Already collapsed or checkbox not found
     }
 
-    // Get the playlist item container
-    const playlistItem = document.querySelector('.playlist-item[data-playlist-id="' + playlistId + '"]');
-    if (!playlistItem) {
-      return;
-    }
+    // Calculate the target scroll position BEFORE the collapse happens
+    // We want the collapse button's current position to end up at the top third of the viewport
+    const collapseAreaRect = collapseArea.getBoundingClientRect();
+    const currentCollapseAreaTop = window.pageYOffset + collapseAreaRect.top;
 
-    // Calculate the scroll position to place the bottom of the playlist at the top third of the viewport
     const viewportHeight = window.innerHeight;
-    const targetScrollPosition = playlistItem.offsetTop + playlistItem.offsetHeight - (viewportHeight / 3);
+    const targetScrollPosition = currentCollapseAreaTop - (viewportHeight / 3);
 
     // Check if we have enough room to scroll to that position
     const maxScroll = document.documentElement.scrollHeight - viewportHeight;
     const finalScrollPosition = Math.max(0, Math.min(targetScrollPosition, maxScroll));
 
-    // Smooth scroll to the calculated position after a short delay to allow the collapse animation to start
+    // Only scroll if we actually need to move (avoid unnecessary scrolling)
+    const currentScroll = window.pageYOffset;
+    if (Math.abs(currentScroll - finalScrollPosition) < 10) {
+      return; // Already close enough to target position
+    }
+
+    // Smooth scroll to the calculated position after a brief delay to let the collapse animation start
     setTimeout(function() {
       window.scrollTo({
         top: finalScrollPosition,
         behavior: 'smooth'
       });
-    }, 50);
+    }, 100);
   });
 })();
