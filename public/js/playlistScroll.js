@@ -34,12 +34,22 @@
     }
 
     // Calculate the target scroll position BEFORE the collapse happens
-    // We want the collapse button's current position to end up at the top third of the viewport
-    const collapseAreaRect = collapseArea.getBoundingClientRect();
-    const currentCollapseAreaTop = window.pageYOffset + collapseAreaRect.top;
+    // We want the bottom of the collapsed playlist (the expand button area) to end up at the top third of the viewport
+
+    // Find the expand button - this is what will be at the bottom of the collapsed playlist
+    const expandButton = document.querySelector('label.playlist-expand-area[data-playlist-id="' + playlistId + '"]');
+    if (!expandButton) {
+      console.log('Expand button not found');
+      return;
+    }
+
+    const expandButtonRect = expandButton.getBoundingClientRect();
+    const expandButtonBottom = window.pageYOffset + expandButtonRect.bottom;
+
+    console.log('Expand button bottom position:', expandButtonBottom);
 
     const viewportHeight = window.innerHeight;
-    const targetScrollPosition = currentCollapseAreaTop - (viewportHeight / 3);
+    const targetScrollPosition = expandButtonBottom - (viewportHeight / 3);
 
     // Check if we have enough room to scroll to that position
     const maxScroll = document.documentElement.scrollHeight - viewportHeight;
@@ -49,7 +59,7 @@
     const currentScroll = window.pageYOffset;
 
     console.log('Scroll calculation:', {
-      currentCollapseAreaTop,
+      expandButtonBottom,
       viewportHeight,
       targetScrollPosition,
       maxScroll,
