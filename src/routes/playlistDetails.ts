@@ -487,7 +487,21 @@ router.get('/playlist/:playlistId',
   } catch (error) {
     const duration = Date.now() - startTime;
     Logger.error('Error fetching playlist details', { playlistId, duration }, error);
-    
+
+    // Check if it's a YouTube API quota exceeded error
+    const errorCode = (error as any)?.code;
+    const errorMessage = (error as Error)?.message || '';
+
+    if (errorCode === 403 || errorMessage.toLowerCase().includes('quota')) {
+      const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
+        type: 'warning',
+        title: 'YouTube API Quota Exceeded',
+        message: 'Unable to load playlist details due to YouTube API quota limit',
+        details: 'The YouTube API has a daily quota limit that has been reached. Please try again tomorrow when the quota resets (midnight Pacific Time), or wait a few hours before trying again.'
+      });
+      return res.status(429).send(html);
+    }
+
     const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
       type: 'danger',
       title: 'Error loading playlist details',
