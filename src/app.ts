@@ -120,8 +120,16 @@ export function createApp() {
 
   // Connection status button endpoints (with rate limiting)
   app.get('/api/status/spotify/button', statusLimiter, async (req, res) => {
+    const startTime = Date.now();
     const spotifyTokens = req.cookies.spotify_tokens ? JSON.parse(req.cookies.spotify_tokens) : null;
     const spotifyConnected = await validateSpotifyConnection(spotifyTokens, res);
+
+    // Ensure minimum display time of 500ms to prevent flash
+    const elapsed = Date.now() - startTime;
+    const minDisplayTime = 500;
+    if (elapsed < minDisplayTime) {
+      await new Promise(resolve => setTimeout(resolve, minDisplayTime - elapsed));
+    }
 
     res.render('partials/connection-button', {
       service: 'spotify',
@@ -131,8 +139,16 @@ export function createApp() {
   });
 
   app.get('/api/status/youtube/button', statusLimiter, async (req, res) => {
+    const startTime = Date.now();
     const youtubeTokens = req.cookies.youtube_tokens ? JSON.parse(req.cookies.youtube_tokens) : null;
     const youtubeConnected = await validateYouTubeConnection(youtubeTokens, res);
+
+    // Ensure minimum display time of 500ms to prevent flash
+    const elapsed = Date.now() - startTime;
+    const minDisplayTime = 500;
+    if (elapsed < minDisplayTime) {
+      await new Promise(resolve => setTimeout(resolve, minDisplayTime - elapsed));
+    }
 
     res.render('partials/connection-button', {
       service: 'youtube',
