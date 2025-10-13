@@ -144,7 +144,7 @@ router.get('/playlists',
       process.env.YOUTUBE_CLIENT_SECRET,
       process.env.YOUTUBE_REDIRECT_URI
     );
-    const youtubeTokens = req.cookies.youtube_tokens ? JSON.parse(req.cookies.youtube_tokens) : null;
+    let youtubeTokens = req.cookies.youtube_tokens ? JSON.parse(req.cookies.youtube_tokens) : null;
     if (youtubeTokens) {
       oauth2Client.setCredentials(youtubeTokens);
     }
