@@ -5,16 +5,16 @@ const loginUrl = `/auth/${service}/login`;
 %>
 
 <% if (typeof loading !== 'undefined' && loading) { %>
-  <button class="btn <%= buttonClass %> connect-btn disabled" disabled>
+  <button class="btn <%= buttonClass %> connect-btn disabled" disabled data-service="<%= service %>" data-connected="loading">
     <span class="d-flex align-items-center justify-content-center">
       <div class="spinner-border spinner-border-sm spinner-xs me-2" role="status" aria-hidden="true"></div>
       Connecting...
     </span>
   </button>
 <% } else if (connected) { %>
-  <button class="btn <%= buttonClass %> connect-btn connected" disabled>Connected</button>
+  <button class="btn <%= buttonClass %> connect-btn connected" disabled data-service="<%= service %>" data-connected="true">Connected</button>
 <% } else { %>
-  <a href="<%= loginUrl %>" class="btn <%= buttonClass %> connect-btn">
+  <a href="<%= loginUrl %>" class="btn <%= buttonClass %> connect-btn" data-service="<%= service %>" data-connected="false">
     Connect <%= serviceCapitalized %>
   </a>
 <% } %>
