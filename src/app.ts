@@ -150,6 +150,11 @@ export function createApp() {
       await new Promise(resolve => setTimeout(resolve, minDisplayTime - elapsed));
     }
 
+    // Trigger playlist refresh when YouTube becomes connected
+    if (youtubeConnected) {
+      res.setHeader('HX-Trigger', 'youtubeConnected');
+    }
+
     res.render('partials/connection-button', {
       service: 'youtube',
       connected: youtubeConnected,
