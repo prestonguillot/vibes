@@ -782,6 +782,19 @@ body {
     box-shadow: 3px 3px 0px rgba(0,0,0,0.3) !important;
 }
 
+/* Small variant - ensure border visibility */
+.btn-outline-primary.btn-sm {
+    border: 2px solid #fff !important;
+    padding: 4px 8px !important;
+    font-size: 0.875rem !important;
+    box-shadow: 3px 3px 0px rgba(255,255,255,0.3) !important;
+    font-family: 'Courier Prime', monospace !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 1px !important;
+    border-radius: 0 !important;
+}
+
 /* === PLAYLIST ITEMS === */
 .playlist-item {
     width: 100%;

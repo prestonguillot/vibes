@@ -5,6 +5,7 @@ import { Logger } from '../utils/logger';
 import { getSecureCookieOptions } from '../utils/authValidation';
 import { validate, schemas, ValidatedRequest } from '../utils/validation';
 import { CacheDuration, setCache } from '../utils/cache';
+import { youtubeCircuitBreaker } from '../utils/circuitBreaker';
 import { z } from 'zod';
 import ejs from 'ejs';
 import path from 'path';
@@ -178,31 +179,54 @@ router.get('/playlists',
     // Get ALL YouTube playlists to check which Spotify playlists have been synced (with pagination)
     let youtubePlaylistNames = new Set<string>();
     let youtubePlaylistsMap = new Map<string, any>();
+    let youtubeQuotaExceeded = false;
+
     if (youtubeTokens) {
-      try {
-        let nextPageToken: string | undefined = undefined;
+      // Check circuit breaker before making API calls
+      if (!youtubeCircuitBreaker.canProceed()) {
+        Logger.warn('YouTube API circuit breaker is OPEN, skipping playlist fetch', {
+          state: youtubeCircuitBreaker.getState()
+        });
+        youtubeQuotaExceeded = true;
+      } else {
+        try {
+          let nextPageToken: string | undefined = undefined;
 
-        do {
-          const youtubeResponse: youtube_v3.Schema$PlaylistListResponse = await youtube.playlists.list({
-            part: ['snippet'],
-            mine: true,
-            maxResults: 50,
-            pageToken: nextPageToken
-          }).then(res => res.data);
+          do {
+            const youtubeResponse: youtube_v3.Schema$PlaylistListResponse = await youtube.playlists.list({
+              part: ['snippet'],
+              mine: true,
+              maxResults: 50,
+              pageToken: nextPageToken
+            }).then(res => res.data);
 
-          if (youtubeResponse.items) {
-            youtubeResponse.items.forEach((playlist: youtube_v3.Schema$Playlist) => {
-              const title = playlist.snippet?.title || '';
-              youtubePlaylistNames.add(title);
-              youtubePlaylistsMap.set(title, playlist);
-            });
+            if (youtubeResponse.items) {
+              youtubeResponse.items.forEach((playlist: youtube_v3.Schema$Playlist) => {
+                const title = playlist.snippet?.title || '';
+                youtubePlaylistNames.add(title);
+                youtubePlaylistsMap.set(title, playlist);
+              });
+            }
+
+            nextPageToken = youtubeResponse.nextPageToken || undefined;
+          } while (nextPageToken);
+
+          // Success - record it
+          youtubeCircuitBreaker.recordSuccess();
+        } catch (error: any) {
+          const errorCode = error?.code;
+          if (errorCode === 403) {
+            Logger.warn('YouTube API quota exceeded when fetching playlists', { errorCode });
+            youtubeQuotaExceeded = true;
+            // Open circuit breaker for quota errors
+            youtubeCircuitBreaker.open();
+          } else {
+            Logger.warn('Could not fetch YouTube playlists for sorting', {}, error);
+            // Record failure but don't necessarily open circuit (might be transient)
+            youtubeCircuitBreaker.recordFailure(error);
           }
-
-          nextPageToken = youtubeResponse.nextPageToken || undefined;
-        } while (nextPageToken);
-      } catch (error) {
-        Logger.warn('Could not fetch YouTube playlists for sorting', {}, error);
-        // Continue without YouTube playlist info
+          // Continue without YouTube playlist info
+        }
       }
     }
 
@@ -224,7 +248,9 @@ router.get('/playlists',
     const playlistsHtml = await Promise.all(sortedPlaylists.map(async (playlist: any) => {
       const isSynced = youtubePlaylistNames.has(`${playlist.name} (from Spotify)`);
       const syncIcon = isSynced ? '' : '';
-      const buttonText = isSynced ? 'Update YouTube Playlist' : 'Sync to YouTube';
+      const buttonText = youtubeQuotaExceeded
+        ? 'YouTube Quota Exceeded'
+        : isSynced ? 'Update YouTube Playlist' : 'Sync to YouTube';
       const buttonClass = isSynced ? 'btn-outline-success' : 'btn-primary';
 
       // Get YouTube playlist info if it exists
@@ -242,13 +268,16 @@ router.get('/playlists',
         syncIcon,
         buttonText,
         buttonClass,
-        isYouTubeConnected: !!youtubeTokens
+        isYouTubeConnected: !!youtubeTokens,
+        isDisabled: youtubeQuotaExceeded
       });
     })).then(items => items.join(''));
     
-    const summaryText = syncedPlaylists.length > 0
-      ? `Showing ${syncedPlaylists.length} synced and ${unsyncedPlaylists.length} unsynced playlists${ownOnly ? ' (your playlists only)' : ''}`
-      : `Showing ${unsyncedPlaylists.length} playlists${ownOnly ? ' (your playlists only)' : ''} (none synced yet)`;
+    const summaryText = youtubeQuotaExceeded
+      ? `Showing ${spotifyPlaylists.length} playlists${ownOnly ? ' (your playlists only)' : ''} (YouTube API quota exceeded - sync status unavailable)`
+      : syncedPlaylists.length > 0
+        ? `Showing ${syncedPlaylists.length} synced and ${unsyncedPlaylists.length} unsynced playlists${ownOnly ? ' (your playlists only)' : ''}`
+        : `Showing ${unsyncedPlaylists.length} playlists${ownOnly ? ' (your playlists only)' : ''} (none synced yet)`;
 
     // Cache for 30 minutes (LONG) - saves YouTube API quota
     // This is expensive because it checks ALL YouTube playlists for sync status
