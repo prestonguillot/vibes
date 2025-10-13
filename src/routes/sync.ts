@@ -744,27 +744,38 @@ router.post('/playlist/:playlistId',
         youtubePlaylistId = existingPlaylist.id!;
         isUpdateMode = true;
         Logger.external('YouTube', 'Found existing playlist - entering UPDATE mode', { title: playlistTitle, id: youtubePlaylistId });
-        
+
         // Get existing videos to determine which tracks are already synced
-        const existingItems = await youtube.playlistItems.list({
-          part: ['id', 'snippet'],
-          playlistId: youtubePlaylistId,
-          maxResults: 50
-        });
-        
-        logApiCall('get existing items', 1);
-        
-        const existingVideos = existingItems.data.items || [];
-        Logger.info('Found existing videos in playlist', { count: existingVideos.length });
-        
-        // Map existing videos
-        for (const item of existingVideos) {
-          if (item.snippet?.resourceId?.videoId) {
-            const videoId = item.snippet.resourceId.videoId;
-            existingVideoIds.add(videoId);
-            existingItemsMap.set(videoId, item);
+        // IMPORTANT: Paginate through ALL items, not just first 50
+        let nextPageToken: string | undefined = undefined;
+        let totalExistingVideos = 0;
+
+        do {
+          const existingItems = await youtube.playlistItems.list({
+            part: ['id', 'snippet'],
+            playlistId: youtubePlaylistId,
+            maxResults: 50,
+            pageToken: nextPageToken
+          });
+
+          logApiCall('get existing items', 1);
+
+          const existingVideos = existingItems.data.items || [];
+          totalExistingVideos += existingVideos.length;
+
+          // Map existing videos
+          for (const item of existingVideos) {
+            if (item.snippet?.resourceId?.videoId) {
+              const videoId = item.snippet.resourceId.videoId;
+              existingVideoIds.add(videoId);
+              existingItemsMap.set(videoId, item);
+            }
           }
-        }
+
+          nextPageToken = existingItems.data.nextPageToken || undefined;
+        } while (nextPageToken);
+
+        Logger.info('Found existing videos in playlist', { count: totalExistingVideos });
       } else {
         Logger.info('No existing playlist found - entering CREATE mode');
       }
