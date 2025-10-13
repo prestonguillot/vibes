@@ -108,4 +108,136 @@ describe('Spotify Playlists', () => {
       expect(response.headers['content-type']).toMatch(/html/);
     });
   });
+
+  describe('Sync Button Visibility (YouTube Connection)', () => {
+    it('should show disabled button when YouTube is not connected', async () => {
+      // Mock Spotify API to return playlists
+      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
+      SpotifyWebApi.prototype.getMe = vi.fn(() =>
+        Promise.resolve({ body: { id: 'test-user' } })
+      );
+      SpotifyWebApi.prototype.getUserPlaylists = vi.fn(() =>
+        Promise.resolve({
+          body: {
+            items: [
+              {
+                id: '1234567890123456789012',
+                name: 'Test Playlist',
+                tracks: { total: 10 },
+                external_urls: { spotify: 'https://open.spotify.com/playlist/123' },
+                owner: { id: 'test-user' }
+              }
+            ]
+          }
+        })
+      );
+
+      // Set Spotify cookie but NOT YouTube cookie
+      const spotifyTokens = JSON.stringify({
+        accessToken: 'test-access-token',
+        refreshToken: 'test-refresh-token'
+      });
+
+      const response = await request(app)
+        .get('/auth/spotify/playlists')
+        .set('Cookie', [`spotify_tokens=${spotifyTokens}`])
+        .expect(200);
+
+      // Should render playlists with disabled sync button
+      expect(response.text).toContain('Connect to YouTube to Sync');
+      expect(response.text).toContain('disabled');
+      // Should NOT contain the enabled sync button text
+      expect(response.text).not.toContain('Sync to YouTube');
+    });
+
+    it('should show enabled sync button when both Spotify and YouTube are connected', async () => {
+      // Mock Spotify API
+      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
+      SpotifyWebApi.prototype.getMe = vi.fn(() =>
+        Promise.resolve({ body: { id: 'test-user' } })
+      );
+      SpotifyWebApi.prototype.getUserPlaylists = vi.fn(() =>
+        Promise.resolve({
+          body: {
+            items: [
+              {
+                id: '1234567890123456789012',
+                name: 'Test Playlist',
+                tracks: { total: 10 },
+                external_urls: { spotify: 'https://open.spotify.com/playlist/123' },
+                owner: { id: 'test-user' }
+              }
+            ]
+          }
+        })
+      );
+
+      // Set both Spotify AND YouTube cookies
+      const spotifyTokens = JSON.stringify({
+        accessToken: 'test-spotify-token',
+        refreshToken: 'test-spotify-refresh'
+      });
+      const youtubeTokens = JSON.stringify({
+        access_token: 'test-youtube-token',
+        refresh_token: 'test-youtube-refresh'
+      });
+
+      const response = await request(app)
+        .get('/auth/spotify/playlists')
+        .set('Cookie', [
+          `spotify_tokens=${spotifyTokens}`,
+          `youtube_tokens=${youtubeTokens}`
+        ])
+        .expect(200);
+
+      // Should render playlists with enabled sync button
+      expect(response.text).toContain('Sync to YouTube');
+      // Should NOT contain the disabled button text
+      expect(response.text).not.toContain('Connect to YouTube to Sync');
+    });
+
+    it('should show "Update YouTube Playlist" for synced playlists when YouTube is connected', async () => {
+      // Mock Spotify API
+      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
+      SpotifyWebApi.prototype.getMe = vi.fn(() =>
+        Promise.resolve({ body: { id: 'test-user' } })
+      );
+      SpotifyWebApi.prototype.getUserPlaylists = vi.fn(() =>
+        Promise.resolve({
+          body: {
+            items: [
+              {
+                id: '1234567890123456789012',
+                name: 'Synced Playlist',
+                tracks: { total: 10 },
+                external_urls: { spotify: 'https://open.spotify.com/playlist/123' },
+                owner: { id: 'test-user' }
+              }
+            ]
+          }
+        })
+      );
+
+      // Set both cookies
+      const spotifyTokens = JSON.stringify({
+        accessToken: 'test-spotify-token',
+        refreshToken: 'test-spotify-refresh'
+      });
+      const youtubeTokens = JSON.stringify({
+        access_token: 'test-youtube-token',
+        refresh_token: 'test-youtube-refresh'
+      });
+
+      const response = await request(app)
+        .get('/auth/spotify/playlists')
+        .set('Cookie', [
+          `spotify_tokens=${spotifyTokens}`,
+          `youtube_tokens=${youtubeTokens}`
+        ])
+        .expect(200);
+
+      // For unsynced playlists, should show "Sync to YouTube"
+      expect(response.text).toContain('Sync to YouTube');
+    });
+  });
 });
