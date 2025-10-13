@@ -469,4 +469,158 @@ describe('Spotify Playlists', () => {
       expect(response.text).toContain('connect YouTube to check sync status');
     });
   });
+
+  describe('Playlist Expand Functionality', () => {
+    it('should show expand button when YouTube is not connected', async () => {
+      // Mock Spotify API
+      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
+      SpotifyWebApi.prototype.getMe = vi.fn(() =>
+        Promise.resolve({ body: { id: 'test-user' } })
+      );
+      SpotifyWebApi.prototype.getUserPlaylists = vi.fn(() =>
+        Promise.resolve({
+          body: {
+            items: [
+              {
+                id: '1234567890123456789012',
+                name: 'Test Playlist',
+                tracks: { total: 10 },
+                external_urls: { spotify: 'https://open.spotify.com/playlist/123' },
+                owner: { id: 'test-user' }
+              }
+            ]
+          }
+        })
+      );
+
+      // Set only Spotify cookie (no YouTube)
+      const spotifyTokens = JSON.stringify({
+        accessToken: 'test-access-token',
+        refreshToken: 'test-refresh-token'
+      });
+
+      const response = await request(app)
+        .get('/auth/spotify/playlists')
+        .set('Cookie', [`spotify_tokens=${spotifyTokens}`])
+        .expect(200);
+
+      // Should show expand functionality
+      expect(response.text).toContain('expand-1234567890123456789012');
+      expect(response.text).toContain('playlist-expand-toggle');
+      expect(response.text).toContain('playlist-expand-area');
+      expect(response.text).toContain('expand-indicator');
+    });
+
+    it('should show expand button for unsynced playlists when YouTube is connected', async () => {
+      // Mock Spotify API
+      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
+      SpotifyWebApi.prototype.getMe = vi.fn(() =>
+        Promise.resolve({ body: { id: 'test-user' } })
+      );
+      SpotifyWebApi.prototype.getUserPlaylists = vi.fn(() =>
+        Promise.resolve({
+          body: {
+            items: [
+              {
+                id: '1234567890123456789012',
+                name: 'Unsynced Playlist',
+                tracks: { total: 10 },
+                external_urls: { spotify: 'https://open.spotify.com/playlist/123' },
+                owner: { id: 'test-user' }
+              }
+            ]
+          }
+        })
+      );
+
+      // Set both Spotify and YouTube cookies
+      const spotifyTokens = JSON.stringify({
+        accessToken: 'test-spotify-token',
+        refreshToken: 'test-spotify-refresh'
+      });
+      const youtubeTokens = JSON.stringify({
+        access_token: 'test-youtube-token',
+        refresh_token: 'test-youtube-refresh'
+      });
+
+      const response = await request(app)
+        .get('/auth/spotify/playlists')
+        .set('Cookie', [
+          `spotify_tokens=${spotifyTokens}`,
+          `youtube_tokens=${youtubeTokens}`
+        ])
+        .expect(200);
+
+      // Should show expand functionality even for unsynced playlist
+      expect(response.text).toContain('expand-1234567890123456789012');
+      expect(response.text).toContain('playlist-expand-toggle');
+      expect(response.text).toContain('playlist-expand-area');
+      expect(response.text).toContain('expand-indicator');
+    });
+
+    it('should show expand button for synced playlists when YouTube is connected', async () => {
+      // Mock Spotify API
+      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
+      SpotifyWebApi.prototype.getMe = vi.fn(() =>
+        Promise.resolve({ body: { id: 'test-user' } })
+      );
+      SpotifyWebApi.prototype.getUserPlaylists = vi.fn(() =>
+        Promise.resolve({
+          body: {
+            items: [
+              {
+                id: '1234567890123456789012',
+                name: 'Synced Playlist',
+                tracks: { total: 10 },
+                external_urls: { spotify: 'https://open.spotify.com/playlist/123' },
+                owner: { id: 'test-user' }
+              }
+            ]
+          }
+        })
+      );
+
+      // Mock YouTube API to return a synced playlist
+      const googleapis = await import('googleapis');
+      const mockYoutubeApi = googleapis.google.youtube({} as any);
+      mockYoutubeApi.playlists.list = vi.fn(() =>
+        Promise.resolve({
+          data: {
+            items: [
+              {
+                id: 'yt_playlist_id',
+                snippet: {
+                  title: 'Synced Playlist (from Spotify)'
+                }
+              }
+            ]
+          }
+        })
+      ) as any;
+
+      // Set both cookies
+      const spotifyTokens = JSON.stringify({
+        accessToken: 'test-spotify-token',
+        refreshToken: 'test-spotify-refresh'
+      });
+      const youtubeTokens = JSON.stringify({
+        access_token: 'test-youtube-token',
+        refresh_token: 'test-youtube-refresh'
+      });
+
+      const response = await request(app)
+        .get('/auth/spotify/playlists')
+        .set('Cookie', [
+          `spotify_tokens=${spotifyTokens}`,
+          `youtube_tokens=${youtubeTokens}`
+        ])
+        .expect(200);
+
+      // Should show expand functionality for synced playlist
+      expect(response.text).toContain('expand-1234567890123456789012');
+      expect(response.text).toContain('playlist-expand-toggle');
+      expect(response.text).toContain('playlist-expand-area');
+      expect(response.text).toContain('expand-indicator');
+    });
+  });
 });

@@ -59,20 +59,19 @@
     <!-- Sync completion summary will be inserted here -->
   </div>
 
-  <% if (isSynced) { %>
-    <input type="checkbox" id="expand-<%= id %>" class="playlist-expand-toggle" style="display: none;">
-    <label for="expand-<%= id %>" class="playlist-expand-area" data-playlist-id="<%= id %>">
-      <span class="expand-indicator">▼</span>
-    </label>
-    <div class="playlist-details-container" id="details-<%= id %>">
-      <div class="playlist-loading"
-           hx-get="/api/playlistDetails/playlist/<%= id %>"
-           hx-trigger="intersect once"
-           hx-target="#details-<%= id %>"
-           hx-swap="innerHTML">
-        <div class="loading-spinner"></div>
-        Loading playlist details...
-      </div>
+  <!-- Always show expand functionality, regardless of sync status -->
+  <input type="checkbox" id="expand-<%= id %>" class="playlist-expand-toggle" style="display: none;">
+  <label for="expand-<%= id %>" class="playlist-expand-area" data-playlist-id="<%= id %>">
+    <span class="expand-indicator">▼</span>
+  </label>
+  <div class="playlist-details-container" id="details-<%= id %>">
+    <div class="playlist-loading"
+         hx-get="/api/playlistDetails/playlist/<%= id %>"
+         hx-trigger="intersect once"
+         hx-target="#details-<%= id %>"
+         hx-swap="innerHTML">
+      <div class="loading-spinner"></div>
+      Loading playlist details...
     </div>
-  <% } %>
+  </div>
 </div>
