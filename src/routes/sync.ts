@@ -773,16 +773,16 @@ router.post('/playlist/:playlistId',
         let totalExistingVideos = 0;
 
         do {
-          const existingItems = await youtube.playlistItems.list({
+          const response: youtube_v3.Schema$PlaylistItemListResponse = (await youtube.playlistItems.list({
             part: ['id', 'snippet'],
             playlistId: youtubePlaylistId,
             maxResults: 50,
             pageToken: nextPageToken
-          });
+          })).data;
 
           logApiCall('get existing items', 1);
 
-          const existingVideos = existingItems.data.items || [];
+          const existingVideos = response.items || [];
           totalExistingVideos += existingVideos.length;
 
           // Map existing videos
@@ -794,7 +794,7 @@ router.post('/playlist/:playlistId',
             }
           }
 
-          nextPageToken = existingItems.data.nextPageToken || undefined;
+          nextPageToken = response.nextPageToken || undefined;
         } while (nextPageToken);
 
         Logger.info('Found existing videos in playlist', { count: totalExistingVideos });
