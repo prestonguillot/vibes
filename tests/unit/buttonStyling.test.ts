@@ -204,4 +204,31 @@ describe('Button Styling Consistency', () => {
       });
     });
   });
+
+  describe('Form control cursor styling', () => {
+    it('should have pointer cursor for checkbox inputs (form-check-input)', () => {
+      const formCheckInputMatch = cssContent.match(/\.form-check-input\s*{[^}]*}/);
+      expect(formCheckInputMatch).toBeTruthy();
+
+      const formCheckInputStyles = formCheckInputMatch?.[0] || '';
+      expect(formCheckInputStyles).toContain('cursor: pointer');
+    });
+
+    it('should have pointer cursor for checkbox labels (form-check-label)', () => {
+      const formCheckLabelMatch = cssContent.match(/\.form-check-label\s*{[^}]*}/);
+      expect(formCheckLabelMatch).toBeTruthy();
+
+      const formCheckLabelStyles = formCheckLabelMatch?.[0] || '';
+      expect(formCheckLabelStyles).toContain('cursor: pointer');
+    });
+
+    it('should have pointer cursor for select dropdowns (form-select)', () => {
+      // Match both .form-select and select selectors
+      const formSelectMatch = cssContent.match(/\.form-select,\s*select\s*{[^}]*}/);
+      expect(formSelectMatch).toBeTruthy();
+
+      const formSelectStyles = formSelectMatch?.[0] || '';
+      expect(formSelectStyles).toContain('cursor: pointer');
+    });
+  });
 });
