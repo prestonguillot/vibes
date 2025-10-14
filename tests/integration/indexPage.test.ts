@@ -76,4 +76,76 @@ describe('Index Page', () => {
       expect(response.text).toContain('X-CSRF-Token');
     });
   });
+
+  describe('Playlist Controls Layout', () => {
+    it('should include playlist section heading', async () => {
+      const response = await request(app)
+        .get('/');
+
+      expect(response.text).toContain('Your Spotify Playlists');
+    });
+
+    it('should include tracks per sync dropdown with all options', async () => {
+      const response = await request(app)
+        .get('/');
+
+      // Should have the dropdown
+      expect(response.text).toContain('id="syncBatchSize"');
+      expect(response.text).toContain('Tracks per sync:');
+
+      // Should have all options
+      expect(response.text).toContain('<option value="1" selected>1</option>');
+      expect(response.text).toContain('<option value="5">5</option>');
+      expect(response.text).toContain('<option value="10">10</option>');
+      expect(response.text).toContain('<option value="all">All</option>');
+    });
+
+    it('should include "Show only playlists I created" toggle checked by default', async () => {
+      const response = await request(app)
+        .get('/');
+
+      // Should have the toggle
+      expect(response.text).toContain('id="ownPlaylistsOnly"');
+      expect(response.text).toContain('Show only playlists I created');
+
+      // Should be checked by default
+      expect(response.text).toMatch(/id="ownPlaylistsOnly"[^>]*checked/);
+    });
+
+    it('should configure toggle to filter playlists via HTMX', async () => {
+      const response = await request(app)
+        .get('/');
+
+      // Verify toggle has correct HTMX attributes
+      const toggleMatch = response.text.match(/id="ownPlaylistsOnly"[^>]*>/);
+      expect(toggleMatch).toBeTruthy();
+
+      // Should target playlists content
+      expect(response.text).toMatch(/hx-target="#playlists-content"/);
+
+      // Should trigger on change
+      expect(response.text).toMatch(/hx-trigger="change"/);
+    });
+
+    it('should have heading and controls in separate structure for better spacing', async () => {
+      const response = await request(app)
+        .get('/');
+
+      // Should have proper spacing class on heading
+      expect(response.text).toMatch(/<h4[^>]*class="[^"]*mb-3[^"]*">Your Spotify Playlists<\/h4>/);
+
+      // Verify heading and controls are present in the same section
+      expect(response.text).toContain('Your Spotify Playlists');
+      expect(response.text).toContain('id="syncBatchSize"');
+      expect(response.text).toContain('id="ownPlaylistsOnly"');
+    });
+
+    it('should have flex-wrap on controls container for responsive behavior', async () => {
+      const response = await request(app)
+        .get('/');
+
+      // Controls container should have flex-wrap
+      expect(response.text).toMatch(/class="[^"]*d-flex[^"]*align-items-center[^"]*gap-3[^"]*flex-wrap[^"]*"/);
+    });
+  });
 });
