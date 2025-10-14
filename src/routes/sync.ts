@@ -855,12 +855,13 @@ router.post('/playlist/:playlistId',
       // Match Spotify tracks to existing YouTube videos to identify unsynced tracks
       const unsyncedTracks: unknown[] = [];
       const syncedTracks: unknown[] = [];
-      
+      const matchedVideoIds = new Set<string>(); // Track which videos have been matched
+
       Logger.info('Starting track matching analysis', {
         totalSpotifyTracks: tracks.length,
         existingYouTubeVideos: existingVideos.length
       });
-      
+
       for (const item of tracks) {
         const typedItem = item as { track: { id: string; name: string; artists: Array<{ name?: string }>; type?: string } | null };
         if (typedItem.track && typedItem.track.type === 'track') {
@@ -870,19 +871,22 @@ router.post('/playlist/:playlistId',
             name: track.name,
             artist: track.artists[0]?.name || 'Unknown Artist'
           };
-          
-          // Use the same matching logic as playlist details
-          const matchingVideo = findBestMatch(spotifyTrack, existingVideos);
-          
+
+          // Filter out already-matched videos to prevent duplicate matches
+          const availableVideos = existingVideos.filter(v => !matchedVideoIds.has(v.id));
+          const matchingVideo = findBestMatch(spotifyTrack, availableVideos);
+
           if (!matchingVideo) {
             unsyncedTracks.push(item);
             Logger.debug('Track identified as UNSYNCED', {
               trackName: spotifyTrack.name,
               artist: spotifyTrack.artist,
-              existingVideoCount: existingVideos.length,
-              firstFewExistingTitles: existingVideos.slice(0, 3).map(v => v.title)
+              existingVideoCount: availableVideos.length,
+              firstFewExistingTitles: availableVideos.slice(0, 3).map(v => v.title)
             });
           } else {
+            // Mark this video as matched so it can't be matched again
+            matchedVideoIds.add(matchingVideo.id);
             syncedTracks.push(item);
             Logger.debug('Track identified as SYNCED', {
               trackName: spotifyTrack.name,
