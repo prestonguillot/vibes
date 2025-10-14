@@ -518,6 +518,12 @@ router.post('/playlist/:playlistId',
         }
       }
 
+      Logger.info('Built Spotify track positions map', {
+        totalSpotifyTracks: spotifyTracks.length,
+        trackKeysCount: spotifyTrackPositions.size,
+        firstFewTracks: Array.from(spotifyTrackPositions.entries()).slice(0, 5).map(([key, pos]) => ({ key, pos }))
+      });
+
       // Get current YouTube playlist order to compare with target order
       // Use pagination to fetch ALL items, not just first 50
       const currentPlaylistItems: youtube_v3.Schema$PlaylistItem[] = [];
@@ -540,7 +546,9 @@ router.post('/playlist/:playlistId',
       } while (nextPageToken);
 
       Logger.info('Fetched all playlist items for reordering', {
-        totalItems: currentPlaylistItems.length
+        totalItems: currentPlaylistItems.length,
+        videoIds: currentPlaylistItems.map(item => item.snippet?.resourceId?.videoId).filter(Boolean),
+        titles: currentPlaylistItems.map(item => item.snippet?.title).filter(Boolean)
       });
 
       const currentYouTubeOrder = currentPlaylistItems;
@@ -604,17 +612,30 @@ router.post('/playlist/:playlistId',
                   artist: track.artists[0]?.name || 'Unknown Artist'
                 });
 
-                Logger.debug('Track needs repositioning', {
+                Logger.info('Track needs repositioning', {
                   trackName: track.name,
                   artist: track.artists[0]?.name || 'Unknown Artist',
                   currentPosition: currentPosInfo.currentPosition,
-                  targetPosition: targetPosition
+                  targetPosition: targetPosition,
+                  videoId: matchingVideo.id,
+                  videoTitle: matchingVideo.title
                 });
-              } else {
-                Logger.debug('Track already in correct position, skipping', {
+              } else if (currentPosInfo) {
+                Logger.info('Track already in correct position, skipping', {
                   trackName: track.name,
                   artist: track.artists[0]?.name || 'Unknown Artist',
-                  position: targetPosition
+                  position: targetPosition,
+                  currentPosition: currentPosInfo.currentPosition,
+                  videoId: matchingVideo.id,
+                  videoTitle: matchingVideo.title
+                });
+              } else {
+                Logger.warn('Could not find current position for matched video', {
+                  trackName: track.name,
+                  artist: track.artists[0]?.name || 'Unknown Artist',
+                  targetPosition,
+                  videoId: matchingVideo.id,
+                  videoTitle: matchingVideo.title
                 });
               }
             }
