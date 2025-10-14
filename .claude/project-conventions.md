@@ -32,6 +32,7 @@
 - Use HTTP standards (headers, status codes, caching) over custom mechanisms
 - Keep server logic simple and stateless
 - Let the browser handle caching, cookies, and state where appropriate
+- **Prefer native HTML elements over custom JavaScript widgets** - Use standard `<select>`, `<input>`, `<button>`, etc. instead of building custom dropdowns, date pickers, or other form controls. Native elements are more accessible, maintainable, and work better with assistive technologies. Accept that some styling limitations are a reasonable tradeoff for simplicity and standards compliance.
 
 ### Type Safety
 - **Be as type-safe as possible at all times**
