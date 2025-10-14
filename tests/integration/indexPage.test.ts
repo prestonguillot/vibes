@@ -29,13 +29,12 @@ describe('Index Page', () => {
   });
 
   describe('HTMX Event Configuration', () => {
-    it('should configure playlists section to listen for youtubeConnected event', async () => {
+    it('should include YouTube connection refresh script', async () => {
       const response = await request(app)
         .get('/');
 
-      // Playlists content div should have hx-trigger that listens for youtubeConnected event
-      expect(response.text).toContain('id="playlists-content"');
-      expect(response.text).toContain('hx-trigger="load, youtubeConnected from:body"');
+      // Should include the YouTube connection refresh handler script
+      expect(response.text).toContain('src="/js/youtubeConnectionRefresh.js"');
     });
 
     it('should configure playlists section to fetch from correct endpoint', async () => {
