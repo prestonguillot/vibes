@@ -286,6 +286,7 @@ body {
   align-items: center;
   padding: 12px 8px;
   border-radius: 0;
+  gap: 12px;
 }
 
 .track-item--even {
@@ -302,13 +303,14 @@ body {
 
 .track-number {
   min-width: 30px;
-  margin-right: 12px;
+  flex-shrink: 0;
   color: #6c757d;
   font-size: 0.875rem;
 }
 
 .track-content {
   flex-grow: 1;
+  min-width: 0;
 }
 
 .track-title {
@@ -322,10 +324,10 @@ body {
 }
 
 .track-status {
-  margin-left: 8px;
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 .youtube-video__content {
@@ -343,6 +345,12 @@ body {
 
 .youtube-video__info {
   flex-grow: 1;
+  min-width: 0;
+}
+
+/* Fix for text truncation in nested flex containers */
+.youtube-video .flex-grow-1 {
+  min-width: 0;
 }
 
 .youtube-video__link {
@@ -914,6 +922,16 @@ body {
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 100%;
+}
+
+/* Make link a block element so truncation works */
+.youtube-video a {
+    display: block;
+}
+
+/* Allow flex container to shrink */
+.youtube-video .d-flex {
+    min-width: 0;
 }
 
 /* === PLAYLIST LAYOUT AND POSITIONING === */
