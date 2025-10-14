@@ -105,8 +105,8 @@ router.get('/callback',
 
     Logger.auth('Spotify', 'tokens stored in cookie');
 
-    // Redirect back to main page
-    res.redirect('/?spotify=connected');
+    // Redirect back to main page - status endpoint will detect connection
+    res.redirect('/');
   } catch (error) {
     Logger.error('Error getting Spotify tokens', {}, error);
     res.render('partials/oauth-error', { service: 'Spotify' });

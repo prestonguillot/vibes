@@ -102,8 +102,8 @@ router.get('/callback',
 
     Logger.auth('YouTube', 'tokens stored in cookie');
 
-    // Redirect back to main page
-    res.redirect('/?youtube=connected');
+    // Redirect back to main page - status endpoint will detect connection and trigger event
+    res.redirect('/');
   } catch (error) {
     Logger.error('Error getting YouTube tokens', {}, error);
     res.render('partials/oauth-error', { service: 'YouTube' });
