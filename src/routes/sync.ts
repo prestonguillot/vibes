@@ -580,6 +580,7 @@ router.post('/playlist/:playlistId',
 
       // Find existing YouTube videos that need reordering (only those in wrong positions)
       const reorderOperations = [];
+      const matchedVideoIds = new Set<string>(); // Track which videos have been matched
 
       for (const syncedTrack of syncedTracks) {
         const typedSyncedTrack = syncedTrack as { track: { id: string; name: string; artists: Array<{ name?: string }>; type?: string } | null };
@@ -596,9 +597,12 @@ router.post('/playlist/:playlistId',
               artist: track.artists[0]?.name || 'Unknown Artist'
             };
 
-            // Use the existingVideos array we built once above
-            const matchingVideo = findBestMatch(spotifyTrackInfo, existingVideos);
+            // Filter out already-matched videos to prevent duplicate matches
+            const availableVideos = existingVideos.filter(v => !matchedVideoIds.has(v.id));
+            const matchingVideo = findBestMatch(spotifyTrackInfo, availableVideos);
             if (matchingVideo && matchingVideo.playlistItemId) {
+              // Mark this video as matched so it can't be matched again
+              matchedVideoIds.add(matchingVideo.id);
               const currentPosInfo = currentPositions.get(matchingVideo.id);
 
               // CRITICAL FIX: Only add to reorder operations if position is actually wrong
