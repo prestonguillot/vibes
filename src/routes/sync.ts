@@ -190,10 +190,10 @@ function calculateStringSimilarity(str1: string, str2: string): number {
 
 function calculateLevenshteinDistance(str1: string, str2: string): number {
   const matrix = Array(str2.length + 1).fill(null).map(() => Array(str1.length + 1).fill(null));
-  
+
   for (let i = 0; i <= str1.length; i++) matrix[0][i] = i;
   for (let j = 0; j <= str2.length; j++) matrix[j][0] = j;
-  
+
   for (let j = 1; j <= str2.length; j++) {
     for (let i = 1; i <= str1.length; i++) {
       const indicator = str1[i - 1] === str2[j - 1] ? 0 : 1;
@@ -204,8 +204,80 @@ function calculateLevenshteinDistance(str1: string, str2: string): number {
       );
     }
   }
-  
+
   return matrix[str2.length][str1.length];
+}
+
+/**
+ * Optimal track-to-video matching algorithm
+ *
+ * Resolves conflicts by assigning videos to tracks based on match quality,
+ * not processing order. If multiple tracks want the same video, the video
+ * goes to the track with the highest match score.
+ *
+ * Algorithm:
+ * 1. Calculate all match scores for all track-video pairs
+ * 2. Sort pairs by score (highest first)
+ * 3. Greedily assign: give each video to the track with the best match
+ * 4. Skip tracks/videos that are already assigned
+ *
+ * @param tracks Array of Spotify tracks to match
+ * @param videos Array of YouTube videos to match against
+ * @returns Map of track ID -> matched video (only includes successful matches)
+ */
+function optimalTrackMatching(
+  tracks: SimplifiedTrack[],
+  videos: SimplifiedVideo[]
+): Map<string, SimplifiedVideo> {
+  const minScore = 0.4; // Minimum similarity threshold
+
+  // Step 1: Calculate all match scores
+  interface MatchCandidate {
+    track: SimplifiedTrack;
+    video: SimplifiedVideo;
+    score: number;
+  }
+
+  const candidates: MatchCandidate[] = [];
+
+  for (const track of tracks) {
+    for (const video of videos) {
+      const score = calculateMatchScore(track, video);
+      if (score >= minScore) {
+        candidates.push({ track, video, score });
+      }
+    }
+  }
+
+  // Step 2: Sort by score (highest first)
+  candidates.sort((a, b) => b.score - a.score);
+
+  // Step 3: Greedy assignment - assign best matches first
+  const assignedTracks = new Set<string>();
+  const assignedVideos = new Set<string>();
+  const matches = new Map<string, SimplifiedVideo>();
+
+  for (const candidate of candidates) {
+    // Skip if this track or video is already assigned
+    if (assignedTracks.has(candidate.track.id) || assignedVideos.has(candidate.video.id)) {
+      continue;
+    }
+
+    // Assign this match
+    matches.set(candidate.track.id, candidate.video);
+    assignedTracks.add(candidate.track.id);
+    assignedVideos.add(candidate.video.id);
+  }
+
+  Logger.debug('Optimal matching results', {
+    totalTracks: tracks.length,
+    totalVideos: videos.length,
+    candidatesEvaluated: candidates.length,
+    successfulMatches: matches.size,
+    unmatchedTracks: tracks.length - matches.size
+  });
+
+  return matches;
 }
 
 // Helper functions for token refresh
@@ -578,9 +650,25 @@ router.post('/playlist/:playlistId',
         }
       }
 
+      // Build arrays of tracks for optimal matching
+      const tracksToMatch: SimplifiedTrack[] = [];
+      for (const syncedTrack of syncedTracks) {
+        const typedSyncedTrack = syncedTrack as { track: { id: string; name: string; artists: Array<{ name?: string }>; type?: string } | null };
+        if (typedSyncedTrack.track && typedSyncedTrack.track.type === 'track') {
+          const track = typedSyncedTrack.track;
+          tracksToMatch.push({
+            id: track.id,
+            name: track.name,
+            artist: track.artists[0]?.name || 'Unknown Artist'
+          });
+        }
+      }
+
+      // Use optimal matching algorithm to resolve conflicts based on match quality
+      const trackMatches = optimalTrackMatching(tracksToMatch, existingVideos);
+
       // Find existing YouTube videos that need reordering (only those in wrong positions)
       const reorderOperations = [];
-      const matchedVideoIds = new Set<string>(); // Track which videos have been matched
 
       for (const syncedTrack of syncedTracks) {
         const typedSyncedTrack = syncedTrack as { track: { id: string; name: string; artists: Array<{ name?: string }>; type?: string } | null };
@@ -590,19 +678,10 @@ router.post('/playlist/:playlistId',
           const targetPosition = spotifyTrackPositions.get(trackKey);
 
           if (targetPosition !== undefined) {
-            // Find the corresponding YouTube video
-            const spotifyTrackInfo = {
-              id: track.id,
-              name: track.name,
-              artist: track.artists[0]?.name || 'Unknown Artist'
-            };
+            // Get the matched video from optimal matching
+            const matchingVideo = trackMatches.get(track.id);
 
-            // Filter out already-matched videos to prevent duplicate matches
-            const availableVideos = existingVideos.filter(v => !matchedVideoIds.has(v.id));
-            const matchingVideo = findBestMatch(spotifyTrackInfo, availableVideos);
             if (matchingVideo && matchingVideo.playlistItemId) {
-              // Mark this video as matched so it can't be matched again
-              matchedVideoIds.add(matchingVideo.id);
               const currentPosInfo = currentPositions.get(matchingVideo.id);
 
               // CRITICAL FIX: Only add to reorder operations if position is actually wrong
@@ -852,15 +931,35 @@ router.post('/playlist/:playlistId',
         existingVideoTitles: existingVideos.map(v => v.title).slice(0, 3) // Show first 3 titles
       });
 
-      // Match Spotify tracks to existing YouTube videos to identify unsynced tracks
-      const unsyncedTracks: unknown[] = [];
-      const syncedTracks: unknown[] = [];
-      const matchedVideoIds = new Set<string>(); // Track which videos have been matched
+      // Build arrays of tracks for optimal matching
+      const tracksToMatch: SimplifiedTrack[] = [];
+      const trackIndexMap = new Map<string, number>(); // Track ID -> index in tracks array
 
       Logger.info('Starting track matching analysis', {
         totalSpotifyTracks: tracks.length,
         existingYouTubeVideos: existingVideos.length
       });
+
+      for (let i = 0; i < tracks.length; i++) {
+        const item = tracks[i];
+        const typedItem = item as { track: { id: string; name: string; artists: Array<{ name?: string }>; type?: string } | null };
+        if (typedItem.track && typedItem.track.type === 'track') {
+          const track = typedItem.track;
+          tracksToMatch.push({
+            id: track.id,
+            name: track.name,
+            artist: track.artists[0]?.name || 'Unknown Artist'
+          });
+          trackIndexMap.set(track.id, i);
+        }
+      }
+
+      // Use optimal matching algorithm to resolve conflicts based on match quality
+      const trackMatches = optimalTrackMatching(tracksToMatch, existingVideos);
+
+      // Match Spotify tracks to existing YouTube videos to identify unsynced tracks
+      const unsyncedTracks: unknown[] = [];
+      const syncedTracks: unknown[] = [];
 
       for (const item of tracks) {
         const typedItem = item as { track: { id: string; name: string; artists: Array<{ name?: string }>; type?: string } | null };
@@ -872,21 +971,17 @@ router.post('/playlist/:playlistId',
             artist: track.artists[0]?.name || 'Unknown Artist'
           };
 
-          // Filter out already-matched videos to prevent duplicate matches
-          const availableVideos = existingVideos.filter(v => !matchedVideoIds.has(v.id));
-          const matchingVideo = findBestMatch(spotifyTrack, availableVideos);
+          // Check if this track was matched in the optimal matching
+          const matchingVideo = trackMatches.get(track.id);
 
           if (!matchingVideo) {
             unsyncedTracks.push(item);
             Logger.debug('Track identified as UNSYNCED', {
               trackName: spotifyTrack.name,
               artist: spotifyTrack.artist,
-              existingVideoCount: availableVideos.length,
-              firstFewExistingTitles: availableVideos.slice(0, 3).map(v => v.title)
+              existingVideoCount: existingVideos.length
             });
           } else {
-            // Mark this video as matched so it can't be matched again
-            matchedVideoIds.add(matchingVideo.id);
             syncedTracks.push(item);
             Logger.debug('Track identified as SYNCED', {
               trackName: spotifyTrack.name,
