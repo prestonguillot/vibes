@@ -2,9 +2,25 @@
  * Integration tests for connection button endpoints (BUG-002)
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import { createApp } from '@/app';
+
+// Mock googleapis
+vi.mock('googleapis', () => ({
+  google: {
+    auth: {
+      OAuth2: vi.fn().mockImplementation(() => ({
+        setCredentials: vi.fn(),
+      })),
+    },
+    youtube: vi.fn().mockReturnValue({
+      channels: {
+        list: vi.fn().mockResolvedValue({ data: { items: [{ id: 'test' }] } }),
+      },
+    }),
+  },
+}));
 
 const app = createApp();
 
@@ -121,6 +137,49 @@ describe('Connection Button Endpoints', () => {
 
       // Should return 404 (route not found for POST)
       expect(response.status).toBe(404);
+    });
+  });
+
+  describe('HTMX Event Triggers', () => {
+    describe('YouTube connection events', () => {
+      it('should send HX-Trigger header when YouTube is connected', async () => {
+        // Mock valid YouTube tokens
+        const mockYouTubeTokens = JSON.stringify({
+          access_token: 'mock_youtube_access_token',
+          refresh_token: 'mock_youtube_refresh_token',
+          expiry_date: Date.now() + 3600000 // 1 hour from now
+        });
+
+        const response = await request(app)
+          .get('/api/status/youtube/button')
+          .set('Cookie', [`youtube_tokens=${mockYouTubeTokens}`]);
+
+        // Should send HX-Trigger header to refresh playlists
+        expect(response.headers['hx-trigger']).toBe('youtubeConnected');
+      });
+
+      it('should NOT send HX-Trigger header when YouTube is not connected', async () => {
+        const response = await request(app)
+          .get('/api/status/youtube/button');
+
+        // Should NOT send HX-Trigger header when not connected
+        expect(response.headers['hx-trigger']).toBeUndefined();
+      });
+
+      it('should NOT send HX-Trigger header for Spotify button', async () => {
+        // Mock valid Spotify tokens
+        const mockSpotifyTokens = JSON.stringify({
+          accessToken: 'mock_spotify_access_token',
+          refreshToken: 'mock_spotify_refresh_token'
+        });
+
+        const response = await request(app)
+          .get('/api/status/spotify/button')
+          .set('Cookie', [`spotify_tokens=${mockSpotifyTokens}`]);
+
+        // Spotify button should not trigger playlist refresh
+        expect(response.headers['hx-trigger']).toBeUndefined();
+      });
     });
   });
 });
