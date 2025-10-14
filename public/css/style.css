@@ -284,7 +284,7 @@ body {
 .track-item {
   display: flex;
   align-items: center;
-  padding: 12px 8px;
+  padding: 16px 12px;
   border-radius: 0;
   gap: 12px;
 }
@@ -336,11 +336,13 @@ body {
 }
 
 .youtube-video__thumbnail {
-  width: 40px;
-  height: 30px;
+  width: 80px;
+  height: 60px;
   object-fit: cover;
-  border-radius: 3px;
-  margin-right: 8px;
+  border-radius: 4px;
+  margin-right: 12px;
+  border: 2px solid #000;
+  box-shadow: 2px 2px 0px rgba(0,0,0,0.3);
 }
 
 .youtube-video__info {
