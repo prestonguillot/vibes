@@ -316,17 +316,23 @@ body {
   min-width: 0;
   display: grid;
   grid-template-columns: 140px 1fr;
-  align-items: center;
+  grid-template-rows: auto auto;
   gap: 16px;
+  row-gap: 4px;
+  align-items: start;
 }
 
 .spotify-track {
   grid-column: 2;
-  display: contents;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  align-self: start;
 }
 
 .track-title {
-  grid-column: 2;
   font-weight: 600;
   margin-bottom: 0;
   line-height: 1.4;
@@ -336,7 +342,6 @@ body {
 }
 
 .track-artist {
-  grid-column: 2;
   color: #6c757d;
   font-size: 0.875rem;
   line-height: 1.4;
@@ -347,7 +352,7 @@ body {
 }
 
 .youtube-video {
-  display: contents;
+  display: contents !important;
 }
 
 .youtube-video .d-flex {
@@ -369,7 +374,10 @@ body {
 
 .youtube-video .flex-grow-1 {
   grid-column: 2;
+  grid-row: 2;
   min-width: 0;
+  align-self: start;
+  display: block;
 }
 
 .youtube-video a {
@@ -395,11 +403,6 @@ body {
 
 .youtube-video__info {
   flex-grow: 1;
-  min-width: 0;
-}
-
-/* Fix for text truncation in nested flex containers */
-.youtube-video .flex-grow-1 {
   min-width: 0;
 }
 
