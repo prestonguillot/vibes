@@ -292,6 +292,23 @@ body {
   min-height: 120px;
 }
 
+/* Simplified layout for playlists not synced to YouTube */
+.track-item--simple {
+  grid-template-columns: 40px 1fr;
+  min-height: auto;
+  padding: 12px;
+}
+
+.track-item--simple .track-content {
+  grid-column: 2;
+  display: block;
+}
+
+.track-item--simple .spotify-track {
+  grid-column: unset;
+  grid-row: unset;
+}
+
 .track-item--even {
   background-color: #f0f0f0;
   background-image:

@@ -417,7 +417,7 @@ router.get('/playlist/:playlistId',
 
         <div class="tracks-list">
           ${allTracks.map((track, index) => `
-            <div class="track-item ${index % 2 === 0 ? 'track-item--even' : ''}">
+            <div class="track-item ${index % 2 === 0 ? 'track-item--even' : ''} ${!youtubeTokens || !youtubePlaylist ? 'track-item--simple' : ''}">
               <div class="track-number">
                 ${index + 1}
               </div>
