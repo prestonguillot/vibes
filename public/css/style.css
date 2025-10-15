@@ -284,12 +284,11 @@ body {
 
 .track-item {
   display: grid;
-  grid-template-columns: auto auto 1fr auto;
-  grid-template-rows: auto auto auto;
+  grid-template-columns: 40px 140px 1fr auto;
+  align-items: center;
   padding: 16px 12px;
   border-radius: 0;
-  gap: 12px;
-  row-gap: 4px;
+  gap: 16px;
 }
 
 .track-item--even {
@@ -306,50 +305,50 @@ body {
 
 .track-number {
   grid-column: 1;
-  grid-row: 1 / -1;
-  min-width: 30px;
   color: #6c757d;
   font-size: 0.875rem;
   text-align: center;
-  align-self: start;
-  padding-top: 4px;
+  align-self: center;
 }
 
 .track-content {
   grid-column: 2 / 4;
-  grid-row: 1 / -1;
   min-width: 0;
   display: grid;
-  grid-template-columns: auto 1fr;
-  grid-template-rows: subgrid;
-  gap: 12px;
+  grid-template-columns: 140px 1fr;
+  align-items: center;
+  gap: 16px;
 }
 
 .youtube-video__thumbnail {
   grid-column: 1;
-  grid-row: 1 / -1;
-  width: 80px;
-  height: 60px;
+  grid-row: 1;
+  width: 120px;
+  height: 90px;
   object-fit: cover;
   border-radius: 4px;
   border: 2px solid #000;
   box-shadow: 2px 2px 0px rgba(0,0,0,0.3);
-  align-self: start;
+  justify-self: center;
+  align-self: center;
 }
 
 .spotify-track {
   grid-column: 2;
-  grid-row: 1 / 3;
+  grid-row: 1;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  align-self: start;
+  gap: 4px;
+  min-width: 0;
 }
 
 .track-title {
   font-weight: 600;
   margin-bottom: 0;
   line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .track-artist {
@@ -357,11 +356,15 @@ body {
   font-size: 0.875rem;
   line-height: 1.4;
   margin-bottom: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .youtube-video {
   grid-column: 2;
-  grid-row: 3;
+  grid-row: 1;
+  margin-top: 4px;
   min-width: 0;
 }
 
@@ -376,9 +379,16 @@ body {
   flex: 1;
 }
 
+.youtube-video a {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
 .track-status {
   grid-column: 4;
-  grid-row: 2;
+  grid-row: 1;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -976,23 +986,6 @@ body {
     display: inline-block;
     margin: 0;
     vertical-align: middle;
-}
-
-.track-title, .track-artist, .youtube-video a {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 100%;
-}
-
-/* Make link a block element so truncation works */
-.youtube-video a {
-    display: block;
-}
-
-/* Allow flex container to shrink */
-.youtube-video .d-flex {
-    min-width: 0;
 }
 
 /* === PLAYLIST LAYOUT AND POSITIONING === */
