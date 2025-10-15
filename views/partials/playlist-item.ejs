@@ -64,12 +64,13 @@
   <label for="expand-<%= id %>" class="playlist-expand-area" data-playlist-id="<%= id %>">
     <span class="expand-indicator">▼</span>
   </label>
-  <div class="playlist-details-container" id="details-<%= id %>">
-    <div class="playlist-loading"
-         hx-get="/api/playlistDetails/playlist/<%= id %>"
-         hx-trigger="intersect once, playlistSyncComplete-<%= id %> from:body"
-         hx-target="#details-<%= id %>"
-         hx-swap="innerHTML">
+  <div class="playlist-details-container"
+       id="details-<%= id %>"
+       hx-get="/api/playlistDetails/playlist/<%= id %>"
+       hx-trigger="intersect once, playlistSyncComplete-<%= id %> from:body"
+       hx-swap="innerHTML"
+       hx-sync="this:replace">
+    <div class="playlist-loading">
       <div class="loading-spinner"></div>
       Loading playlist details...
     </div>

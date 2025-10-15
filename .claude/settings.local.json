@@ -19,7 +19,8 @@
       "Bash(ls:*)",
       "Bash(GIT_SEQUENCE_EDITOR='sed -i \"\" \"1s/pick/reword/\"' git rebase:*)",
       "Bash(lsof:*)",
-      "Bash(xargs kill:*)"
+      "Bash(xargs kill:*)",
+      "Bash(pkill:*)"
     ],
     "deny": [],
     "ask": []

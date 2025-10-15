@@ -394,111 +394,17 @@ router.get('/playlist/:playlistId',
       youtubeOnlyVideos: orphanedVideos.length
     });
 
-    // Generate HTML response
-    const playlistDetailsHtml = `
-      <div class="playlist-details" data-playlist-id="${playlistId}">
-        <div class="playlist-header mb-3">
-          <h6>${spotifyPlaylistData.body.name}</h6>
-          <div class="d-flex justify-content-between align-items-center">
-            <span class="text-muted small">
-              ${allTracks.length} tracks${youtubeTokens ? ` • ${mergedTracks.filter((t: MergedTrack) => t.linked).length} linked` : ''}
-            </span>
-            <button type="button" class="btn btn-outline-secondary btn-sm"
-                    data-refresh-playlist="${playlistId}"
-                    hx-get="/api/playlistDetails/playlist/${playlistId}"
-                    hx-target="closest .playlist-details-container"
-                    hx-swap="innerHTML"
-                    hx-headers='{"Cache-Control": "no-cache"}'
-                    title="Refresh playlist details">
-              Refresh
-            </button>
-          </div>
-        </div>
-
-        <div class="tracks-list">
-          ${allTracks.map((track, index) => `
-            <div class="track-item ${index % 2 === 0 ? 'track-item--even' : ''} ${!youtubeTokens || !youtubePlaylist ? 'track-item--simple' : ''}">
-              <div class="track-number">
-                ${index + 1}
-              </div>
-              
-              <div class="track-content flex-grow-1">
-                ${track.spotify ? `
-                  <div class="spotify-track">
-                    <div class="track-title fw-semibold">${track.spotify.name}</div>
-                    <div class="track-artist text-muted small">${track.spotify.artist} • ${track.spotify.album}</div>
-                  </div>
-                ` : ''}
-
-                ${youtubeTokens && youtubePlaylist ? (
-                  track.youtube ? `
-                    <div class="youtube-video ${track.spotify ? 'mt-1' : ''}">
-                      <div class="d-flex align-items-center">
-                        <img src="${track.youtube.thumbnail}" alt="Video thumbnail"
-                             class="youtube-video__thumbnail">
-                        <div class="flex-grow-1">
-                          <a href="${track.youtube.url}" target="_blank" class="text-decoration-none small">
-                            ${track.youtube.title}
-                          </a>
-                        </div>
-                      </div>
-                    </div>
-                  ` : track.spotify ? `
-                    <div class="youtube-video youtube-video--placeholder ${track.spotify ? 'mt-1' : ''}">
-                      <div class="d-flex align-items-center">
-                        <div class="youtube-video__thumbnail youtube-video__thumbnail--placeholder">
-                          <svg width="120" height="90" viewBox="0 0 120 90" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <rect width="120" height="90" fill="#e0e0e0"/>
-                            <circle cx="60" cy="45" r="15" fill="#999"/>
-                            <path d="M55 37L68 45L55 53V37Z" fill="#fff"/>
-                          </svg>
-                        </div>
-                        <div class="flex-grow-1">
-                          <span class="text-muted small fst-italic">No video linked</span>
-                        </div>
-                      </div>
-                    </div>
-                  ` : ''
-                ) : ''}
-              </div>
-
-              <div class="track-status ms-2 d-flex align-items-center gap-2">
-                ${youtubeTokens && youtubePlaylist ? (
-                  track.linked ?
-                    `<span class="badge bg-success">Linked</span>
-                     <button type="button" class="btn btn-outline-secondary btn-sm"
-                             hx-get="/api/playlistDetails/search/${track.spotify!.id}?trackName=${encodeURIComponent(track.spotify!.name)}&artistName=${encodeURIComponent(track.spotify!.artist)}&playlistId=${playlistId}&currentVideoId=${track.youtube?.id || ''}"
-                             hx-target="#video-modal-content"
-                             hx-swap="innerHTML"
-                             title="Edit linked video">
-                       <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                         <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-                       </svg>
-                     </button>` :
-                    track.spotify ?
-                      `<span class="badge bg-warning">Unlinked</span>
-                       <button type="button" class="btn btn-outline-secondary btn-sm"
-                               hx-get="/api/playlistDetails/search/${track.spotify!.id}?trackName=${encodeURIComponent(track.spotify!.name)}&artistName=${encodeURIComponent(track.spotify!.artist)}&playlistId=${playlistId}&currentVideoId="
-                               hx-target="#video-modal-content"
-                               hx-swap="innerHTML"
-                               title="Link video to this track">
-                         <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                           <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-                         </svg>
-                       </button>` :
-                      '<span class="badge bg-info">YouTube Only</span>'
-                ) : ''}
-              </div>
-            </div>
-          `).join('')}
-        </div>
-        
-        <!-- Collapse area at bottom of expanded details -->
-        <label for="expand-${playlistId}" class="playlist-collapse-area" data-playlist-id="${playlistId}">
-          <span class="collapse-indicator">▲</span>
-        </label>
-      </div>
-    `;
+    // Generate HTML response using shared template
+    const viewsPath = path.join(__dirname, '../../views');
+    const playlistDetailsHtml = await ejs.renderFile(path.join(viewsPath, 'partials/playlist-details.ejs'), {
+      playlistId,
+      playlistName: spotifyPlaylistData.body.name,
+      tracks: allTracks,
+      linkedCount: mergedTracks.filter((t: MergedTrack) => t.linked).length,
+      totalTracks: allTracks.length,
+      hasYoutubeConnection: !!youtubeTokens,
+      hasYoutubePlaylist: !!youtubePlaylist
+    });
 
     const duration = Date.now() - startTime;
     Logger.requestEnd('Playlist Details Request', duration, { playlistId });
