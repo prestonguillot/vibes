@@ -513,7 +513,9 @@ body {
 
 .video-option {
   padding: 12px;
+  padding-left: 16px;
   border: 3px solid #000 !important;
+  border-left: 6px solid #0066ff !important;
   border-radius: 0 !important;
   margin-bottom: 12px;
   cursor: pointer;
@@ -522,6 +524,19 @@ body {
   display: block;
   box-shadow: 3px 3px 0px rgba(0,0,0,0.3);
   position: relative;
+}
+
+.video-option:nth-child(even) {
+  background-color: #f8f8f8;
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 10px,
+      rgba(0, 0, 0, 0.02) 10px,
+      rgba(0, 0, 0, 0.02) 20px
+    );
+  border-left-color: #ff0040 !important;
 }
 
 .video-option:hover {

@@ -583,14 +583,21 @@ router.get('/search/:trackId',
 
     Logger.info('Found alternative videos', { count: videos.length });
 
+    // Determine if this is for a new link or replacing an existing one
+    const isReplacing = currentVideoId && currentVideoId !== '';
+    const modalTitle = isReplacing ? 'Select Alternative Video' : 'Select Video';
+    const instructionText = isReplacing
+      ? `Choose a different YouTube video for: <strong>${trackName}</strong> by <strong>${artistName}</strong>`
+      : `Choose a YouTube video for: <strong>${trackName}</strong> by <strong>${artistName}</strong>`;
+
     // Generate HTML response with video selection interface
     const videoSelectionHtml = `
       <div class="modal-header">
-        <h5 class="modal-title">Select Alternative Video</h5>
+        <h5 class="modal-title">${modalTitle}</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
-        <p class="text-muted mb-3">Choose a different YouTube video for: <strong>${trackName}</strong> by <strong>${artistName}</strong></p>
+        <p class="text-muted mb-3">${instructionText}</p>
 
         <div class="video-options">
           ${videos.map((video, index) => `
