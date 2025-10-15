@@ -461,21 +461,50 @@ body {
   font-size: 0.875rem;
 }
 
-/* Video Selection Modal Styles */
-.video-selection-modal {
+/* Video Selection Modal Styles - PUNK ZINE AESTHETIC */
+.modal-content {
   background: #fff;
-  border: 3px solid #000;
-  border-radius: 8px;
-  padding: 20px;
-  max-width: 800px;
-  margin: 20px auto;
-  box-shadow: 8px 8px 0px rgba(0,0,0,0.3);
+  border: 4px solid #000 !important;
+  border-radius: 0 !important;
+  box-shadow: 8px 8px 0px rgba(0,0,0,0.8) !important;
+  font-family: 'Courier Prime', monospace;
+  background-image:
+    radial-gradient(circle at 10% 20%, rgba(0,0,0,0.05) 1px, transparent 1px),
+    radial-gradient(circle at 90% 80%, rgba(0,0,0,0.03) 1px, transparent 1px);
+  background-size: 25px 25px, 35px 35px;
+}
+
+.modal-header {
+  background: #000 !important;
+  color: #fff !important;
+  border-bottom: 4px solid #ff0040 !important;
+  border-radius: 0 !important;
+  padding: 16px 20px !important;
+}
+
+.modal-header .modal-title {
+  font-family: 'Fredoka One', cursive !important;
+  font-size: 1.5rem !important;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #fff !important;
+}
+
+.modal-header .btn-close {
+  filter: invert(1) brightness(2);
+  opacity: 1 !important;
+}
+
+.modal-body {
+  padding: 20px !important;
+  background: #fff;
 }
 
 .video-options {
   max-height: 400px;
   overflow-y: auto;
   margin-bottom: 16px;
+  padding-right: 8px;
 }
 
 .video-option-radio {
@@ -484,23 +513,28 @@ body {
 
 .video-option {
   padding: 12px;
-  border: 2px solid #dee2e6;
-  border-radius: 8px;
+  border: 3px solid #000 !important;
+  border-radius: 0 !important;
   margin-bottom: 12px;
   cursor: pointer;
   transition: all 0.2s;
   background: #fff;
   display: block;
+  box-shadow: 3px 3px 0px rgba(0,0,0,0.3);
+  position: relative;
 }
 
 .video-option:hover {
-  border-color: #0066ff;
-  background-color: #f8f9fa;
+  border-color: #0066ff !important;
+  background-color: #f0f0f0;
+  box-shadow: 4px 4px 0px rgba(0,0,0,0.5);
+  transform: translateY(-1px);
 }
 
 .video-option-radio:checked + .video-option {
-  border-color: #28a745;
-  background-color: #d4edda;
+  border-color: #00ff00 !important;
+  background-color: #e8ffe8;
+  box-shadow: 5px 5px 0px rgba(0,0,0,0.6);
 }
 
 .video-option .selection-indicator {
@@ -521,7 +555,9 @@ body {
   width: 120px;
   height: 90px;
   object-fit: cover;
-  border-radius: 4px;
+  border-radius: 0 !important;
+  border: 2px solid #000;
+  box-shadow: 2px 2px 0px rgba(0,0,0,0.3);
   flex-shrink: 0;
 }
 
@@ -559,8 +595,11 @@ body {
   display: flex;
   justify-content: space-between;
   margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid #dee2e6;
+  padding: 16px 20px !important;
+  border-top: 3px solid #000 !important;
+  background: #f8f8f8 !important;
+  border-radius: 0 !important;
+  gap: 12px;
 }
 
 /* === CONNECTION STATUS CARDS === */
