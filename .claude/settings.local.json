@@ -17,7 +17,9 @@
       "Bash(git commit:*)",
       "Bash(git checkout:*)",
       "Bash(ls:*)",
-      "Bash(GIT_SEQUENCE_EDITOR='sed -i \"\" \"1s/pick/reword/\"' git rebase:*)"
+      "Bash(GIT_SEQUENCE_EDITOR='sed -i \"\" \"1s/pick/reword/\"' git rebase:*)",
+      "Bash(lsof:*)",
+      "Bash(xargs kill:*)"
     ],
     "deny": [],
     "ask": []

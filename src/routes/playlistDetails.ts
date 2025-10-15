@@ -446,7 +446,7 @@ router.get('/playlist/:playlistId',
               </div>
 
               <div class="track-status ms-2 d-flex align-items-center gap-2">
-                ${youtubeTokens ? (
+                ${youtubeTokens && youtubePlaylist ? (
                   track.linked ?
                     `<span class="badge bg-success">Linked</span>
                      <button type="button" class="btn btn-outline-secondary btn-sm"
