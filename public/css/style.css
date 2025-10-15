@@ -316,13 +316,15 @@ body {
   min-width: 0;
   display: grid;
   grid-template-columns: 140px 1fr;
-  align-items: center;
+  grid-template-rows: auto auto;
+  align-items: start;
   gap: 16px;
+  row-gap: 8px;
 }
 
 .youtube-video__thumbnail {
   grid-column: 1;
-  grid-row: 1;
+  grid-row: 1 / -1;
   width: 120px;
   height: 90px;
   object-fit: cover;
@@ -363,8 +365,7 @@ body {
 
 .youtube-video {
   grid-column: 2;
-  grid-row: 1;
-  margin-top: 4px;
+  grid-row: 2;
   min-width: 0;
 }
 
@@ -384,6 +385,7 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   display: block;
+  font-size: 0.875rem;
 }
 
 .track-status {
