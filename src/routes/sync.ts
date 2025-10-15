@@ -1438,21 +1438,109 @@ router.post('/playlist/:playlistId',
         </a>
       </div>`;
 
-    Logger.info('Sync complete, sending response with OOB updates', {
+    Logger.info('Sync complete, fetching updated playlist details for OOB swap', {
       playlistId,
       youtubePlaylistUrl
     });
 
-    // Use HX-Trigger to tell the playlist details to refresh
-    res.setHeader('HX-Trigger', `playlistSyncComplete-${playlistId}`);
+    // Fetch updated playlist details to send as OOB swap
+    // This is the HTMX way - server does all the work and sends complete HTML
+    const updatedPlaylist = await spotifyApi.getPlaylist(playlistId);
+    const updatedSpotifyTracks = updatedPlaylist.body.tracks.items
+      .filter((item: unknown) => {
+        const typedItem = item as { track: unknown | null };
+        return typedItem.track !== null;
+      })
+      .map((item: unknown) => {
+        const typedItem = item as { track: { id: string; name: string; artists: Array<{ name?: string }>; album?: { name?: string }; duration_ms: number; external_urls: { spotify: string }; preview_url?: string | null } };
+        return {
+          id: typedItem.track.id,
+          name: typedItem.track.name,
+          artist: typedItem.track.artists[0]?.name || 'Unknown Artist',
+          album: typedItem.track.album?.name || 'Unknown Album'
+        };
+      });
 
-    // Return response with feedback, updated button, and YouTube link (out-of-band swaps)
+    // Get updated YouTube videos
+    const updatedYoutubeVideos: SimplifiedVideo[] = [];
+    let nextPageToken: string | undefined = undefined;
+    do {
+      const response: youtube_v3.Schema$PlaylistItemListResponse = await youtube.playlistItems.list({
+        part: ['id', 'snippet'],
+        playlistId: youtubePlaylistId,
+        maxResults: 50,
+        pageToken: nextPageToken
+      }).then(res => res.data);
+
+      if (response.items) {
+        for (const item of response.items) {
+          if (item.snippet?.resourceId?.videoId) {
+            updatedYoutubeVideos.push({
+              id: item.snippet.resourceId.videoId,
+              title: item.snippet.title || 'Unknown',
+              description: item.snippet.description || ''
+            });
+          }
+        }
+      }
+      nextPageToken = response.nextPageToken || undefined;
+    } while (nextPageToken);
+
+    // Match tracks to videos
+    const updatedMatches = optimalTrackMatching(updatedSpotifyTracks, updatedYoutubeVideos);
+    const linkedCount = updatedMatches.size;
+
+    // Transform tracks into MergedTrack format for template
+    const mergedTracks = updatedSpotifyTracks.slice(0, 10).map((track: any) => {
+      const matchedVideo = updatedMatches.get(track.id);
+      return {
+        spotify: {
+          id: track.id,
+          name: track.name,
+          artist: track.artist,
+          album: track.album
+        },
+        youtube: matchedVideo ? {
+          id: matchedVideo.id,
+          title: matchedVideo.title,
+          thumbnail: `https://img.youtube.com/vi/${matchedVideo.id}/default.jpg`,
+          url: `https://www.youtube.com/watch?v=${matchedVideo.id}`
+        } : null,
+        linked: !!matchedVideo
+      };
+    });
+
+    // Generate playlist details HTML using shared template
+    const viewsPath = path.join(__dirname, '../../views');
+    const playlistDetailsHtml = await ejs.renderFile(path.join(viewsPath, 'partials/playlist-details.ejs'), {
+      playlistId,
+      playlistName: playlist.name,
+      tracks: mergedTracks,
+      linkedCount,
+      totalTracks: updatedSpotifyTracks.length,
+      hasYoutubeConnection: true, // Sync always has YouTube connection
+      hasYoutubePlaylist: true // After sync, YouTube playlist exists
+    });
+
+    // Use innerHTML swap strategy to replace content while keeping the container's attributes
+    const playlistDetailsOOB = `<div hx-swap-oob="innerHTML:#details-${playlistId}">
+      ${playlistDetailsHtml}
+    </div>`;
+
+    Logger.info('Sending response with OOB updates including playlist details', {
+      playlistId,
+      linkedCount,
+      totalTracks: updatedSpotifyTracks.length
+    });
+
+    // Return response with feedback, updated button, YouTube link, and playlist details (all OOB swaps)
     res.send(`
       <div data-sync-success="true" data-playlist-id="${playlistId}" data-feedback-html="${encodeURIComponent(syncFeedbackHtml)}">
         ${syncFeedbackHtml}
       </div>
       ${updatedButtonHtml}
       ${youtubeLinkHtml}
+      ${playlistDetailsOOB}
     `);
     
   } catch (error) {
