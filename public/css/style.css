@@ -285,11 +285,12 @@ body {
 .track-item {
   display: grid;
   grid-template-columns: 40px 140px 1fr auto;
-  grid-template-rows: auto auto auto;
+  grid-template-rows: 1fr 1fr 1fr;
   padding: 16px 12px;
   border-radius: 0;
   gap: 16px;
-  row-gap: 4px;
+  row-gap: 8px;
+  min-height: 120px;
 }
 
 .track-item--even {
@@ -341,9 +342,9 @@ body {
   grid-row: 1 / 3;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  justify-content: center;
+  gap: 4px;
   min-width: 0;
-  align-self: center;
 }
 
 .track-title {
@@ -375,6 +376,7 @@ body {
   display: grid !important;
   grid-template-columns: subgrid;
   align-items: center;
+  align-self: center;
   gap: 16px;
   min-width: 0;
 }
