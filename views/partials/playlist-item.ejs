@@ -5,7 +5,7 @@
       <p class="text-muted mb-1"><%= tracksTotal %> tracks</p>
 
       <!-- Playlist Links -->
-      <div class="playlist-links">
+      <div class="playlist-links" id="playlist-links-<%= id %>">
         <a href="<%= spotifyUrl %>" target="_blank"
            class="playlist-link playlist-link--spotify"
            title="Open in Spotify">
@@ -67,7 +67,7 @@
   <div class="playlist-details-container" id="details-<%= id %>">
     <div class="playlist-loading"
          hx-get="/api/playlistDetails/playlist/<%= id %>"
-         hx-trigger="intersect once"
+         hx-trigger="intersect once, playlistSyncComplete-<%= id %> from:body"
          hx-target="#details-<%= id %>"
          hx-swap="innerHTML">
       <div class="loading-spinner"></div>

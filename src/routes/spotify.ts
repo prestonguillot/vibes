@@ -326,4 +326,111 @@ router.get('/playlists',
   }
 });
 
+// Get sync button for a playlist (for refresh after sync)
+router.get('/playlist-button/:playlistId',
+  validate({
+    params: z.object({
+      playlistId: schemas.spotifyPlaylistId
+    })
+  }),
+  async (req: ValidatedRequest<{ playlistId: string }>, res) => {
+  Logger.requestStart('Spotify Playlist Button Request', {
+    playlistId: req.params.playlistId
+  });
+
+  const spotifyTokens = req.cookies.spotify_tokens ? JSON.parse(req.cookies.spotify_tokens) : null;
+  const youtubeTokens = req.cookies.youtube_tokens ? JSON.parse(req.cookies.youtube_tokens) : null;
+
+  if (!spotifyTokens) {
+    return res.status(401).send('<button class="btn btn-secondary sync-btn" disabled>Connect to Spotify First</button>');
+  }
+
+  if (!youtubeTokens) {
+    return res.send('<button class="btn btn-secondary sync-btn" disabled title="Connect to YouTube first">Connect to YouTube to Sync</button>');
+  }
+
+  try {
+    const spotifyApi = await ensureValidSpotifyToken(req, res);
+    const { playlistId } = req.params;
+
+    // Get this specific playlist
+    const playlistData = await spotifyApi.getPlaylist(playlistId);
+    const playlist = playlistData.body;
+
+    // Set up YouTube API to check if this playlist has been synced
+    const oauth2Client = new google.auth.OAuth2(
+      process.env.YOUTUBE_CLIENT_ID,
+      process.env.YOUTUBE_CLIENT_SECRET,
+      process.env.YOUTUBE_REDIRECT_URI
+    );
+    oauth2Client.setCredentials(youtubeTokens);
+    const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
+
+    // Check if a YouTube playlist exists for this Spotify playlist
+    let isSynced = false;
+
+    try {
+      const playlistTitle = `${playlist.name} (from Spotify)`;
+
+      // Search for the YouTube playlist (paginate if necessary)
+      let nextPageToken: string | undefined = undefined;
+      let foundPlaylist: youtube_v3.Schema$Playlist | undefined = undefined;
+
+      do {
+        const youtubeResponse: youtube_v3.Schema$PlaylistListResponse = await youtube.playlists.list({
+          part: ['snippet'],
+          mine: true,
+          maxResults: 50,
+          pageToken: nextPageToken
+        }).then(res => res.data);
+
+        foundPlaylist = youtubeResponse.items?.find((p: youtube_v3.Schema$Playlist) =>
+          p.snippet?.title === playlistTitle
+        );
+
+        if (foundPlaylist) break;
+        nextPageToken = youtubeResponse.nextPageToken || undefined;
+      } while (nextPageToken);
+
+      if (foundPlaylist) {
+        isSynced = true;
+      }
+    } catch (error) {
+      Logger.warn('Error checking YouTube playlist status', {}, error);
+      // Continue without YouTube status
+    }
+
+    const buttonText = isSynced ? 'Update YouTube Playlist' : 'Sync to YouTube';
+    const buttonClass = isSynced ? 'btn-outline-success' : 'btn-primary';
+
+    // Return just the button HTML
+    const buttonHtml = `<button class="btn ${buttonClass} sync-btn"
+                id="sync-btn-${playlistId}"
+                hx-post="/api/sync/playlist/${playlistId}"
+                hx-target="#sync-result-${playlistId}"
+                hx-swap="innerHTML"
+                hx-indicator="#loading"
+                hx-include="#syncBatchSize"
+                hx-disabled-elt=".sync-btn"
+                hx-get="/auth/spotify/playlist-button/${playlistId}"
+                hx-trigger="playlistSynced-${playlistId} from:body"
+                hx-swap="outerHTML"
+                data-playlist-name="${playlist.name}"
+                data-playlist-id="${playlistId}"
+                data-track-count="${playlist.tracks.total}">
+          ${buttonText}
+        </button>`;
+
+    res.send(buttonHtml);
+  } catch (error) {
+    Logger.error('Error fetching playlist button', {}, error);
+
+    if (error instanceof Error && error.message === 'SPOTIFY_AUTH_REQUIRED') {
+      return res.status(401).send('<button class="btn btn-secondary sync-btn" disabled>Reconnect to Spotify</button>');
+    }
+
+    res.status(500).send('<button class="btn btn-secondary sync-btn" disabled>Error</button>');
+  }
+});
+
 export { router as spotifyRouter };
