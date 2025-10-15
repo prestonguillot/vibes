@@ -430,19 +430,36 @@ router.get('/playlist/:playlistId',
                   </div>
                 ` : ''}
 
-                ${youtubeTokens && track.youtube ? `
-                  <div class="youtube-video ${track.spotify ? 'mt-1' : ''}">
-                    <div class="d-flex align-items-center">
-                      <img src="${track.youtube.thumbnail}" alt="Video thumbnail"
-                           class="youtube-video__thumbnail">
-                      <div class="flex-grow-1">
-                        <a href="${track.youtube.url}" target="_blank" class="text-decoration-none small">
-                          ${track.youtube.title}
-                        </a>
+                ${youtubeTokens && youtubePlaylist ? (
+                  track.youtube ? `
+                    <div class="youtube-video ${track.spotify ? 'mt-1' : ''}">
+                      <div class="d-flex align-items-center">
+                        <img src="${track.youtube.thumbnail}" alt="Video thumbnail"
+                             class="youtube-video__thumbnail">
+                        <div class="flex-grow-1">
+                          <a href="${track.youtube.url}" target="_blank" class="text-decoration-none small">
+                            ${track.youtube.title}
+                          </a>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ` : ''}
+                  ` : track.spotify ? `
+                    <div class="youtube-video youtube-video--placeholder ${track.spotify ? 'mt-1' : ''}">
+                      <div class="d-flex align-items-center">
+                        <div class="youtube-video__thumbnail youtube-video__thumbnail--placeholder">
+                          <svg width="120" height="90" viewBox="0 0 120 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect width="120" height="90" fill="#e0e0e0"/>
+                            <circle cx="60" cy="45" r="15" fill="#999"/>
+                            <path d="M55 37L68 45L55 53V37Z" fill="#fff"/>
+                          </svg>
+                        </div>
+                        <div class="flex-grow-1">
+                          <span class="text-muted small fst-italic">No video linked</span>
+                        </div>
+                      </div>
+                    </div>
+                  ` : ''
+                ) : ''}
               </div>
 
               <div class="track-status ms-2 d-flex align-items-center gap-2">
