@@ -311,20 +311,9 @@ body {
   align-self: center;
 }
 
-.track-content {
-  grid-column: 2 / 4;
-  min-width: 0;
-  display: grid;
-  grid-template-columns: 140px 1fr;
-  grid-template-rows: auto auto;
-  align-items: start;
-  gap: 16px;
-  row-gap: 8px;
-}
-
 .youtube-video__thumbnail {
-  grid-column: 1;
-  grid-row: 1 / -1;
+  grid-column: 2;
+  grid-row: 1;
   width: 120px;
   height: 90px;
   object-fit: cover;
@@ -335,9 +324,17 @@ body {
   align-self: center;
 }
 
-.spotify-track {
-  grid-column: 2;
+.track-content {
+  grid-column: 3;
   grid-row: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  justify-content: center;
+}
+
+.spotify-track {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -364,8 +361,6 @@ body {
 }
 
 .youtube-video {
-  grid-column: 2;
-  grid-row: 2;
   min-width: 0;
 }
 
