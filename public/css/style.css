@@ -1358,17 +1358,21 @@ select:focus {
 /* Direct Bootstrap spinner overrides - flat punk rock styling */
 
 /* === PROCESSING STATE ANIMATION === */
-.processing-state {
+/* Use high specificity to override .btn-primary.sync-btn styles */
+.btn-primary.sync-btn.processing-state {
     animation: pulse-processing 0.8s ease-in-out infinite !important;
+    background-color: #ff00ff !important; /* Bright magenta for visibility */
 }
 
 @keyframes pulse-processing {
     0%, 100% {
         opacity: 1;
         transform: scale(1);
+        background-color: #ff00ff !important;
     }
     50% {
         opacity: 0.6;
-        transform: scale(1.02);
+        transform: scale(1.05);
+        background-color: #ff33ff !important;
     }
 }
