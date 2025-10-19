@@ -42,6 +42,12 @@
 - Ensure middleware that transforms data (like validation) properly types the transformed values
 - Enable strict TypeScript compiler options where possible
 
+### Code Refactoring and Cleanup
+- **The project must contain no dead code** - unused functions, variables, imports, or commented-out code
+- **After any refactoring work, remove all dead code before committing** - if code is no longer used, it should be deleted entirely
+- When replacing or restructuring code, verify that old code is no longer referenced anywhere in the codebase before removing it
+- Dead code creates confusion, increases maintenance burden, and obscures the actual implementation
+
 ### Testing Requirements
 - **Run the test suite after every change** - use `npm run test:run` to verify all tests pass
 - **Ensure all changes are covered by tests** - add unit or integration tests for new functionality
