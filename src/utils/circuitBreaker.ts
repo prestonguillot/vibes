@@ -1,4 +1,5 @@
 import { Logger } from './logger';
+import { youtubeCircuitBreakerConfig, spotifyCircuitBreakerConfig } from '../config/circuitBreaker';
 
 /**
  * Circuit Breaker for YouTube API quota management
@@ -162,20 +163,11 @@ class CircuitBreaker {
   }
 }
 
-// YouTube API circuit breaker - longer reset timeout since quota is time-based
-export const youtubeCircuitBreaker = new CircuitBreaker('YouTube API', {
-  failureThreshold: 2,      // Open after 2 quota failures
-  resetTimeout: 5 * 60000,  // Wait 5 minutes before retrying
-  successThreshold: 1       // Close after 1 successful request
-});
+// YouTube API circuit breaker - configuration loaded from config/circuitBreaker.ts
+export const youtubeCircuitBreaker = new CircuitBreaker('YouTube API', youtubeCircuitBreakerConfig);
 
-// Spotify API circuit breaker - same configuration as YouTube
-// Can be configured independently if Spotify limits prove different
-export const spotifyCircuitBreaker = new CircuitBreaker('Spotify API', {
-  failureThreshold: 2,      // Open after 2 quota failures
-  resetTimeout: 5 * 60000,  // Wait 5 minutes before retrying
-  successThreshold: 1       // Close after 1 successful request
-});
+// Spotify API circuit breaker - configuration loaded from config/circuitBreaker.ts
+export const spotifyCircuitBreaker = new CircuitBreaker('Spotify API', spotifyCircuitBreakerConfig);
 
 // Export class for testing
 export { CircuitBreaker, CircuitState };
