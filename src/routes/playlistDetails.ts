@@ -11,6 +11,7 @@ import { z } from 'zod';
 import ejs from 'ejs';
 import path from 'path';
 import SpotifyWebApi from 'spotify-web-api-node';
+import { reorderPlaylistTracks } from '../utils/playlistReordering';
 
 // Internal types for this route
 interface SimplifiedTrack {
@@ -769,6 +770,97 @@ router.post('/replace/:trackId',
     }
 
     Logger.info('Video operation completed successfully', { operation: isAddingNewVideo ? 'add' : 'replace' });
+
+    // After adding or replacing a video, reorder the playlist to match Spotify order
+    try {
+      Logger.info('Starting playlist reordering after manual video link');
+
+      // Wait a moment for YouTube to process the changes (especially for additions)
+      if (isAddingNewVideo) {
+        Logger.info('Waiting for YouTube to process newly added track before reordering', {
+          waitTime: 2000
+        });
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+
+      // Fetch all Spotify tracks for the playlist
+      const spotifyPlaylistResponse = await spotifyApi.getPlaylistTracks(playlistId, {
+        limit: 50,
+        fields: 'items(track(id,name,artists(name)))'
+      });
+
+      const spotifyTracks = spotifyPlaylistResponse.body.items
+        .filter((item: any) => item.track && item.track.type === 'track')
+        .map((item: any) => ({
+          id: item.track.id,
+          name: item.track.name,
+          artists: item.track.artists
+        }));
+
+      // Build list of synced tracks (tracks that have YouTube videos)
+      // For simplicity, we'll fetch YouTube playlist again and match with Spotify
+      const allPlaylistItems: youtube_v3.Schema$PlaylistItem[] = [];
+      let pageToken: string | undefined = undefined;
+
+      do {
+        const response: youtube_v3.Schema$PlaylistItemListResponse = await youtube.playlistItems.list({
+          part: ['snippet'],
+          playlistId: targetPlaylist.id!,
+          maxResults: 50,
+          pageToken
+        }).then(res => res.data);
+
+        if (response.items) {
+          allPlaylistItems.push(...response.items);
+        }
+        pageToken = response.nextPageToken || undefined;
+      } while (pageToken);
+
+      // Import track matching functionality
+      const { optimalTrackMatching } = await import('../utils/trackMatching');
+      const tracksToMatch = spotifyTracks.map((track: any) => ({
+        id: track.id,
+        name: track.name,
+        artist: track.artists[0]?.name || 'Unknown Artist'
+      }));
+
+      const existingVideos = allPlaylistItems
+        .filter(item => item.snippet?.resourceId?.videoId && item.id)
+        .map(item => ({
+          id: item.snippet!.resourceId!.videoId!,
+          title: item.snippet?.title || 'Unknown',
+          description: item.snippet?.description || '',
+          playlistItemId: item.id!
+        }));
+
+      const trackMatches = optimalTrackMatching(tracksToMatch, existingVideos);
+
+      // Build synced tracks array
+      const syncedTracks = [];
+      for (const [trackId, videoInfo] of trackMatches.entries()) {
+        const spotifyTrack = spotifyTracks.find((t: any) => t.id === trackId);
+        if (spotifyTrack) {
+          syncedTracks.push({
+            track: spotifyTrack,
+            matchedVideoId: videoInfo.id
+          });
+        }
+      }
+
+      // Perform reordering
+      const { reorderedCount } = await reorderPlaylistTracks(
+        youtube,
+        targetPlaylist.id!,
+        spotifyTracks,
+        syncedTracks
+      );
+
+      Logger.info('Playlist reordering completed', { reorderedCount });
+
+    } catch (reorderError) {
+      // Log the error but don't fail the entire operation
+      Logger.error('Error reordering playlist after manual video link', {}, reorderError);
+    }
 
     const successMessage = isAddingNewVideo
       ? 'Video linked successfully!'
