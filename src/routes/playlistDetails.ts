@@ -12,6 +12,7 @@ import ejs from 'ejs';
 import path from 'path';
 import SpotifyWebApi from 'spotify-web-api-node';
 import { reorderPlaylistTracks } from '../utils/playlistReordering';
+import { parseSpotifyTokens, parseYouTubeTokens } from '../utils/tokenParsing';
 
 // Internal types for this route
 interface SimplifiedTrack {
@@ -77,8 +78,8 @@ router.get('/playlist/:playlistId',
 
   try {
     // Check authentication - Spotify is required, YouTube is optional
-    const spotifyTokens: SpotifyTokens | null = req.cookies.spotify_tokens ? JSON.parse(req.cookies.spotify_tokens) : null;
-    const youtubeTokens: YouTubeTokens | null = req.cookies.youtube_tokens ? JSON.parse(req.cookies.youtube_tokens) : null;
+    const spotifyTokens: SpotifyTokens | null = parseSpotifyTokens(req.cookies.spotify_tokens);
+    const youtubeTokens: YouTubeTokens | null = parseYouTubeTokens(req.cookies.youtube_tokens);
 
     if (!spotifyTokens) {
       const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
