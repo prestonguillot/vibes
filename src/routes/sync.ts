@@ -846,20 +846,20 @@ router.post('/playlist/:playlistId',
             continue;
           }
 
-          // Delete and re-insert without position to reorder
-          // YouTube will append to end on insert, then position shifts naturally
+          // Delete and re-insert WITH position to reorder
+          // Processing in reverse order (descending targetPosition) ensures earlier positions don't shift
           await youtube.playlistItems.delete({
             id: playlistItemId
           });
           logApiCall('delete for reorder', 50);
 
-          // Re-insert WITHOUT position - will go to end of playlist
-          // We'll then move it to correct position in next operations if needed
+          // Re-insert at the target position
           await youtube.playlistItems.insert({
             part: ['snippet'],
             requestBody: {
               snippet: {
                 playlistId: youtubePlaylistId,
+                position: targetPosition,
                 resourceId: {
                   kind: 'youtube#video',
                   videoId: operation.videoId,
