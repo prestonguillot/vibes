@@ -150,4 +150,56 @@ describe('YouTube Auth Validation - Quota Handling', () => {
       expect(youtubeCircuitBreaker.isOpen()).toBe(false);
     });
   });
+
+  describe('Error Message Feedback', () => {
+    it('should return quota exceeded error message when circuit breaker is open', async () => {
+      youtubeCircuitBreaker.open();
+
+      const result = await validateYouTubeConnection(mockYoutubeTokens, mockResponse);
+
+      expect(result.connected).toBe(false);
+      expect(result.error).toBe('YouTube API quota exceeded. Please try again later.');
+      expect(result.errorCode).toBe('CIRCUIT_BREAKER_OPEN');
+    });
+
+    it('should return quota exceeded error message on 403 response', async () => {
+      const { google } = await import('googleapis');
+      const mockYoutube = google.youtube({} as any);
+
+      vi.mocked(mockYoutube.channels.list).mockRejectedValueOnce({
+        code: 403,
+        message: 'Quota exceeded',
+      });
+
+      const result = await validateYouTubeConnection(mockYoutubeTokens, mockResponse);
+
+      expect(result.connected).toBe(false);
+      expect(result.error).toBe('YouTube API quota exceeded. Please try again later.');
+      expect(result.errorCode).toBe(403);
+    });
+
+    it('should return generic error message for non-quota errors', async () => {
+      const { google } = await import('googleapis');
+      const mockYoutube = google.youtube({} as any);
+
+      vi.mocked(mockYoutube.channels.list).mockRejectedValueOnce({
+        code: 500,
+        message: 'Internal server error',
+      });
+
+      const result = await validateYouTubeConnection(mockYoutubeTokens, mockResponse);
+
+      expect(result.connected).toBe(false);
+      expect(result.error).toBe('Unable to validate YouTube connection. Please try reconnecting.');
+      expect(result.errorCode).toBe(500);
+    });
+
+    it('should return no error message when tokens are null', async () => {
+      const result = await validateYouTubeConnection(null, mockResponse);
+
+      expect(result.connected).toBe(false);
+      expect(result.error).toBeUndefined();
+      expect(result.errorCode).toBeUndefined();
+    });
+  });
 });
