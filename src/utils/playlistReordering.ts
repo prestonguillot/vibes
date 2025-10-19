@@ -287,6 +287,11 @@ export async function reorderPlaylistTracks(
   // Working copy of current order to track position changes during simulation
   const workingOrder = [...currentOrder];
 
+  Logger.info('Starting reorder calculation', {
+    currentOrder: currentOrder.slice(0, 10),
+    targetOrder: targetOrder.slice(0, 10)
+  });
+
   // Process videos in target order from start to end
   for (let finalPosition = 0; finalPosition < targetOrder.length; finalPosition++) {
     const videoId = targetOrder[finalPosition];
@@ -295,6 +300,14 @@ export async function reorderPlaylistTracks(
     if (currentPosition !== finalPosition) {
       const info = videoInfoMap.get(videoId);
       if (!info) continue;
+
+      Logger.info('Calculating reorder operation', {
+        track: info.trackName,
+        videoId: videoId,
+        currentPosition,
+        targetPosition: finalPosition,
+        workingOrderBefore: [...workingOrder]
+      });
 
       operations.push({
         videoId: videoId,
@@ -308,6 +321,11 @@ export async function reorderPlaylistTracks(
       // Simulate YouTube API's behavior: remove from current position and insert at target
       workingOrder.splice(currentPosition, 1);
       workingOrder.splice(finalPosition, 0, videoId);
+
+      Logger.info('After simulation', {
+        track: info.trackName,
+        workingOrderAfter: [...workingOrder]
+      });
     }
   }
 
@@ -333,21 +351,24 @@ export async function reorderPlaylistTracks(
     }
 
     try {
-      // YouTube API doesn't support direct position update via UPDATE
-      // We must DELETE and re-INSERT, but INSERT doesn't support position parameter
-      // So videos only go to the end when re-inserted
-
-      // First, delete the video from its current position
-      await youtube.playlistItems.delete({
-        id: operation.playlistItemId
+      Logger.info('Executing YouTube position update', {
+        trackName: operation.trackName,
+        playlistItemId: operation.playlistItemId,
+        videoId: operation.videoId,
+        fromPosition: operation.fromPosition,
+        toPosition: operation.toPosition,
+        operationIndex: i,
+        totalOperations: operations.length
       });
 
-      // Then insert it back (it will go to the end)
-      await youtube.playlistItems.insert({
+      // Use YouTube API UPDATE method to change position directly
+      const updateResult = await youtube.playlistItems.update({
         part: ['snippet'],
         requestBody: {
+          id: operation.playlistItemId,
           snippet: {
             playlistId: youtubePlaylistId,
+            position: operation.toPosition,
             resourceId: {
               kind: 'youtube#video',
               videoId: operation.videoId
@@ -357,11 +378,12 @@ export async function reorderPlaylistTracks(
       });
 
       reorderedCount++;
-      Logger.info('Reordered track', {
+      Logger.info('Successfully reordered track', {
         trackName: operation.trackName,
         fromPosition: operation.fromPosition,
         toPosition: operation.toPosition,
-        videoId: operation.videoId
+        videoId: operation.videoId,
+        resultPosition: updateResult.data?.snippet?.position
       });
     } catch (error: any) {
       Logger.error('Error reordering track', {
