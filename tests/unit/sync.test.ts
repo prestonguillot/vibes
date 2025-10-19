@@ -821,5 +821,144 @@ describe('Sync Playlist Reordering Logic', () => {
       expect(outOfOrder.find(v => v.videoId === 'video-sync-3')).toBeDefined();
       expect(outOfOrder.find(v => v.videoId === 'video-manual-4')).toBeDefined();
     });
+
+    it('should handle the exact user scenario: manually added track 4, then sync track 3', () => {
+      // User's exact scenario from issue:
+      // 1. YouTube initially has: [3rd Planet, I'm So Tired, Pyramid Song (manually added at pos 2)]
+      // 2. Spotify order is: [3rd Planet pos 0, I'm So Tired pos 1, Fred Jones pos 2, Pyramid Song pos 3]
+      // 3. Sync adds Fred Jones video
+      // 4. Final YouTube should be: [3rd Planet, I'm So Tired, Fred Jones, Pyramid Song]
+
+      const spotifyTracks = [
+        { track: { id: 'spotify-1', name: '3rd Planet', artists: [{ name: 'Modest Mouse' }], type: 'track' } },
+        { track: { id: 'spotify-2', name: "I'm So Tired", artists: [{ name: 'Fugazi' }], type: 'track' } },
+        { track: { id: 'spotify-3', name: 'Fred Jones Pt. 2', artists: [{ name: 'Ben Folds' }], type: 'track' } },
+        { track: { id: 'spotify-4', name: 'Pyramid Song', artists: [{ name: 'Radiohead' }], type: 'track' } }
+      ];
+
+      // YouTube playlist AFTER Fred Jones was added but BEFORE reordering
+      const currentYouTubeOrder = [
+        { id: 'item-1', snippet: { resourceId: { videoId: 'video-1' }, title: '3rd Planet' } },
+        { id: 'item-2', snippet: { resourceId: { videoId: 'video-2' }, title: "I'm So Tired" } },
+        { id: 'item-3', snippet: { resourceId: { videoId: 'video-manual-4' }, title: 'Pyramid Song' } },
+        { id: 'item-4', snippet: { resourceId: { videoId: 'video-3' }, title: 'Fred Jones Pt. 2' } }  // Just added
+      ];
+
+      const trackMatches = new Map([
+        ['spotify-1', { id: 'video-1', title: '3rd Planet' }],
+        ['spotify-2', { id: 'video-2', title: "I'm So Tired" }],
+        ['spotify-3', { id: 'video-3', title: 'Fred Jones Pt. 2' }],
+        ['spotify-4', { id: 'video-manual-4', title: 'Pyramid Song' }]
+      ]);
+
+      // Build the info map
+      const videoToSpotifyInfo = new Map();
+      for (const item of currentYouTubeOrder) {
+        const videoId = item.snippet?.resourceId?.videoId;
+        if (!videoId) continue;
+
+        let matchedTrackId = '';
+        for (const [trackId, videoInfo] of trackMatches.entries()) {
+          if (videoInfo.id === videoId) {
+            matchedTrackId = trackId;
+            break;
+          }
+        }
+
+        if (!matchedTrackId) continue;
+
+        for (let i = 0; i < spotifyTracks.length; i++) {
+          const spotifyItem = spotifyTracks[i] as any;
+          if (spotifyItem.track?.id === matchedTrackId) {
+            videoToSpotifyInfo.set(videoId, {
+              videoId,
+              spotifyPosition: i,
+              trackId: matchedTrackId,
+              trackName: spotifyItem.track.name,
+              artist: spotifyItem.track.artists[0]?.name || 'Unknown'
+            });
+            break;
+          }
+        }
+      }
+
+      // Build expected order sorted by Spotify position
+      const expectedVideoOrder = Array.from(videoToSpotifyInfo.entries())
+        .sort(([, infoA], [, infoB]) => infoA.spotifyPosition - infoB.spotifyPosition)
+        .map(([videoId]) => videoId);
+
+      // Build current order
+      const currentVideoOrder = [];
+      for (const item of currentYouTubeOrder) {
+        const videoId = item.snippet?.resourceId?.videoId;
+        if (videoId && videoToSpotifyInfo.has(videoId)) {
+          currentVideoOrder.push(videoId);
+        }
+      }
+
+      // Expected order should be: [video-1, video-2, video-3, video-manual-4]
+      // (3rd Planet, I'm So Tired, Fred Jones, Pyramid Song)
+      expect(expectedVideoOrder).toEqual([
+        'video-1',           // 3rd Planet at position 0
+        'video-2',           // I'm So Tired at position 1
+        'video-3',           // Fred Jones at position 2
+        'video-manual-4'     // Pyramid Song at position 3
+      ]);
+
+      // Current order is wrong: [video-1, video-2, video-manual-4, video-3]
+      // (3rd Planet, I'm So Tired, Pyramid Song, Fred Jones)
+      expect(currentVideoOrder).toEqual([
+        'video-1',
+        'video-2',
+        'video-manual-4',
+        'video-3'
+      ]);
+
+      // Identify out-of-order videos
+      const outOfOrder = [];
+      for (let i = 0; i < expectedVideoOrder.length; i++) {
+        const expectedVideoId = expectedVideoOrder[i];
+        const currentIndex = currentVideoOrder.indexOf(expectedVideoId);
+
+        if (currentIndex !== i && currentIndex !== -1) {
+          outOfOrder.push({
+            videoId: expectedVideoId,
+            currentPosition: currentIndex,
+            expectedPosition: i
+          });
+        }
+      }
+
+      // Should identify 2 videos that need reordering:
+      // - Pyramid Song is at position 2, should be at position 3
+      // - Fred Jones is at position 3, should be at position 2
+      expect(outOfOrder.length).toBe(2);
+
+      const pyramidSongOp = outOfOrder.find(v => v.videoId === 'video-manual-4');
+      expect(pyramidSongOp).toBeDefined();
+      expect(pyramidSongOp?.currentPosition).toBe(2);
+      expect(pyramidSongOp?.expectedPosition).toBe(3);
+
+      const fredJonesOp = outOfOrder.find(v => v.videoId === 'video-3');
+      expect(fredJonesOp).toBeDefined();
+      expect(fredJonesOp?.currentPosition).toBe(3);
+      expect(fredJonesOp?.expectedPosition).toBe(2);
+
+      // KEY TEST: Process operations in descending order (highest expectedPosition first)
+      const sortedOps = outOfOrder.sort((a, b) => b.expectedPosition - a.expectedPosition);
+
+      // Simulate delete+insert operations in order
+      let trackedOrder = [...currentVideoOrder];
+
+      for (const op of sortedOps) {
+        const currentIdx = trackedOrder.indexOf(op.videoId);
+        const [moved] = trackedOrder.splice(currentIdx, 1);
+        trackedOrder.splice(op.expectedPosition, 0, moved);
+      }
+
+      // Final order should match expected
+      expect(trackedOrder).toEqual(expectedVideoOrder);
+      expect(trackedOrder).toEqual(['video-1', 'video-2', 'video-3', 'video-manual-4']);
+    });
   });
 });
