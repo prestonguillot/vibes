@@ -361,7 +361,9 @@ export async function reorderPlaylistTracks(
         totalOperations: operations.length
       });
 
-      // Use YouTube API UPDATE method to change position directly
+      // CRITICAL: Use YouTube API UPDATE method to change position directly
+      // NEVER use DELETE and INSERT - that's destructive and doesn't preserve order
+      // See docs/YOUTUBE_REORDERING_PRINCIPLES.md for details
       const updateResult = await youtube.playlistItems.update({
         part: ['snippet'],
         requestBody: {
