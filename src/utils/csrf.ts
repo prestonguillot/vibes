@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { Request, Response, NextFunction } from 'express';
 import { Logger } from './logger';
+import { CSRF_SECRET } from '../config/csrf';
 
 /**
  * CSRF Protection using Signed Double Submit Cookie pattern
@@ -16,47 +17,13 @@ import { Logger } from './logger';
  * - Read the token from cookies (cross-origin restriction)
  * - Send custom headers cross-origin (without CORS permission)
  * - Forge the signed token (without the server secret)
+ *
+ * NOTE: The CSRF_SECRET is loaded at app startup from src/config/csrf.ts
+ * to ensure all server instances use the same secret (required for multi-instance deployments)
  */
 
 const CSRF_COOKIE_NAME = 'csrf_token';
 const CSRF_HEADER_NAME = 'x-csrf-token';
-
-// Lazy-loaded CSRF secret (loaded on first use, not at module load time)
-let CSRF_SECRET: string | null = null;
-
-/**
- * Get or initialize the CSRF secret
- * This is lazy-loaded to ensure dotenv has loaded first
- */
-function getCsrfSecret(): string {
-  if (CSRF_SECRET === null) {
-    CSRF_SECRET = process.env.CSRF_SECRET || generateDefaultSecret();
-
-    // Log confirmation that secret is loaded (redacted for security)
-    Logger.info('CSRF secret initialized', {
-      source: process.env.CSRF_SECRET ? 'environment' : 'auto-generated',
-      secretPrefix: CSRF_SECRET.substring(0, 8) + '...',
-      length: CSRF_SECRET.length
-    });
-  }
-  return CSRF_SECRET;
-}
-
-/**
- * Generate a default secret if not provided in environment
- * WARNING: This should only be used in development
- */
-function generateDefaultSecret(): string {
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('CSRF_SECRET environment variable must be set in production');
-  }
-
-  const secret = crypto.randomBytes(32).toString('hex');
-  Logger.warn('Using auto-generated CSRF secret - set CSRF_SECRET env var in production', {
-    secret: secret.substring(0, 8) + '...'
-  });
-  return secret;
-}
 
 /**
  * Generate a cryptographically secure CSRF token
@@ -69,7 +36,7 @@ export function generateCsrfToken(): string {
  * Sign a CSRF token using HMAC
  */
 function signToken(token: string): string {
-  const hmac = crypto.createHmac('sha256', getCsrfSecret());
+  const hmac = crypto.createHmac('sha256', CSRF_SECRET);
   hmac.update(token);
   return hmac.digest('hex');
 }
@@ -198,7 +165,7 @@ export function csrfValidationMiddleware(req: Request, res: Response, next: Next
       signatureValid,
       providedSigPrefix: signature.substring(0, 8) + '...',
       expectedSigPrefix: expectedSignature.substring(0, 8) + '...',
-      secretPrefix: getCsrfSecret().substring(0, 8) + '...'
+      secretPrefix: CSRF_SECRET.substring(0, 8) + '...'
     });
 
     if (!signatureValid) {

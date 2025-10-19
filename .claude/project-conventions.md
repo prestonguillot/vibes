@@ -21,6 +21,15 @@
 - **HTTP caching:** Use Cache-Control headers for data caching
 - **sessionStorage:** Only for temporary UI state within a page session
 
+### Multi-Instance Deployment & Load Balancer Compatibility
+- **All implementations must work behind a load balancer** with sticky sessions
+- **No per-instance state** - shared secrets and configuration must be externalized
+  - CSRF secrets, API keys, configuration values must come from environment variables
+  - Never generate or store unique values per instance (except for logs/diagnostics)
+- **Assume any user request could route to any server instance** (within session stickiness)
+- **Example:** If Instance A generates a random CSRF secret and signs a token, Instance B must be able to validate it with the same secret
+- Secrets shared across instances should never be committed to source control
+
 ## Development Practices
 
 ### When Questioning Approach
