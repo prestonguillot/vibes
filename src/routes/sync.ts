@@ -707,61 +707,114 @@ router.post('/playlist/:playlistId',
         }
       }
 
-      // Build expected order: all YouTube videos sorted by Spotify position
-      const expectedVideoOrder = Array.from(videoToSpotifyInfo.entries())
-        .sort(([, infoA], [, infoB]) => infoA.spotifyPosition - infoB.spotifyPosition)
-        .map(([videoId]) => videoId);
+      // Separate videos into matched (synced with Spotify) and unmatched
+      const matchedVideos: Array<{
+        videoId: string,
+        playlistItemId: string,
+        spotifyPosition: number,
+        trackName: string,
+        artist: string,
+        currentYouTubeIndex: number
+      }> = [];
 
-      // Build current order: all YouTube videos that have a Spotify match
-      const currentVideoOrder: string[] = [];
-      for (const item of currentYouTubeOrder) {
-        if (item.snippet?.resourceId?.videoId && videoToSpotifyInfo.has(item.snippet.resourceId.videoId)) {
-          currentVideoOrder.push(item.snippet.resourceId.videoId);
-        }
-      }
+      const unmatchedVideos: Array<{
+        videoId: string,
+        playlistItemId: string,
+        currentYouTubeIndex: number
+      }> = [];
 
-      // Compare expected vs current order and identify videos that need reordering
-      const reorderOperations = [];
-      for (let i = 0; i < expectedVideoOrder.length; i++) {
-        const expectedVideoId = expectedVideoOrder[i];
-        const currentIndex = currentVideoOrder.indexOf(expectedVideoId);
+      // Categorize each YouTube video
+      currentYouTubeOrder.forEach((item, index) => {
+        const videoId = item.snippet?.resourceId?.videoId;
+        const playlistItemId = item.id;
+        if (!videoId || !playlistItemId) return;
 
-        if (currentIndex !== i && currentIndex !== -1) {
-          const videoInfo = videoToSpotifyInfo.get(expectedVideoId)!;
-          reorderOperations.push({
-            videoId: expectedVideoId,
-            trackId: videoInfo.trackId,
-            trackName: videoInfo.trackName,
-            artist: videoInfo.artist,
-            expectedIndex: i
+        const spotifyInfo = videoToSpotifyInfo.get(videoId);
+        if (spotifyInfo) {
+          matchedVideos.push({
+            videoId,
+            playlistItemId,
+            spotifyPosition: spotifyInfo.spotifyPosition,
+            trackName: spotifyInfo.trackName,
+            artist: spotifyInfo.artist,
+            currentYouTubeIndex: index
           });
-
-          Logger.info('Track needs repositioning', {
-            trackName: videoInfo.trackName,
-            artist: videoInfo.artist,
-            currentIndex: currentIndex,
-            expectedIndex: i,
-            videoId: expectedVideoId
+        } else {
+          unmatchedVideos.push({
+            videoId,
+            playlistItemId,
+            currentYouTubeIndex: index
           });
         }
-      }
-
-      Logger.info('Identified tracks for reordering', {
-        reorderOperationsCount: reorderOperations.length,
-        totalMatchedTracks: expectedVideoOrder.length,
-        tracksAlreadyInCorrectOrder: expectedVideoOrder.length - reorderOperations.length,
-        expectedVideoOrder: expectedVideoOrder.map((vid, idx) => {
-          const info = videoToSpotifyInfo.get(vid);
-          return `${idx}: ${info?.trackName || 'unknown'} (${vid})`;
-        }),
-        currentVideoOrder: currentVideoOrder.map((vid, idx) => {
-          const info = videoToSpotifyInfo.get(vid);
-          return `${idx}: ${info?.trackName || 'unknown'} (${vid})`;
-        })
       });
 
-      // If no tracks need reordering, skip the entire reordering phase
-      if (reorderOperations.length === 0) {
+      // Sort matched videos by Spotify position to get target order
+      const targetOrderedVideos = [...matchedVideos].sort((a, b) => a.spotifyPosition - b.spotifyPosition);
+
+      // Find the Longest Increasing Subsequence (LIS) - videos already in correct relative order
+      // This minimizes the number of operations needed
+      const findLIS = (videos: typeof matchedVideos): Set<string> => {
+        if (videos.length === 0) return new Set();
+
+        const n = videos.length;
+        const dp: number[] = new Array(n).fill(1);
+        const parent: number[] = new Array(n).fill(-1);
+
+        // Sort by current YouTube index first
+        const sortedByYouTube = [...videos].sort((a, b) => a.currentYouTubeIndex - b.currentYouTubeIndex);
+
+        for (let i = 1; i < n; i++) {
+          for (let j = 0; j < i; j++) {
+            // Check if this forms an increasing subsequence based on Spotify position
+            if (sortedByYouTube[j].spotifyPosition < sortedByYouTube[i].spotifyPosition && dp[j] + 1 > dp[i]) {
+              dp[i] = dp[j] + 1;
+              parent[i] = j;
+            }
+          }
+        }
+
+        // Find the longest subsequence
+        let maxLength = 0;
+        let maxIndex = 0;
+        for (let i = 0; i < n; i++) {
+          if (dp[i] > maxLength) {
+            maxLength = dp[i];
+            maxIndex = i;
+          }
+        }
+
+        // Reconstruct the LIS
+        const lisVideos = new Set<string>();
+        let current = maxIndex;
+        while (current !== -1) {
+          lisVideos.add(sortedByYouTube[current].videoId);
+          current = parent[current];
+        }
+
+        return lisVideos;
+      };
+
+      const videosInCorrectOrder = findLIS(matchedVideos);
+
+      // Videos that need to be reordered are matched videos not in the LIS
+      const videosToReorder = matchedVideos.filter(v => !videosInCorrectOrder.has(v.videoId));
+
+      Logger.info('Reordering analysis (LIS-based)', {
+        totalMatchedVideos: matchedVideos.length,
+        videosAlreadyCorrect: videosInCorrectOrder.size,
+        videosNeedReordering: videosToReorder.length,
+        unmatchedVideos: unmatchedVideos.length,
+        keptInPlace: Array.from(videosInCorrectOrder).map(id => {
+          const v = matchedVideos.find(m => m.videoId === id);
+          return v ? `${v.trackName} (Spotify pos: ${v.spotifyPosition})` : id;
+        }),
+        toReorder: videosToReorder.map(v => `${v.trackName} (Spotify pos: ${v.spotifyPosition})`)
+      });
+
+      // If no videos need reordering, skip the entire reordering phase
+      if (videosToReorder.length === 0 && unmatchedVideos.every(v =>
+        v.currentYouTubeIndex > Math.max(...matchedVideos.map(m => m.currentYouTubeIndex), -1)
+      )) {
         Logger.info('All tracks already in correct positions - skipping reordering phase');
         sendProgressUpdate(playlistId, {
           type: 'progress',
@@ -772,151 +825,136 @@ router.post('/playlist/:playlistId',
         return;
       }
 
-      // Create a mutable copy of current YouTube order to track state changes as we reorder
-      // This avoids expensive refetches while still tracking accurate positions
-      let trackedYouTubeOrder = [...currentYouTubeOrder];
+      // Prepare list of videos to delete and re-insert
+      const videosToDelete = [...videosToReorder];
 
-      // Sort operations by targetPosition DESCENDING (highest first)
-      // This prevents earlier positions from shifting when we move later videos
-      const sortedOperations = [...reorderOperations].sort((a, b) => b.expectedIndex - a.expectedIndex);
+      // Also include unmatched videos that are mixed in with matched videos
+      const lastMatchedIndex = matchedVideos.length > 0
+        ? Math.max(...matchedVideos.map(v => v.currentYouTubeIndex))
+        : -1;
 
-      // Execute reorder operations using delete + insert strategy
-      // YouTube's API has issues with position updates, so we delete and re-insert instead
+      const unmatchedToMove = unmatchedVideos.filter(v => v.currentYouTubeIndex < lastMatchedIndex);
+
+      Logger.info('Videos to reorder', {
+        matchedToReorder: videosToReorder.length,
+        unmatchedToMove: unmatchedToMove.length,
+        totalOperations: videosToDelete.length + unmatchedToMove.length
+      });
+
+      // Step 1: Update positions of videos that need to be moved
+      // YouTube API supports updating position directly via snippet.position
       let reorderedCount = 0;
-      for (const operation of sortedOperations) {
+
+      // Sort matched videos by their target Spotify position
+      const sortedByTargetPosition = [...videosToReorder].sort((a, b) => a.spotifyPosition - b.spotifyPosition);
+
+      for (const video of sortedByTargetPosition) {
         try {
-          // Find current position of video in tracked state
-          let currentPosition = -1;
-          for (let i = 0; i < trackedYouTubeOrder.length; i++) {
-            if (trackedYouTubeOrder[i].snippet?.resourceId?.videoId === operation.videoId) {
-              currentPosition = i;
-              break;
-            }
-          }
-
-          if (currentPosition === -1) {
-            Logger.warn('Video to reorder not found in tracked playlist state', {
-              videoId: operation.videoId
-            });
-            continue;
-          }
-
-          const playlistItemId = videoIdToPlaylistItemId.get(operation.videoId);
-          if (!playlistItemId) {
-            Logger.warn('Playlist item ID not found for video', {
-              videoId: operation.videoId
-            });
-            continue;
-          }
-
-          // Calculate target position: insert right after the last video that should come before it
-          // All videos (synced and manually added) are sorted by Spotify position, so we find
-          // the position in tracked state of the last video that should come before this one
+          // Find where this video should be in the YouTube playlist
+          // Count how many videos with lower Spotify position are already in the playlist
           let targetPosition = 0;
-          for (let i = 0; i < operation.expectedIndex; i++) {
-            const videoIdBefore = expectedVideoOrder[i];
-            // Find this video in tracked state
-            for (let j = 0; j < trackedYouTubeOrder.length; j++) {
-              if (trackedYouTubeOrder[j].snippet?.resourceId?.videoId === videoIdBefore) {
-                targetPosition = j + 1;
-                break;
-              }
+          for (const v of matchedVideos) {
+            if (v.spotifyPosition < video.spotifyPosition && videosInCorrectOrder.has(v.videoId)) {
+              targetPosition++;
             }
           }
 
-          Logger.info('Reorder operation details', {
-            trackName: operation.trackName,
-            videoId: operation.videoId,
-            expectedIndex: operation.expectedIndex,
-            currentPosition,
+          // Also count videos we've already moved to their correct positions
+          for (const movedVideo of sortedByTargetPosition) {
+            if (movedVideo === video) break;
+            if (movedVideo.spotifyPosition < video.spotifyPosition) {
+              targetPosition++;
+            }
+          }
+
+          Logger.info('Updating video position', {
+            trackName: video.trackName,
+            videoId: video.videoId,
+            currentPosition: video.currentYouTubeIndex,
             targetPosition,
-            trackedOrderBefore: trackedYouTubeOrder.map((item, idx) => {
-              const info = videoToSpotifyInfo.get(item.snippet?.resourceId?.videoId!);
-              return `${idx}: ${info?.trackName || 'unknown'}`;
-            })
+            spotifyPosition: video.spotifyPosition
           });
 
-          // Only execute if video is actually in wrong position
-          if (currentPosition === targetPosition) {
-            Logger.info('Video already in correct position, skipping', {
-              trackName: operation.trackName,
-              videoId: operation.videoId,
-              position: currentPosition
-            });
-            continue;
-          }
-
-          // Simply update the position of the existing playlist item
+          // Update the position using the YouTube API
           await youtube.playlistItems.update({
             part: ['snippet'],
             requestBody: {
-              id: playlistItemId,
+              id: video.playlistItemId,
               snippet: {
                 playlistId: youtubePlaylistId,
                 position: targetPosition,
                 resourceId: {
                   kind: 'youtube#video',
-                  videoId: operation.videoId,
+                  videoId: video.videoId,
                 }
               }
             }
           });
-          logApiCall('update position for reorder', 50);
-
-          // Update tracked state: remove from current position and insert at target
-          const [movedItem] = trackedYouTubeOrder.splice(currentPosition, 1);
-          trackedYouTubeOrder.splice(targetPosition, 0, movedItem);
-
-          Logger.info('Reorder operation completed', {
-            trackName: operation.trackName,
-            videoId: operation.videoId,
-            trackedOrderAfter: trackedYouTubeOrder.map((item, idx) => {
-              const info = videoToSpotifyInfo.get(item.snippet?.resourceId?.videoId!);
-              return `${idx}: ${info?.trackName || 'unknown'}`;
-            })
-          });
+          logApiCall('update position', 50);
 
           reorderedCount++;
-          Logger.external('YouTube', 'Reordered track position', {
-            trackName: operation.trackName,
-            artist: operation.artist,
-            fromPosition: currentPosition,
-            toPosition: targetPosition,
-            videoId: operation.videoId
+          Logger.external('YouTube', 'Updated video position', {
+            trackName: video.trackName,
+            artist: video.artist,
+            fromPosition: video.currentYouTubeIndex,
+            toPosition: targetPosition
           });
-
-          // Update progress
-          const reorderProgress = (reorderedCount / reorderOperations.length) * 0.1; // 10% of total progress for reordering
-          const totalPercentage = Math.round((0.15 + reorderProgress) * 100);
 
           sendProgressUpdate(playlistId, {
             type: 'progress',
-            message: 'Reordering existing tracks',
-            details: `Moved "${operation.trackName}" from position ${currentPosition + 1} to ${targetPosition + 1} (${reorderedCount}/${reorderOperations.length})`,
-            percentage: totalPercentage
+            message: `Reordering tracks (${reorderedCount}/${videosToReorder.length})`,
+            details: `Moved "${video.trackName}" to position ${targetPosition}`,
+            percentage: Math.round(15 + (reorderedCount / videosToReorder.length) * 10)
           });
 
-          // Rate limiting - slightly longer delay for two API calls
-          await new Promise(resolve => setTimeout(resolve, 200));
-
         } catch (error) {
-          Logger.error('Error reordering track', {
-            trackName: operation.trackName,
-            expectedIndex: operation.expectedIndex,
-            videoId: operation.videoId
-          }, error);
-
-          // In UPDATE mode, throw error to stop sync - we need atomic operations
-          if (typeof isUpdateMode !== 'undefined' && isUpdateMode) {
-            throw new Error(`Failed to reorder track "${operation.trackName}". Please try again.`);
-          }
-          // In CREATE mode, continue with next operation
+          Logger.error('Failed to update video position', {
+            video: video.trackName,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          });
         }
       }
 
-      Logger.info('Playlist reordering complete', { 
+      // Step 2: Move unmatched videos to the end if needed
+      for (const unmatchedVideo of unmatchedToMove) {
+        try {
+          // Position after all matched videos
+          const targetPosition = matchedVideos.length;
+
+          Logger.info('Moving unmatched video to end', {
+            videoId: unmatchedVideo.videoId,
+            currentPosition: unmatchedVideo.currentYouTubeIndex,
+            targetPosition
+          });
+
+          await youtube.playlistItems.update({
+            part: ['snippet'],
+            requestBody: {
+              id: unmatchedVideo.playlistItemId,
+              snippet: {
+                playlistId: youtubePlaylistId,
+                position: targetPosition,
+                resourceId: {
+                  kind: 'youtube#video',
+                  videoId: unmatchedVideo.videoId,
+                }
+              }
+            }
+          });
+          logApiCall('update position for unmatched', 50);
+
+        } catch (error) {
+          Logger.error('Failed to move unmatched video', {
+            videoId: unmatchedVideo.videoId,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          });
+        }
+      }
+
+      Logger.info('Playlist reordering complete', {
         reorderedCount,
-        totalOperations: reorderOperations.length 
+        totalVideosReordered: videosToReorder.length,
+        unmatchedMoved: unmatchedToMove.length
       });
     };
     
