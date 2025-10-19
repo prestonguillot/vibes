@@ -9,7 +9,7 @@ import { getSecureCookieOptions } from '../utils/authValidation';
 import { validate, schemas, ValidatedRequest } from '../utils/validation';
 import { csrfValidationMiddleware } from '../utils/csrf';
 import { SpotifyTokens, YouTubeTokens } from '../types/oauth';
-import { parseSpotifyTokenCookie, parseYouTubeTokenCookie } from '../utils/cookieParser';
+import { parseSpotifyTokenCookie, parseYouTubeTokenCookie, validateAndSerializeSpotifyTokens, validateAndSerializeYouTubeTokens } from '../utils/cookieParser';
 import { z } from 'zod';
 import ejs from 'ejs';
 import path from 'path';
@@ -75,9 +75,10 @@ const ensureValidSpotifyToken = async (req: Request, res: Response): Promise<Spo
         const data = await spotifyApi.refreshAccessToken();
         const { access_token } = data.body;
 
-        // Update cookie with new token
+        // Validate and update cookie with new token
         const updatedTokens = { ...spotifyTokens, accessToken: access_token };
-        res.cookie('spotify_tokens', JSON.stringify(updatedTokens), getSecureCookieOptions());
+        const serializedTokens = validateAndSerializeSpotifyTokens(updatedTokens);
+        res.cookie('spotify_tokens', serializedTokens, getSecureCookieOptions());
         spotifyApi.setAccessToken(access_token);
 
         Logger.auth('Spotify', 'token refreshed successfully');
@@ -120,12 +121,13 @@ async function ensureValidYouTubeToken(req: Request, res: Response): Promise<{ o
       try {
         const { credentials } = await oauth2Client.refreshAccessToken();
 
-        // Update cookie with new tokens
+        // Validate and update cookie with new tokens
         const updatedTokens = {
           ...youtubeTokens,
           ...credentials
         };
-        res.cookie('youtube_tokens', JSON.stringify(updatedTokens), getSecureCookieOptions());
+        const serializedTokens = validateAndSerializeYouTubeTokens(updatedTokens);
+        res.cookie('youtube_tokens', serializedTokens, getSecureCookieOptions());
         oauth2Client.setCredentials(updatedTokens);
 
         Logger.auth('YouTube', 'token refreshed successfully');
