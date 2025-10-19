@@ -1357,10 +1357,11 @@ select:focus {
 /* === LOADING STATES === */
 /* Direct Bootstrap spinner overrides - flat punk rock styling */
 
-/* === PROCESSING STATE ANIMATION === */
+/* === PROCESSING STATE === */
 /* Use high specificity to override .btn-primary.sync-btn styles */
 .btn-primary.sync-btn.processing-state {
-    background-color: #0066ff !important; /* Change to blue when processing */
+    background-color: #0066ff !important; /* Blue while processing */
     border-color: #0066ff !important;
     color: #fff !important;
+    box-shadow: 0 0 15px rgba(0, 102, 255, 0.6), 3px 3px 0px rgba(0,0,0,0.3) !important; /* Glow effect */
 }
