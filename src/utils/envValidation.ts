@@ -161,29 +161,3 @@ export function validateEnvironment(): void {
   });
 }
 
-/**
- * Get an environment variable with a default value
- * Useful for optional configuration
- */
-export function getEnv(key: string, defaultValue?: string): string {
-  const value = process.env[key];
-  if (value === undefined) {
-    if (defaultValue === undefined) {
-      throw new Error(`Required environment variable ${key} is not set`);
-    }
-    return defaultValue;
-  }
-  return value;
-}
-
-/**
- * Get a required environment variable
- * Throws if not set
- */
-export function requireEnv(key: string): string {
-  const value = process.env[key];
-  if (value === undefined) {
-    throw new Error(`Required environment variable ${key} is not set`);
-  }
-  return value;
-}
