@@ -342,8 +342,8 @@ router.get('/playlist-button/:playlistId',
     playlistId: req.params.playlistId
   });
 
-  const spotifyTokens = req.cookies.spotify_tokens ? JSON.parse(req.cookies.spotify_tokens) : null;
-  const youtubeTokens = req.cookies.youtube_tokens ? JSON.parse(req.cookies.youtube_tokens) : null;
+  const spotifyTokens = parseSpotifyTokenCookie(req.cookies.spotify_tokens, res);
+  const youtubeTokens = parseYouTubeTokenCookie(req.cookies.youtube_tokens, res);
 
   if (!spotifyTokens) {
     return res.status(401).send('<button class="btn btn-secondary sync-btn" disabled>Connect to Spotify First</button>');
