@@ -670,4 +670,156 @@ describe('Sync Playlist Reordering Logic', () => {
       expect(reorderOperations.find(op => op.videoId === 'video-b')).toBeUndefined();
     });
   });
+
+  describe('Reordering with manually added videos', () => {
+    it('should correctly order videos when manually added videos are interspersed', () => {
+      // Spotify has tracks in this order: [1, 2, 3, 4, 5]
+      // User manually added: track 1 (video-manual-1), track 4 (video-manual-4)
+      // Synced: track 2 (video-sync-2), track 3 (video-sync-3), track 5 (video-sync-5)
+      // Current YouTube order (wrong): [video-manual-1, video-sync-3, video-manual-4, video-sync-2, video-sync-5]
+      // Expected YouTube order: [video-manual-1, video-sync-2, video-sync-3, video-manual-4, video-sync-5]
+
+      const spotifyTracks = [
+        { track: { id: 'spotify-1', name: 'Track 1', artists: [{ name: 'Artist' }], type: 'track' } },
+        { track: { id: 'spotify-2', name: 'Track 2', artists: [{ name: 'Artist' }], type: 'track' } },
+        { track: { id: 'spotify-3', name: 'Track 3', artists: [{ name: 'Artist' }], type: 'track' } },
+        { track: { id: 'spotify-4', name: 'Track 4', artists: [{ name: 'Artist' }], type: 'track' } },
+        { track: { id: 'spotify-5', name: 'Track 5', artists: [{ name: 'Artist' }], type: 'track' } }
+      ];
+
+      const currentYouTubeOrder = [
+        {
+          id: 'item-1',
+          snippet: {
+            resourceId: { videoId: 'video-manual-1' },
+            title: 'Track 1 - Manual'
+          }
+        },
+        {
+          id: 'item-2',
+          snippet: {
+            resourceId: { videoId: 'video-sync-3' },
+            title: 'Track 3 - Synced'
+          }
+        },
+        {
+          id: 'item-3',
+          snippet: {
+            resourceId: { videoId: 'video-manual-4' },
+            title: 'Track 4 - Manual'
+          }
+        },
+        {
+          id: 'item-4',
+          snippet: {
+            resourceId: { videoId: 'video-sync-2' },
+            title: 'Track 2 - Synced'
+          }
+        },
+        {
+          id: 'item-5',
+          snippet: {
+            resourceId: { videoId: 'video-sync-5' },
+            title: 'Track 5 - Synced'
+          }
+        }
+      ];
+
+      // Track matches: map Spotify trackId to video
+      const trackMatches = new Map([
+        ['spotify-1', { id: 'video-manual-1', title: 'Track 1' }],
+        ['spotify-2', { id: 'video-sync-2', title: 'Track 2' }],
+        ['spotify-3', { id: 'video-sync-3', title: 'Track 3' }],
+        ['spotify-4', { id: 'video-manual-4', title: 'Track 4' }],
+        ['spotify-5', { id: 'video-sync-5', title: 'Track 5' }]
+      ]);
+
+      // Build expected order by Spotify position
+      const videoToSpotifyInfo = new Map();
+
+      for (const item of currentYouTubeOrder) {
+        const videoId = item.snippet?.resourceId?.videoId;
+        if (!videoId) continue;
+
+        let matchedTrackId = '';
+        for (const [trackId, videoInfo] of trackMatches.entries()) {
+          if (videoInfo.id === videoId) {
+            matchedTrackId = trackId;
+            break;
+          }
+        }
+
+        if (!matchedTrackId) continue;
+
+        for (let i = 0; i < spotifyTracks.length; i++) {
+          const spotifyItem = spotifyTracks[i] as any;
+          if (spotifyItem.track?.id === matchedTrackId) {
+            videoToSpotifyInfo.set(videoId, {
+              videoId,
+              spotifyPosition: i,
+              trackId: matchedTrackId,
+              trackName: spotifyItem.track.name,
+              artist: spotifyItem.track.artists[0]?.name || 'Unknown'
+            });
+            break;
+          }
+        }
+      }
+
+      // Build expected order sorted by Spotify position
+      const expectedVideoOrder = Array.from(videoToSpotifyInfo.entries())
+        .sort(([, infoA], [, infoB]) => infoA.spotifyPosition - infoB.spotifyPosition)
+        .map(([videoId]) => videoId);
+
+      // Build current order
+      const currentVideoOrder = [];
+      for (const item of currentYouTubeOrder) {
+        const videoId = item.snippet?.resourceId?.videoId;
+        if (videoId && videoToSpotifyInfo.has(videoId)) {
+          currentVideoOrder.push(videoId);
+        }
+      }
+
+      // Verify expected order
+      expect(expectedVideoOrder).toEqual([
+        'video-manual-1',   // Spotify position 0
+        'video-sync-2',     // Spotify position 1
+        'video-sync-3',     // Spotify position 2
+        'video-manual-4',   // Spotify position 3
+        'video-sync-5'      // Spotify position 4
+      ]);
+
+      // Verify current order is different
+      expect(currentVideoOrder).toEqual([
+        'video-manual-1',
+        'video-sync-3',
+        'video-manual-4',
+        'video-sync-2',
+        'video-sync-5'
+      ]);
+
+      // Identify out-of-order videos
+      const outOfOrder = [];
+      for (let i = 0; i < expectedVideoOrder.length; i++) {
+        const expectedVideoId = expectedVideoOrder[i];
+        const currentIndex = currentVideoOrder.indexOf(expectedVideoId);
+
+        if (currentIndex !== i && currentIndex !== -1) {
+          outOfOrder.push({
+            videoId: expectedVideoId,
+            currentPosition: currentIndex,
+            expectedPosition: i
+          });
+        }
+      }
+
+      // Should identify 3 videos that need reordering
+      expect(outOfOrder.length).toBe(3);
+
+      // Verify specific videos are out of order
+      expect(outOfOrder.find(v => v.videoId === 'video-sync-2')).toBeDefined();
+      expect(outOfOrder.find(v => v.videoId === 'video-sync-3')).toBeDefined();
+      expect(outOfOrder.find(v => v.videoId === 'video-manual-4')).toBeDefined();
+    });
+  });
 });
