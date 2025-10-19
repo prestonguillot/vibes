@@ -651,11 +651,12 @@ router.post('/playlist/:playlistId',
       }
 
       // Build arrays of tracks for optimal matching
+      // Use ALL spotifyTracks, not just syncedTracks, to include newly added videos
       const tracksToMatch: SimplifiedTrack[] = [];
-      for (const syncedTrack of syncedTracks) {
-        const typedSyncedTrack = syncedTrack as { track: { id: string; name: string; artists: Array<{ name?: string }>; type?: string } | null };
-        if (typedSyncedTrack.track && typedSyncedTrack.track.type === 'track') {
-          const track = typedSyncedTrack.track;
+      for (const spotifyTrack of spotifyTracks) {
+        const typedTrack = spotifyTrack as { track: { id: string; name: string; artists: Array<{ name?: string }>; type?: string } | null };
+        if (typedTrack.track && typedTrack.track.type === 'track') {
+          const track = typedTrack.track;
           tracksToMatch.push({
             id: track.id,
             name: track.name,

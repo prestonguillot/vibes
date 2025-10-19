@@ -20,7 +20,8 @@
       "Bash(GIT_SEQUENCE_EDITOR='sed -i \"\" \"1s/pick/reword/\"' git rebase:*)",
       "Bash(lsof:*)",
       "Bash(xargs kill:*)",
-      "Bash(pkill:*)"
+      "Bash(pkill:*)",
+      "Bash(videos are interspersed\" - tests the scenario where users manually add tracks\nat different positions and then sync other tracks, ensuring final order matches\nSpotify order.\n\nNow 316 tests passing (was 315).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
     ],
     "deny": [],
     "ask": []
