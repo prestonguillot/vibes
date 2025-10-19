@@ -1370,9 +1370,3 @@ select:focus {
         box-shadow: 3px 3px 0px rgba(0,0,0,0.3), 0 0 20px rgba(0,102,255,0.5);
     }
 }
-
-.processing-text {
-    display: inline-block;
-    min-width: 80px;
-    text-align: left;
-}
