@@ -47,10 +47,31 @@ function initializeVideoModal() {
             // Disable the button to prevent duplicate submissions
             target.disabled = true;
 
-            // Show loading state
+            // Store original text for restoration
             const originalText = target.innerHTML;
             target.setAttribute('data-original-text', originalText);
-            target.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Processing...';
+
+            // Add processing state class for styling
+            target.classList.add('processing-state');
+
+            // Show loading state with animated ellipsis
+            target.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span><span class="processing-text">Processing</span>';
+
+            // Animate the ellipsis dots
+            let dotCount = 0;
+            const processingInterval = setInterval(() => {
+                dotCount = (dotCount + 1) % 4;
+                const dots = '.'.repeat(dotCount);
+                const processingSpan = target.querySelector('.processing-text');
+                if (processingSpan) {
+                    processingSpan.textContent = 'Processing' + dots;
+                } else {
+                    clearInterval(processingInterval);
+                }
+            }, 500);
+
+            // Store interval ID so we can clear it later
+            target.setAttribute('data-processing-interval', processingInterval);
         }
     });
 
@@ -83,6 +104,15 @@ function initializeVideoModal() {
             } else {
                 // Request failed - restore button state
                 target.disabled = false;
+                target.classList.remove('processing-state');
+
+                // Clear the processing animation interval
+                const intervalId = target.getAttribute('data-processing-interval');
+                if (intervalId) {
+                    clearInterval(parseInt(intervalId));
+                    target.removeAttribute('data-processing-interval');
+                }
+
                 const originalText = target.getAttribute('data-original-text');
                 if (originalText) {
                     target.innerHTML = originalText;

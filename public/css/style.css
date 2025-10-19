@@ -1356,3 +1356,23 @@ select:focus {
 
 /* === LOADING STATES === */
 /* Direct Bootstrap spinner overrides - flat punk rock styling */
+
+/* === PROCESSING STATE ANIMATION === */
+.processing-state {
+    animation: pulse-processing 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-processing {
+    0%, 100% {
+        box-shadow: 3px 3px 0px rgba(0,0,0,0.3);
+    }
+    50% {
+        box-shadow: 3px 3px 0px rgba(0,0,0,0.3), 0 0 20px rgba(0,102,255,0.5);
+    }
+}
+
+.processing-text {
+    display: inline-block;
+    min-width: 80px;
+    text-align: left;
+}
