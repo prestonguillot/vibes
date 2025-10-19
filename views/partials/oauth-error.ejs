@@ -2,22 +2,10 @@
 <html>
 <head>
   <title><%= service %> Connection Failed</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      padding: 50px;
-      background: #dc3545;
-      color: white;
-    }
-    .error {
-      font-size: 24px;
-      margin-bottom: 20px;
-    }
-  </style>
+  <link rel="stylesheet" href="/css/style.css">
 </head>
-<body>
-  <div class="error"><%= service %> Connection Failed</div>
+<body class="oauth-error-body">
+  <div class="oauth-error-message"><%= service %> Connection Failed</div>
   <p>Please try again. You can close this window.</p>
   <script>
     setTimeout(() => {
