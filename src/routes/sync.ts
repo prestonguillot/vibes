@@ -1325,9 +1325,13 @@ router.post('/playlist/:playlistId',
         }
       }
       
-      // Step 3: Reorder playlist to match Spotify order (for UPDATE mode after adding videos)
-      if (isUpdateMode && totalToAdd > 0) {
-        Logger.info('UPDATE mode: Reordering playlist to match Spotify order after adding new videos');
+      // Step 3: Reorder all synced tracks to match Spotify order (UPDATE mode only)
+      // This ensures that order changes in Spotify are reflected in YouTube, even if no new videos were added
+      if (isUpdateMode && syncedTracks.length > 0) {
+        Logger.info('UPDATE mode: Reordering synced tracks to match current Spotify order', {
+          syncedTracksCount: syncedTracks.length,
+          newVideosAdded: totalToAdd
+        });
 
         sendProgressUpdate(playlistId, {
           type: 'progress',
@@ -1336,11 +1340,11 @@ router.post('/playlist/:playlistId',
           percentage: 95
         });
 
-        // Now reorder all existing tracks to match Spotify order
-        // All videos should exist now since we just added new ones
+        // Reorder all synced tracks to match current Spotify positions
+        // This handles both: new videos that were just added, and existing videos that may have been reordered in Spotify
         await reorderExistingTracks(youtube, youtubePlaylistId, tracks, syncedTracks, existingItemsMap, playlistId);
-      } else if (totalToAdd === 0) {
-        Logger.info('No changes needed - playlist is already in sync');
+      } else if (isUpdateMode) {
+        Logger.info('UPDATE mode: No synced tracks to reorder');
       } else {
         Logger.info('CREATE mode: Reordering already happened before adding videos');
       }
