@@ -1360,8 +1360,18 @@ select:focus {
 /* === PROCESSING STATE === */
 /* Use high specificity to override .btn-primary.sync-btn styles */
 .btn-primary.sync-btn.processing-state {
-    background-color: #0066ff !important; /* Blue while processing */
-    border-color: #0066ff !important;
+    background-color: #ff0040 !important; /* Same red as normal, but dimmed */
+    border-color: #000 !important;
     color: #fff !important;
-    box-shadow: 0 0 15px rgba(0, 102, 255, 0.6), 3px 3px 0px rgba(0,0,0,0.3) !important; /* Glow effect */
+    opacity: 0.6 !important; /* Show it's disabled/processing */
+    box-shadow: 3px 3px 0px rgba(0,0,0,0.3) !important; /* Keep punk shadow but no glow */
+    cursor: not-allowed !important;
+}
+
+/* Ensure spinner is visible on red background */
+.btn-primary.sync-btn.processing-state .spinner-border {
+    border-top-color: #fff !important;
+    border-right-color: rgba(255,255,255,0.3) !important;
+    border-bottom-color: rgba(255,255,255,0.3) !important;
+    border-left-color: rgba(255,255,255,0.3) !important;
 }
