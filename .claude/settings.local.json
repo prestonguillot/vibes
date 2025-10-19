@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(npx tsc --noEmit)",
-      "Read(//private/tmp/**)"
+      "Read(//private/tmp/**)",
+      "Bash(node -e \"console.log(''Circuit breaker opens at:'', new Date(1760904912233).toISOString()); console.log(''Current time:'', new Date().toISOString()); console.log(''Needs to wait:'', (1760904912233 - Date.now()) / 1000, ''seconds'');\")"
     ],
     "deny": [],
     "ask": []
