@@ -6,7 +6,7 @@ import { getSecureCookieOptions } from '../utils/authValidation';
 import { validate, schemas, ValidatedRequest } from '../utils/validation';
 import { CacheDuration, setCache } from '../utils/cache';
 import { youtubeCircuitBreaker } from '../utils/circuitBreaker';
-import { parseSpotifyTokenCookie, parseYouTubeTokenCookie } from '../utils/cookieParser';
+import { parseSpotifyTokenCookie, parseYouTubeTokenCookie, validateAndSerializeSpotifyTokens } from '../utils/cookieParser';
 import { z } from 'zod';
 import ejs from 'ejs';
 import path from 'path';
@@ -44,9 +44,10 @@ const ensureValidSpotifyToken = async (req: any, res: any) => {
         const data = await spotifyApi.refreshAccessToken();
         const { access_token } = data.body;
 
-        // Update cookie with new token
+        // Validate and update cookie with new token
         const updatedTokens = { ...spotifyTokens, accessToken: access_token };
-        res.cookie('spotify_tokens', JSON.stringify(updatedTokens), getSecureCookieOptions());
+        const serializedTokens = validateAndSerializeSpotifyTokens(updatedTokens);
+        res.cookie('spotify_tokens', serializedTokens, getSecureCookieOptions());
         spotifyApi.setAccessToken(access_token);
 
         Logger.auth('Spotify', 'token refreshed successfully');
@@ -98,11 +99,13 @@ router.get('/callback',
     spotifyApi.setAccessToken(access_token);
     spotifyApi.setRefreshToken(refresh_token);
 
-    // Store tokens in httpOnly cookie
-    res.cookie('spotify_tokens', JSON.stringify({
+    // Validate tokens before storing in cookie
+    const serializedTokens = validateAndSerializeSpotifyTokens({
       accessToken: access_token,
       refreshToken: refresh_token
-    }), getSecureCookieOptions());
+    });
+
+    res.cookie('spotify_tokens', serializedTokens, getSecureCookieOptions());
 
     Logger.auth('Spotify', 'tokens stored in cookie');
 

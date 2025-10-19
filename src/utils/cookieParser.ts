@@ -20,6 +20,22 @@ export const YouTubeTokensSchema = z.object({
 });
 
 /**
+ * Helper function to validate and serialize tokens for cookie storage
+ */
+export function validateAndSerializeSpotifyTokens(tokens: unknown): string {
+  const validated = SpotifyTokensSchema.parse(tokens);
+  return JSON.stringify(validated);
+}
+
+/**
+ * Helper function to validate and serialize YouTube tokens for cookie storage
+ */
+export function validateAndSerializeYouTubeTokens(tokens: unknown): string {
+  const validated = YouTubeTokensSchema.parse(tokens);
+  return JSON.stringify(validated);
+}
+
+/**
  * Safely parse Spotify token from cookie
  * - Validates JSON parsing
  * - Validates against schema

@@ -4,7 +4,7 @@ import { Logger } from '../utils/logger';
 import { getSecureCookieOptions } from '../utils/authValidation';
 import { validate, schemas, ValidatedRequest } from '../utils/validation';
 import { YouTubeTokens } from '../types/oauth';
-import { parseYouTubeTokenCookie } from '../utils/cookieParser';
+import { parseYouTubeTokenCookie, validateAndSerializeYouTubeTokens } from '../utils/cookieParser';
 import { z } from 'zod';
 
 const router = Router();
@@ -40,12 +40,13 @@ const ensureValidYouTubeToken = async (req: Request, res: Response) => {
       try {
         const { credentials } = await oauth2Client.refreshAccessToken();
 
-        // Update cookie with new tokens
+        // Validate and update cookie with new tokens
         const updatedTokens = {
           ...youtubeTokens,
           ...credentials
         };
-        res.cookie('youtube_tokens', JSON.stringify(updatedTokens), getSecureCookieOptions());
+        const serializedTokens = validateAndSerializeYouTubeTokens(updatedTokens);
+        res.cookie('youtube_tokens', serializedTokens, getSecureCookieOptions());
         oauth2Client.setCredentials(updatedTokens);
 
         Logger.auth('YouTube', 'token refreshed successfully');
@@ -98,8 +99,9 @@ router.get('/callback',
     const { tokens } = await oauth2Client.getToken(code as string);
     oauth2Client.setCredentials(tokens);
 
-    // Store tokens in httpOnly cookie
-    res.cookie('youtube_tokens', JSON.stringify(tokens), getSecureCookieOptions());
+    // Validate tokens before storing in cookie
+    const serializedTokens = validateAndSerializeYouTubeTokens(tokens);
+    res.cookie('youtube_tokens', serializedTokens, getSecureCookieOptions());
 
     Logger.auth('YouTube', 'tokens stored in cookie');
 
