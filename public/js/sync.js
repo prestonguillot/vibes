@@ -15,7 +15,7 @@ document.body.addEventListener('htmx:beforeRequest', (event) => {
   const progressDiv = document.getElementById(`progress-${playlistId}`);
 
   if (progressDiv) {
-    progressDiv.style.display = 'block';
+    progressDiv.classList.remove('hidden');
     startSSE(playlistId);
   }
 });
@@ -32,7 +32,7 @@ document.body.addEventListener('htmx:afterRequest', (event) => {
   // Hide progress after a short delay
   setTimeout(() => {
     const progressDiv = document.getElementById(`progress-${playlistId}`);
-    if (progressDiv) progressDiv.style.display = 'none';
+    if (progressDiv) progressDiv.classList.add('hidden');
   }, 2000);
 });
 
@@ -51,7 +51,7 @@ document.body.addEventListener('htmx:sendError', (event) => {
   // Hide progress on error
   const progressDiv = document.getElementById(`progress-${playlistId}`);
   if (progressDiv) {
-    progressDiv.style.display = 'none';
+    progressDiv.classList.add('hidden');
   }
 });
 
