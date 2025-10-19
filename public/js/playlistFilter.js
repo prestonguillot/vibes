@@ -9,23 +9,22 @@ document.addEventListener('DOMContentLoaded', function() {
   const refreshBtn = document.getElementById('refresh-playlists-btn');
 
   /**
-   * Check if both Spotify and YouTube are connected
+   * Check if Spotify is connected (that's all we need to refresh the playlist list)
    */
   function checkConnectionStatus() {
     const spotifyStatus = document.querySelector('#spotify-status [data-service="spotify"]');
-    const youtubeStatus = document.querySelector('#youtube-status [data-service="youtube"]');
 
     const spotifyConnected = spotifyStatus?.dataset.connected === 'true';
-    const youtubeConnected = youtubeStatus?.dataset.connected === 'true';
-    const bothConnected = spotifyConnected && youtubeConnected;
 
     if (refreshBtn) {
-      if (bothConnected) {
+      if (spotifyConnected) {
         refreshBtn.disabled = false;
         refreshBtn.classList.remove('disabled');
+        refreshBtn.title = 'Refresh playlist list from Spotify';
       } else {
         refreshBtn.disabled = true;
         refreshBtn.classList.add('disabled');
+        refreshBtn.title = 'Connect to Spotify to refresh playlists';
       }
     }
   }
