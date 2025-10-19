@@ -670,59 +670,84 @@ router.post('/playlist/:playlistId',
       // Find existing YouTube videos that need reordering (only those in wrong positions)
       const reorderOperations = [];
 
-      for (const syncedTrack of syncedTracks) {
-        const typedSyncedTrack = syncedTrack as { track: { id: string; name: string; artists: Array<{ name?: string }>; type?: string } | null };
-        if (typedSyncedTrack.track && typedSyncedTrack.track.type === 'track') {
-          const track = typedSyncedTrack.track;
-          const trackKey = `${track.name.toLowerCase()}-${track.artists[0]?.name?.toLowerCase() || ''}`;
-          const targetPosition = spotifyTrackPositions.get(trackKey);
+      // Build a map of synced track Spotify positions for easier lookup
+      const syncedTrackPositions = new Map<string, number>();
+      for (const [trackId, videoInfo] of trackMatches.entries()) {
+        for (let i = 0; i < tracks.length; i++) {
+          const item = tracks[i];
+          const typedItem = item as { track: { id: string } | null };
+          if (typedItem.track?.id === trackId) {
+            syncedTrackPositions.set(videoInfo.id, i);
+            break;
+          }
+        }
+      }
 
-          if (targetPosition !== undefined) {
-            // Get the matched video from optimal matching
-            const matchingVideo = trackMatches.get(track.id);
+      // Sort synced videos by their Spotify position to determine target YouTube positions
+      const sortedSyncedVideos = Array.from(syncedTrackPositions.entries())
+        .sort(([, posA], [, posB]) => posA - posB);
 
-            if (matchingVideo && matchingVideo.playlistItemId) {
-              const currentPosInfo = currentPositions.get(matchingVideo.id);
+      for (let i = 0; i < sortedSyncedVideos.length; i++) {
+        const [videoId, spotifyPos] = sortedSyncedVideos[i];
+        const matchingVideoInfo = Array.from(trackMatches.values()).find(v => v.id === videoId);
 
-              // CRITICAL FIX: Only add to reorder operations if position is actually wrong
-              if (currentPosInfo && currentPosInfo.currentPosition !== targetPosition) {
-                reorderOperations.push({
-                  playlistItemId: matchingVideo.playlistItemId,
-                  videoId: matchingVideo.id,
-                  currentPosition: currentPosInfo.currentPosition,
-                  targetPosition: targetPosition,
-                  trackName: track.name,
-                  artist: track.artists[0]?.name || 'Unknown Artist'
-                });
+        if (!matchingVideoInfo) continue;
 
-                Logger.info('Track needs repositioning', {
-                  trackName: track.name,
-                  artist: track.artists[0]?.name || 'Unknown Artist',
-                  currentPosition: currentPosInfo.currentPosition,
-                  targetPosition: targetPosition,
-                  videoId: matchingVideo.id,
-                  videoTitle: matchingVideo.title
-                });
-              } else if (currentPosInfo) {
-                Logger.info('Track already in correct position, skipping', {
-                  trackName: track.name,
-                  artist: track.artists[0]?.name || 'Unknown Artist',
-                  position: targetPosition,
-                  currentPosition: currentPosInfo.currentPosition,
-                  videoId: matchingVideo.id,
-                  videoTitle: matchingVideo.title
-                });
-              } else {
-                Logger.warn('Could not find current position for matched video', {
-                  trackName: track.name,
-                  artist: track.artists[0]?.name || 'Unknown Artist',
-                  targetPosition,
-                  videoId: matchingVideo.id,
-                  videoTitle: matchingVideo.title
-                });
+        // Find the corresponding synced track
+        let syncedTrack: any = null;
+        for (const sTrack of syncedTracks) {
+          const typedTrack = sTrack as { track: { id: string; name: string; artists: Array<{ name?: string }>; type?: string } | null };
+          if (typedTrack.track) {
+            for (const [trackId, videoInfo] of trackMatches.entries()) {
+              if (videoInfo.id === videoId && typedTrack.track.id === trackId) {
+                syncedTrack = typedTrack.track;
+                break;
               }
             }
           }
+        }
+
+        if (!syncedTrack) continue;
+
+        const currentPosInfo = currentPositions.get(videoId);
+        const targetPosition = i; // Position based on order among synced videos only
+
+        // Only add to reorder operations if position is actually wrong
+        if (currentPosInfo && currentPosInfo.currentPosition !== targetPosition) {
+          reorderOperations.push({
+            playlistItemId: matchingVideoInfo.playlistItemId,
+            videoId: videoId,
+            currentPosition: currentPosInfo.currentPosition,
+            targetPosition: targetPosition,
+            trackName: syncedTrack.name,
+            artist: syncedTrack.artists[0]?.name || 'Unknown Artist'
+          });
+
+          Logger.info('Track needs repositioning', {
+            trackName: syncedTrack.name,
+            artist: syncedTrack.artists[0]?.name || 'Unknown Artist',
+            currentPosition: currentPosInfo.currentPosition,
+            targetPosition: targetPosition,
+            videoId: videoId,
+            videoTitle: matchingVideoInfo.title
+          });
+        } else if (currentPosInfo) {
+          Logger.info('Track already in correct position, skipping', {
+            trackName: syncedTrack.name,
+            artist: syncedTrack.artists[0]?.name || 'Unknown Artist',
+            position: targetPosition,
+            currentPosition: currentPosInfo.currentPosition,
+            videoId: videoId,
+            videoTitle: matchingVideoInfo.title
+          });
+        } else {
+          Logger.warn('Could not find current position for matched video', {
+            trackName: syncedTrack.name,
+            artist: syncedTrack.artists[0]?.name || 'Unknown Artist',
+            targetPosition,
+            videoId: videoId,
+            videoTitle: matchingVideoInfo.title
+          });
         }
       }
 
