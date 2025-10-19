@@ -776,10 +776,14 @@ router.post('/playlist/:playlistId',
       // This avoids expensive refetches while still tracking accurate positions
       let trackedYouTubeOrder = [...currentYouTubeOrder];
 
+      // Sort operations by targetPosition DESCENDING (highest first)
+      // This prevents earlier positions from shifting when we move later videos
+      const sortedOperations = [...reorderOperations].sort((a, b) => b.expectedIndex - a.expectedIndex);
+
       // Execute reorder operations using delete + insert strategy
       // YouTube's API has issues with position updates, so we delete and re-insert instead
       let reorderedCount = 0;
-      for (const operation of reorderOperations) {
+      for (const operation of sortedOperations) {
         try {
           // Find current position of video in tracked state
           let currentPosition = -1;
@@ -842,15 +846,20 @@ router.post('/playlist/:playlistId',
             continue;
           }
 
-          // Use UPDATE to move the video to the target position
-          // This is simpler than delete+insert and avoids position shifting issues
-          await youtube.playlistItems.update({
+          // Delete and re-insert without position to reorder
+          // YouTube will append to end on insert, then position shifts naturally
+          await youtube.playlistItems.delete({
+            id: playlistItemId
+          });
+          logApiCall('delete for reorder', 50);
+
+          // Re-insert WITHOUT position - will go to end of playlist
+          // We'll then move it to correct position in next operations if needed
+          await youtube.playlistItems.insert({
             part: ['snippet'],
             requestBody: {
-              id: playlistItemId,
               snippet: {
                 playlistId: youtubePlaylistId,
-                position: targetPosition,
                 resourceId: {
                   kind: 'youtube#video',
                   videoId: operation.videoId,
@@ -858,7 +867,7 @@ router.post('/playlist/:playlistId',
               }
             }
           });
-          logApiCall('update position', 50);
+          logApiCall('insert for reorder', 50);
 
           // Update tracked state: remove from current position and insert at target
           const [movedItem] = trackedYouTubeOrder.splice(currentPosition, 1);
