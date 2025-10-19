@@ -1333,12 +1333,12 @@ router.post('/playlist/:playlistId',
         const videoId = result.videoId!;
         
         try {
+          // YouTube API doesn't support position on insert, videos are added to the end
           await youtube.playlistItems.insert({
             part: ['snippet'],
             requestBody: {
               snippet: {
                 playlistId: youtubePlaylistId,
-                position: result.spotifyPosition, // Insert at correct position
                 resourceId: {
                   kind: 'youtube#video',
                   videoId: videoId,
@@ -1406,12 +1406,12 @@ router.post('/playlist/:playlistId',
           const videoId = result.videoId!;
           
           try {
+            // YouTube API doesn't support position on insert, videos are added to the end
             await youtube.playlistItems.insert({
               part: ['snippet'],
               requestBody: {
                 snippet: {
                   playlistId: youtubePlaylistId,
-                  position: result.spotifyPosition, // Insert at correct position
                   resourceId: {
                     kind: 'youtube#video',
                     videoId: videoId,
