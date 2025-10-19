@@ -896,7 +896,9 @@ router.post('/playlist/:playlistId',
     
     // STEP 2: Determine which tracks need video search based on mode
     let tracksToSearch: unknown[] = [];
-    
+    let syncedTracks: unknown[] = [];
+    let unsyncedTracks: unknown[] = [];
+
     if (isUpdateMode) {
       // UPDATE MODE: Use track matching to identify which tracks are actually unsynced
       const existingVideoCount = existingVideoIds.size;
@@ -963,8 +965,7 @@ router.post('/playlist/:playlistId',
       const trackMatches = optimalTrackMatching(tracksToMatch, existingVideos);
 
       // Match Spotify tracks to existing YouTube videos to identify unsynced tracks
-      const unsyncedTracks: unknown[] = [];
-      const syncedTracks: unknown[] = [];
+      // (unsyncedTracks and syncedTracks declared at higher scope)
 
       for (const item of tracks) {
         const typedItem = item as { track: { id: string; name: string; artists: Array<{ name?: string }>; type?: string } | null };
