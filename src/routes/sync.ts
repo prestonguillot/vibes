@@ -726,10 +726,32 @@ router.post('/playlist/:playlistId',
         }
       }
 
-      Logger.info('Identified tracks for reordering', { 
+      // Check for unmatched videos in the playlist (manually added, not synced)
+      const unmatchedVideoIds = new Set<string>();
+      for (const [videoId, posInfo] of currentPositions.entries()) {
+        // If this video is not in any synced track, it's manually added
+        const isMatched = Array.from(trackMatches.values()).some(match => match.id === videoId);
+        if (!isMatched) {
+          unmatchedVideoIds.add(videoId);
+          Logger.debug('Found unmatched video (manually added)', {
+            videoId,
+            currentPosition: posInfo.currentPosition
+          });
+        }
+      }
+
+      if (unmatchedVideoIds.size > 0) {
+        Logger.warn('Reordering with unmatched videos present - this may cause ordering issues', {
+          unmatchedVideoCount: unmatchedVideoIds.size,
+          unmatchedVideoIds: Array.from(unmatchedVideoIds).slice(0, 3) // Show first 3
+        });
+      }
+
+      Logger.info('Identified tracks for reordering', {
         reorderOperationsCount: reorderOperations.length,
         totalSyncedTracks: syncedTracks.length,
-        tracksAlreadyInCorrectPosition: syncedTracks.length - reorderOperations.length
+        tracksAlreadyInCorrectPosition: syncedTracks.length - reorderOperations.length,
+        unmatchedVideoCount: unmatchedVideoIds.size
       });
 
       // If no tracks need reordering, skip the entire reordering phase
@@ -752,6 +774,34 @@ router.post('/playlist/:playlistId',
       let reorderedCount = 0;
       for (const operation of reorderOperations) {
         try {
+          // Before moving, re-fetch the current playlist to get accurate positions
+          // This is necessary because manually added videos or previous operations may have shifted positions
+          const updatedItemsResponse = await youtube.playlistItems.list({
+            part: ['id', 'snippet'],
+            playlistId: youtubePlaylistId,
+            maxResults: 50,
+            pageToken: undefined
+          });
+          logApiCall('get current positions before reorder', 1);
+
+          // Find the current position of the video we're about to move
+          const currentItems = updatedItemsResponse.data.items || [];
+          let actualCurrentPosition = -1;
+          for (let i = 0; i < currentItems.length; i++) {
+            if (currentItems[i].id === operation.playlistItemId) {
+              actualCurrentPosition = i;
+              break;
+            }
+          }
+
+          if (actualCurrentPosition === -1) {
+            Logger.warn('Video to reorder not found in current playlist', {
+              videoId: operation.videoId,
+              playlistItemId: operation.playlistItemId
+            });
+            continue; // Skip this operation
+          }
+
           // Step 1: Delete the item from its current position
           await youtube.playlistItems.delete({
             id: operation.playlistItemId
@@ -778,7 +828,7 @@ router.post('/playlist/:playlistId',
           Logger.external('YouTube', 'Reordered track position', {
             trackName: operation.trackName,
             artist: operation.artist,
-            fromPosition: operation.currentPosition,
+            fromPosition: actualCurrentPosition,
             toPosition: operation.targetPosition,
             videoId: operation.videoId
           });
@@ -790,7 +840,7 @@ router.post('/playlist/:playlistId',
           sendProgressUpdate(playlistId, {
             type: 'progress',
             message: 'Reordering existing tracks',
-            details: `Moved "${operation.trackName}" from position ${operation.currentPosition + 1} to ${operation.targetPosition + 1} (${reorderedCount}/${reorderOperations.length})`,
+            details: `Moved "${operation.trackName}" from position ${actualCurrentPosition + 1} to ${operation.targetPosition + 1} (${reorderedCount}/${reorderOperations.length})`,
             percentage: totalPercentage
           });
 

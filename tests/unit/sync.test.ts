@@ -283,6 +283,77 @@ describe('Sync Playlist Reordering Logic', () => {
     });
   });
 
+  describe('Reordering with manually added videos (Bug fix verification)', () => {
+    it('should detect unmatched videos (manually added) in playlist', () => {
+      const currentPositions = new Map([
+        ['video-a', { currentPosition: 0, playlistItemId: 'item-1' }],
+        ['video-b', { currentPosition: 1, playlistItemId: 'item-2' }],
+        ['video-c', { currentPosition: 2, playlistItemId: 'item-3' }],
+        ['video-manually-added', { currentPosition: 3, playlistItemId: 'item-4' }]
+      ]);
+
+      const trackMatches = new Map([
+        ['id-1', { id: 'video-a', title: 'Song A', playlistItemId: 'item-1' }],
+        ['id-2', { id: 'video-b', title: 'Song B', playlistItemId: 'item-2' }],
+        ['id-3', { id: 'video-c', title: 'Song C', playlistItemId: 'item-3' }]
+        // video-manually-added is NOT in trackMatches
+      ]);
+
+      // Find unmatched videos
+      const unmatchedVideoIds = new Set<string>();
+      for (const [videoId] of currentPositions.entries()) {
+        const isMatched = Array.from(trackMatches.values()).some(match => match.id === videoId);
+        if (!isMatched) {
+          unmatchedVideoIds.add(videoId);
+        }
+      }
+
+      expect(unmatchedVideoIds.size).toBe(1);
+      expect(unmatchedVideoIds.has('video-manually-added')).toBe(true);
+    });
+
+    it('should handle playlists with only manually added videos', () => {
+      const currentPositions = new Map([
+        ['manual-1', { currentPosition: 0, playlistItemId: 'item-1' }],
+        ['manual-2', { currentPosition: 1, playlistItemId: 'item-2' }]
+      ]);
+
+      const trackMatches = new Map(); // Empty - no synced tracks
+
+      const unmatchedVideoIds = new Set<string>();
+      for (const [videoId] of currentPositions.entries()) {
+        const isMatched = Array.from(trackMatches.values()).some(match => match.id === videoId);
+        if (!isMatched) {
+          unmatchedVideoIds.add(videoId);
+        }
+      }
+
+      expect(unmatchedVideoIds.size).toBe(2);
+    });
+
+    it('should handle playlists with only synced videos (no manually added)', () => {
+      const currentPositions = new Map([
+        ['video-a', { currentPosition: 0, playlistItemId: 'item-1' }],
+        ['video-b', { currentPosition: 1, playlistItemId: 'item-2' }]
+      ]);
+
+      const trackMatches = new Map([
+        ['id-1', { id: 'video-a', title: 'Song A', playlistItemId: 'item-1' }],
+        ['id-2', { id: 'video-b', title: 'Song B', playlistItemId: 'item-2' }]
+      ]);
+
+      const unmatchedVideoIds = new Set<string>();
+      for (const [videoId] of currentPositions.entries()) {
+        const isMatched = Array.from(trackMatches.values()).some(match => match.id === videoId);
+        if (!isMatched) {
+          unmatchedVideoIds.add(videoId);
+        }
+      }
+
+      expect(unmatchedVideoIds.size).toBe(0);
+    });
+  });
+
   describe('Variable scope (Bug fix verification)', () => {
     it('should keep syncedTracks and unsyncedTracks in accessible scope for reordering', () => {
       // This test verifies the fix for "syncedTracks is not defined" error
