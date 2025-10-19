@@ -5,6 +5,7 @@ import { getSecureCookieOptions } from '../utils/authValidation';
 import { validate, schemas, ValidatedRequest } from '../utils/validation';
 import { YouTubeTokens } from '../types/oauth';
 import { z } from 'zod';
+import { parseYouTubeTokens } from '../utils/tokenParsing';
 
 const router = Router();
 
@@ -17,7 +18,7 @@ const getOAuth2Client = () => new google.auth.OAuth2(
 
 // Helper function to refresh YouTube tokens if needed
 const ensureValidYouTubeToken = async (req: Request, res: Response) => {
-  const youtubeTokens: YouTubeTokens | null = req.cookies.youtube_tokens ? JSON.parse(req.cookies.youtube_tokens) : null;
+  const youtubeTokens: YouTubeTokens | null = parseYouTubeTokens(req.cookies.youtube_tokens);
 
   if (!youtubeTokens) {
     throw new Error('No YouTube tokens found');

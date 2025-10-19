@@ -16,6 +16,7 @@ import { progressRouter } from './routes/progress';
 import { Logger } from './utils/logger';
 import { validateSpotifyConnection, validateYouTubeConnection } from './utils/authValidation';
 import { csrfCookieMiddleware, getCsrfToken } from './utils/csrf';
+import { parseSpotifyTokens, parseYouTubeTokens } from './utils/tokenParsing';
 
 export function createApp() {
   const app = express();
@@ -121,7 +122,7 @@ export function createApp() {
   // Connection status button endpoints (with rate limiting)
   app.get('/api/status/spotify/button', statusLimiter, async (req, res) => {
     const startTime = Date.now();
-    const spotifyTokens = req.cookies.spotify_tokens ? JSON.parse(req.cookies.spotify_tokens) : null;
+    const spotifyTokens = parseSpotifyTokens(req.cookies.spotify_tokens);
     const spotifyResult = await validateSpotifyConnection(spotifyTokens, res);
 
     // Ensure minimum display time of 500ms to prevent flash
@@ -141,7 +142,7 @@ export function createApp() {
 
   app.get('/api/status/youtube/button', statusLimiter, async (req, res) => {
     const startTime = Date.now();
-    const youtubeTokens = req.cookies.youtube_tokens ? JSON.parse(req.cookies.youtube_tokens) : null;
+    const youtubeTokens = parseYouTubeTokens(req.cookies.youtube_tokens);
     const youtubeResult = await validateYouTubeConnection(youtubeTokens, res);
 
     // Ensure minimum display time of 500ms to prevent flash

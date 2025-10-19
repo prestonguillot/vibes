@@ -9,6 +9,7 @@ import { youtubeCircuitBreaker } from '../utils/circuitBreaker';
 import { z } from 'zod';
 import ejs from 'ejs';
 import path from 'path';
+import { parseSpotifyTokens, parseYouTubeTokens } from '../utils/tokenParsing';
 
 const router = Router();
 
@@ -21,7 +22,7 @@ const getSpotifyApi = () => new SpotifyWebApi({
 
 // Helper function to refresh Spotify tokens if needed
 const ensureValidSpotifyToken = async (req: any, res: any) => {
-  const spotifyTokens = req.cookies.spotify_tokens ? JSON.parse(req.cookies.spotify_tokens) : null;
+  const spotifyTokens = parseSpotifyTokens(req.cookies.spotify_tokens);
 
   if (!spotifyTokens) {
     throw new Error('No Spotify tokens found');
@@ -126,7 +127,7 @@ router.get('/playlists',
     queryParams: req.query
   });
 
-  const spotifyTokens = req.cookies.spotify_tokens ? JSON.parse(req.cookies.spotify_tokens) : null;
+  const spotifyTokens = parseSpotifyTokens(req.cookies.spotify_tokens);
   if (!spotifyTokens) {
     return res.status(401).render('partials/error-message', { message: 'Please connect to Spotify first', type: 'warning' });
   }
@@ -144,7 +145,7 @@ router.get('/playlists',
       process.env.YOUTUBE_CLIENT_SECRET,
       process.env.YOUTUBE_REDIRECT_URI
     );
-    let youtubeTokens = req.cookies.youtube_tokens ? JSON.parse(req.cookies.youtube_tokens) : null;
+    let youtubeTokens = parseYouTubeTokens(req.cookies.youtube_tokens);
     if (youtubeTokens) {
       oauth2Client.setCredentials(youtubeTokens);
     }

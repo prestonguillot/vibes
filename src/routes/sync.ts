@@ -14,6 +14,7 @@ import ejs from 'ejs';
 import path from 'path';
 import { reorderPlaylistTracks } from '../utils/playlistReordering';
 import { optimalTrackMatching, SimplifiedTrack, SimplifiedVideo } from '../utils/trackMatching';
+import { parseSpotifyTokens, parseYouTubeTokens } from '../utils/tokenParsing';
 
 const router = Router();
 
@@ -48,7 +49,7 @@ const syncLimiter = rateLimit({
 
 // Helper functions for token refresh
 const ensureValidSpotifyToken = async (req: Request, res: Response): Promise<SpotifyWebApi> => {
-  const spotifyTokens: SpotifyTokens | null = req.cookies.spotify_tokens ? JSON.parse(req.cookies.spotify_tokens) : null;
+  const spotifyTokens: SpotifyTokens | null = parseSpotifyTokens(req.cookies.spotify_tokens);
 
   if (!spotifyTokens) {
     throw new Error('No Spotify tokens found');
@@ -93,7 +94,7 @@ const ensureValidSpotifyToken = async (req: Request, res: Response): Promise<Spo
 
 // Helper function to ensure valid YouTube token and return quota usage
 async function ensureValidYouTubeToken(req: Request, res: Response): Promise<{ oauth2Client: OAuth2Client, quotaUsed: number }> {
-  const youtubeTokens: YouTubeTokens | null = req.cookies.youtube_tokens ? JSON.parse(req.cookies.youtube_tokens) : null;
+  const youtubeTokens: YouTubeTokens | null = parseYouTubeTokens(req.cookies.youtube_tokens);
 
   if (!youtubeTokens) {
     throw new Error('YOUTUBE_AUTH_REQUIRED');
@@ -183,8 +184,8 @@ router.post('/playlist/:playlistId',
 
   try {
     // Check authentication
-    const spotifyTokens: SpotifyTokens | null = req.cookies.spotify_tokens ? JSON.parse(req.cookies.spotify_tokens) : null;
-    const youtubeTokens: YouTubeTokens | null = req.cookies.youtube_tokens ? JSON.parse(req.cookies.youtube_tokens) : null;
+    const spotifyTokens: SpotifyTokens | null = parseSpotifyTokens(req.cookies.spotify_tokens);
+    const youtubeTokens: YouTubeTokens | null = parseYouTubeTokens(req.cookies.youtube_tokens);
 
     if (!spotifyTokens) {
       Logger.error('No Spotify tokens in cookies');
