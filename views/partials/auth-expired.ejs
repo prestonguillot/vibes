@@ -1,12 +1,7 @@
-<%
-const loginUrl = service === 'Spotify' ? '/auth/spotify/login' : '/auth/youtube/login';
-const btnClass = service === 'Spotify' ? 'btn-spotify-reconnect' : 'btn-youtube-reconnect';
-%>
-
-<div class="auth-expired-container">
-  <h6><%= service %> session expired</h6>
-  <p>Please reconnect to <%= service %> to continue.</p>
-  <a href="<%= loginUrl %>" class="btn <%= btnClass %>">
+<div class="alert alert-warning">
+  <h5>Authentication Required</h5>
+  <p><%= service %> session has expired. Please reconnect to continue syncing.</p>
+  <a href="<%= loginUrl %>" class="btn <%= service === 'Spotify' ? 'btn-spotify-reconnect' : 'btn-youtube-reconnect' %>">
     Reconnect to <%= service %>
   </a>
 </div>

@@ -1127,15 +1127,11 @@ router.post('/playlist/:playlistId',
       const loginUrl = error.message === 'SPOTIFY_AUTH_REQUIRED' ?
         '/auth/spotify/login' : '/auth/youtube/login';
 
-      return res.status(401).send(`
-        <div class="alert alert-warning">
-          <h5>Authentication Required</h5>
-          <p>${service} session has expired. Please reconnect to continue syncing.</p>
-          <a href="${loginUrl}" class="btn btn-success btn-sm">
-            Reconnect to ${service}
-          </a>
-        </div>
-      `);
+      const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/auth-expired.ejs'), {
+        service,
+        loginUrl
+      });
+      return res.status(401).send(html);
     }
     
     const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {

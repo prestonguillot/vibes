@@ -1,10 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm ls --depth=0)",
-      "Bash(npm test)",
-      "Bash(find /Users/prestonguillot/development/vibes -path ./node_modules -prune -o -type f ( -name \"*.html\" -o -name \"*.ejs\" -o -name \"*.hbs\" ) -print)",
-      "Bash(npm audit)"
+      "Bash(grep -n \"const.*Html\\s*=\\s*\\`\" /Users/prestonguillot/development/vibes/src/routes/sync.ts)",
+      "Bash(grep -n '`.*<' /Users/prestonguillot/development/vibes/src/routes/sync.ts)"
     ],
     "deny": [],
     "ask": []

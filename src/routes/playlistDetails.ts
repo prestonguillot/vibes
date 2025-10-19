@@ -498,60 +498,18 @@ router.get('/search/:trackId',
       ? `Choose a different YouTube video for: <strong>${trackName}</strong> by <strong>${artistName}</strong>`
       : `Choose a YouTube video for: <strong>${trackName}</strong> by <strong>${artistName}</strong>`;
 
-    // Generate HTML response with video selection interface
-    const videoSelectionHtml = `
-      <div class="modal-header">
-        <h5 class="modal-title">${modalTitle}</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <p class="text-muted mb-3">${instructionText}</p>
-
-        <div class="video-options">
-          ${videos.map((video, index) => `
-            <input type="radio" name="video-selection" id="video-${video.id}" value="${video.id}"
-                   class="video-option-radio" style="display: none;">
-            <label for="video-${video.id}" class="video-option p-3 border rounded mb-2" data-video-id="${video.id}">
-              <div class="d-flex align-items-start">
-                <img src="${video.thumbnail}" alt="Video thumbnail"
-                     class="video-option__thumbnail me-3">
-                <div class="flex-grow-1">
-                  <h6 class="mb-1">${video.title}</h6>
-                  <p class="text-muted small mb-1">by ${video.channelTitle}</p>
-                  <p class="small mb-0 video-option__description--truncated">
-                    ${video.description.substring(0, 150)}${video.description.length > 150 ? '...' : ''}
-                  </p>
-                </div>
-                <div class="selection-indicator ms-2">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="#28a745">
-                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-                  </svg>
-                </div>
-              </div>
-            </label>
-          `).join('')}
-        </div>
-      </div>
-      <div class="modal-footer">
-        <form id="video-selection-form">
-          <input type="hidden" name="newVideoId" id="hidden-new-video-id" value="">
-          <input type="hidden" name="currentVideoId" value="${currentVideoId || ''}">
-          <input type="hidden" name="playlistId" value="${playlistId}">
-
-          <button type="button" class="btn btn-secondary punk-btn" data-bs-dismiss="modal">
-            Cancel
-          </button>
-          <button type="button" class="btn btn-primary punk-btn" id="confirm-selection-btn"
-                  hx-post="/api/playlistDetails/replace/${trackId}"
-                  hx-include="#video-selection-form"
-                  hx-swap="none"
-                  data-playlist-id="${playlistId}"
-                  disabled>
-            Confirm Selection
-          </button>
-        </form>
-      </div>
-    `;
+    // Render video selection modal from template
+    const videoSelectionHtml = await ejs.renderFile(
+      path.join(__dirname, '../../views/partials/video-selection-modal.ejs'),
+      {
+        trackId,
+        modalTitle,
+        instructionText,
+        videos,
+        currentVideoId: currentVideoId || '',
+        playlistId
+      }
+    );
 
     res.send(videoSelectionHtml);
 
