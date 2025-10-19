@@ -1,0 +1,24 @@
+<%
+// Display connection error alerts for Spotify and YouTube
+const spotifyError = locals.spotifyError;
+const youtubeError = locals.youtubeError;
+const hasErrors = spotifyError || youtubeError;
+%>
+
+<% if (hasErrors) { %>
+  <div class="alert-container mt-3">
+    <% if (spotifyError) { %>
+      <div class="alert alert-warning alert-dismissible fade show" role="alert">
+        <strong>Spotify Connection Error:</strong> <%= spotifyError %>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      </div>
+    <% } %>
+
+    <% if (youtubeError) { %>
+      <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <strong>YouTube Connection Error:</strong> <%= youtubeError %>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      </div>
+    <% } %>
+  </div>
+<% } %>

@@ -1,8 +1,17 @@
 <%
 const serviceCapitalized = service.charAt(0).toUpperCase() + service.slice(1);
 const buttonClass = service === 'spotify' ? 'btn-success' : 'btn-danger';
+const alertClass = service === 'spotify' ? 'alert-warning' : 'alert-danger';
 const loginUrl = `/auth/${service}/login`;
+const hasError = error && error.trim().length > 0;
 %>
+
+<% if (hasError) { %>
+  <div class="alert <%= alertClass %> alert-dismissible fade show mb-2" role="alert">
+    <strong><%= serviceCapitalized %> Connection Error:</strong> <%= error %>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+  </div>
+<% } %>
 
 <% if (typeof loading !== 'undefined' && loading) { %>
   <button class="btn <%= buttonClass %> connect-btn disabled" disabled data-service="<%= service %>" data-connected="loading">
