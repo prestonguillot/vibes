@@ -1,8 +1,7 @@
 import { Router, Request, Response } from 'express';
 import rateLimit from 'express-rate-limit';
 import SpotifyWebApi from 'spotify-web-api-node';
-import { google, youtube_v3 } from 'googleapis';
-import { OAuth2Client } from 'google-auth-library';
+import { google } from 'googleapis';
 import { searchMusicVideo } from '../utils/youtubeScraper';
 import { sendProgressUpdate, closeProgressConnections } from './progress';
 import { Logger } from '../utils/logger';
