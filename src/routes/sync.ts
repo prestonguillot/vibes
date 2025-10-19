@@ -842,16 +842,12 @@ router.post('/playlist/:playlistId',
             continue;
           }
 
-          // Step 1: Delete the item from its current position
-          await youtube.playlistItems.delete({
-            id: playlistItemId
-          });
-          logApiCall('delete for reorder', 50);
-
-          // Step 2: Insert it at the target position
-          await youtube.playlistItems.insert({
+          // Use UPDATE to move the video to the target position
+          // This is simpler than delete+insert and avoids position shifting issues
+          await youtube.playlistItems.update({
             part: ['snippet'],
             requestBody: {
+              id: playlistItemId,
               snippet: {
                 playlistId: youtubePlaylistId,
                 position: targetPosition,
@@ -862,7 +858,7 @@ router.post('/playlist/:playlistId',
               }
             }
           });
-          logApiCall('insert for reorder', 50);
+          logApiCall('update position', 50);
 
           // Update tracked state: remove from current position and insert at target
           const [movedItem] = trackedYouTubeOrder.splice(currentPosition, 1);
