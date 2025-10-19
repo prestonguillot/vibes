@@ -667,60 +667,79 @@ router.post('/playlist/:playlistId',
       // Use optimal matching algorithm to resolve conflicts based on match quality
       const trackMatches = optimalTrackMatching(tracksToMatch, existingVideos);
 
-      // Build expected order: synced tracks in Spotify order
-      const expectedSyncedVideoOrder: Array<{ videoId: string; trackId: string; trackName: string; artist: string }> = [];
-      for (const item of tracks) {
-        const typedItem = item as { track: { id: string; name: string; artists: Array<{ name?: string }>; type?: string } | null };
-        if (typedItem.track?.id) {
-          const trackId = typedItem.track.id;
-          const videoInfo = trackMatches.get(trackId);
-          if (videoInfo) {
-            expectedSyncedVideoOrder.push({
-              videoId: videoInfo.id,
-              trackId: trackId,
+      // Build map of YouTube videoId to Spotify track info (including position)
+      // This includes both manually added and synced videos
+      const videoToSpotifyInfo = new Map<string, { videoId: string; spotifyPosition: number; trackId: string; trackName: string; artist: string }>();
+      const videoIdToPlaylistItemId = new Map<string, string>();
+
+      for (const item of currentYouTubeOrder) {
+        if (!item.snippet?.resourceId?.videoId || !item.id) continue;
+
+        const videoId = item.snippet.resourceId.videoId;
+        videoIdToPlaylistItemId.set(videoId, item.id);
+
+        // Find which Spotify track this video matches
+        let matchedTrackId = '';
+        for (const [trackId, videoInfo] of trackMatches.entries()) {
+          if (videoInfo.id === videoId) {
+            matchedTrackId = trackId;
+            break;
+          }
+        }
+
+        if (!matchedTrackId) continue;
+
+        // Find Spotify position of this track
+        for (let i = 0; i < tracks.length; i++) {
+          const item = tracks[i];
+          const typedItem = item as { track: { id: string; name: string; artists: Array<{ name?: string }>; type?: string } | null };
+          if (typedItem.track?.id === matchedTrackId) {
+            videoToSpotifyInfo.set(videoId, {
+              videoId: videoId,
+              spotifyPosition: i,
+              trackId: matchedTrackId,
               trackName: typedItem.track.name,
               artist: typedItem.track.artists[0]?.name || 'Unknown Artist'
             });
+            break;
           }
         }
       }
 
-      // Build current order: extract only synced videos from current YouTube order
-      // Also build map of videoId to playlistItemId for later use in reordering
-      const currentSyncedVideoOrder: string[] = [];
-      const videoIdToPlaylistItemId = new Map<string, string>();
+      // Build expected order: all YouTube videos sorted by Spotify position
+      const expectedVideoOrder = Array.from(videoToSpotifyInfo.entries())
+        .sort(([, infoA], [, infoB]) => infoA.spotifyPosition - infoB.spotifyPosition)
+        .map(([videoId]) => videoId);
+
+      // Build current order: all YouTube videos that have a Spotify match
+      const currentVideoOrder: string[] = [];
       for (const item of currentYouTubeOrder) {
-        if (item.snippet?.resourceId?.videoId && item.id) {
-          const videoId = item.snippet.resourceId.videoId;
-          videoIdToPlaylistItemId.set(videoId, item.id);
-          // Check if this video is synced (has a Spotify match)
-          const isSynced = Array.from(trackMatches.values()).some(v => v.id === videoId);
-          if (isSynced) {
-            currentSyncedVideoOrder.push(videoId);
-          }
+        if (item.snippet?.resourceId?.videoId && videoToSpotifyInfo.has(item.snippet.resourceId.videoId)) {
+          currentVideoOrder.push(item.snippet.resourceId.videoId);
         }
       }
 
       // Compare expected vs current order and identify videos that need reordering
       const reorderOperations = [];
-      for (let i = 0; i < expectedSyncedVideoOrder.length; i++) {
-        const expectedVideoId = expectedSyncedVideoOrder[i].videoId;
-        const currentIndex = currentSyncedVideoOrder.indexOf(expectedVideoId);
+      for (let i = 0; i < expectedVideoOrder.length; i++) {
+        const expectedVideoId = expectedVideoOrder[i];
+        const currentIndex = currentVideoOrder.indexOf(expectedVideoId);
 
         if (currentIndex !== i && currentIndex !== -1) {
+          const videoInfo = videoToSpotifyInfo.get(expectedVideoId)!;
           reorderOperations.push({
             videoId: expectedVideoId,
-            trackId: expectedSyncedVideoOrder[i].trackId,
-            trackName: expectedSyncedVideoOrder[i].trackName,
-            artist: expectedSyncedVideoOrder[i].artist,
+            trackId: videoInfo.trackId,
+            trackName: videoInfo.trackName,
+            artist: videoInfo.artist,
             expectedIndex: i
           });
 
           Logger.info('Track needs repositioning', {
-            trackName: expectedSyncedVideoOrder[i].trackName,
-            artist: expectedSyncedVideoOrder[i].artist,
-            currentIndexInSyncedOrder: currentIndex,
-            expectedIndexInSyncedOrder: i,
+            trackName: videoInfo.trackName,
+            artist: videoInfo.artist,
+            currentIndex: currentIndex,
+            expectedIndex: i,
             videoId: expectedVideoId
           });
         }
@@ -728,8 +747,8 @@ router.post('/playlist/:playlistId',
 
       Logger.info('Identified tracks for reordering', {
         reorderOperationsCount: reorderOperations.length,
-        totalSyncedTracks: expectedSyncedVideoOrder.length,
-        tracksAlreadyInCorrectOrder: expectedSyncedVideoOrder.length - reorderOperations.length
+        totalMatchedTracks: expectedVideoOrder.length,
+        tracksAlreadyInCorrectOrder: expectedVideoOrder.length - reorderOperations.length
       });
 
       // If no tracks need reordering, skip the entire reordering phase
@@ -777,11 +796,12 @@ router.post('/playlist/:playlistId',
             continue;
           }
 
-          // Calculate target position: insert right after the last synced video that should come before it
-          // This naturally handles manually-added videos being out of order
+          // Calculate target position: insert right after the last video that should come before it
+          // All videos (synced and manually added) are sorted by Spotify position, so we find
+          // the position in tracked state of the last video that should come before this one
           let targetPosition = 0;
           for (let i = 0; i < operation.expectedIndex; i++) {
-            const videoIdBefore = expectedSyncedVideoOrder[i].videoId;
+            const videoIdBefore = expectedVideoOrder[i];
             // Find this video in tracked state
             for (let j = 0; j < trackedYouTubeOrder.length; j++) {
               if (trackedYouTubeOrder[j].snippet?.resourceId?.videoId === videoIdBefore) {
