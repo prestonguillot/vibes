@@ -846,17 +846,11 @@ router.post('/playlist/:playlistId',
             continue;
           }
 
-          // Delete and re-insert WITH position to reorder
-          // Processing in reverse order (descending targetPosition) ensures earlier positions don't shift
-          await youtube.playlistItems.delete({
-            id: playlistItemId
-          });
-          logApiCall('delete for reorder', 50);
-
-          // Re-insert at the target position
-          await youtube.playlistItems.insert({
+          // Simply update the position of the existing playlist item
+          await youtube.playlistItems.update({
             part: ['snippet'],
             requestBody: {
+              id: playlistItemId,
               snippet: {
                 playlistId: youtubePlaylistId,
                 position: targetPosition,
@@ -867,7 +861,7 @@ router.post('/playlist/:playlistId',
               }
             }
           });
-          logApiCall('insert for reorder', 50);
+          logApiCall('update position for reorder', 50);
 
           // Update tracked state: remove from current position and insert at target
           const [movedItem] = trackedYouTubeOrder.splice(currentPosition, 1);
