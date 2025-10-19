@@ -1360,19 +1360,7 @@ select:focus {
 /* === PROCESSING STATE ANIMATION === */
 /* Use high specificity to override .btn-primary.sync-btn styles */
 .btn-primary.sync-btn.processing-state {
-    animation: pulse-processing 0.8s ease-in-out infinite !important;
-    background-color: #ff00ff !important; /* Bright magenta for visibility */
-}
-
-@keyframes pulse-processing {
-    0%, 100% {
-        opacity: 1;
-        transform: scale(1);
-        background-color: #ff00ff !important;
-    }
-    50% {
-        opacity: 0.6;
-        transform: scale(1.05);
-        background-color: #ff33ff !important;
-    }
+    background-color: #0066ff !important; /* Change to blue when processing */
+    border-color: #0066ff !important;
+    color: #fff !important;
 }
