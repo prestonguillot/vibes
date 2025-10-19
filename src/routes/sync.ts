@@ -9,12 +9,12 @@ import { getSecureCookieOptions } from '../utils/authValidation';
 import { validate, schemas, ValidatedRequest } from '../utils/validation';
 import { csrfValidationMiddleware } from '../utils/csrf';
 import { SpotifyTokens, YouTubeTokens } from '../types/oauth';
+import { parseSpotifyTokenCookie, parseYouTubeTokenCookie } from '../utils/cookieParser';
 import { z } from 'zod';
 import ejs from 'ejs';
 import path from 'path';
 import { reorderPlaylistTracks } from '../utils/playlistReordering';
 import { optimalTrackMatching, SimplifiedTrack, SimplifiedVideo } from '../utils/trackMatching';
-import { parseSpotifyTokens, parseYouTubeTokens } from '../utils/tokenParsing';
 
 const router = Router();
 
@@ -49,7 +49,7 @@ const syncLimiter = rateLimit({
 
 // Helper functions for token refresh
 const ensureValidSpotifyToken = async (req: Request, res: Response): Promise<SpotifyWebApi> => {
-  const spotifyTokens: SpotifyTokens | null = parseSpotifyTokens(req.cookies.spotify_tokens);
+  const spotifyTokens: SpotifyTokens | null = parseSpotifyTokenCookie(req.cookies.spotify_tokens, res);
 
   if (!spotifyTokens) {
     throw new Error('No Spotify tokens found');
@@ -94,7 +94,7 @@ const ensureValidSpotifyToken = async (req: Request, res: Response): Promise<Spo
 
 // Helper function to ensure valid YouTube token and return quota usage
 async function ensureValidYouTubeToken(req: Request, res: Response): Promise<{ oauth2Client: OAuth2Client, quotaUsed: number }> {
-  const youtubeTokens: YouTubeTokens | null = parseYouTubeTokens(req.cookies.youtube_tokens);
+  const youtubeTokens: YouTubeTokens | null = parseYouTubeTokenCookie(req.cookies.youtube_tokens, res);
 
   if (!youtubeTokens) {
     throw new Error('YOUTUBE_AUTH_REQUIRED');
@@ -184,8 +184,8 @@ router.post('/playlist/:playlistId',
 
   try {
     // Check authentication
-    const spotifyTokens: SpotifyTokens | null = parseSpotifyTokens(req.cookies.spotify_tokens);
-    const youtubeTokens: YouTubeTokens | null = parseYouTubeTokens(req.cookies.youtube_tokens);
+    const spotifyTokens: SpotifyTokens | null = parseSpotifyTokenCookie(req.cookies.spotify_tokens, res);
+    const youtubeTokens: YouTubeTokens | null = parseYouTubeTokenCookie(req.cookies.youtube_tokens, res);
 
     if (!spotifyTokens) {
       Logger.error('No Spotify tokens in cookies');

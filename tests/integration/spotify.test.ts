@@ -6,6 +6,16 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import request from 'supertest';
 import { createApp } from '@/app';
 
+// Helper to create valid YouTube token cookies (with all required Zod fields)
+const createMockYouTubeToken = (overrides?: Partial<any>) =>
+  JSON.stringify({
+    access_token: 'test-youtube-token',
+    refresh_token: 'test-youtube-refresh',
+    scope: 'https://www.googleapis.com/auth/youtube',
+    token_type: 'Bearer',
+    ...overrides
+  });
+
 // Mock spotify-web-api-node
 vi.mock('spotify-web-api-node', () => {
   const SpotifyWebApi = vi.fn();
@@ -200,10 +210,7 @@ describe('Spotify Playlists', () => {
         accessToken: 'test-spotify-token',
         refreshToken: 'test-spotify-refresh'
       });
-      const youtubeTokens = JSON.stringify({
-        access_token: 'test-youtube-token',
-        refresh_token: 'test-youtube-refresh'
-      });
+      const youtubeTokens = createMockYouTubeToken();
 
       const response = await request(app)
         .get('/auth/spotify/playlists')
@@ -246,10 +253,7 @@ describe('Spotify Playlists', () => {
         accessToken: 'test-spotify-token',
         refreshToken: 'test-spotify-refresh'
       });
-      const youtubeTokens = JSON.stringify({
-        access_token: 'test-youtube-token',
-        refresh_token: 'test-youtube-refresh'
-      });
+      const youtubeTokens = createMockYouTubeToken();
 
       const response = await request(app)
         .get('/auth/spotify/playlists')
@@ -339,10 +343,7 @@ describe('Spotify Playlists', () => {
         accessToken: 'test-spotify-token',
         refreshToken: 'test-spotify-refresh'
       });
-      const youtubeTokens = JSON.stringify({
-        access_token: 'test-youtube-token',
-        refresh_token: 'test-youtube-refresh'
-      });
+      const youtubeTokens = createMockYouTubeToken();
 
       const response = await request(app)
         .get('/auth/spotify/playlists')
@@ -411,10 +412,7 @@ describe('Spotify Playlists', () => {
         accessToken: 'test-spotify-token',
         refreshToken: 'test-spotify-refresh'
       });
-      const youtubeTokens = JSON.stringify({
-        access_token: 'test-youtube-token',
-        refresh_token: 'test-youtube-refresh'
-      });
+      const youtubeTokens = createMockYouTubeToken();
 
       const response = await request(app)
         .get('/auth/spotify/playlists')
@@ -538,10 +536,7 @@ describe('Spotify Playlists', () => {
         accessToken: 'test-spotify-token',
         refreshToken: 'test-spotify-refresh'
       });
-      const youtubeTokens = JSON.stringify({
-        access_token: 'test-youtube-token',
-        refresh_token: 'test-youtube-refresh'
-      });
+      const youtubeTokens = createMockYouTubeToken();
 
       const response = await request(app)
         .get('/auth/spotify/playlists')
@@ -603,10 +598,7 @@ describe('Spotify Playlists', () => {
         accessToken: 'test-spotify-token',
         refreshToken: 'test-spotify-refresh'
       });
-      const youtubeTokens = JSON.stringify({
-        access_token: 'test-youtube-token',
-        refresh_token: 'test-youtube-refresh'
-      });
+      const youtubeTokens = createMockYouTubeToken();
 
       const response = await request(app)
         .get('/auth/spotify/playlists')
