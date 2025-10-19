@@ -813,99 +813,9 @@ body {
 /* === SHARED SYNC/UPDATE BUTTON STYLING === */
 /* === PUNK BUTTON STYLING === */
 /* Generic button styling for all punk-styled buttons in the app */
-.punk-btn {
-    /* Layout & Sizing */
-    min-width: 180px;
-    height: 38px;
-    white-space: nowrap;
-
-    /* Typography */
-    font-family: 'Courier Prime', monospace !important;
-    font-weight: 700 !important;
-    font-size: 0.9rem;
-    text-transform: uppercase !important;
-    letter-spacing: 1px !important;
-
-    /* Borders & Styling */
-    border: 2px solid #000;
-    border-radius: 0 !important;
-    box-shadow: 3px 3px 0px rgba(0,0,0,0.3) !important;
-}
-
-.punk-btn:hover {
-    transform: translateY(-1px) !important;
-    box-shadow: 4px 4px 0px rgba(0,0,0,0.5) !important;
-}
-
-.punk-btn:active,
-.punk-btn.active {
-    box-shadow: 3px 3px 0px rgba(0,0,0,0.3) !important;
-    transform: none !important;
-}
-
-.punk-btn:disabled,
-.punk-btn.disabled {
-    opacity: 0.6 !important;
-    transform: none !important;
-    box-shadow: 3px 3px 0px rgba(0,0,0,0.3) !important;
-}
-
-/* Color variants for punk button */
-.btn-primary.punk-btn {
-    background-color: #ff0040 !important;
-    border-color: #000 !important;
-    color: #fff !important;
-}
-
-.btn-primary.punk-btn:hover {
-    background-color: #cc0033 !important;
-    color: #fff !important;
-    border-color: #000 !important;
-}
-
-.btn-primary.punk-btn:active,
-.btn-primary.punk-btn.active {
-    background-color: #ff0040 !important;
-    border-color: #000 !important;
-    color: #fff !important;
-}
-
-.btn-primary.punk-btn:disabled,
-.btn-primary.punk-btn.disabled {
-    background-color: #ff0040 !important;
-    border-color: #000 !important;
-    color: #fff !important;
-}
-
-.btn-secondary.punk-btn {
-    background-color: #6c757d !important;
-    border-color: #000 !important;
-    color: #fff !important;
-}
-
-.btn-secondary.punk-btn:hover {
-    background-color: #5a6268 !important;
-    border-color: #000 !important;
-    color: #fff !important;
-}
-
-.btn-secondary.punk-btn:active,
-.btn-secondary.punk-btn.active {
-    background-color: #6c757d !important;
-    border-color: #000 !important;
-    color: #fff !important;
-}
-
-.btn-secondary.punk-btn:disabled,
-.btn-secondary.punk-btn.disabled {
-    background-color: #6c757d !important;
-    border-color: #000 !important;
-    color: #fff !important;
-}
-
-/* Sync button - extends punk button styling */
+/* .sync-btn is a semantic marker that also gets punk button styling */
+.punk-btn,
 .sync-btn {
-    /* For backwards compatibility, sync-btn extends punk-btn */
     /* Layout & Sizing */
     min-width: 180px;
     height: 38px;
@@ -924,17 +834,22 @@ body {
     box-shadow: 3px 3px 0px rgba(0,0,0,0.3) !important;
 }
 
+.punk-btn:hover,
 .sync-btn:hover {
     transform: translateY(-1px) !important;
     box-shadow: 4px 4px 0px rgba(0,0,0,0.5) !important;
 }
 
+.punk-btn:active,
+.punk-btn.active,
 .sync-btn:active,
 .sync-btn.active {
     box-shadow: 3px 3px 0px rgba(0,0,0,0.3) !important;
     transform: none !important;
 }
 
+.punk-btn:disabled,
+.punk-btn.disabled,
 .sync-btn:disabled,
 .sync-btn.disabled {
     opacity: 0.6 !important;
@@ -942,19 +857,23 @@ body {
     box-shadow: 3px 3px 0px rgba(0,0,0,0.3) !important;
 }
 
-/* === SYNC BUTTON COLORS (RED) === */
+/* Color variants for punk button */
+.btn-primary.punk-btn,
 .btn-primary.sync-btn {
     background-color: #ff0040 !important;
     border-color: #000 !important;
     color: #fff !important;
 }
 
+.btn-primary.punk-btn:hover,
 .btn-primary.sync-btn:hover {
     background-color: #cc0033 !important;
     color: #fff !important;
     border-color: #000 !important;
 }
 
+.btn-primary.punk-btn:active,
+.btn-primary.punk-btn.active,
 .btn-primary.sync-btn:active,
 .btn-primary.sync-btn.active {
     background-color: #ff0040 !important;
@@ -962,6 +881,8 @@ body {
     color: #fff !important;
 }
 
+.btn-primary.punk-btn:disabled,
+.btn-primary.punk-btn.disabled,
 .btn-primary.sync-btn:disabled,
 .btn-primary.sync-btn.disabled {
     background-color: #ff0040 !important;
@@ -969,7 +890,39 @@ body {
     color: #fff !important;
 }
 
-/* === UPDATE BUTTON COLORS (GREEN) === */
+.btn-secondary.punk-btn,
+.btn-secondary.sync-btn {
+    background-color: #6c757d !important;
+    border-color: #000 !important;
+    color: #fff !important;
+}
+
+.btn-secondary.punk-btn:hover,
+.btn-secondary.sync-btn:hover {
+    background-color: #5a6268 !important;
+    border-color: #000 !important;
+    color: #fff !important;
+}
+
+.btn-secondary.punk-btn:active,
+.btn-secondary.punk-btn.active,
+.btn-secondary.sync-btn:active,
+.btn-secondary.sync-btn.active {
+    background-color: #6c757d !important;
+    border-color: #000 !important;
+    color: #fff !important;
+}
+
+.btn-secondary.punk-btn:disabled,
+.btn-secondary.punk-btn.disabled,
+.btn-secondary.sync-btn:disabled,
+.btn-secondary.sync-btn.disabled {
+    background-color: #6c757d !important;
+    border-color: #000 !important;
+    color: #fff !important;
+}
+
+/* Color variant for outline-success (green update buttons) */
 .btn-outline-success.sync-btn {
     background-color: #00ff00 !important;
     border-color: #000 !important;
@@ -996,8 +949,8 @@ body {
     color: #000 !important;
 }
 
-.btn-secondary,
-.btn-secondary.sync-btn {
+/* Standard Bootstrap secondary button styling */
+.btn-secondary {
     background-color: #6c757d !important;
     border-color: #000 !important;
     color: #fff !important;
@@ -1014,33 +967,6 @@ body {
     background-color: #5a6268 !important;
     border-color: #000 !important;
     color: #fff !important;
-}
-
-.btn-secondary.sync-btn:hover {
-    background-color: #5a6268 !important;
-    border-color: #000 !important;
-    color: #fff !important;
-    transform: translateY(-1px) !important;
-    box-shadow: 4px 4px 0px rgba(0,0,0,0.5) !important;
-}
-
-.btn-secondary.sync-btn:active,
-.btn-secondary.sync-btn.active {
-    background-color: #6c757d !important;
-    border-color: #000 !important;
-    color: #fff !important;
-    box-shadow: 3px 3px 0px rgba(0,0,0,0.3) !important;
-    transform: none !important;
-}
-
-.btn-secondary.sync-btn:disabled,
-.btn-secondary.sync-btn.disabled {
-    background-color: #6c757d !important;
-    border-color: #000 !important;
-    color: #fff !important;
-    opacity: 0.6 !important;
-    transform: none !important;
-    box-shadow: 3px 3px 0px rgba(0,0,0,0.3) !important;
 }
 
 .btn-outline-secondary {
