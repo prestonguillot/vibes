@@ -686,6 +686,7 @@ router.post('/playlist/:playlistId',
       }
 
       // Build current order: extract only synced videos from current YouTube order
+      // Also build map of videoId to playlistItemId for later use in reordering
       const currentSyncedVideoOrder: string[] = [];
       const videoIdToPlaylistItemId = new Map<string, string>();
       for (const item of currentYouTubeOrder) {
@@ -743,53 +744,61 @@ router.post('/playlist/:playlistId',
         return;
       }
 
+      // Create a mutable copy of current YouTube order to track state changes as we reorder
+      // This avoids expensive refetches while still tracking accurate positions
+      let trackedYouTubeOrder = [...currentYouTubeOrder];
+
       // Execute reorder operations using delete + insert strategy
       // YouTube's API has issues with position updates, so we delete and re-insert instead
       let reorderedCount = 0;
       for (const operation of reorderOperations) {
         try {
-          // Re-fetch the current playlist to get accurate positions
-          // This is necessary because manually added videos or previous operations may have shifted positions
-          const updatedItemsResponse = await youtube.playlistItems.list({
-            part: ['id', 'snippet'],
-            playlistId: youtubePlaylistId,
-            maxResults: 50,
-            pageToken: undefined
-          });
-          logApiCall('get current positions before reorder', 1);
-
-          const currentItems = updatedItemsResponse.data.items || [];
-
-          // Find the current playlist item ID and position for this video
-          let playlistItemId = '';
-          let actualCurrentPosition = -1;
-          for (let i = 0; i < currentItems.length; i++) {
-            if (currentItems[i].snippet?.resourceId?.videoId === operation.videoId) {
-              playlistItemId = currentItems[i].id || '';
-              actualCurrentPosition = i;
+          // Find current position of video in tracked state
+          let currentPosition = -1;
+          for (let i = 0; i < trackedYouTubeOrder.length; i++) {
+            if (trackedYouTubeOrder[i].snippet?.resourceId?.videoId === operation.videoId) {
+              currentPosition = i;
               break;
             }
           }
 
-          if (actualCurrentPosition === -1 || !playlistItemId) {
-            Logger.warn('Video to reorder not found in current playlist', {
+          if (currentPosition === -1) {
+            Logger.warn('Video to reorder not found in tracked playlist state', {
               videoId: operation.videoId
             });
             continue;
           }
 
-          // Calculate target position: insert right after the last video that should come before it
-          // If nothing comes before it, position is 0
-          let targetYouTubePosition = 0;
+          const playlistItemId = videoIdToPlaylistItemId.get(operation.videoId);
+          if (!playlistItemId) {
+            Logger.warn('Playlist item ID not found for video', {
+              videoId: operation.videoId
+            });
+            continue;
+          }
+
+          // Calculate target position: insert right after the last synced video that should come before it
+          // This naturally handles manually-added videos being out of order
+          let targetPosition = 0;
           for (let i = 0; i < operation.expectedIndex; i++) {
             const videoIdBefore = expectedSyncedVideoOrder[i].videoId;
-            // Find this video in current YouTube order
-            for (let j = 0; j < currentItems.length; j++) {
-              if (currentItems[j].snippet?.resourceId?.videoId === videoIdBefore) {
-                targetYouTubePosition = j + 1;
+            // Find this video in tracked state
+            for (let j = 0; j < trackedYouTubeOrder.length; j++) {
+              if (trackedYouTubeOrder[j].snippet?.resourceId?.videoId === videoIdBefore) {
+                targetPosition = j + 1;
                 break;
               }
             }
+          }
+
+          // Only execute if video is actually in wrong position
+          if (currentPosition === targetPosition) {
+            Logger.info('Video already in correct position, skipping', {
+              trackName: operation.trackName,
+              videoId: operation.videoId,
+              position: currentPosition
+            });
+            continue;
           }
 
           // Step 1: Delete the item from its current position
@@ -804,7 +813,7 @@ router.post('/playlist/:playlistId',
             requestBody: {
               snippet: {
                 playlistId: youtubePlaylistId,
-                position: targetYouTubePosition,
+                position: targetPosition,
                 resourceId: {
                   kind: 'youtube#video',
                   videoId: operation.videoId,
@@ -814,12 +823,16 @@ router.post('/playlist/:playlistId',
           });
           logApiCall('insert for reorder', 50);
 
+          // Update tracked state: remove from current position and insert at target
+          const [movedItem] = trackedYouTubeOrder.splice(currentPosition, 1);
+          trackedYouTubeOrder.splice(targetPosition, 0, movedItem);
+
           reorderedCount++;
           Logger.external('YouTube', 'Reordered track position', {
             trackName: operation.trackName,
             artist: operation.artist,
-            fromPosition: actualCurrentPosition,
-            toPosition: targetYouTubePosition,
+            fromPosition: currentPosition,
+            toPosition: targetPosition,
             videoId: operation.videoId
           });
 
@@ -830,7 +843,7 @@ router.post('/playlist/:playlistId',
           sendProgressUpdate(playlistId, {
             type: 'progress',
             message: 'Reordering existing tracks',
-            details: `Moved "${operation.trackName}" from position ${actualCurrentPosition + 1} to ${targetYouTubePosition + 1} (${reorderedCount}/${reorderOperations.length})`,
+            details: `Moved "${operation.trackName}" from position ${currentPosition + 1} to ${targetPosition + 1} (${reorderedCount}/${reorderOperations.length})`,
             percentage: totalPercentage
           });
 
