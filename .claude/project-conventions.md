@@ -47,6 +47,12 @@
   - Better security (template escaping prevents XSS)
   - Easier maintenance (HTML updates don't require code changes)
   - Clearer separation of concerns (routes handle logic, templates handle rendering)
+- **All CSS must be defined in CSS files only** - Never embed CSS in templates, TypeScript files, or HTML. All styling must be in `public/css/` files:
+  - No inline `style` attributes in HTML elements
+  - No `<style>` tags in template files or in response strings
+  - No CSS-in-JS solutions (styled-components, etc.)
+  - CSS should be maintainable, reusable, and centralized in stylesheet files
+  - Exception: Necessary Bootstrap classes or HTML data attributes are acceptable
 
 ### Type Safety
 - **Be as type-safe as possible at all times**
