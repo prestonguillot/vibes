@@ -1160,7 +1160,7 @@ router.post('/playlist/:playlistId',
     
     // STEP 3: Search for YouTube videos
     const videoIds: string[] = [];
-    const searchResults: Array<{track: string, artist: string, found: boolean, videoId?: string, spotifyPosition: number}> = [];
+    const searchResults: Array<{track: string, artist: string, found: boolean, videoId?: string, spotifyPosition: number, spotifyTrackId: string}> = [];
     let searchCount = 0;
     
     const searchMessage = isUpdateMode ? 'Checking for playlist updates' : 'Finding music videos';
@@ -1212,7 +1212,8 @@ router.post('/playlist/:playlistId',
               artist: artist,
               found: true,
               videoId: videoId,
-              spotifyPosition: spotifyPosition
+              spotifyPosition: spotifyPosition,
+              spotifyTrackId: track.id
             });
             Logger.info('Found video for track', { songName, artist, videoId, spotifyPosition });
           } else {
@@ -1220,7 +1221,8 @@ router.post('/playlist/:playlistId',
               track: songName,
               artist: artist,
               found: false,
-              spotifyPosition: spotifyPosition
+              spotifyPosition: spotifyPosition,
+              spotifyTrackId: track.id
             });
             Logger.warn('No video found for track', { songName, artist, spotifyPosition });
           }
@@ -1243,7 +1245,8 @@ router.post('/playlist/:playlistId',
             track: songName,
             artist: artist,
             found: false,
-            spotifyPosition: spotifyPosition
+            spotifyPosition: spotifyPosition,
+            spotifyTrackId: track.id
           });
         }
       }
@@ -1454,10 +1457,30 @@ router.post('/playlist/:playlistId',
       
       // Step 3: Reorder all synced tracks to match Spotify order (UPDATE mode only)
       // This ensures that order changes in Spotify are reflected in YouTube, even if no new videos were added
-      if (isUpdateMode && syncedTracks.length > 0) {
-        Logger.info('UPDATE mode: Reordering synced tracks to match current Spotify order', {
-          syncedTracksCount: syncedTracks.length,
-          newVideosAdded: totalToAdd
+      if (isUpdateMode) {
+        // Create a complete list of ALL synced tracks (existing + newly added)
+        const allSyncedTracks = [...syncedTracks];
+
+        // Add the newly added tracks to the list
+        if (addedCount > 0) {
+          for (const result of foundResults) {
+            if (result.found && result.videoId) {
+              allSyncedTracks.push({
+                track: {
+                  id: result.spotifyTrackId,
+                  name: result.track,
+                  artists: [{ name: result.artist }]
+                },
+                matchedVideoId: result.videoId
+              });
+            }
+          }
+        }
+
+        Logger.info('UPDATE mode: Reordering all tracks to match current Spotify order', {
+          existingSyncedTracks: syncedTracks.length,
+          newVideosAdded: addedCount,
+          totalTracksToReorder: allSyncedTracks.length
         });
 
         sendProgressUpdate(playlistId, {
@@ -1467,9 +1490,9 @@ router.post('/playlist/:playlistId',
           percentage: 95
         });
 
-        // Reorder all synced tracks to match current Spotify positions
-        // This handles both: new videos that were just added, and existing videos that may have been reordered in Spotify
-        await reorderExistingTracks(youtube, youtubePlaylistId, tracks, syncedTracks, existingItemsMap, playlistId);
+        // Reorder ALL synced tracks (including newly added ones) to match current Spotify positions
+        // Pass an empty existingItemsMap since we need to re-fetch current state anyway
+        await reorderExistingTracks(youtube, youtubePlaylistId, tracks, allSyncedTracks, new Map(), playlistId);
       } else if (isUpdateMode) {
         Logger.info('UPDATE mode: No synced tracks to reorder');
       } else {
