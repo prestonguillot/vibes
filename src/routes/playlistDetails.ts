@@ -773,15 +773,20 @@ router.post('/replace/:trackId',
 
     // After adding or replacing a video, reorder the playlist to match Spotify order
     try {
-      Logger.info('Starting playlist reordering after manual video link');
+      Logger.info('Starting playlist reordering after manual video link', {
+        isAddingNewVideo,
+        newVideoId,
+        currentVideoId
+      });
 
-      // Wait a moment for YouTube to process the changes (especially for additions)
-      if (isAddingNewVideo) {
-        Logger.info('Waiting for YouTube to process newly added track before reordering', {
-          waitTime: 2000
-        });
-        await new Promise(resolve => setTimeout(resolve, 2000));
-      }
+      // Wait for YouTube to process the changes (especially for additions)
+      // YouTube can be slow to propagate, so we need a generous wait
+      const waitTime = isAddingNewVideo ? 3000 : 1000;
+      Logger.info('Waiting for YouTube to process changes before reordering', {
+        waitTime,
+        reason: isAddingNewVideo ? 'new video added' : 'video replaced'
+      });
+      await new Promise(resolve => setTimeout(resolve, waitTime));
 
       // Fetch all Spotify tracks for the playlist
       // Note: reorderPlaylistTracks expects the full format with .track property
@@ -836,26 +841,48 @@ router.post('/replace/:trackId',
       const trackMatches = optimalTrackMatching(tracksToMatch, existingVideos);
 
       // Build synced tracks array
+      // Need to use the full Spotify format with .track.id for matching
       const syncedTracks = [];
       for (const [trackId, videoInfo] of trackMatches.entries()) {
-        const spotifyTrack = spotifyTracks.find((t: any) => t.id === trackId);
-        if (spotifyTrack) {
+        const playlistItem = spotifyTracks.find((item: any) => item.track && item.track.id === trackId);
+        if (playlistItem) {
           syncedTracks.push({
-            track: spotifyTrack,
+            track: playlistItem.track,
             matchedVideoId: videoInfo.id
           });
         }
       }
 
-      // Perform reordering
-      const { reorderedCount } = await reorderPlaylistTracks(
-        youtube,
-        targetPlaylist.id!,
-        spotifyTracks,
-        syncedTracks
-      );
+      Logger.info('Manual reordering data', {
+        totalSpotifyItems: spotifyTracks.length,
+        matchedTracks: trackMatches.size,
+        syncedTracksCount: syncedTracks.length,
+        syncedTrackDetails: syncedTracks.slice(0, 5).map((st: any) => ({
+          trackName: st.track.name,
+          artist: st.track.artists[0]?.name || 'Unknown',
+          videoId: st.matchedVideoId
+        }))
+      });
 
-      Logger.info('Playlist reordering completed', { reorderedCount });
+      // Perform reordering
+      if (syncedTracks.length > 0) {
+        const { reorderedCount } = await reorderPlaylistTracks(
+          youtube,
+          targetPlaylist.id!,
+          spotifyTracks,
+          syncedTracks
+        );
+
+        Logger.info('Manual playlist reordering completed', {
+          reorderedCount,
+          syncedTracksProcessed: syncedTracks.length
+        });
+      } else {
+        Logger.warn('No synced tracks found for reordering during manual link', {
+          matchesFound: trackMatches.size,
+          spotifyTracksCount: spotifyTracks.length
+        });
+      }
 
     } catch (reorderError) {
       // Log the error but don't fail the entire operation
