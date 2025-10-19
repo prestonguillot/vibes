@@ -169,5 +169,13 @@ export const youtubeCircuitBreaker = new CircuitBreaker('YouTube API', {
   successThreshold: 1       // Close after 1 successful request
 });
 
+// Spotify API circuit breaker - same configuration as YouTube
+// Can be configured independently if Spotify limits prove different
+export const spotifyCircuitBreaker = new CircuitBreaker('Spotify API', {
+  failureThreshold: 2,      // Open after 2 quota failures
+  resetTimeout: 5 * 60000,  // Wait 5 minutes before retrying
+  successThreshold: 1       // Close after 1 successful request
+});
+
 // Export class for testing
 export { CircuitBreaker, CircuitState };

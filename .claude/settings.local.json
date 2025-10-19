@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm ls --depth=0)"
+      "Bash(npm ls --depth=0)",
+      "Bash(npm test)"
     ],
     "deny": [],
     "ask": []

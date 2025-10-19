@@ -3,7 +3,7 @@ import SpotifyWebApi from 'spotify-web-api-node';
 import { google } from 'googleapis';
 import { Logger } from './logger';
 import { SpotifyTokens, YouTubeTokens } from '../types/oauth';
-import { youtubeCircuitBreaker } from './circuitBreaker';
+import { youtubeCircuitBreaker, spotifyCircuitBreaker } from './circuitBreaker';
 
 /**
  * Cookie configuration for authentication tokens
@@ -38,6 +38,20 @@ export async function validateSpotifyConnection(
     return { connected: false };
   }
 
+  // Check circuit breaker before making API call
+  if (!spotifyCircuitBreaker.canProceed()) {
+    Logger.auth('Spotify', 'circuit breaker is OPEN, clearing tokens', {
+      state: spotifyCircuitBreaker.getState()
+    });
+    // Clear tokens so user sees disconnected state
+    res.clearCookie('spotify_tokens');
+    return {
+      connected: false,
+      error: 'Spotify API quota exceeded. Please try again later.',
+      errorCode: 'CIRCUIT_BREAKER_OPEN'
+    };
+  }
+
   try {
     const spotifyApi = new SpotifyWebApi({
       clientId: process.env.SPOTIFY_CLIENT_ID,
@@ -51,11 +65,26 @@ export async function validateSpotifyConnection(
     // Test with a lightweight API call
     await spotifyApi.getMe();
     Logger.auth('Spotify', 'connection validated');
+    spotifyCircuitBreaker.recordSuccess();
     return { connected: true };
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     const statusCode = (error as { statusCode?: number }).statusCode;
     Logger.auth('Spotify', 'connection invalid', { error: errorMessage, statusCode });
+
+    // Quota exceeded - open circuit breaker and clear tokens
+    if (statusCode === 429) {
+      spotifyCircuitBreaker.open();
+      // Clear tokens so user sees disconnected state
+      res.clearCookie('spotify_tokens');
+      return {
+        connected: false,
+        error: 'Spotify API quota exceeded. Please try again later.',
+        errorCode: 429
+      };
+    } else {
+      spotifyCircuitBreaker.recordFailure(error);
+    }
 
     // Try to refresh the token on 401
     if (statusCode === 401 && spotifyTokens.refreshToken) {
