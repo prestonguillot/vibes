@@ -5,6 +5,7 @@ import { Logger } from '../utils/logger';
 import { validate, schemas, ValidatedRequest } from '../utils/validation';
 import { csrfValidationMiddleware } from '../utils/csrf';
 import { SpotifyTokens, YouTubeTokens } from '../types/oauth';
+import { parseSpotifyTokenCookie, parseYouTubeTokenCookie } from '../utils/cookieParser';
 import { CacheDuration, setCache } from '../utils/cache';
 import { youtube_v3 } from 'googleapis';
 import { z } from 'zod';
@@ -12,7 +13,6 @@ import ejs from 'ejs';
 import path from 'path';
 import SpotifyWebApi from 'spotify-web-api-node';
 import { reorderPlaylistTracks } from '../utils/playlistReordering';
-import { parseSpotifyTokens, parseYouTubeTokens } from '../utils/tokenParsing';
 
 // Internal types for this route
 interface SimplifiedTrack {
@@ -78,8 +78,8 @@ router.get('/playlist/:playlistId',
 
   try {
     // Check authentication - Spotify is required, YouTube is optional
-    const spotifyTokens: SpotifyTokens | null = parseSpotifyTokens(req.cookies.spotify_tokens);
-    const youtubeTokens: YouTubeTokens | null = parseYouTubeTokens(req.cookies.youtube_tokens);
+    const spotifyTokens: SpotifyTokens | null = parseSpotifyTokenCookie(req.cookies.spotify_tokens, res);
+    const youtubeTokens: YouTubeTokens | null = parseYouTubeTokenCookie(req.cookies.youtube_tokens, res);
 
     if (!spotifyTokens) {
       const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
@@ -598,8 +598,8 @@ router.post('/replace/:trackId',
 
   try {
     // Check authentication
-    const youtubeTokens: YouTubeTokens | null = req.cookies.youtube_tokens ? JSON.parse(req.cookies.youtube_tokens) : null;
-    const spotifyTokens: SpotifyTokens | null = req.cookies.spotify_tokens ? JSON.parse(req.cookies.spotify_tokens) : null;
+    const youtubeTokens: YouTubeTokens | null = parseYouTubeTokenCookie(req.cookies.youtube_tokens, res);
+    const spotifyTokens: SpotifyTokens | null = parseSpotifyTokenCookie(req.cookies.spotify_tokens, res);
 
     if (!youtubeTokens) {
       const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {

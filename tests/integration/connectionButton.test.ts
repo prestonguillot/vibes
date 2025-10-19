@@ -143,10 +143,12 @@ describe('Connection Button Endpoints', () => {
   describe('HTMX Event Triggers', () => {
     describe('YouTube connection events', () => {
       it('should send HX-Trigger header when YouTube is connected', async () => {
-        // Mock valid YouTube tokens
+        // Mock valid YouTube tokens (must include all required fields for Zod validation)
         const mockYouTubeTokens = JSON.stringify({
           access_token: 'mock_youtube_access_token',
           refresh_token: 'mock_youtube_refresh_token',
+          scope: 'https://www.googleapis.com/auth/youtube',
+          token_type: 'Bearer',
           expiry_date: Date.now() + 3600000 // 1 hour from now
         });
 
