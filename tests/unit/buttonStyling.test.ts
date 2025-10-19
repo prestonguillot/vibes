@@ -33,13 +33,19 @@ describe('Button Styling Consistency', () => {
     });
 
     it('should have black borders for disabled gray buttons (btn-secondary)', () => {
-      // Check for the btn-secondary rule
-      const btnSecondaryMatch = cssContent.match(/\.btn-secondary[^-][^{]*{[^}]*}/);
-      expect(btnSecondaryMatch).toBeTruthy();
+      // Check for the punk-btn rule (generic button styling)
+      const punkBtnMatch = cssContent.match(/\.punk-btn\s*{[^}]*}/);
+      expect(punkBtnMatch).toBeTruthy();
 
-      const btnSecondaryStyles = btnSecondaryMatch?.[0] || '';
-      expect(btnSecondaryStyles).toContain('border-color: #000');
-      expect(btnSecondaryStyles).toContain('border: 2px solid #000');
+      const punkBtnStyles = punkBtnMatch?.[0] || '';
+      expect(punkBtnStyles).toContain('border: 2px solid #000');
+
+      // Check for the btn-secondary.punk-btn rule (color variant)
+      const btnSecondaryPunkMatch = cssContent.match(/\.btn-secondary\.punk-btn\s*{[^}]*}/);
+      expect(btnSecondaryPunkMatch).toBeTruthy();
+
+      const btnSecondaryPunkStyles = btnSecondaryPunkMatch?.[0] || '';
+      expect(btnSecondaryPunkStyles).toContain('border-color: #000');
     });
   });
 
@@ -147,7 +153,7 @@ describe('Button Styling Consistency', () => {
       const buttonFontPatterns = [
         /\.connect-btn\s*{[^}]*font-family:\s*'Courier Prime'/,
         /\.sync-btn\s*{[^}]*font-family:\s*'Courier Prime'/,
-        /\.btn-secondary[^-][^{]*{[^}]*font-family:\s*'Courier Prime'/,
+        /\.punk-btn\s*{[^}]*font-family:\s*'Courier Prime'/,
         /\.btn-outline-secondary\s*{[^}]*font-family:\s*'Courier Prime'/,
         /\.btn-outline-primary\s*{[^}]*font-family:\s*'Courier Prime'/,
         /\.btn-spotify-reconnect[^{]*{[^}]*font-family:\s*'Courier Prime'/,
@@ -163,7 +169,7 @@ describe('Button Styling Consistency', () => {
       const buttonUppercasePatterns = [
         /\.connect-btn\s*{[^}]*text-transform:\s*uppercase/,
         /\.sync-btn\s*{[^}]*text-transform:\s*uppercase/,
-        /\.btn-secondary[^-][^{]*{[^}]*text-transform:\s*uppercase/,
+        /\.punk-btn\s*{[^}]*text-transform:\s*uppercase/,
         /\.btn-outline-secondary\s*{[^}]*text-transform:\s*uppercase/,
         /\.btn-outline-primary\s*{[^}]*text-transform:\s*uppercase/,
         /\.btn-spotify-reconnect[^{]*{[^}]*text-transform:\s*uppercase/,
@@ -178,7 +184,7 @@ describe('Button Styling Consistency', () => {
       const buttonShadowPatterns = [
         /\.connect-btn\s*{[^}]*box-shadow:/,
         /\.sync-btn\s*{[^}]*box-shadow:/,
-        /\.btn-secondary[^-][^{]*{[^}]*box-shadow:/,
+        /\.punk-btn\s*{[^}]*box-shadow:/,
         /\.btn-outline-secondary\s*{[^}]*box-shadow:/,
         /\.btn-outline-primary\s*{[^}]*box-shadow:/,
         /\.btn-spotify-reconnect[^{]*{[^}]*box-shadow:/,
@@ -193,7 +199,7 @@ describe('Button Styling Consistency', () => {
       const buttonRadiusPatterns = [
         /\.connect-btn\s*{[^}]*border-radius:\s*0/,
         /\.sync-btn\s*{[^}]*border-radius:\s*0/,
-        /\.btn-secondary[^-][^{]*{[^}]*border-radius:\s*0/,
+        /\.punk-btn\s*{[^}]*border-radius:\s*0/,
         /\.btn-outline-secondary\s*{[^}]*border-radius:\s*0/,
         /\.btn-outline-primary\s*{[^}]*border-radius:\s*0/,
         /\.btn-spotify-reconnect[^{]*{[^}]*border-radius:\s*0/,

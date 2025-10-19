@@ -537,10 +537,10 @@ router.get('/search/:trackId',
           <input type="hidden" name="currentVideoId" value="${currentVideoId || ''}">
           <input type="hidden" name="playlistId" value="${playlistId}">
 
-          <button type="button" class="btn btn-secondary sync-btn" data-bs-dismiss="modal">
+          <button type="button" class="btn btn-secondary punk-btn" data-bs-dismiss="modal">
             Cancel
           </button>
-          <button type="button" class="btn btn-primary sync-btn" id="confirm-selection-btn"
+          <button type="button" class="btn btn-primary punk-btn" id="confirm-selection-btn"
                   hx-post="/api/playlistDetails/replace/${trackId}"
                   hx-include="#video-selection-form"
                   hx-swap="none"

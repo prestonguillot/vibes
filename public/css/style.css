@@ -811,7 +811,101 @@ body {
 }
 
 /* === SHARED SYNC/UPDATE BUTTON STYLING === */
+/* === PUNK BUTTON STYLING === */
+/* Generic button styling for all punk-styled buttons in the app */
+.punk-btn {
+    /* Layout & Sizing */
+    min-width: 180px;
+    height: 38px;
+    white-space: nowrap;
+
+    /* Typography */
+    font-family: 'Courier Prime', monospace !important;
+    font-weight: 700 !important;
+    font-size: 0.9rem;
+    text-transform: uppercase !important;
+    letter-spacing: 1px !important;
+
+    /* Borders & Styling */
+    border: 2px solid #000;
+    border-radius: 0 !important;
+    box-shadow: 3px 3px 0px rgba(0,0,0,0.3) !important;
+}
+
+.punk-btn:hover {
+    transform: translateY(-1px) !important;
+    box-shadow: 4px 4px 0px rgba(0,0,0,0.5) !important;
+}
+
+.punk-btn:active,
+.punk-btn.active {
+    box-shadow: 3px 3px 0px rgba(0,0,0,0.3) !important;
+    transform: none !important;
+}
+
+.punk-btn:disabled,
+.punk-btn.disabled {
+    opacity: 0.6 !important;
+    transform: none !important;
+    box-shadow: 3px 3px 0px rgba(0,0,0,0.3) !important;
+}
+
+/* Color variants for punk button */
+.btn-primary.punk-btn {
+    background-color: #ff0040 !important;
+    border-color: #000 !important;
+    color: #fff !important;
+}
+
+.btn-primary.punk-btn:hover {
+    background-color: #cc0033 !important;
+    color: #fff !important;
+    border-color: #000 !important;
+}
+
+.btn-primary.punk-btn:active,
+.btn-primary.punk-btn.active {
+    background-color: #ff0040 !important;
+    border-color: #000 !important;
+    color: #fff !important;
+}
+
+.btn-primary.punk-btn:disabled,
+.btn-primary.punk-btn.disabled {
+    background-color: #ff0040 !important;
+    border-color: #000 !important;
+    color: #fff !important;
+}
+
+.btn-secondary.punk-btn {
+    background-color: #6c757d !important;
+    border-color: #000 !important;
+    color: #fff !important;
+}
+
+.btn-secondary.punk-btn:hover {
+    background-color: #5a6268 !important;
+    border-color: #000 !important;
+    color: #fff !important;
+}
+
+.btn-secondary.punk-btn:active,
+.btn-secondary.punk-btn.active {
+    background-color: #6c757d !important;
+    border-color: #000 !important;
+    color: #fff !important;
+}
+
+.btn-secondary.punk-btn:disabled,
+.btn-secondary.punk-btn.disabled {
+    background-color: #6c757d !important;
+    border-color: #000 !important;
+    color: #fff !important;
+}
+
+/* Sync button - extends punk button styling */
 .sync-btn {
+    /* For backwards compatibility, sync-btn extends punk-btn */
     /* Layout & Sizing */
     min-width: 180px;
     height: 38px;
@@ -1385,7 +1479,8 @@ select:focus {
 /* Direct Bootstrap spinner overrides - flat punk rock styling */
 
 /* === PROCESSING STATE === */
-/* Use high specificity to override .btn-primary.sync-btn styles */
+/* Use high specificity to override button styles during processing */
+.btn-primary.punk-btn.processing-state,
 .btn-primary.sync-btn.processing-state {
     background-color: #ff0040 !important; /* Same red as normal, but dimmed */
     border-color: #000 !important;
@@ -1396,6 +1491,7 @@ select:focus {
 }
 
 /* Ensure spinner is visible on red background */
+.btn-primary.punk-btn.processing-state .spinner-border,
 .btn-primary.sync-btn.processing-state .spinner-border {
     border-top-color: #fff !important;
     border-right-color: rgba(255,255,255,0.3) !important;
