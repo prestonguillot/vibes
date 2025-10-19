@@ -1,27 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm run type-check:*)",
-      "Bash(npm run build:*)",
-      "Bash(npm run dev:*)",
-      "Read(//Users/prestonguillot/Desktop/**)",
-      "Bash(npm install:*)",
-      "Bash(npm uninstall:*)",
-      "WebSearch",
-      "Bash(curl:*)",
-      "Bash(npm run dev:server:*)",
-      "Bash(npm run test:run:*)",
-      "Bash(git ls-tree:*)",
-      "Bash(npm run:*)",
-      "Bash(git add:*)",
-      "Bash(git commit:*)",
-      "Bash(git checkout:*)",
-      "Bash(ls:*)",
-      "Bash(GIT_SEQUENCE_EDITOR='sed -i \"\" \"1s/pick/reword/\"' git rebase:*)",
-      "Bash(lsof:*)",
-      "Bash(xargs kill:*)",
-      "Bash(pkill:*)",
-      "Bash(videos are interspersed\" - tests the scenario where users manually add tracks\nat different positions and then sync other tracks, ensuring final order matches\nSpotify order.\n\nNow 316 tests passing (was 315).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
+      "Bash(npx tsc --noEmit)"
     ],
     "deny": [],
     "ask": []
