@@ -50,7 +50,7 @@
   </div>
 
   <!-- Progress display area for real-time SSE updates -->
-  <div id="progress-<%= id %>" class="playlist-progress" style="display: none;">
+  <div id="progress-<%= id %>" class="playlist-progress hidden">
     <!-- SSE progress updates will be swapped in here by sync.js -->
   </div>
 
@@ -60,7 +60,7 @@
   </div>
 
   <!-- Always show expand functionality, regardless of sync status -->
-  <input type="checkbox" id="expand-<%= id %>" class="playlist-expand-toggle" style="display: none;">
+  <input type="checkbox" id="expand-<%= id %>" class="playlist-expand-toggle hidden">
   <label for="expand-<%= id %>" class="playlist-expand-area" data-playlist-id="<%= id %>">
     <span class="expand-indicator">▼</span>
   </label>

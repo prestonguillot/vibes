@@ -9,7 +9,7 @@
   <div class="video-options">
     <% videos.forEach((video, index) => { %>
       <input type="radio" name="video-selection" id="video-<%= video.id %>" value="<%= video.id %>"
-             class="video-option-radio" style="display: none;">
+             class="video-option-radio hidden">
       <label for="video-<%= video.id %>" class="video-option p-3 border rounded mb-2" data-video-id="<%= video.id %>">
         <div class="d-flex align-items-start">
           <img src="<%= video.thumbnail %>" alt="Video thumbnail"
