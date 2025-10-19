@@ -67,19 +67,34 @@
 - **Test both happy paths and error cases** - include tests for validation failures, edge cases, and error handling
 
 ### Git Commit Workflow
-- **Before pausing for input, commit all changes** using the user's previous input as the commit message
-- **IMPORTANT: Always include the user's EXACT prompt/input as the first line of the commit message**
-- You can add additional context, summary, and technical details after the user's exact words
-- Command to use: `git add -A && git commit -m "<user's exact input>\n\n<your additional context and details>"`
-- Example format:
+- **Before pausing for input, commit all changes** using user prompts as the commit message
+- **IMPORTANT: Include ALL user prompts given since the last commit, verbatim and in order**
+- **Include a summary of any discussion/clarification between prompts** to capture context and reasoning
+- Add technical implementation details, changes, and testing results after the prompts and discussion
+- Command format:
   ```
-  here's an easy one, the "refresh" button shouldn't be usable unless you're connected to both spotify and youtube
+  <user's exact prompt 1>
 
-  Disabled refresh button until both services are connected.
+  Discussion/Clarification:
+  - We discussed X and concluded Y
+  - User clarified that Z approach is better
+
+  <user's exact prompt 2 (if any)>
+
+  Implementation:
+  - Changed A to B
+  - Added C for D reason
+  - All tests passing (N tests)
+  ```
+- Example:
+  ```
+  you didn't add any tests when you added the circuit breaker to the spotify client, add them, also move the configuration for both instances of the circuit breaker to configuration files, they shoudln't be hard coded at the imnplementation site
+
+  Added comprehensive tests for Spotify circuit breaker covering state management, rate limit handling, and token management. Moved circuit breaker configuration to src/config/circuitBreaker.ts so both YouTube and Spotify breakers can be independently configured.
 
   Changes:
-  - Added data attributes to connection buttons
-  - Updated JavaScript to check both connection states
-  - Refresh button now requires both services
+  - Created src/config/circuitBreaker.ts with circuit breaker configurations
+  - Added tests/unit/spotifyCircuitBreaker.test.ts with 10 new tests
+  - All 321 tests passing
   ```
-- This ensures the commit history shows what the user actually asked for, not just your interpretation
+- This ensures the commit history captures the full context of what was asked, how it was discussed, and why decisions were made
