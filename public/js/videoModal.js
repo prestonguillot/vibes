@@ -54,6 +54,12 @@ function initializeVideoModal() {
             // Add processing state class for styling
             target.classList.add('processing-state');
 
+            console.log('Processing state applied:', {
+                hasClass: target.classList.contains('processing-state'),
+                buttonId: target.id,
+                buttonClasses: target.className
+            });
+
             // Show loading state with spinner
             target.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Processing...';
         }
