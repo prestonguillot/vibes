@@ -40,6 +40,20 @@ function initializeVideoModal() {
         }
     });
 
+    // Listen for HTMX beforeRequest to disable button and show loading state
+    document.addEventListener('htmx:beforeRequest', function(event) {
+        const target = event.detail.elt;
+        if (target && target.id === 'confirm-selection-btn') {
+            // Disable the button to prevent duplicate submissions
+            target.disabled = true;
+
+            // Show loading state
+            const originalText = target.innerHTML;
+            target.setAttribute('data-original-text', originalText);
+            target.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Processing...';
+        }
+    });
+
     // Listen for HTMX afterRequest events to close modal and refresh playlist after successful video replacement
     document.addEventListener('htmx:afterRequest', function(event) {
         // Check if this is the confirm selection button
@@ -66,6 +80,14 @@ function initializeVideoModal() {
                         }
                     }
                 }, 300);
+            } else {
+                // Request failed - restore button state
+                target.disabled = false;
+                const originalText = target.getAttribute('data-original-text');
+                if (originalText) {
+                    target.innerHTML = originalText;
+                    target.removeAttribute('data-original-text');
+                }
             }
         }
     });
