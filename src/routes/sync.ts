@@ -749,7 +749,15 @@ router.post('/playlist/:playlistId',
       Logger.info('Identified tracks for reordering', {
         reorderOperationsCount: reorderOperations.length,
         totalMatchedTracks: expectedVideoOrder.length,
-        tracksAlreadyInCorrectOrder: expectedVideoOrder.length - reorderOperations.length
+        tracksAlreadyInCorrectOrder: expectedVideoOrder.length - reorderOperations.length,
+        expectedVideoOrder: expectedVideoOrder.map((vid, idx) => {
+          const info = videoToSpotifyInfo.get(vid);
+          return `${idx}: ${info?.trackName || 'unknown'} (${vid})`;
+        }),
+        currentVideoOrder: currentVideoOrder.map((vid, idx) => {
+          const info = videoToSpotifyInfo.get(vid);
+          return `${idx}: ${info?.trackName || 'unknown'} (${vid})`;
+        })
       });
 
       // If no tracks need reordering, skip the entire reordering phase
@@ -812,6 +820,18 @@ router.post('/playlist/:playlistId',
             }
           }
 
+          Logger.info('Reorder operation details', {
+            trackName: operation.trackName,
+            videoId: operation.videoId,
+            expectedIndex: operation.expectedIndex,
+            currentPosition,
+            targetPosition,
+            trackedOrderBefore: trackedYouTubeOrder.map((item, idx) => {
+              const info = videoToSpotifyInfo.get(item.snippet?.resourceId?.videoId!);
+              return `${idx}: ${info?.trackName || 'unknown'}`;
+            })
+          });
+
           // Only execute if video is actually in wrong position
           if (currentPosition === targetPosition) {
             Logger.info('Video already in correct position, skipping', {
@@ -847,6 +867,15 @@ router.post('/playlist/:playlistId',
           // Update tracked state: remove from current position and insert at target
           const [movedItem] = trackedYouTubeOrder.splice(currentPosition, 1);
           trackedYouTubeOrder.splice(targetPosition, 0, movedItem);
+
+          Logger.info('Reorder operation completed', {
+            trackName: operation.trackName,
+            videoId: operation.videoId,
+            trackedOrderAfter: trackedYouTubeOrder.map((item, idx) => {
+              const info = videoToSpotifyInfo.get(item.snippet?.resourceId?.videoId!);
+              return `${idx}: ${info?.trackName || 'unknown'}`;
+            })
+          });
 
           reorderedCount++;
           Logger.external('YouTube', 'Reordered track position', {
