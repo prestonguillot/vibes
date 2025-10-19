@@ -784,18 +784,14 @@ router.post('/replace/:trackId',
       }
 
       // Fetch all Spotify tracks for the playlist
+      // Note: reorderPlaylistTracks expects the full format with .track property
       const spotifyPlaylistResponse = await spotifyApi.getPlaylistTracks(playlistId, {
         limit: 50,
-        fields: 'items(track(id,name,artists(name)))'
+        offset: 0
       });
 
-      const spotifyTracks = spotifyPlaylistResponse.body.items
-        .filter((item: any) => item.track && item.track.type === 'track')
-        .map((item: any) => ({
-          id: item.track.id,
-          name: item.track.name,
-          artists: item.track.artists
-        }));
+      // Keep the full format (with .track property) for reorderPlaylistTracks
+      const spotifyTracks = spotifyPlaylistResponse.body.items;
 
       // Build list of synced tracks (tracks that have YouTube videos)
       // For simplicity, we'll fetch YouTube playlist again and match with Spotify
@@ -818,11 +814,15 @@ router.post('/replace/:trackId',
 
       // Import track matching functionality
       const { optimalTrackMatching } = await import('../utils/trackMatching');
-      const tracksToMatch = spotifyTracks.map((track: any) => ({
-        id: track.id,
-        name: track.name,
-        artist: track.artists[0]?.name || 'Unknown Artist'
-      }));
+
+      // Extract track info from the full Spotify format
+      const tracksToMatch = spotifyTracks
+        .filter((item: any) => item.track && item.track.type === 'track')
+        .map((item: any) => ({
+          id: item.track.id,
+          name: item.track.name,
+          artist: item.track.artists[0]?.name || 'Unknown Artist'
+        }));
 
       const existingVideos = allPlaylistItems
         .filter(item => item.snippet?.resourceId?.videoId && item.id)
