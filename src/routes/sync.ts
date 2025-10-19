@@ -1496,6 +1496,13 @@ router.post('/playlist/:playlistId',
     const updatedMatches = optimalTrackMatching(updatedSpotifyTracks, updatedYoutubeVideos);
     const linkedCount = updatedMatches.size;
 
+    Logger.info('OOB swap track matching results', {
+      totalSpotifyTracks: updatedSpotifyTracks.length,
+      totalYoutubeVideos: updatedYoutubeVideos.length,
+      matchedTracks: linkedCount,
+      youtubeVideoTitles: updatedYoutubeVideos.map(v => v.title)
+    });
+
     // Transform tracks into MergedTrack format for template
     const mergedTracks = updatedSpotifyTracks.slice(0, 10).map((track: any) => {
       const matchedVideo = updatedMatches.get(track.id);
