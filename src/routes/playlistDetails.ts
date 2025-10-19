@@ -537,7 +537,7 @@ router.get('/search/:trackId',
           <input type="hidden" name="currentVideoId" value="${currentVideoId || ''}">
           <input type="hidden" name="playlistId" value="${playlistId}">
 
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          <button type="button" class="btn btn-secondary sync-btn" data-bs-dismiss="modal">
             Cancel
           </button>
           <button type="button" class="btn btn-primary sync-btn" id="confirm-selection-btn"
