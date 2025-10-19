@@ -50,7 +50,7 @@ describe('YouTube Auth Validation - Quota Handling', () => {
 
       const result = await validateYouTubeConnection(mockYoutubeTokens, mockResponse);
 
-      expect(result).toBe(false);
+      expect(result.connected).toBe(false);
       expect(mockResponse.clearCookie).toHaveBeenCalledWith('youtube_tokens');
     });
 
@@ -70,7 +70,7 @@ describe('YouTube Auth Validation - Quota Handling', () => {
     it('should return false when tokens are null', async () => {
       const result = await validateYouTubeConnection(null, mockResponse);
 
-      expect(result).toBe(false);
+      expect(result.connected).toBe(false);
       expect(mockResponse.clearCookie).not.toHaveBeenCalled();
     });
   });
@@ -88,7 +88,7 @@ describe('YouTube Auth Validation - Quota Handling', () => {
 
       const result = await validateYouTubeConnection(mockYoutubeTokens, mockResponse);
 
-      expect(result).toBe(false);
+      expect(result.connected).toBe(false);
       // Should clear cookies on quota error
       expect(mockResponse.clearCookie).toHaveBeenCalledWith('youtube_tokens');
       // Should open circuit breaker
@@ -107,7 +107,7 @@ describe('YouTube Auth Validation - Quota Handling', () => {
       // Attempt validation - should fail and clear tokens
       const result = await validateYouTubeConnection(mockYoutubeTokens, mockResponse);
 
-      expect(result).toBe(false);
+      expect(result.connected).toBe(false);
       expect(mockResponse.clearCookie).toHaveBeenCalledWith('youtube_tokens');
       expect(youtubeCircuitBreaker.isOpen()).toBe(true);
     });
@@ -134,9 +134,9 @@ describe('YouTube Auth Validation - Quota Handling', () => {
       const result2 = await validateYouTubeConnection(mockYoutubeTokens, mockResponse);
       const result3 = await validateYouTubeConnection(mockYoutubeTokens, mockResponse);
 
-      expect(result1).toBe(false);
-      expect(result2).toBe(false);
-      expect(result3).toBe(false);
+      expect(result1.connected).toBe(false);
+      expect(result2.connected).toBe(false);
+      expect(result3.connected).toBe(false);
 
       // Should have cleared cookies each time
       expect(mockResponse.clearCookie).toHaveBeenCalledTimes(3);

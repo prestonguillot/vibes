@@ -122,7 +122,7 @@ export function createApp() {
   app.get('/api/status/spotify/button', statusLimiter, async (req, res) => {
     const startTime = Date.now();
     const spotifyTokens = req.cookies.spotify_tokens ? JSON.parse(req.cookies.spotify_tokens) : null;
-    const spotifyConnected = await validateSpotifyConnection(spotifyTokens, res);
+    const spotifyResult = await validateSpotifyConnection(spotifyTokens, res);
 
     // Ensure minimum display time of 500ms to prevent flash
     const elapsed = Date.now() - startTime;
@@ -133,7 +133,8 @@ export function createApp() {
 
     res.render('partials/connection-button', {
       service: 'spotify',
-      connected: spotifyConnected,
+      connected: spotifyResult.connected,
+      error: spotifyResult.error,
       loading: false
     });
   });
@@ -141,7 +142,7 @@ export function createApp() {
   app.get('/api/status/youtube/button', statusLimiter, async (req, res) => {
     const startTime = Date.now();
     const youtubeTokens = req.cookies.youtube_tokens ? JSON.parse(req.cookies.youtube_tokens) : null;
-    const youtubeConnected = await validateYouTubeConnection(youtubeTokens, res);
+    const youtubeResult = await validateYouTubeConnection(youtubeTokens, res);
 
     // Ensure minimum display time of 500ms to prevent flash
     const elapsed = Date.now() - startTime;
@@ -151,13 +152,14 @@ export function createApp() {
     }
 
     // Trigger playlist refresh when YouTube becomes connected
-    if (youtubeConnected) {
+    if (youtubeResult.connected) {
       res.setHeader('HX-Trigger', 'youtubeConnected');
     }
 
     res.render('partials/connection-button', {
       service: 'youtube',
-      connected: youtubeConnected,
+      connected: youtubeResult.connected,
+      error: youtubeResult.error,
       loading: false
     });
   });

@@ -18,15 +18,24 @@ export function getSecureCookieOptions() {
 }
 
 /**
+ * Connection validation result with optional error details
+ */
+export interface ConnectionResult {
+  connected: boolean;
+  error?: string; // User-friendly error message
+  errorCode?: string | number; // Technical error code for logging
+}
+
+/**
  * Validates Spotify connection and attempts token refresh if needed
- * @returns true if connection is valid, false otherwise
+ * @returns {ConnectionResult} with connection status and optional error message
  */
 export async function validateSpotifyConnection(
   spotifyTokens: SpotifyTokens | null,
   res: Response
-): Promise<boolean> {
+): Promise<ConnectionResult> {
   if (!spotifyTokens) {
-    return false;
+    return { connected: false };
   }
 
   try {
@@ -42,7 +51,7 @@ export async function validateSpotifyConnection(
     // Test with a lightweight API call
     await spotifyApi.getMe();
     Logger.auth('Spotify', 'connection validated');
-    return true;
+    return { connected: true };
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     const statusCode = (error as { statusCode?: number }).statusCode;
@@ -68,30 +77,38 @@ export async function validateSpotifyConnection(
         res.cookie('spotify_tokens', JSON.stringify(updatedTokens), getSecureCookieOptions());
 
         Logger.auth('Spotify', 'token refreshed successfully');
-        return true;
+        return { connected: true };
       } catch (refreshError) {
         Logger.auth('Spotify', 'failed to refresh token');
         res.clearCookie('spotify_tokens');
-        return false;
+        return {
+          connected: false,
+          error: 'Spotify credentials expired. Please reconnect.',
+          errorCode: 401
+        };
       }
     } else {
       // Clear invalid tokens
       res.clearCookie('spotify_tokens');
-      return false;
+      return {
+        connected: false,
+        error: 'Unable to validate Spotify connection. Please try reconnecting.',
+        errorCode: statusCode
+      };
     }
   }
 }
 
 /**
  * Validates YouTube connection and attempts token refresh if needed
- * @returns true if connection is valid, false otherwise
+ * @returns {ConnectionResult} with connection status and optional error message
  */
 export async function validateYouTubeConnection(
   youtubeTokens: YouTubeTokens | null,
   res: Response
-): Promise<boolean> {
+): Promise<ConnectionResult> {
   if (!youtubeTokens) {
-    return false;
+    return { connected: false };
   }
 
   // Check circuit breaker before making API call
@@ -101,7 +118,11 @@ export async function validateYouTubeConnection(
     });
     // Clear tokens so user sees disconnected state
     res.clearCookie('youtube_tokens');
-    return false;
+    return {
+      connected: false,
+      error: 'YouTube API quota exceeded. Please try again later.',
+      errorCode: 'CIRCUIT_BREAKER_OPEN'
+    };
   }
 
   try {
@@ -118,7 +139,7 @@ export async function validateYouTubeConnection(
     await youtube.channels.list({ part: ['id'], mine: true, maxResults: 1 });
     Logger.auth('YouTube', 'connection validated');
     youtubeCircuitBreaker.recordSuccess();
-    return true;
+    return { connected: true };
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     const errorCode = (error as { code?: number }).code;
@@ -129,7 +150,11 @@ export async function validateYouTubeConnection(
       youtubeCircuitBreaker.open();
       // Clear tokens so user sees disconnected state
       res.clearCookie('youtube_tokens');
-      return false;
+      return {
+        connected: false,
+        error: 'YouTube API quota exceeded. Please try again later.',
+        errorCode: 403
+      };
     } else {
       youtubeCircuitBreaker.recordFailure(error);
     }
@@ -151,15 +176,23 @@ export async function validateYouTubeConnection(
         res.cookie('youtube_tokens', JSON.stringify(updatedTokens), getSecureCookieOptions());
 
         Logger.auth('YouTube', 'token refreshed successfully');
-        return true;
+        return { connected: true };
       } catch (refreshError) {
         Logger.auth('YouTube', 'failed to refresh token');
         res.clearCookie('youtube_tokens');
-        return false;
+        return {
+          connected: false,
+          error: 'YouTube credentials expired. Please reconnect.',
+          errorCode: 401
+        };
       }
     } else {
       res.clearCookie('youtube_tokens');
-      return false;
+      return {
+        connected: false,
+        error: 'Unable to validate YouTube connection. Please try reconnecting.',
+        errorCode: errorCode
+      };
     }
   }
 }
