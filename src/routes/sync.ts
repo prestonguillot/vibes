@@ -1454,10 +1454,19 @@ router.post('/playlist/:playlistId',
           }
         }
       }
-      
+
       // Step 3: Reorder all synced tracks to match Spotify order (UPDATE mode only)
       // This ensures that order changes in Spotify are reflected in YouTube, even if no new videos were added
       if (isUpdateMode) {
+        // If we just added new videos, wait a moment for YouTube to process the changes
+        // This prevents race conditions where we fetch the playlist before additions are fully propagated
+        if (addedCount > 0) {
+          Logger.info('Waiting for YouTube to process newly added tracks before reordering', {
+            addedCount,
+            waitTime: 2000
+          });
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
         // Create a complete list of ALL synced tracks (existing + newly added)
         const allSyncedTracks = [...syncedTracks];
 
