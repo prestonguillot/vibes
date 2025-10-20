@@ -51,6 +51,14 @@ export function initializeCsrfSecret(): string {
 }
 
 /**
- * Load CSRF secret - called at app startup
+ * Lazy-load CSRF secret on first access
+ * This ensures dotenv has already been called before the secret is evaluated
  */
-export const CSRF_SECRET = initializeCsrfSecret();
+let csrfSecretCache: string | null = null;
+
+export function getCsrfSecret(): string {
+  if (!csrfSecretCache) {
+    csrfSecretCache = initializeCsrfSecret();
+  }
+  return csrfSecretCache;
+}

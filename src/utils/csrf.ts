@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { Request, Response, NextFunction } from 'express';
 import { Logger } from './logger';
-import { CSRF_SECRET } from '../config/csrf';
+import { getCsrfSecret } from '../config/csrf';
 
 /**
  * CSRF Protection using Signed Double Submit Cookie pattern
@@ -36,7 +36,7 @@ export function generateCsrfToken(): string {
  * Sign a CSRF token using HMAC
  */
 function signToken(token: string): string {
-  const hmac = crypto.createHmac('sha256', CSRF_SECRET);
+  const hmac = crypto.createHmac('sha256', getCsrfSecret());
   hmac.update(token);
   return hmac.digest('hex');
 }
