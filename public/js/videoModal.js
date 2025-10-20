@@ -47,8 +47,8 @@ function initializeVideoModal() {
             // Disable the button to prevent duplicate submissions
             target.disabled = true;
 
-            // Store original button text (not HTML) for secure restoration
-            const originalText = target.textContent;
+            // Store original text for restoration
+            const originalText = target.innerHTML;
             target.setAttribute('data-original-text', originalText);
 
             // Add processing state class for styling
@@ -98,7 +98,7 @@ function initializeVideoModal() {
 
                 const originalText = target.getAttribute('data-original-text');
                 if (originalText) {
-                    target.textContent = originalText;
+                    target.innerHTML = originalText;
                     target.removeAttribute('data-original-text');
                 }
             }

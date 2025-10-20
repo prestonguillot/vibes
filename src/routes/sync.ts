@@ -20,14 +20,16 @@ const router = Router();
 
 // Rate limiter for sync operations
 // Sync is resource-intensive (YouTube scraping, API calls, playlist operations)
-// Limit to 5 sync operations per 5 minutes per IP
+// Limit to 1 request per second per IP to prevent bot attacks while allowing normal human usage
+const isTestEnvironment = process.env.NODE_ENV === 'test';
 const syncLimiter = rateLimit({
-  windowMs: 5 * 60 * 1000, // 5 minutes
-  max: 5, // Limit each IP to 5 requests per window
-  message: 'Too many sync requests from this IP, please try again in a few minutes',
+  windowMs: 1 * 1000, // 1 second window
+  max: 1, // Limit each IP to 1 request per second
+  message: 'Too many sync requests, please wait a moment before trying again',
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: false,
+  skip: () => isTestEnvironment, // Disable rate limiting in test environment
   // Custom handler for rate limit exceeded
   handler: async (req, res) => {
     Logger.warn('Sync rate limit exceeded', {
@@ -38,9 +40,9 @@ const syncLimiter = rateLimit({
 
     const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
       type: 'warning',
-      title: 'Too Many Sync Requests',
-      message: 'You\'ve made too many sync requests in a short period.',
-      details: 'Please wait a few minutes before trying again. This limit helps prevent abuse and ensures the service remains available for everyone.'
+      title: 'Rate Limit Exceeded',
+      message: 'Please wait a moment before syncing again.',
+      details: 'This rate limit helps prevent abuse and ensures the service remains available for everyone.'
     });
 
     res.status(429).send(html);
@@ -142,14 +144,11 @@ async function ensureValidYouTubeToken(req: Request, res: Response): Promise<{ o
   }
 };
 
-// Conditionally apply rate limiting middleware based on environment variable
-const rateLimitingEnabled = process.env.ENABLE_RATE_LIMITING === 'true';
-const syncMiddleware = rateLimitingEnabled ? [syncLimiter, csrfValidationMiddleware] : [csrfValidationMiddleware];
-
-Logger.info('Sync rate limiting configuration', { enabled: rateLimitingEnabled });
+Logger.info('Sync rate limiting configuration', { enabled: !isTestEnvironment });
 
 router.post('/playlist/:playlistId',
-  ...syncMiddleware, // Conditionally apply rate limiting (default: OFF)
+  syncLimiter, // Rate limiting (controlled by skip function, default: ON)
+  csrfValidationMiddleware, // CSRF protection
   validate({
     params: z.object({
       playlistId: schemas.spotifyPlaylistId
