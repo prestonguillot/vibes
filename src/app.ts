@@ -63,13 +63,15 @@ export function createApp() {
   app.use(cookieParser());
   app.use(csrfCookieMiddleware); // CSRF protection - set token cookie on all requests
 
-  // Rate limiting for status check endpoints
-  const statusLimiter = rateLimit({
-    windowMs: 1 * 60 * 1000, // 1 minute window
-    max: 30, // Limit each IP to 30 requests per minute
-    message: 'Too many status check requests, please try again later',
+  // Rate limiting for status check endpoints and home page (1 request per second per IP)
+  // Disabled during testing to allow rapid requests
+  const pageAndStatusLimiter = rateLimit({
+    windowMs: 1 * 1000, // 1 second window
+    max: 1, // Limit each IP to 1 request per second
+    message: 'Too many requests, please try again in a moment',
     standardHeaders: true,
     legacyHeaders: false,
+    skip: () => process.env.NODE_ENV === 'test', // Skip rate limiting during tests
   });
 
   // Request logging middleware
@@ -122,8 +124,8 @@ export function createApp() {
   app.use('/api/playlistDetails', playlistDetailsRouter);
   app.use('/api/progress', progressRouter);
 
-  // Main page
-  app.get('/', (req, res) => {
+  // Main page (with rate limiting: 1 request per second per IP)
+  app.get('/', pageAndStatusLimiter, (req, res) => {
     // CSRF token is now available in res.locals.csrfToken (set by csrfCookieMiddleware)
     const csrfToken = getCsrfToken(req, res);
 
@@ -136,7 +138,7 @@ export function createApp() {
   });
 
   // Connection status button endpoints (with rate limiting)
-  app.get('/api/status/spotify/button', statusLimiter, async (req, res) => {
+  app.get('/api/status/spotify/button', pageAndStatusLimiter, async (req, res) => {
     const startTime = Date.now();
     const spotifyTokens = parseSpotifyTokenCookie(req.cookies.spotify_tokens, res);
     const spotifyResult = await validateSpotifyConnection(spotifyTokens, res);
@@ -156,7 +158,7 @@ export function createApp() {
     });
   });
 
-  app.get('/api/status/youtube/button', statusLimiter, async (req, res) => {
+  app.get('/api/status/youtube/button', pageAndStatusLimiter, async (req, res) => {
     const startTime = Date.now();
     const youtubeTokens = parseYouTubeTokenCookie(req.cookies.youtube_tokens, res);
     const youtubeResult = await validateYouTubeConnection(youtubeTokens, res);
