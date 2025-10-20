@@ -54,7 +54,7 @@ function initializeVideoModal() {
             // Add processing state class for styling
             target.classList.add('processing-state');
 
-            console.log('Processing state applied:', {
+            Logger.debug('Processing state applied', {
                 hasClass: target.classList.contains('processing-state'),
                 buttonId: target.id,
                 buttonClasses: target.className

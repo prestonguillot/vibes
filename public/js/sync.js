@@ -41,7 +41,7 @@ document.body.addEventListener('htmx:sendError', (event) => {
   const path = event.detail?.requestConfig?.path;
   if (!path || !path.includes('/sync/playlist/')) return;
 
-  console.error('HTMX send error for sync request:', event.detail);
+  Logger.error('HTMX send error for sync request', { detail: event.detail });
 
   const playlistId = path.split('/').pop();
 
@@ -80,13 +80,13 @@ function startSSE(playlistId) {
 
   // Listen for the "close" event from server (graceful shutdown)
   eventSource.addEventListener('close', () => {
-    console.log(`SSE connection closed gracefully for playlist ${playlistId}`);
+    Logger.info('SSE connection closed gracefully', { playlistId });
     closeSSE(playlistId);
   });
 
   eventSource.onerror = (error) => {
     // Only clean up this specific connection, don't interfere with anything else
-    console.log(`SSE connection error for playlist ${playlistId}`, error);
+    Logger.warn('SSE connection error', { playlistId }, error);
     const conn = sseConnections.get(playlistId);
     if (conn === eventSource) {
       eventSource.close();
@@ -105,7 +105,7 @@ function closeSSE(playlistId) {
         eventSource.close();
       }
     } catch (error) {
-      console.warn(`Error closing SSE connection for playlist ${playlistId}:`, error);
+      Logger.warn('Error closing SSE connection', { playlistId }, error);
     } finally {
       // Always remove from map, regardless of close success
       sseConnections.delete(playlistId);
