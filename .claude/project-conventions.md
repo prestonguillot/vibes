@@ -77,6 +77,13 @@
 - **Write tests that verify behavior, not implementation** - tests should validate what the code does, not how it does it
 - **Test both happy paths and error cases** - include tests for validation failures, edge cases, and error handling
 
+### Security Audit Notes (Non-Issues Identified)
+The following potential security concerns were evaluated and determined to NOT be vulnerabilities:
+
+- **IDOR in /playlist-button/:playlistId endpoint** - The Spotify API itself validates playlist access based on the user's OAuth token. If a user tries to access a private playlist they don't have permission for, Spotify's API rejects the request. No server-side ownership verification is needed because the external API provides this protection. Additionally, public playlists are publicly enumerable by design.
+
+- **Weak token format validation** - Strict regex validation of token formats is unnecessary because external APIs (Spotify, YouTube) validate token authenticity and format on every API call. Invalid tokens are rejected by the respective services, making internal format checks redundant overhead with no security benefit.
+
 ### Git Commit Workflow
 - **Before pausing for input, commit all changes** using user prompts as the commit message
 - **IMPORTANT: Include ALL user prompts given since the last commit, verbatim and in order**
