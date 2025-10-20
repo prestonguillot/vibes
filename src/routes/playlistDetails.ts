@@ -8,6 +8,7 @@ import { SpotifyTokens, YouTubeTokens } from '../types/oauth';
 import { parseSpotifyTokenCookie, parseYouTubeTokenCookie } from '../utils/cookieParser';
 import { CacheDuration, setCache } from '../utils/cache';
 import { formatErrorDetails } from '../utils/errorFormatter';
+import { escapeHtml } from '../utils/htmlEscape';
 import { youtube_v3 } from 'googleapis';
 import { z } from 'zod';
 import ejs from 'ejs';
@@ -495,9 +496,12 @@ router.get('/search/:trackId',
     // Determine if this is for a new link or replacing an existing one
     const isReplacing = currentVideoId && currentVideoId !== '';
     const modalTitle = isReplacing ? 'Select Alternative Video' : 'Select Video';
+    // Escape track and artist names to prevent XSS in HTML string construction
+    const escapedTrackName = escapeHtml(trackName);
+    const escapedArtistName = escapeHtml(artistName);
     const instructionText = isReplacing
-      ? `Choose a different YouTube video for: <strong>${trackName}</strong> by <strong>${artistName}</strong>`
-      : `Choose a YouTube video for: <strong>${trackName}</strong> by <strong>${artistName}</strong>`;
+      ? `Choose a different YouTube video for: <strong>${escapedTrackName}</strong> by <strong>${escapedArtistName}</strong>`
+      : `Choose a YouTube video for: <strong>${escapedTrackName}</strong> by <strong>${escapedArtistName}</strong>`;
 
     // Render video selection modal from template
     const videoSelectionHtml = await ejs.renderFile(
