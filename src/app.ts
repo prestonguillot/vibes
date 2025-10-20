@@ -7,7 +7,6 @@ import express from 'express';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import path from 'path';
-import rateLimit from 'express-rate-limit';
 import { spotifyRouter } from './routes/spotify';
 import { youtubeRouter } from './routes/youtube';
 import { syncRouter } from './routes/sync';
@@ -62,18 +61,6 @@ export function createApp() {
   app.use(express.urlencoded({ extended: true, limit: '10kb' }));
   app.use(cookieParser());
   app.use(csrfCookieMiddleware); // CSRF protection - set token cookie on all requests
-
-  // Rate limiting for status check endpoints (1 request per second per IP)
-  // Prevents rapid polling of connection status endpoints
-  // Disabled during testing to allow rapid requests
-  const statusEndpointLimiter = rateLimit({
-    windowMs: 1 * 1000, // 1 second window
-    max: 1, // Limit each IP to 1 request per second
-    message: 'Too many requests, please try again in a moment',
-    standardHeaders: true,
-    legacyHeaders: false,
-    skip: () => process.env.NODE_ENV === 'test', // Skip rate limiting during tests
-  });
 
   // Request logging middleware
   app.use((req, res, next) => {
@@ -138,8 +125,8 @@ export function createApp() {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
   });
 
-  // Connection status button endpoints (with rate limiting: 1 request per second per IP)
-  app.get('/api/status/spotify/button', statusEndpointLimiter, async (req, res) => {
+  // Connection status button endpoints
+  app.get('/api/status/spotify/button', async (req, res) => {
     const startTime = Date.now();
     const spotifyTokens = parseSpotifyTokenCookie(req.cookies.spotify_tokens, res);
     const spotifyResult = await validateSpotifyConnection(spotifyTokens, res);
@@ -159,7 +146,7 @@ export function createApp() {
     });
   });
 
-  app.get('/api/status/youtube/button', statusEndpointLimiter, async (req, res) => {
+  app.get('/api/status/youtube/button', async (req, res) => {
     const startTime = Date.now();
     const youtubeTokens = parseYouTubeTokenCookie(req.cookies.youtube_tokens, res);
     const youtubeResult = await validateYouTubeConnection(youtubeTokens, res);

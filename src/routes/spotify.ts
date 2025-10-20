@@ -1,5 +1,4 @@
 import { Router, Request } from 'express';
-import rateLimit from 'express-rate-limit';
 import SpotifyWebApi from 'spotify-web-api-node';
 import { google, youtube_v3 } from 'googleapis';
 import { Logger } from '../utils/logger';
@@ -11,12 +10,8 @@ import { parseSpotifyTokenCookie, parseYouTubeTokenCookie, validateAndSerializeS
 import { z } from 'zod';
 import ejs from 'ejs';
 import path from 'path';
-import { playlistsRateLimitConfig } from '../config/rateLimiting';
 
 const router = Router();
-
-// Create playlists rate limiter from configuration
-const playlistsLimiter = rateLimit(playlistsRateLimitConfig);
 
 // Create Spotify API instance with current env vars
 const getSpotifyApi = () => new SpotifyWebApi({
@@ -124,7 +119,6 @@ router.get('/callback',
 
 // Get user's playlists with improved layout - testing hot reload
 router.get('/playlists',
-  playlistsLimiter,
   validate({
     query: z.object({
       ownOnly: schemas.booleanFlag.optional()
