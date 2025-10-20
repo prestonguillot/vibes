@@ -26,6 +26,22 @@ export function createApp() {
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
+        // NOTE: 'unsafe-inline' for styles and scripts is necessary for this HTMX/Bootstrap architecture.
+        // ARCHITECTURAL TRADEOFF: We allow 'unsafe-inline' to enable:
+        // 1. HTMX inline script initialization (required for HTMX to work on initial page load)
+        // 2. Bootstrap inline styles for certain components
+        // 3. Dynamic HTML swapping via HTMX (safe because HTML comes from server, not user input)
+        //
+        // MITIGATION: No user-supplied data is embedded into inline scripts or styles. All dynamic
+        // content (playlists, videos, etc.) is inserted via HTMX swap operations which target DOM
+        // elements, not inline script/style content.
+        //
+        // FUTURE IMPROVEMENT: To remove 'unsafe-inline', we would need to:
+        // - Generate random CSP nonces on each request
+        // - Embed nonces in all inline scripts: <script nonce="...">
+        // - Embed nonces in inline styles: <style nonce="...">
+        // - Pass nonces to templates and dynamically generated HTML
+        // This is possible but adds complexity; not justified for current risk level.
         styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://fonts.googleapis.com"],
         scriptSrc: ["'self'", "'unsafe-inline'", "https://unpkg.com", "https://cdn.jsdelivr.net"],
         imgSrc: ["'self'", "data:", "https:", "http:"], // Allow external images (YouTube thumbnails, etc.)
