@@ -164,8 +164,7 @@ export function csrfValidationMiddleware(req: Request, res: Response, next: Next
     Logger.debug('CSRF signature verification', {
       signatureValid,
       providedSigPrefix: signature.substring(0, 8) + '...',
-      expectedSigPrefix: expectedSignature.substring(0, 8) + '...',
-      secretPrefix: CSRF_SECRET.substring(0, 8) + '...'
+      expectedSigPrefix: expectedSignature.substring(0, 8) + '...'
     });
 
     if (!signatureValid) {
