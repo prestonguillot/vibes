@@ -1,5 +1,5 @@
 /* 90s PUNK ZINE AESTHETIC - Spotify to YouTube Sync */
-@import url('https://fonts.googleapis.com/css2?family=Creepster&family=Permanent+Marker&family=Fredoka+One&family=Bungee&family=Courier+Prime:wght@400;700&display=swap');
+/* Fonts are now preloaded in index.ejs with display=block to prevent FOUT */
 
 /* === PREVENT LAYOUT SHIFT FROM SCROLLBAR === */
 html {
