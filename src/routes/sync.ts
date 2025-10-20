@@ -87,6 +87,35 @@ const ensureValidSpotifyToken = async (req: Request, res: Response): Promise<Spo
   }
 };
 
+// Helper function to get YouTube user ID from tokens
+async function getYouTubeUserId(youtubeTokens: YouTubeTokens): Promise<string> {
+  try {
+    const oauth2Client = new google.auth.OAuth2(
+      process.env.YOUTUBE_CLIENT_ID,
+      process.env.YOUTUBE_CLIENT_SECRET,
+      process.env.YOUTUBE_REDIRECT_URI
+    );
+    oauth2Client.setCredentials(youtubeTokens);
+
+    const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
+    const channelsResponse = await youtube.channels.list({
+      part: ['id'],
+      mine: true,
+      maxResults: 1
+    });
+
+    const channelId = channelsResponse.data.items?.[0]?.id;
+    if (!channelId) {
+      throw new Error('Could not retrieve YouTube channel ID');
+    }
+
+    return channelId;
+  } catch (error) {
+    Logger.error('Failed to get YouTube user ID', {}, error);
+    throw error;
+  }
+}
+
 // Helper function to ensure valid YouTube token and return quota usage
 async function ensureValidYouTubeToken(req: Request, res: Response): Promise<{ oauth2Client: OAuth2Client, quotaUsed: number }> {
   const youtubeTokens: YouTubeTokens | null = parseYouTubeTokenCookie(req.cookies.youtube_tokens, res);
@@ -161,17 +190,11 @@ router.post('/playlist/:playlistId',
     method: req.method
   });
 
-  // Send initial progress update
-  sendProgressUpdate(playlistId, {
-    type: 'progress',
-    message: 'Starting sync...',
-    details: 'Checking authentication and initializing APIs'
-  });
-
   // Declare variables outside try block so they're accessible in catch
   let apiCallCount = 0;
   let totalQuotaUsed = 0;
   let existingPlaylist: youtube_v3.Schema$Playlist | null = null;
+  let youtubeUserId: string = '';
 
   try {
     // Check authentication
@@ -180,11 +203,6 @@ router.post('/playlist/:playlistId',
 
     if (!spotifyTokens) {
       Logger.error('No Spotify tokens in cookies');
-      sendProgressUpdate(playlistId, {
-        type: 'error',
-        message: 'Authentication required',
-        details: 'Please connect to Spotify first'
-      });
       const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
         type: 'warning',
         title: 'Spotify Authentication Required',
@@ -196,11 +214,6 @@ router.post('/playlist/:playlistId',
 
     if (!youtubeTokens) {
       Logger.error('No YouTube tokens in cookies');
-      sendProgressUpdate(playlistId, {
-        type: 'error',
-        message: 'Authentication required',
-        details: 'Please connect to YouTube first'
-      });
       const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
         type: 'warning',
         title: 'YouTube Authentication Required',
@@ -210,9 +223,20 @@ router.post('/playlist/:playlistId',
       return res.status(401).send(html);
     }
 
+    // Get YouTube user ID for isolating SSE connections
+    youtubeUserId = await getYouTubeUserId(youtubeTokens);
+    Logger.info('YouTube user ID obtained', { playlistId, youtubeUserId });
+
+    // Send initial progress update (now that we have youtubeUserId)
+    sendProgressUpdate(playlistId, youtubeUserId, {
+      type: 'progress',
+      message: 'Starting sync...',
+      details: 'Checking authentication and initializing APIs'
+    });
+
     Logger.info('Authentication check passed');
 
-    sendProgressUpdate(playlistId, {
+    sendProgressUpdate(playlistId, youtubeUserId, {
       type: 'progress',
       message: 'Authentication verified',
       details: 'Initializing API clients...'
@@ -226,7 +250,7 @@ router.post('/playlist/:playlistId',
     const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
     Logger.info('API clients initialized');
 
-    sendProgressUpdate(playlistId, {
+    sendProgressUpdate(playlistId, youtubeUserId, {
       type: 'progress',
       message: 'APIs initialized',
       details: 'Fetching Spotify playlist details...'
@@ -238,7 +262,7 @@ router.post('/playlist/:playlistId',
     const playlist = playlistResponse.body;
     Logger.external('Spotify', 'Playlist details fetched', { name: playlist.name, totalTracks: playlist.tracks.total });
 
-    sendProgressUpdate(playlistId, {
+    sendProgressUpdate(playlistId, youtubeUserId, {
       type: 'progress',
       message: `Found playlist: "${playlist.name}"`,
       details: `Fetching tracks (limit: 10)...`
@@ -282,7 +306,7 @@ router.post('/playlist/:playlistId',
     const tracks = allTracks;
     Logger.info('Found valid tracks to analyze', { count: tracks.length, totalPlaylistTracks: playlist.tracks.total });
 
-    sendProgressUpdate(playlistId, {
+    sendProgressUpdate(playlistId, youtubeUserId, {
       type: 'progress',
       message: `Processing ${tracks.length} tracks`,
       details: 'Searching for existing YouTube playlist...',
@@ -292,7 +316,7 @@ router.post('/playlist/:playlistId',
 
     if (tracks.length === 0) {
       Logger.warn('No tracks to sync');
-      sendProgressUpdate(playlistId, {
+      sendProgressUpdate(playlistId, youtubeUserId, {
         type: 'error',
         message: 'No tracks found',
         details: 'No tracks found in the playlist'
@@ -402,7 +426,7 @@ router.post('/playlist/:playlistId',
         trackLimit
       });
       
-      sendProgressUpdate(playlistId, {
+      sendProgressUpdate(playlistId, youtubeUserId, {
         type: 'progress',
         message: `Analyzing playlist for updates`,
         details: `Found ${existingVideoCount} existing videos, matching tracks to identify unsynced ones...`,
@@ -509,7 +533,7 @@ router.post('/playlist/:playlistId',
           tracks,
           syncedTracks,
           (message, details, percentage) => {
-            sendProgressUpdate(playlistId, {
+            sendProgressUpdate(playlistId, youtubeUserId, {
               type: 'progress',
               message,
               details,
@@ -571,7 +595,7 @@ router.post('/playlist/:playlistId',
             `Analyzing "${songName}" by ${artist}... (${searchCount + 1}/${tracksToSearch.length})` :
             `Searching for "${songName}" by ${artist}... (${searchCount + 1}/${tracksToSearch.length})`;
           
-          sendProgressUpdate(playlistId, {
+          sendProgressUpdate(playlistId, youtubeUserId, {
             type: 'progress',
             message: progressMessage,
             details: progressDetails,
@@ -616,7 +640,7 @@ router.post('/playlist/:playlistId',
         } catch (error) {
           searchCount++;
           Logger.error('Error searching for track', { artist, songName }, error);
-          sendProgressUpdate(playlistId, {
+          sendProgressUpdate(playlistId, youtubeUserId, {
             type: 'error',
             message: 'Error searching for video',
             details: error instanceof Error ? error.message : 'An unexpected error occurred'
@@ -635,7 +659,7 @@ router.post('/playlist/:playlistId',
     Logger.info('Scraping completed', { searchesMade: searchCount, videosFound: videoIds.length, quotaSaved: searchCount * 100 });
     
     // After search phase completes, we're at 70% progress
-    sendProgressUpdate(playlistId, {
+    sendProgressUpdate(playlistId, youtubeUserId, {
       type: 'progress',
       message: `Found ${videoIds.length} music videos`,
       details: 'Checking for existing YouTube playlist...',
@@ -646,7 +670,7 @@ router.post('/playlist/:playlistId',
     if (isUpdateMode) {
       // UPDATE MODE: Update existing playlist
       Logger.external('YouTube', 'Updating existing playlist', { title: playlistTitle, id: youtubePlaylistId });
-      sendProgressUpdate(playlistId, {
+      sendProgressUpdate(playlistId, youtubeUserId, {
         type: 'progress',
         message: `Updating existing playlist: "${playlistTitle}"`,
         details: 'Processing playlist updates...',
@@ -655,7 +679,7 @@ router.post('/playlist/:playlistId',
     } else {
       // CREATE MODE: Create new playlist
       Logger.external('YouTube', 'Creating new playlist', { title: playlistTitle });
-      sendProgressUpdate(playlistId, {
+      sendProgressUpdate(playlistId, youtubeUserId, {
         type: 'progress',
         message: `Creating new YouTube playlist`,
         details: 'Setting up new playlist...',
@@ -666,7 +690,7 @@ router.post('/playlist/:playlistId',
     // Only create playlist if we found some videos
     if (videoIds.length === 0) {
       Logger.warn('No videos found');
-      sendProgressUpdate(playlistId, {
+      sendProgressUpdate(playlistId, youtubeUserId, {
         type: 'error',
         message: 'No videos found',
         details: 'No videos found in the playlist'
@@ -699,7 +723,7 @@ router.post('/playlist/:playlistId',
       
       youtubePlaylistId = playlistResponse.data.id!;
       Logger.external('YouTube', 'Created new playlist', { title: playlistTitle, id: youtubePlaylistId });
-      sendProgressUpdate(playlistId, {
+      sendProgressUpdate(playlistId, youtubeUserId, {
         type: 'progress',
         message: `Created playlist: "${playlistTitle}"`,
         details: 'Adding videos to new playlist...',
@@ -740,7 +764,7 @@ router.post('/playlist/:playlistId',
           const songName = result.track;
           const artistName = result.artist;
           
-          sendProgressUpdate(playlistId, {
+          sendProgressUpdate(playlistId, youtubeUserId, {
             type: 'progress',
             message: `Adding videos to playlist`,
             details: `Adding "${songName}" by ${artistName} (${currentIndex}/${foundResults.length})`,
@@ -752,7 +776,7 @@ router.post('/playlist/:playlistId',
           });
         } catch (error) {
           Logger.error('Error adding video to playlist', { videoId }, error);
-          sendProgressUpdate(playlistId, {
+          sendProgressUpdate(playlistId, youtubeUserId, {
             type: 'error',
             message: 'Error adding video to playlist',
             details: error instanceof Error ? error.message : 'An unexpected error occurred'
@@ -768,7 +792,7 @@ router.post('/playlist/:playlistId',
         videosFoundForNextTracks: videoIds.length
       });
       
-      sendProgressUpdate(playlistId, {
+      sendProgressUpdate(playlistId, youtubeUserId, {
         type: 'progress',
         message: `Adding new tracks to playlist`,
         details: `Adding ${videoIds.length} new videos from next unsynced tracks...`,
@@ -814,7 +838,7 @@ router.post('/playlist/:playlistId',
             const playlistProgress = (addedCount / Math.max(totalToAdd, 1)) * PLAYLIST_PHASE_WEIGHT;
             const totalPercentage = Math.round((SEARCH_PHASE_WEIGHT + playlistProgress) * 100);
             
-            sendProgressUpdate(playlistId, {
+            sendProgressUpdate(playlistId, youtubeUserId, {
               type: 'progress',
               message: `Adding new tracks`,
               details: `Added "${songName}" by ${artistName} (${addedCount}/${totalToAdd})`,
@@ -826,7 +850,7 @@ router.post('/playlist/:playlistId',
             });
           } catch (error) {
             Logger.error('Error adding new video to playlist', { videoId }, error);
-            sendProgressUpdate(playlistId, {
+            sendProgressUpdate(playlistId, youtubeUserId, {
               type: 'error',
               message: 'Error adding video to playlist',
               details: error instanceof Error ? error.message : 'An unexpected error occurred'
@@ -872,7 +896,7 @@ router.post('/playlist/:playlistId',
           totalTracksToReorder: allSyncedTracks.length
         });
 
-        sendProgressUpdate(playlistId, {
+        sendProgressUpdate(playlistId, youtubeUserId, {
           type: 'progress',
           message: `Finalizing playlist order`,
           details: 'Ensuring track order matches Spotify...',
@@ -886,7 +910,7 @@ router.post('/playlist/:playlistId',
           tracks,
           allSyncedTracks,
           (message, details, percentage) => {
-            sendProgressUpdate(playlistId, {
+            sendProgressUpdate(playlistId, youtubeUserId, {
               type: 'progress',
               message,
               details,
@@ -910,7 +934,7 @@ router.post('/playlist/:playlistId',
     
     // Send completion progress update
     const youtubePlaylistUrl = `https://www.youtube.com/playlist?list=${youtubePlaylistId}`;
-    sendProgressUpdate(playlistId, {
+    sendProgressUpdate(playlistId, youtubeUserId, {
       type: 'complete',
       message: `Playlist ${existingPlaylist ? 'updated' : 'created'} successfully!`,
       details: `Found ${searchResults.filter(r => r.found).length} out of ${searchResults.length} tracks${tracks.length > trackLimit ? ` (limited from ${tracks.length} total)` : ''}`,
@@ -920,7 +944,7 @@ router.post('/playlist/:playlistId',
     });
 
     // Close SSE connections after completion
-    closeProgressConnections(playlistId);
+    closeProgressConnections(playlistId, youtubeUserId);
 
     // Log comprehensive YouTube API quota usage summary
     Logger.info('YouTube API Quota Usage Summary', {
@@ -1076,14 +1100,14 @@ router.post('/playlist/:playlistId',
     Logger.error('Error syncing playlist', { processingTimeMs: Date.now() - startTime }, error);
 
     // Send error progress update
-    sendProgressUpdate(playlistId, {
+    sendProgressUpdate(playlistId, youtubeUserId, {
       type: 'error',
       message: 'Sync failed',
       details: error instanceof Error ? error.message : 'An unexpected error occurred'
     });
 
     // Close SSE connections after error
-    closeProgressConnections(playlistId);
+    closeProgressConnections(playlistId, youtubeUserId);
 
     // Log YouTube API quota usage summary even on error
     Logger.error('YouTube API Quota Usage Summary (ERROR)', {

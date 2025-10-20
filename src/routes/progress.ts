@@ -11,8 +11,38 @@ import { google } from 'googleapis';
 
 const router = Router();
 
-// Store active SSE connections for each playlist
+// Store active SSE connections for each playlist per user
+// Key format: "${playlistId}:${youtubeUserId}"
 const progressConnections = new Map<string, Response[]>();
+
+// Helper function to get the YouTube user's channel ID (unique identifier)
+async function getYouTubeUserId(youtubeTokens: YouTubeTokens): Promise<string> {
+  try {
+    const oauth2Client = new google.auth.OAuth2(
+      process.env.YOUTUBE_CLIENT_ID,
+      process.env.YOUTUBE_CLIENT_SECRET,
+      process.env.YOUTUBE_REDIRECT_URI
+    );
+    oauth2Client.setCredentials(youtubeTokens);
+
+    const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
+    const channelsResponse = await youtube.channels.list({
+      part: ['id'],
+      mine: true,
+      maxResults: 1
+    });
+
+    const channelId = channelsResponse.data.items?.[0]?.id;
+    if (!channelId) {
+      throw new Error('Could not retrieve YouTube channel ID');
+    }
+
+    return channelId;
+  } catch (error) {
+    Logger.error('Failed to get YouTube user ID', {}, error);
+    throw error;
+  }
+}
 
 // Helper function to verify that a user has a synced playlist for a given Spotify playlist ID
 async function verifySyncedPlaylistExists(
@@ -127,7 +157,24 @@ router.get('/playlist/:playlistId',
     return res.status(403).send(html);
   }
 
-  Logger.info('SSE connection authorized', { playlistId });
+  // 3. Get YouTube user ID to isolate connections per user
+  let youtubeUserId: string;
+  try {
+    youtubeUserId = await getYouTubeUserId(youtubeTokens);
+  } catch (error) {
+    Logger.error('SSE connection rejected - failed to get user ID', { playlistId }, error);
+
+    const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
+      type: 'error',
+      title: 'Authentication Error',
+      message: 'Failed to verify your YouTube identity.',
+      details: 'Please try reconnecting to YouTube.'
+    });
+    return res.status(500).send(html);
+  }
+
+  const connectionKey = `${playlistId}:${youtubeUserId}`;
+  Logger.info('SSE connection authorized', { playlistId, youtubeUserId, connectionKey });
 
   // Set SSE headers
   res.writeHead(200, {
@@ -137,33 +184,33 @@ router.get('/playlist/:playlistId',
     // Note: No CORS headers - SSE connections should be same-origin only
   });
 
-  // Add this connection to the playlist's connection list
-  if (!progressConnections.has(playlistId)) {
-    progressConnections.set(playlistId, []);
+  // Add this connection to the playlist's connection list (isolated per user)
+  if (!progressConnections.has(connectionKey)) {
+    progressConnections.set(connectionKey, []);
   }
-  progressConnections.get(playlistId)!.push(res);
+  progressConnections.get(connectionKey)!.push(res);
 
   // Send initial keepalive comment (prevents connection timeout)
   res.write(`: SSE connection established\n\n`);
 
   // Handle client disconnect
   req.on('close', () => {
-    Logger.info('SSE connection closed', { playlistId });
-    const connections = progressConnections.get(playlistId);
+    Logger.info('SSE connection closed', { playlistId, youtubeUserId, connectionKey });
+    const connections = progressConnections.get(connectionKey);
     if (connections) {
       const index = connections.indexOf(res);
       if (index !== -1) {
         connections.splice(index, 1);
       }
       if (connections.length === 0) {
-        progressConnections.delete(playlistId);
+        progressConnections.delete(connectionKey);
       }
     }
   });
 });
 
-// Function to send progress update to all connected clients for a playlist
-export async function sendProgressUpdate(playlistId: string, update: {
+// Function to send progress update to all connected clients for a playlist (isolated per user)
+export async function sendProgressUpdate(playlistId: string, youtubeUserId: string, update: {
   type: 'progress' | 'complete' | 'error';
   message: string;
   details?: string;
@@ -174,7 +221,8 @@ export async function sendProgressUpdate(playlistId: string, update: {
   percentage?: number;
   timestamp?: string;
 }) {
-  const connections = progressConnections.get(playlistId);
+  const connectionKey = `${playlistId}:${youtubeUserId}`;
+  const connections = progressConnections.get(connectionKey);
   if (!connections || connections.length === 0) {
     return;
   }
@@ -192,7 +240,7 @@ export async function sendProgressUpdate(playlistId: string, update: {
   // SSE requires data to be on a single line or each line prefixed with "data: "
   const minifiedHtml = html.replace(/\s+/g, ' ').trim();
 
-  Logger.debug('Sending progress update', { playlistId, clientCount: connections.length, message: update.message });
+  Logger.debug('Sending progress update', { connectionKey, clientCount: connections.length, message: update.message });
 
   // Send to all connected clients for this playlist
   // Use 'message' event type for HTMX SSE extension
@@ -209,7 +257,7 @@ export async function sendProgressUpdate(playlistId: string, update: {
         failedConnections.push(res);
       }
     } catch (error) {
-      Logger.warn('Failed to send progress update to client', { playlistId }, error);
+      Logger.warn('Failed to send progress update to client', { connectionKey }, error);
       // Mark failed connection for removal
       failedConnections.push(res);
     }
@@ -223,20 +271,21 @@ export async function sendProgressUpdate(playlistId: string, update: {
         connections.splice(index, 1);
       }
     });
-    Logger.debug('Removed dead SSE connections', { playlistId, removedCount: failedConnections.length, remainingCount: connections.length });
+    Logger.debug('Removed dead SSE connections', { connectionKey, removedCount: failedConnections.length, remainingCount: connections.length });
   }
 
   // Clean up empty connection arrays
   if (connections.length === 0) {
-    progressConnections.delete(playlistId);
+    progressConnections.delete(connectionKey);
   }
 }
 
-// Function to close all connections for a playlist (when sync completes)
-export function closeProgressConnections(playlistId: string) {
-  const connections = progressConnections.get(playlistId);
+// Function to close all connections for a playlist per user (when sync completes)
+export function closeProgressConnections(playlistId: string, youtubeUserId: string) {
+  const connectionKey = `${playlistId}:${youtubeUserId}`;
+  const connections = progressConnections.get(connectionKey);
   if (connections) {
-    Logger.info('Closing SSE connections', { playlistId, connectionCount: connections.length });
+    Logger.info('Closing SSE connections', { connectionKey, connectionCount: connections.length });
     connections.forEach(res => {
       try {
         // Send a "close" event to signal graceful shutdown, then end the connection
@@ -244,10 +293,10 @@ export function closeProgressConnections(playlistId: string) {
         res.write(`event: close\ndata: ${JSON.stringify({ type: 'close', message: 'Sync complete' })}\n\n`);
         res.end();
       } catch (error) {
-        Logger.warn('Error closing SSE connection', { playlistId }, error);
+        Logger.warn('Error closing SSE connection', { connectionKey }, error);
       }
     });
-    progressConnections.delete(playlistId);
+    progressConnections.delete(connectionKey);
   }
 }
 
