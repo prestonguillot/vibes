@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(git commit -m \"$(cat <<''EOF''\ngo ahead, make the rate limit 1 req/sec per IP, and update the limit on the ''Status endpoints'' to be the same\n\nImplementation:\n- Renamed statusLimiter to pageAndStatusLimiter for clarity (single unified rate limiter for both)\n- Updated rate limit from 30 req/min to 1 req/sec per IP across all endpoints\n- Added pageAndStatusLimiter middleware to GET / endpoint (home page)\n- Updated both status endpoints to use pageAndStatusLimiter:\n  - GET /api/status/spotify/button\n  - GET /api/status/youtube/button\n- Added skip condition to disable rate limiting when NODE_ENV=test to allow rapid test requests\n- All rate limiters now consistently enforce 1 request per second per IP in production\n- Rate limiting disabled during testing to prevent false failures from test harness\n- All 355 tests passing\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
-      "Bash(npm run test:run -- tests/unit/errorTemplateEscaping.test.ts)"
+      "Bash(npm run test:run -- tests/unit/errorTemplateEscaping.test.ts)",
+      "Bash(cat src/app.ts)"
     ],
     "deny": [],
     "ask": []
