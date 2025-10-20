@@ -15,6 +15,8 @@ document.body.addEventListener('htmx:beforeRequest', (event) => {
   const progressDiv = document.getElementById(`progress-${playlistId}`);
 
   if (progressDiv) {
+    // Add loading message so the progress div doesn't appear empty
+    progressDiv.innerHTML = '<div style="text-align: center; padding: 8px;">Starting sync...</div>';
     progressDiv.classList.remove('hidden');
     startSSE(playlistId);
   }
