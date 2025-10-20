@@ -87,33 +87,12 @@ const ensureValidSpotifyToken = async (req: Request, res: Response): Promise<Spo
   }
 };
 
-// Helper function to get YouTube user ID from tokens
-async function getYouTubeUserId(youtubeTokens: YouTubeTokens): Promise<string> {
-  try {
-    const oauth2Client = new google.auth.OAuth2(
-      process.env.YOUTUBE_CLIENT_ID,
-      process.env.YOUTUBE_CLIENT_SECRET,
-      process.env.YOUTUBE_REDIRECT_URI
-    );
-    oauth2Client.setCredentials(youtubeTokens);
-
-    const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
-    const channelsResponse = await youtube.channels.list({
-      part: ['id'],
-      mine: true,
-      maxResults: 1
-    });
-
-    const channelId = channelsResponse.data.items?.[0]?.id;
-    if (!channelId) {
-      throw new Error('Could not retrieve YouTube channel ID');
-    }
-
-    return channelId;
-  } catch (error) {
-    Logger.error('Failed to get YouTube user ID', {}, error);
-    throw error;
+// Helper function to get YouTube user ID from cached channel ID in tokens
+function getYouTubeUserId(youtubeTokens: YouTubeTokens): string {
+  if (!youtubeTokens.channel_id) {
+    throw new Error('YouTube channel ID not found in tokens - re-authenticate with YouTube');
   }
+  return youtubeTokens.channel_id;
 }
 
 // Helper function to ensure valid YouTube token and return quota usage

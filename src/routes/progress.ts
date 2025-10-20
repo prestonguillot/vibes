@@ -15,33 +15,12 @@ const router = Router();
 // Key format: "${playlistId}:${youtubeUserId}"
 const progressConnections = new Map<string, Response[]>();
 
-// Helper function to get the YouTube user's channel ID (unique identifier)
-async function getYouTubeUserId(youtubeTokens: YouTubeTokens): Promise<string> {
-  try {
-    const oauth2Client = new google.auth.OAuth2(
-      process.env.YOUTUBE_CLIENT_ID,
-      process.env.YOUTUBE_CLIENT_SECRET,
-      process.env.YOUTUBE_REDIRECT_URI
-    );
-    oauth2Client.setCredentials(youtubeTokens);
-
-    const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
-    const channelsResponse = await youtube.channels.list({
-      part: ['id'],
-      mine: true,
-      maxResults: 1
-    });
-
-    const channelId = channelsResponse.data.items?.[0]?.id;
-    if (!channelId) {
-      throw new Error('Could not retrieve YouTube channel ID');
-    }
-
-    return channelId;
-  } catch (error) {
-    Logger.error('Failed to get YouTube user ID', {}, error);
-    throw error;
+// Helper function to get YouTube user ID from cached channel ID in tokens
+function getYouTubeUserId(youtubeTokens: YouTubeTokens): string {
+  if (!youtubeTokens.channel_id) {
+    throw new Error('YouTube channel ID not found in tokens - re-authenticate with YouTube');
   }
+  return youtubeTokens.channel_id;
 }
 
 // Helper function to verify that a user has a synced playlist for a given Spotify playlist ID
@@ -157,10 +136,10 @@ router.get('/playlist/:playlistId',
     return res.status(403).send(html);
   }
 
-  // 3. Get YouTube user ID to isolate connections per user
+  // 3. Get YouTube user ID from cached channel ID in tokens
   let youtubeUserId: string;
   try {
-    youtubeUserId = await getYouTubeUserId(youtubeTokens);
+    youtubeUserId = getYouTubeUserId(youtubeTokens);
   } catch (error) {
     Logger.error('SSE connection rejected - failed to get user ID', { playlistId }, error);
 
@@ -168,7 +147,7 @@ router.get('/playlist/:playlistId',
       type: 'error',
       title: 'Authentication Error',
       message: 'Failed to verify your YouTube identity.',
-      details: 'Please try reconnecting to YouTube.'
+      details: 'Please try reconnecting to YouTube. Make sure you\'ve completed the YouTube authentication.'
     });
     return res.status(500).send(html);
   }

@@ -96,7 +96,8 @@ describe('SSE Progress Updates', () => {
         refresh_token: 'mock_youtube_refresh_token',
         scope: 'https://www.googleapis.com/auth/youtube',
         token_type: 'Bearer',
-        expiry_date: Date.now() + 3600000 // 1 hour from now
+        expiry_date: Date.now() + 3600000, // 1 hour from now
+        channel_id: 'mock_channel_id_12345'
       });
 
       const req = request(app)
@@ -150,7 +151,8 @@ describe('SSE Progress Updates', () => {
         refresh_token: 'mock_youtube_refresh_token',
         scope: 'https://www.googleapis.com/auth/youtube',
         token_type: 'Bearer',
-        expiry_date: Date.now() + 3600000
+        expiry_date: Date.now() + 3600000,
+        channel_id: 'mock_channel_id_12345'
       });
 
       await request(app)
