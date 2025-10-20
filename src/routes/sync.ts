@@ -1,5 +1,4 @@
 import { Router, Request, Response } from 'express';
-import rateLimit from 'express-rate-limit';
 import SpotifyWebApi from 'spotify-web-api-node';
 import { google } from 'googleapis';
 import { searchMusicVideo } from '../utils/youtubeScraper';
@@ -15,32 +14,9 @@ import ejs from 'ejs';
 import path from 'path';
 import { reorderPlaylistTracks } from '../utils/playlistReordering';
 import { optimalTrackMatching, SimplifiedTrack, SimplifiedVideo } from '../utils/trackMatching';
-import { syncRateLimitConfig } from '../config/rateLimiting';
 import { formatErrorDetails } from '../utils/errorFormatter';
 
 const router = Router();
-
-// Create sync rate limiter from configuration
-const syncLimiter = rateLimit({
-  ...syncRateLimitConfig,
-  // Custom handler for rate limit exceeded
-  handler: async (req, res) => {
-    Logger.warn('Sync rate limit exceeded', {
-      ip: req.ip,
-      url: req.originalUrl,
-      method: req.method
-    });
-
-    const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
-      type: 'warning',
-      title: 'Rate Limit Exceeded',
-      message: 'Please wait a moment before syncing again.',
-      details: 'This rate limit helps prevent abuse and ensures the service remains available for everyone.'
-    });
-
-    res.status(429).send(html);
-  }
-});
 
 // Helper functions for token refresh
 const ensureValidSpotifyToken = async (req: Request, res: Response): Promise<SpotifyWebApi> => {
@@ -146,7 +122,6 @@ async function ensureValidYouTubeToken(req: Request, res: Response): Promise<{ o
 };
 
 router.post('/playlist/:playlistId',
-  syncLimiter, // Rate limiting (controlled by skip function, default: ON)
   csrfValidationMiddleware, // CSRF protection
   validate({
     params: z.object({
