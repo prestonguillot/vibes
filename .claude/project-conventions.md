@@ -77,6 +77,17 @@
 - **Write tests that verify behavior, not implementation** - tests should validate what the code does, not how it does it
 - **Test both happy paths and error cases** - include tests for validation failures, edge cases, and error handling
 
+### Logging Standards
+- **Always use centralized Logger utilities** - never use `console.log()`, `console.error()`, `console.warn()`, or `console.debug()` directly
+- **Server-side logging:** Use the Logger utility from `src/utils/logger.ts` with methods: `Logger.debug()`, `Logger.info()`, `Logger.warn()`, `Logger.error()`
+- **Client-side logging:** Use the Logger utility from `public/js/logger.js` (same API as server-side)
+- **Logging ensures:**
+  - Centralized log level control (can disable debug logs in production)
+  - Consistent formatting and context tracking across the entire application
+  - Proper error propagation with stack traces
+  - Emoji-based visual categorization for easy log scanning
+- **Log levels are respected in configuration** - debug logging can be disabled globally, keeping production logs clean
+
 ### Security Audit Notes (Non-Issues Identified)
 The following potential security concerns were evaluated and determined to NOT be vulnerabilities:
 
