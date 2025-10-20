@@ -15,6 +15,52 @@ vi.mock('../../src/utils/authValidation', () => ({
   })
 }));
 
+// Mock googleapis
+vi.mock('googleapis', () => ({
+  google: {
+    auth: {
+      OAuth2: vi.fn().mockImplementation(() => ({
+        setCredentials: vi.fn(),
+      })),
+    },
+    youtube: vi.fn().mockReturnValue({
+      playlists: {
+        list: vi.fn().mockResolvedValue({
+          data: {
+            items: [
+              {
+                id: 'mock_youtube_playlist_id',
+                snippet: {
+                  title: 'Test Playlist (from Spotify)'
+                }
+              }
+            ],
+            nextPageToken: undefined
+          }
+        }),
+      },
+    }),
+  },
+}));
+
+// Mock Spotify Web API
+vi.mock('spotify-web-api-node', () => {
+  return {
+    default: vi.fn().mockImplementation(() => ({
+      setAccessToken: vi.fn(),
+      setRefreshToken: vi.fn(),
+      getPlaylist: vi.fn().mockResolvedValue({
+        body: {
+          id: '1234567890123456789012',
+          name: 'Test Playlist',
+          owner: { display_name: 'Test User' }
+        }
+      }),
+      getMe: vi.fn().mockResolvedValue({ body: { id: 'test_user_id' } }),
+    }))
+  };
+});
+
 describe('SSE Progress Updates', () => {
   let app: Express;
 
@@ -28,9 +74,27 @@ describe('SSE Progress Updates', () => {
 
   describe('SSE Connection Lifecycle', () => {
     it('should establish SSE connection with correct headers', (done) => {
+      // Mock valid OAuth tokens
+      const mockSpotifyTokens = JSON.stringify({
+        accessToken: 'mock_spotify_access_token',
+        refreshToken: 'mock_spotify_refresh_token'
+      });
+
+      const mockYouTubeTokens = JSON.stringify({
+        access_token: 'mock_youtube_access_token',
+        refresh_token: 'mock_youtube_refresh_token',
+        scope: 'https://www.googleapis.com/auth/youtube',
+        token_type: 'Bearer',
+        expiry_date: Date.now() + 3600000 // 1 hour from now
+      });
+
       const req = request(app)
         .get('/api/progress/playlist/1234567890123456789012')
         .set('Accept', 'text/event-stream')
+        .set('Cookie', [
+          `spotify_tokens=${mockSpotifyTokens}`,
+          `youtube_tokens=${mockYouTubeTokens}`
+        ])
         .timeout(500); // Set a timeout to end the request
 
       req.on('response', (res) => {
@@ -47,6 +111,42 @@ describe('SSE Progress Updates', () => {
       req.end(() => {
         // Request ended
       });
+    });
+
+    it('should reject requests without authentication', async () => {
+      await request(app)
+        .get('/api/progress/playlist/1234567890123456789012')
+        .set('Accept', 'text/event-stream')
+        .expect(401);
+    });
+
+    it('should reject requests with only Spotify token', async () => {
+      const mockSpotifyTokens = JSON.stringify({
+        accessToken: 'mock_spotify_access_token',
+        refreshToken: 'mock_spotify_refresh_token'
+      });
+
+      await request(app)
+        .get('/api/progress/playlist/1234567890123456789012')
+        .set('Accept', 'text/event-stream')
+        .set('Cookie', [`spotify_tokens=${mockSpotifyTokens}`])
+        .expect(401);
+    });
+
+    it('should reject requests with only YouTube token', async () => {
+      const mockYouTubeTokens = JSON.stringify({
+        access_token: 'mock_youtube_access_token',
+        refresh_token: 'mock_youtube_refresh_token',
+        scope: 'https://www.googleapis.com/auth/youtube',
+        token_type: 'Bearer',
+        expiry_date: Date.now() + 3600000
+      });
+
+      await request(app)
+        .get('/api/progress/playlist/1234567890123456789012')
+        .set('Accept', 'text/event-stream')
+        .set('Cookie', [`youtube_tokens=${mockYouTubeTokens}`])
+        .expect(401);
     });
 
     it('should reject invalid playlist IDs', async () => {
