@@ -160,7 +160,7 @@ export async function scrapeYouTubeSearch(query: string, maxResults: number = 3)
     return results;
     
   } catch (error) {
-    console.error(`❌ YouTube scraping failed:`, error);
+    Logger.error('YouTube scraping failed', {}, error);
     throw new Error(`Failed to scrape YouTube search: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
@@ -298,7 +298,7 @@ export async function searchMusicVideo(artist: string, songName: string): Promis
         }
       }
     } catch (error) {
-      console.warn(`⚠️ Search failed for query "${query}":`, error);
+      Logger.warn('Search failed for query', { query }, error);
       continue;
     }
     

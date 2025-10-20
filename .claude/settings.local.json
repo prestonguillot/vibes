@@ -9,7 +9,9 @@
       "Bash(npm run test:run)",
       "Bash(git log --all --pretty=format:\"%h %s\")",
       "Bash(git log --all --pretty=format:\"%h %s\" --all-match --grep=\"security\\|LOW\\|audit\" -i)",
-      "Bash(git branch -a --contains HEAD)"
+      "Bash(git branch -a --contains HEAD)",
+      "Bash(find /Users/prestonguillot/development/vibes/src -name \"*.ts\" -type f -exec grep -l \"console\\.log\\|console\\.error\\|console\\.warn\" {} ;)",
+      "Bash(find /Users/prestonguillot/development/vibes/public/js -name \"*.js\" -type f -exec grep -l \"console\\.\" {} ;)"
     ],
     "deny": [],
     "ask": []
