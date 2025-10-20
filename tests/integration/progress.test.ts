@@ -24,6 +24,17 @@ vi.mock('googleapis', () => ({
       })),
     },
     youtube: vi.fn().mockReturnValue({
+      channels: {
+        list: vi.fn().mockResolvedValue({
+          data: {
+            items: [
+              {
+                id: 'mock_channel_id_12345'
+              }
+            ]
+          }
+        }),
+      },
       playlists: {
         list: vi.fn().mockResolvedValue({
           data: {
@@ -160,7 +171,7 @@ describe('SSE Progress Updates', () => {
     it('should not crash when sending progress updates to no connections', async () => {
       // This should not throw any errors
       await expect(
-        sendProgressUpdate('nonexistentPlaylist12', {
+        sendProgressUpdate('nonexistentPlaylist12', 'mock_user_id_1', {
           type: 'progress',
           message: 'Testing',
           percentage: 50
@@ -170,13 +181,14 @@ describe('SSE Progress Updates', () => {
 
     it('should handle progress updates after connection is closed', async () => {
       const playlistId = 'testPlaylist1234567890';
+      const youtubeUserId = 'mock_user_id_2';
 
       // Simulate a connection being established and then closed
-      closeProgressConnections(playlistId);
+      closeProgressConnections(playlistId, youtubeUserId);
 
       // Try to send an update after closing - should not throw
       await expect(
-        sendProgressUpdate(playlistId, {
+        sendProgressUpdate(playlistId, youtubeUserId, {
           type: 'complete',
           message: 'Done',
           percentage: 100
@@ -190,11 +202,11 @@ describe('SSE Progress Updates', () => {
       const playlistId = 'testPlaylist4567890123';
 
       // Close connections first
-      closeProgressConnections(playlistId);
+      closeProgressConnections(playlistId, 'mock_user_id');
 
       // Try to send multiple updates after closing - none should throw
       await expect(
-        sendProgressUpdate(playlistId, {
+        sendProgressUpdate(playlistId, 'mock_user_id', {
           type: 'progress',
           message: 'Update 1',
           percentage: 10
@@ -202,7 +214,7 @@ describe('SSE Progress Updates', () => {
       ).resolves.not.toThrow();
 
       await expect(
-        sendProgressUpdate(playlistId, {
+        sendProgressUpdate(playlistId, 'mock_user_id', {
           type: 'progress',
           message: 'Update 2',
           percentage: 20
@@ -210,7 +222,7 @@ describe('SSE Progress Updates', () => {
       ).resolves.not.toThrow();
 
       await expect(
-        sendProgressUpdate(playlistId, {
+        sendProgressUpdate(playlistId, 'mock_user_id', {
           type: 'error',
           message: 'Error occurred',
           details: 'Some error'
@@ -222,9 +234,9 @@ describe('SSE Progress Updates', () => {
       const playlistId = 'testPlaylist7890123456';
 
       // Close multiple times - should not throw
-      expect(() => closeProgressConnections(playlistId)).not.toThrow();
-      expect(() => closeProgressConnections(playlistId)).not.toThrow();
-      expect(() => closeProgressConnections(playlistId)).not.toThrow();
+      expect(() => closeProgressConnections(playlistId, 'mock_user_id')).not.toThrow();
+      expect(() => closeProgressConnections(playlistId, 'mock_user_id')).not.toThrow();
+      expect(() => closeProgressConnections(playlistId, 'mock_user_id')).not.toThrow();
     });
   });
 
@@ -234,7 +246,7 @@ describe('SSE Progress Updates', () => {
 
       // All these should be accepted without errors
       await expect(
-        sendProgressUpdate(playlistId, {
+        sendProgressUpdate(playlistId, 'mock_user_id', {
           type: 'progress',
           message: 'In progress',
           percentage: 50,
@@ -244,7 +256,7 @@ describe('SSE Progress Updates', () => {
       ).resolves.not.toThrow();
 
       await expect(
-        sendProgressUpdate(playlistId, {
+        sendProgressUpdate(playlistId, 'mock_user_id', {
           type: 'complete',
           message: 'Completed',
           percentage: 100,
@@ -253,7 +265,7 @@ describe('SSE Progress Updates', () => {
       ).resolves.not.toThrow();
 
       await expect(
-        sendProgressUpdate(playlistId, {
+        sendProgressUpdate(playlistId, 'mock_user_id', {
           type: 'error',
           message: 'Error occurred',
           details: 'Network error'
@@ -266,7 +278,7 @@ describe('SSE Progress Updates', () => {
 
       // Minimal update
       await expect(
-        sendProgressUpdate(playlistId, {
+        sendProgressUpdate(playlistId, 'mock_user_id', {
           type: 'progress',
           message: 'Starting'
         })
@@ -274,7 +286,7 @@ describe('SSE Progress Updates', () => {
 
       // Update with all optional fields
       await expect(
-        sendProgressUpdate(playlistId, {
+        sendProgressUpdate(playlistId, 'mock_user_id', {
           type: 'progress',
           message: 'Processing',
           details: 'Track details',
@@ -323,7 +335,7 @@ describe('SSE Progress Updates', () => {
 
       // Send 10 rapid updates
       const updates = Array.from({ length: 10 }, (_, i) =>
-        sendProgressUpdate(playlistId, {
+        sendProgressUpdate(playlistId, 'mock_user_id', {
           type: 'progress',
           message: `Update ${i + 1}`,
           percentage: (i + 1) * 10
@@ -339,11 +351,11 @@ describe('SSE Progress Updates', () => {
       const playlistId = 'cleanupTest1234567890';
 
       // Close connections
-      closeProgressConnections(playlistId);
+      closeProgressConnections(playlistId, 'mock_user_id');
 
       // Try to send update - should succeed (no connections to write to)
       await expect(
-        sendProgressUpdate(playlistId, {
+        sendProgressUpdate(playlistId, 'mock_user_id', {
           type: 'complete',
           message: 'Done'
         })
@@ -354,28 +366,28 @@ describe('SSE Progress Updates', () => {
       const playlistId = 'interleavedTest12345678';
 
       // Update (no connections)
-      await sendProgressUpdate(playlistId, {
+      await sendProgressUpdate(playlistId, 'mock_user_id', {
         type: 'progress',
         message: 'Update 1',
         percentage: 25
       });
 
       // Close (no connections)
-      closeProgressConnections(playlistId);
+      closeProgressConnections(playlistId, 'mock_user_id');
 
       // Update again (still no connections)
-      await sendProgressUpdate(playlistId, {
+      await sendProgressUpdate(playlistId, 'mock_user_id', {
         type: 'progress',
         message: 'Update 2',
         percentage: 50
       });
 
       // Close again (no connections)
-      closeProgressConnections(playlistId);
+      closeProgressConnections(playlistId, 'mock_user_id');
 
       // Final update (no connections)
       await expect(
-        sendProgressUpdate(playlistId, {
+        sendProgressUpdate(playlistId, 'mock_user_id', {
           type: 'complete',
           message: 'Done'
         })
