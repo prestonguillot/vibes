@@ -1,5 +1,6 @@
 import fetch from 'node-fetch';
 import * as cheerio from 'cheerio';
+import { Logger } from './logger';
 
 interface SearchResult {
   videoId: string;
@@ -73,14 +74,14 @@ interface YouTubeScrapedVideoData {
  */
 export async function scrapeYouTubeSearch(query: string, maxResults: number = 3): Promise<SearchResult[]> {
   const startTime = Date.now();
-  console.log(`🕷️ Scraping YouTube search for: "${query}"`);
+  Logger.debug(`🕷️ Scraping YouTube search for: "${query}"`);
   
   try {
     // Construct YouTube search URL
     const searchQuery = encodeURIComponent(query);
     const url = `https://www.youtube.com/results?search_query=${searchQuery}`;
     
-    console.log(`📡 Fetching: ${url}`);
+    Logger.debug(`📡 Fetching: ${url}`);
     
     // Fetch the search results page
     const response = await fetch(url, {
@@ -99,7 +100,7 @@ export async function scrapeYouTubeSearch(query: string, maxResults: number = 3)
     }
     
     const html = await response.text();
-    console.log(`📄 Received HTML page (${html.length} chars)`);
+    Logger.debug(`📄 Received HTML page (${html.length} chars)`);
     
     // Parse HTML with Cheerio
     const $ = cheerio.load(html);
@@ -128,7 +129,7 @@ export async function scrapeYouTubeSearch(query: string, maxResults: number = 3)
       }
     });
     
-    console.log(`🔍 Found ${videoData.length} potential video items`);
+    Logger.debug(`🔍 Found ${videoData.length} potential video items`);
     
     // Extract video information
     for (const item of videoData) {
@@ -150,12 +151,12 @@ export async function scrapeYouTubeSearch(query: string, maxResults: number = 3)
             channel
           });
           
-          console.log(`✅ Found video: ${title} (${videoId}) by ${channel}`);
+          Logger.debug(`✅ Found video: ${title} (${videoId}) by ${channel}`);
         }
       }
     }
     
-    console.log(`🕷️ Scraping completed in ${Date.now() - startTime}ms, found ${results.length} videos`);
+    Logger.debug(`🕷️ Scraping completed in ${Date.now() - startTime}ms, found ${results.length} videos`);
     return results;
     
   } catch (error) {
@@ -275,7 +276,7 @@ export async function searchMusicVideo(artist: string, songName: string): Promis
   
   for (const query of queries) {
     try {
-      console.log(`🎵 Searching for music video: ${query}`);
+      Logger.debug(`🎵 Searching for music video: ${query}`);
       const results = await scrapeYouTubeSearch(query, 5); // Get more results for better selection
       
       if (results.length > 0) {
@@ -283,7 +284,7 @@ export async function searchMusicVideo(artist: string, songName: string): Promis
         for (const result of results) {
           const score = scoreVideoMatch(result, songName, artist);
           
-          console.log(`📊 Video "${result.title}" by ${result.channel} scored ${score.toFixed(3)}`);
+          Logger.debug(`📊 Video "${result.title}" by ${result.channel} scored ${score.toFixed(3)}`);
           
           if (score >= minScore && (!bestMatch || score > bestMatch.score)) {
             bestMatch = { result, score };
@@ -292,7 +293,7 @@ export async function searchMusicVideo(artist: string, songName: string): Promis
         
         // If we found a good match, return it
         if (bestMatch && bestMatch.score > 0.6) {
-          console.log(`🎯 Found high-quality match: "${bestMatch.result.title}" by ${bestMatch.result.channel} (score: ${bestMatch.score.toFixed(3)})`);
+          Logger.debug(`🎯 Found high-quality match: "${bestMatch.result.title}" by ${bestMatch.result.channel} (score: ${bestMatch.score.toFixed(3)})`);
           return bestMatch.result.videoId;
         }
       }
@@ -307,10 +308,10 @@ export async function searchMusicVideo(artist: string, songName: string): Promis
   
   // Return best match if we found one above minimum threshold
   if (bestMatch) {
-    console.log(`🎯 Found acceptable match: "${bestMatch.result.title}" by ${bestMatch.result.channel} (score: ${bestMatch.score.toFixed(3)})`);
+    Logger.debug(`🎯 Found acceptable match: "${bestMatch.result.title}" by ${bestMatch.result.channel} (score: ${bestMatch.score.toFixed(3)})`);
     return bestMatch.result.videoId;
   }
   
-  console.log(`❌ No suitable video found for ${artist} - ${songName}`);
+  Logger.debug(`❌ No suitable video found for ${artist} - ${songName}`);
   return null;
 }
