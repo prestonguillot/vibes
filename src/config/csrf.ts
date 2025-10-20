@@ -42,7 +42,11 @@ export function initializeCsrfSecret(): string {
 
   // Generate a random secret for development
   const generatedSecret = crypto.randomBytes(32).toString('hex');
-  Logger.warn('Generated temporary CSRF secret for development. This is not persisted and will be different on next restart.');
+  Logger.warn(
+    'Generated temporary CSRF secret for development. This is not persisted and will be different on each restart. ' +
+    'For persistent CSRF validation (e.g., across restarts or multiple instances), set CSRF_SECRET in .env. ' +
+    'Generate a secret with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"'
+  );
   return generatedSecret;
 }
 
