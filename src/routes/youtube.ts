@@ -99,11 +99,31 @@ router.get('/callback',
     const { tokens } = await oauth2Client.getToken(code as string);
     oauth2Client.setCredentials(tokens);
 
+    // Fetch channel ID to cache in tokens (avoids API call later)
+    Logger.auth('YouTube', 'fetching channel ID for caching');
+    const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
+    const channelsResponse = await youtube.channels.list({
+      part: ['id'],
+      mine: true,
+      maxResults: 1
+    });
+
+    const channelId = channelsResponse.data.items?.[0]?.id;
+    if (!channelId) {
+      throw new Error('Could not retrieve YouTube channel ID');
+    }
+
+    // Add channel ID to tokens before storing
+    const tokensWithChannelId = {
+      ...tokens,
+      channel_id: channelId
+    };
+
     // Validate tokens before storing in cookie
-    const serializedTokens = validateAndSerializeYouTubeTokens(tokens);
+    const serializedTokens = validateAndSerializeYouTubeTokens(tokensWithChannelId);
     res.cookie('youtube_tokens', serializedTokens, getSecureCookieOptions());
 
-    Logger.auth('YouTube', 'tokens stored in cookie');
+    Logger.auth('YouTube', 'tokens with channel ID stored in cookie', { channelId });
 
     // Redirect back to main page - status endpoint will detect connection and trigger event
     res.redirect('/');

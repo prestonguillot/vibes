@@ -16,7 +16,8 @@ export const YouTubeTokensSchema = z.object({
   refresh_token: z.string().optional(),
   scope: z.string().min(1, 'Scope must not be empty'),
   token_type: z.string().min(1, 'Token type must not be empty'),
-  expiry_date: z.number().optional()
+  expiry_date: z.number().optional(),
+  channel_id: z.string().optional()
 });
 
 /**

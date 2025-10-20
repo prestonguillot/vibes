@@ -4,7 +4,9 @@
       "Bash(grep -n \"const.*Html\\s*=\\s*\\`\" /Users/prestonguillot/development/vibes/src/routes/sync.ts)",
       "Bash(grep -n '`.*<' /Users/prestonguillot/development/vibes/src/routes/sync.ts)",
       "Bash(find /Users/prestonguillot/development/vibes -path /Users/prestonguillot/development/vibes/node_modules -prune -o -type f ( -name \"*.html\" -o -name \"*.ejs\" -o -name \"*.hbs\" ) -print)",
-      "WebFetch(domain:developer.spotify.com)"
+      "WebFetch(domain:developer.spotify.com)",
+      "Read(//Users/prestonguillot/Desktop/**)",
+      "Bash(npm run test:run)"
     ],
     "deny": [],
     "ask": []
