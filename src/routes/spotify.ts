@@ -1,4 +1,5 @@
 import { Router, Request } from 'express';
+import rateLimit from 'express-rate-limit';
 import SpotifyWebApi from 'spotify-web-api-node';
 import { google, youtube_v3 } from 'googleapis';
 import { Logger } from '../utils/logger';
@@ -12,6 +13,21 @@ import ejs from 'ejs';
 import path from 'path';
 
 const router = Router();
+
+// Rate limiter for playlist listing operations
+// Limit to 1 request per second per IP to prevent bot attacks while allowing normal human usage
+const isTestEnvironment = process.env.NODE_ENV === 'test';
+const playlistsLimiter = rateLimit({
+  windowMs: 1 * 1000, // 1 second window
+  max: 1, // Limit each IP to 1 request per second
+  message: 'Too many playlist requests, please wait a moment',
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: false,
+  skip: () => isTestEnvironment // Disable rate limiting in test environment
+});
+
+Logger.info('Playlists rate limiting configuration', { enabled: !isTestEnvironment });
 
 // Create Spotify API instance with current env vars
 const getSpotifyApi = () => new SpotifyWebApi({
@@ -119,6 +135,7 @@ router.get('/callback',
 
 // Get user's playlists with improved layout - testing hot reload
 router.get('/playlists',
+  playlistsLimiter,
   validate({
     query: z.object({
       ownOnly: schemas.booleanFlag.optional()
@@ -342,8 +359,8 @@ router.get('/playlist-button/:playlistId',
     playlistId: req.params.playlistId
   });
 
-  const spotifyTokens = parseSpotifyTokenCookie(req.cookies.spotify_tokens, res);
-  const youtubeTokens = parseYouTubeTokenCookie(req.cookies.youtube_tokens, res);
+  const spotifyTokens = req.cookies.spotify_tokens ? JSON.parse(req.cookies.spotify_tokens) : null;
+  const youtubeTokens = req.cookies.youtube_tokens ? JSON.parse(req.cookies.youtube_tokens) : null;
 
   if (!spotifyTokens) {
     return res.status(401).send('<button class="btn btn-secondary sync-btn" disabled>Connect to Spotify First</button>');

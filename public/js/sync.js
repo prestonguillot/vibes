@@ -74,20 +74,8 @@ function startSSE(playlistId) {
       return;
     }
 
-    // Safely insert server-rendered HTML
-    // Server-rendered content is already escaped by EJS, but we validate to prevent injection
-    try {
-      // Create a temporary container to validate HTML structure
-      const temp = document.createElement('div');
-      temp.innerHTML = event.data;
-
-      // Clear the progress div and append the safe content
-      progressDiv.textContent = ''; // Clear existing content
-      progressDiv.replaceChildren(...temp.childNodes);
-    } catch (error) {
-      console.error('Failed to insert progress update:', error);
-      progressDiv.textContent = 'Error updating progress';
-    }
+    // Server sends HTML directly - just swap it in
+    progressDiv.innerHTML = event.data;
   };
 
   // Listen for the "close" event from server (graceful shutdown)
