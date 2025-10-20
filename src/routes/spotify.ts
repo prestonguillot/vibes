@@ -11,23 +11,12 @@ import { parseSpotifyTokenCookie, parseYouTubeTokenCookie, validateAndSerializeS
 import { z } from 'zod';
 import ejs from 'ejs';
 import path from 'path';
+import { playlistsRateLimitConfig } from '../config/rateLimiting';
 
 const router = Router();
 
-// Rate limiter for playlist listing operations
-// Limit to 1 request per second per IP to prevent bot attacks while allowing normal human usage
-const isTestEnvironment = process.env.NODE_ENV === 'test';
-const playlistsLimiter = rateLimit({
-  windowMs: 1 * 1000, // 1 second window
-  max: 1, // Limit each IP to 1 request per second
-  message: 'Too many playlist requests, please wait a moment',
-  standardHeaders: true,
-  legacyHeaders: false,
-  skipSuccessfulRequests: false,
-  skip: () => isTestEnvironment // Disable rate limiting in test environment
-});
-
-Logger.info('Playlists rate limiting configuration', { enabled: !isTestEnvironment });
+// Create playlists rate limiter from configuration
+const playlistsLimiter = rateLimit(playlistsRateLimitConfig);
 
 // Create Spotify API instance with current env vars
 const getSpotifyApi = () => new SpotifyWebApi({

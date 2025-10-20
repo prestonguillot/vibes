@@ -15,21 +15,13 @@ import ejs from 'ejs';
 import path from 'path';
 import { reorderPlaylistTracks } from '../utils/playlistReordering';
 import { optimalTrackMatching, SimplifiedTrack, SimplifiedVideo } from '../utils/trackMatching';
+import { syncRateLimitConfig } from '../config/rateLimiting';
 
 const router = Router();
 
-// Rate limiter for sync operations
-// Sync is resource-intensive (YouTube scraping, API calls, playlist operations)
-// Limit to 1 request per second per IP to prevent bot attacks while allowing normal human usage
-const isTestEnvironment = process.env.NODE_ENV === 'test';
+// Create sync rate limiter from configuration
 const syncLimiter = rateLimit({
-  windowMs: 1 * 1000, // 1 second window
-  max: 1, // Limit each IP to 1 request per second
-  message: 'Too many sync requests, please wait a moment before trying again',
-  standardHeaders: true,
-  legacyHeaders: false,
-  skipSuccessfulRequests: false,
-  skip: () => isTestEnvironment, // Disable rate limiting in test environment
+  ...syncRateLimitConfig,
   // Custom handler for rate limit exceeded
   handler: async (req, res) => {
     Logger.warn('Sync rate limit exceeded', {
@@ -143,8 +135,6 @@ async function ensureValidYouTubeToken(req: Request, res: Response): Promise<{ o
     }
   }
 };
-
-Logger.info('Sync rate limiting configuration', { enabled: !isTestEnvironment });
 
 router.post('/playlist/:playlistId',
   syncLimiter, // Rate limiting (controlled by skip function, default: ON)
