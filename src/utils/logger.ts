@@ -10,8 +10,20 @@ export enum LogLevel {
     ERROR = 3
 }
 
-// Current log level (can be changed for production)
-let currentLogLevel = LogLevel.DEBUG;
+// Parse log level from environment variable or use default
+function getInitialLogLevel(): LogLevel {
+    const logLevelEnv = process.env.LOG_LEVEL?.toUpperCase();
+
+    if (logLevelEnv && logLevelEnv in LogLevel) {
+        return LogLevel[logLevelEnv as keyof typeof LogLevel];
+    }
+
+    // Default: DEBUG in development, INFO in production
+    return process.env.NODE_ENV === 'production' ? LogLevel.INFO : LogLevel.DEBUG;
+}
+
+// Current log level (can be changed at runtime via setLevel())
+let currentLogLevel = getInitialLogLevel();
 
 // Helper function to format timestamp
 function formatTimestamp(): string {
