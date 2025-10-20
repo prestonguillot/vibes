@@ -16,6 +16,7 @@ import path from 'path';
 import { reorderPlaylistTracks } from '../utils/playlistReordering';
 import { optimalTrackMatching, SimplifiedTrack, SimplifiedVideo } from '../utils/trackMatching';
 import { syncRateLimitConfig } from '../config/rateLimiting';
+import { formatErrorDetails } from '../utils/errorFormatter';
 
 const router = Router();
 
@@ -622,7 +623,7 @@ router.post('/playlist/:playlistId',
           sendProgressUpdate(playlistId, youtubeUserId, {
             type: 'error',
             message: 'Error searching for video',
-            details: error instanceof Error ? error.message : 'An unexpected error occurred'
+            details: formatErrorDetails(error)
           });
           searchResults.push({
             track: songName,
@@ -758,7 +759,7 @@ router.post('/playlist/:playlistId',
           sendProgressUpdate(playlistId, youtubeUserId, {
             type: 'error',
             message: 'Error adding video to playlist',
-            details: error instanceof Error ? error.message : 'An unexpected error occurred'
+            details: formatErrorDetails(error)
           });
         }
       }
@@ -832,7 +833,7 @@ router.post('/playlist/:playlistId',
             sendProgressUpdate(playlistId, youtubeUserId, {
               type: 'error',
               message: 'Error adding video to playlist',
-              details: error instanceof Error ? error.message : 'An unexpected error occurred'
+              details: formatErrorDetails(error)
             });
           }
         }
@@ -1082,7 +1083,7 @@ router.post('/playlist/:playlistId',
     sendProgressUpdate(playlistId, youtubeUserId, {
       type: 'error',
       message: 'Sync failed',
-      details: error instanceof Error ? error.message : 'An unexpected error occurred'
+      details: formatErrorDetails(error)
     });
 
     // Close SSE connections after error
@@ -1130,7 +1131,7 @@ router.post('/playlist/:playlistId',
       type: 'danger',
       title: 'Error syncing playlist',
       message: 'Something went wrong during the sync process. Please try again.',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: formatErrorDetails(error)
     });
     res.status(500).send(html);
   }

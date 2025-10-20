@@ -7,6 +7,7 @@ import { csrfValidationMiddleware } from '../utils/csrf';
 import { SpotifyTokens, YouTubeTokens } from '../types/oauth';
 import { parseSpotifyTokenCookie, parseYouTubeTokenCookie } from '../utils/cookieParser';
 import { CacheDuration, setCache } from '../utils/cache';
+import { formatErrorDetails } from '../utils/errorFormatter';
 import { youtube_v3 } from 'googleapis';
 import { z } from 'zod';
 import ejs from 'ejs';
@@ -438,7 +439,7 @@ router.get('/playlist/:playlistId',
       type: 'danger',
       title: 'Error loading playlist details',
       message: 'Unable to fetch playlist information. Please try again.',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: formatErrorDetails(error)
     });
     res.status(500).send(html);
   }
@@ -520,7 +521,7 @@ router.get('/search/:trackId',
       type: 'danger',
       title: 'Error searching for videos',
       message: 'Unable to search for alternative videos. Please try again.',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: formatErrorDetails(error)
     });
     res.status(500).send(html);
   }
@@ -865,7 +866,7 @@ router.post('/replace/:trackId',
       type: 'danger',
       title: 'Video replacement failed',
       message: 'Unable to update the playlist. Please try again.',
-      details: error instanceof Error ? error.message : 'Unknown error occurred'
+      details: formatErrorDetails(error)
     });
     res.status(500).send(html);
   }
