@@ -1,14 +1,86 @@
 import { Router, Request, Response } from 'express';
 import { Logger } from '../utils/logger';
 import { validate, schemas } from '../utils/validation';
+import { SpotifyTokens, YouTubeTokens } from '../types/oauth';
+import { parseSpotifyTokenCookie, parseYouTubeTokenCookie } from '../utils/cookieParser';
 import { z } from 'zod';
 import ejs from 'ejs';
 import path from 'path';
+import SpotifyWebApi from 'spotify-web-api-node';
+import { google } from 'googleapis';
 
 const router = Router();
 
 // Store active SSE connections for each playlist
 const progressConnections = new Map<string, Response[]>();
+
+// Helper function to verify that a user has a synced playlist for a given Spotify playlist ID
+async function verifySyncedPlaylistExists(
+  spotifyTokens: SpotifyTokens,
+  youtubeTokens: YouTubeTokens,
+  spotifyPlaylistId: string
+): Promise<boolean> {
+  try {
+    // Get Spotify playlist name to construct the expected YouTube playlist title
+    const spotifyApi = new SpotifyWebApi({
+      clientId: process.env.SPOTIFY_CLIENT_ID,
+      clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
+      redirectUri: process.env.SPOTIFY_REDIRECT_URI
+    });
+    spotifyApi.setAccessToken(spotifyTokens.accessToken);
+    spotifyApi.setRefreshToken(spotifyTokens.refreshToken);
+
+    Logger.external('Spotify', 'Fetching playlist name for verification', { playlistId: spotifyPlaylistId });
+    const spotifyPlaylist = await spotifyApi.getPlaylist(spotifyPlaylistId);
+    const expectedYouTubePlaylistTitle = `${spotifyPlaylist.body.name} (from Spotify)`;
+
+    // Set up YouTube OAuth2 client
+    const oauth2Client = new google.auth.OAuth2(
+      process.env.YOUTUBE_CLIENT_ID,
+      process.env.YOUTUBE_CLIENT_SECRET,
+      process.env.YOUTUBE_REDIRECT_URI
+    );
+    oauth2Client.setCredentials(youtubeTokens);
+
+    const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
+
+    // Search for the synced YouTube playlist
+    Logger.external('YouTube', 'Looking for synced playlist', { title: expectedYouTubePlaylistTitle });
+
+    let nextPageToken: string | undefined = undefined;
+    do {
+      const playlistsResponse = await youtube.playlists.list({
+        part: ['snippet'],
+        mine: true,
+        maxResults: 50,
+        pageToken: nextPageToken
+      });
+
+      const foundPlaylist = playlistsResponse.data.items?.find(
+        (playlist) => playlist.snippet?.title === expectedYouTubePlaylistTitle
+      );
+
+      if (foundPlaylist) {
+        Logger.info('Verified synced playlist exists', {
+          spotifyPlaylistId,
+          youtubePlaylistId: foundPlaylist.id
+        });
+        return true;
+      }
+
+      nextPageToken = playlistsResponse.data.nextPageToken || undefined;
+    } while (nextPageToken);
+
+    Logger.warn('Synced playlist not found during verification', {
+      spotifyPlaylistId,
+      expectedTitle: expectedYouTubePlaylistTitle
+    });
+    return false;
+  } catch (error) {
+    Logger.error('Failed to verify synced playlist', { spotifyPlaylistId }, error);
+    return false;
+  }
+}
 
 // SSE endpoint for real-time progress updates
 router.get('/playlist/:playlistId',
@@ -17,11 +89,46 @@ router.get('/playlist/:playlistId',
       playlistId: schemas.spotifyPlaylistId
     })
   }),
-  (req: Request, res: Response) => {
+  async (req: Request, res: Response) => {
   const playlistId = req.params.playlistId;
-  
-  Logger.info('SSE connection established', { playlistId });
-  
+
+  // 1. Verify authentication - both Spotify and YouTube tokens are required
+  const spotifyTokens: SpotifyTokens | null = parseSpotifyTokenCookie(req.cookies.spotify_tokens, res);
+  const youtubeTokens: YouTubeTokens | null = parseYouTubeTokenCookie(req.cookies.youtube_tokens, res);
+
+  if (!spotifyTokens || !youtubeTokens) {
+    Logger.warn('SSE connection rejected - authentication required', {
+      playlistId,
+      hasSpotifyTokens: !!spotifyTokens,
+      hasYoutubeTokens: !!youtubeTokens
+    });
+
+    const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
+      type: 'warning',
+      title: 'Authentication Required',
+      message: 'You must be connected to both Spotify and YouTube to monitor sync progress.',
+      details: 'Use the connection buttons at the top of the page to authenticate with both services.'
+    });
+    return res.status(401).send(html);
+  }
+
+  // 2. Verify authorization - the user must have a synced playlist for this Spotify playlist ID
+  const syncedPlaylistExists = await verifySyncedPlaylistExists(spotifyTokens, youtubeTokens, playlistId);
+
+  if (!syncedPlaylistExists) {
+    Logger.warn('SSE connection rejected - synced playlist not found', { playlistId });
+
+    const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
+      type: 'warning',
+      title: 'Playlist Not Synced',
+      message: 'This playlist has not been synced to your YouTube account.',
+      details: 'You can only monitor progress on playlists you have synced.'
+    });
+    return res.status(403).send(html);
+  }
+
+  Logger.info('SSE connection authorized', { playlistId });
+
   // Set SSE headers
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
