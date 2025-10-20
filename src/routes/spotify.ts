@@ -352,11 +352,18 @@ router.get('/playlist-button/:playlistId',
   const youtubeTokens = req.cookies.youtube_tokens ? JSON.parse(req.cookies.youtube_tokens) : null;
 
   if (!spotifyTokens) {
-    return res.status(401).send('<button class="btn btn-secondary sync-btn" disabled>Connect to Spotify First</button>');
+    const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/sync-button-disabled.ejs'), {
+      message: 'Connect to Spotify First'
+    });
+    return res.status(401).send(html);
   }
 
   if (!youtubeTokens) {
-    return res.send('<button class="btn btn-secondary sync-btn" disabled title="Connect to YouTube first">Connect to YouTube to Sync</button>');
+    const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/sync-button-disabled.ejs'), {
+      message: 'Connect to YouTube to Sync',
+      title: 'Connect to YouTube first'
+    });
+    return res.send(html);
   }
 
   try {
@@ -413,33 +420,30 @@ router.get('/playlist-button/:playlistId',
     const buttonText = isSynced ? 'Update YouTube Playlist' : 'Sync to YouTube';
     const buttonClass = isSynced ? 'btn-outline-success' : 'btn-primary';
 
-    // Return just the button HTML
-    const buttonHtml = `<button class="btn ${buttonClass} sync-btn"
-                id="sync-btn-${playlistId}"
-                hx-post="/api/sync/playlist/${playlistId}"
-                hx-target="#sync-result-${playlistId}"
-                hx-swap="innerHTML"
-                hx-indicator="#loading"
-                hx-include="#syncBatchSize"
-                hx-disabled-elt=".sync-btn"
-                hx-get="/auth/spotify/playlist-button/${playlistId}"
-                hx-trigger="playlistSynced-${playlistId} from:body"
-                hx-swap="outerHTML"
-                data-playlist-name="${playlist.name}"
-                data-playlist-id="${playlistId}"
-                data-track-count="${playlist.tracks.total}">
-          ${buttonText}
-        </button>`;
+    // Render button from template
+    const buttonHtml = await ejs.renderFile(path.join(__dirname, '../../views/partials/sync-button.ejs'), {
+      buttonClass,
+      playlistId,
+      playlistName: playlist.name,
+      trackCount: playlist.tracks.total,
+      buttonText
+    });
 
     res.send(buttonHtml);
   } catch (error) {
     Logger.error('Error fetching playlist button', {}, error);
 
     if (error instanceof Error && error.message === 'SPOTIFY_AUTH_REQUIRED') {
-      return res.status(401).send('<button class="btn btn-secondary sync-btn" disabled>Reconnect to Spotify</button>');
+      const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/sync-button-disabled.ejs'), {
+        message: 'Reconnect to Spotify'
+      });
+      return res.status(401).send(html);
     }
 
-    res.status(500).send('<button class="btn btn-secondary sync-btn" disabled>Error</button>');
+    const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/sync-button-disabled.ejs'), {
+      message: 'Error'
+    });
+    res.status(500).send(html);
   }
 });
 

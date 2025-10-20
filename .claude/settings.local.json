@@ -11,7 +11,10 @@
       "Bash(git log --all --pretty=format:\"%h %s\" --all-match --grep=\"security\\|LOW\\|audit\" -i)",
       "Bash(git branch -a --contains HEAD)",
       "Bash(find /Users/prestonguillot/development/vibes/src -name \"*.ts\" -type f -exec grep -l \"console\\.log\\|console\\.error\\|console\\.warn\" {} ;)",
-      "Bash(find /Users/prestonguillot/development/vibes/public/js -name \"*.js\" -type f -exec grep -l \"console\\.\" {} ;)"
+      "Bash(find /Users/prestonguillot/development/vibes/public/js -name \"*.js\" -type f -exec grep -l \"console\\.\" {} ;)",
+      "Bash(grep -n \"\\`<\" /Users/prestonguillot/development/vibes/src/routes/*.ts)",
+      "Bash(git add -A)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nMove HTML strings to EJS templates in spotify.ts\n\nyes\n\nImplementation:\n- Created two new EJS template files for sync buttons:\n  - views/partials/sync-button.ejs: Main button with HTMX attributes and dynamic data\n  - views/partials/sync-button-disabled.ejs: Simple disabled button for error/auth states\n- Updated src/routes/spotify.ts to use ejs.renderFile() instead of string concatenation\n- Replaced 5 instances of hardcoded HTML strings with template rendering:\n  - \"Connect to Spotify First\" button (line 355)\n  - \"Connect to YouTube to Sync\" button (line 359)\n  - Complex sync button with HTMX attributes (lines 417-432)\n  - \"Reconnect to Spotify\" button (line 439)\n  - \"Error\" button (line 442)\n- All 355 tests passing\n\nThis ensures all HTML is maintained in EJS templates as per project conventions,\nkeeping templates in views/partials/ and leaving TypeScript files code-only.\n\n🤖 Generated with Claude Code\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
     ],
     "deny": [],
     "ask": []
