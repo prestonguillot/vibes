@@ -109,7 +109,15 @@
                                 <div id="playlists-content"
                                      hx-get="/auth/spotify/playlists?ownOnly=true"
                                      hx-trigger="load">
-                                    <p class="text-muted text-center">Connect to Spotify and YouTube to see your playlists</p>
+                                    <div class="punk-alert punk-alert--loading">
+                                        <div class="d-flex align-items-center justify-content-center gap-3">
+                                            <div class="loading-spinner"></div>
+                                            <div>
+                                                <div class="punk-alert__title">Loading Playlists</div>
+                                                <small class="punk-alert__details">Fetching your Spotify playlists...</small>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>

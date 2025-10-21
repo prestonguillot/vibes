@@ -146,8 +146,9 @@ describe('Refresh Button Integration', () => {
 
       expect(response.status).toBe(200);
 
-      // Should have messaging about connecting
-      expect(response.text).toContain('Connect to Spotify and YouTube');
+      // Should have loading message for playlists
+      expect(response.text).toContain('Loading Playlists');
+      expect(response.text).toContain('Fetching your Spotify playlists');
     });
   });
 });
