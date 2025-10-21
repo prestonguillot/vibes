@@ -240,6 +240,129 @@
             </div>
         </div>
 
+        <!-- PLAYLIST DETAILS -->
+        <div class="component-section">
+            <h2 class="component-title">Playlist Details</h2>
+            <p class="component-description">Track items and linked video displays</p>
+
+            <div class="component-demo">
+                <div class="demo-label">Track Items with Alternating States</div>
+                <div style="max-width: 800px; margin: 0 auto;">
+                    <div class="track-item">
+                        <div class="track-number">1</div>
+                        <div class="track-content flex-grow-1">
+                            <div class="spotify-track">
+                                <div class="track-title fw-semibold">Blinding Lights</div>
+                                <div class="track-artist text-muted small">The Weeknd • After Hours</div>
+                            </div>
+                            <div class="youtube-video mt-1">
+                                <div class="d-flex align-items-center">
+                                    <img src="https://via.placeholder.com/120x90/FF0000/FFFFFF?text=YouTube" alt="Video" class="youtube-video__thumbnail" style="margin-right: 10px;">
+                                    <div class="flex-grow-1">
+                                        <a href="#" target="_blank" class="text-decoration-none small">The Weeknd - Blinding Lights (Official Video)</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="track-status ms-2 d-flex align-items-center gap-2">
+                            <span class="badge bg-success">Linked</span>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" title="Edit linked video">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                                  <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="track-item track-item--even">
+                        <div class="track-number">2</div>
+                        <div class="track-content flex-grow-1">
+                            <div class="spotify-track">
+                                <div class="track-title fw-semibold">Levitating</div>
+                                <div class="track-artist text-muted small">Dua Lipa • Future Nostalgia</div>
+                            </div>
+                            <div class="youtube-video youtube-video--placeholder mt-1">
+                                <div class="d-flex align-items-center">
+                                    <div class="youtube-video__thumbnail youtube-video__thumbnail--placeholder">
+                                        <svg width="120" height="90" viewBox="0 0 120 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                          <rect width="120" height="90" fill="#e0e0e0"/>
+                                          <circle cx="60" cy="45" r="15" fill="#999"/>
+                                          <path d="M55 37L68 45L55 53V37Z" fill="#fff"/>
+                                        </svg>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <span class="text-muted small fst-italic">No video linked</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="track-status ms-2 d-flex align-items-center gap-2">
+                            <span class="badge bg-warning">Unlinked</span>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" title="Link video to this track">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                                  <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="track-item track-item--simple">
+                        <div class="track-number">3</div>
+                        <div class="track-content flex-grow-1">
+                            <div class="spotify-track">
+                                <div class="track-title fw-semibold">Anti-Hero</div>
+                                <div class="track-artist text-muted small">Taylor Swift • Midnights</div>
+                            </div>
+                        </div>
+                        <div class="track-status ms-2 d-flex align-items-center gap-2">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="component-demo">
+                <div class="demo-label">Track Status Badges</div>
+                <div class="d-flex gap-2 flex-wrap">
+                    <span class="badge bg-success">Linked</span>
+                    <span class="badge bg-warning">Unlinked</span>
+                    <span class="badge bg-info">YouTube Only</span>
+                </div>
+            </div>
+
+            <div class="component-demo">
+                <div class="demo-label">Playlist Expander (Collapsed - Arrow Only)</div>
+                <div style="max-width: 800px; margin: 0 auto;">
+                    <input type="checkbox" id="expand-demo-collapsed" class="playlist-expand-toggle hidden">
+                    <label for="expand-demo-collapsed" class="playlist-expand-area">
+                        <span class="expand-indicator">▼</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="component-demo">
+                <div class="demo-label">Playlist Progress (During Sync)</div>
+                <div class="playlist-progress" style="padding: 15px; background: #f9f9f9; border: 1px solid #ddd;">
+                    <div style="margin-bottom: 10px; font-weight: 600;">Syncing: 45 / 50 tracks</div>
+                    <div class="progress" style="height: 20px;">
+                        <div class="progress-bar" style="width: 90%;"></div>
+                    </div>
+                    <div style="margin-top: 10px; font-size: 0.9rem; color: #666;">
+                        ✓ Linked 45 tracks • ⚠ Unlinked 5 tracks
+                    </div>
+                </div>
+            </div>
+
+            <div class="component-demo">
+                <div class="demo-label">Playlist Sync Result (Completed)</div>
+                <div class="playlist-sync-result" style="padding: 15px; background: #e8f5e9; border: 1px solid #4caf50; border-radius: 4px;">
+                    <div style="font-weight: 600; color: #2e7d32; margin-bottom: 8px;">✓ Sync Complete</div>
+                    <div style="font-size: 0.9rem; color: #1b5e20;">
+                        Successfully linked 48 tracks to YouTube videos
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- BACK TO HOME -->
         <div class="text-center mb-5">
             <a href="/" class="btn btn-outline-secondary">← Back to Home</a>
