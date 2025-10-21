@@ -269,7 +269,7 @@ describe('Spotify Playlists', () => {
   });
 
   describe('Playlist Summary Text Based on YouTube Connection', () => {
-    it('should show "connect YouTube to check sync status" when YouTube is not connected', async () => {
+    it('should show playlist count when YouTube is not connected', async () => {
       // Mock Spotify API
       const SpotifyWebApi = (await import('spotify-web-api-node')).default;
       SpotifyWebApi.prototype.getMe = vi.fn(() =>
@@ -309,9 +309,10 @@ describe('Spotify Playlists', () => {
         .set('Cookie', [`spotify_tokens=${spotifyTokens}`])
         .expect(200);
 
-      // Should show message indicating YouTube connection needed to check sync status
-      expect(response.text).toContain('connect YouTube to check sync status');
+      // Should show playlist count without extra message
       expect(response.text).toContain('Showing 2 playlists');
+      // Should NOT show "connect YouTube" message
+      expect(response.text).not.toContain('connect YouTube to check sync status');
       // Should NOT show "none synced yet" since we can't determine sync status
       expect(response.text).not.toContain('none synced yet');
     });
@@ -462,9 +463,8 @@ describe('Spotify Playlists', () => {
         .set('Cookie', [`spotify_tokens=${spotifyTokens}`])
         .expect(200);
 
-      // Should show both "your playlists only" and "connect YouTube" message
-      expect(response.text).toContain('your playlists only');
-      expect(response.text).toContain('connect YouTube to check sync status');
+      // Should NOT show the "connect YouTube" message (removed per user feedback)
+      expect(response.text).not.toContain('connect YouTube to check sync status');
     });
   });
 
