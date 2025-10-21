@@ -1,11 +1,18 @@
+// IMPORTANT: Load dotenv FIRST before any other imports
+// This ensures environment variables are available when modules are evaluated
 import dotenv from 'dotenv';
+import path from 'path';
 
-// Load environment-specific .env file based on NODE_ENV
-// NODE_ENV should be set by the npm script or deployment environment
 const env = process.env.NODE_ENV || 'development';
-dotenv.config({ path: `.env.${env}` });
+const envPath = path.join(process.cwd(), `.env.${env}`);
 
-// Validate environment variables before starting server
+// Load environment-specific .env file (with override to take precedence)
+dotenv.config({ path: envPath, override: true });
+
+// Also load .env as fallback for any missing variables
+dotenv.config({ path: path.join(process.cwd(), '.env'), override: false });
+
+// NOW import everything else after dotenv is loaded
 import { validateEnvironment } from './utils/envValidation';
 validateEnvironment();
 

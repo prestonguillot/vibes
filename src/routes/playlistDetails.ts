@@ -15,34 +15,7 @@ import ejs from 'ejs';
 import path from 'path';
 import SpotifyWebApi from 'spotify-web-api-node';
 import { reorderPlaylistTracks } from '../utils/playlistReordering';
-
-// Internal types for this route
-interface SimplifiedTrack {
-  id: string;
-  name: string;
-  artist: string;
-  album: string;
-  duration_ms: number;
-  external_urls: { spotify: string };
-  preview_url: string | null;
-}
-
-interface SimplifiedVideo {
-  id: string;
-  title: string;
-  description: string;
-  thumbnail: string;
-  publishedAt: string;
-  url: string;
-  channelTitle?: string;
-}
-
-interface MergedTrack {
-  spotify: SimplifiedTrack | null;
-  youtube: SimplifiedVideo | null;
-  linked: boolean;
-}
-
+import { fetchPlaylistDetails } from '../services/playlistDetailsService';
 const router = Router();
 
 // Helper function to get Spotify API instance
@@ -105,103 +78,37 @@ router.get('/playlist/:playlistId',
       return google.youtube({ version: 'v3', auth: oauth2Client });
     })() : null;
 
-    // Get Spotify playlist tracks
-    Logger.external('Spotify', 'Fetching playlist tracks', { playlistId });
-    const spotifyPlaylistData = await spotifyApi.getPlaylist(playlistId);
-
-    // Filter out null/deleted tracks and map to our format
-    const spotifyTracks: SimplifiedTrack[] = spotifyPlaylistData.body.tracks.items
-      .filter((item: unknown) => {
-        const typedItem = item as { track: unknown | null };
-        return typedItem.track !== null;
-      }) // Skip deleted/unavailable tracks
-      .map((item: unknown): SimplifiedTrack => {
-        const typedItem = item as { track: { id: string; name: string; artists: Array<{ name?: string }>; album?: { name?: string }; duration_ms: number; external_urls: { spotify: string }; preview_url?: string | null } };
-        return {
-          id: typedItem.track.id,
-          name: typedItem.track.name,
-          artist: typedItem.track.artists[0]?.name || 'Unknown Artist',
-          album: typedItem.track.album?.name || 'Unknown Album',
-          duration_ms: typedItem.track.duration_ms,
-          external_urls: typedItem.track.external_urls,
-          preview_url: typedItem.track.preview_url || null
-        };
-      });
-
-    const totalTracksInPlaylist = spotifyPlaylistData.body.tracks.items.length;
-    const nullTracksCount = totalTracksInPlaylist - spotifyTracks.length;
-
-    if (nullTracksCount > 0) {
-      Logger.warn('Playlist contains unavailable tracks', {
-        playlistId,
-        totalTracks: totalTracksInPlaylist,
-        availableTracks: spotifyTracks.length,
-        unavailableTracks: nullTracksCount
-      });
-    }
-
-    Logger.info('Found Spotify tracks', { count: spotifyTracks.length });
-
-    // Find corresponding YouTube playlist (only if YouTube is connected)
-    let youtubePlaylist: youtube_v3.Schema$Playlist | undefined = undefined;
-    let youtubeVideos: SimplifiedVideo[] = [];
-
+    // Find YouTube playlist ID if YouTube is connected (for use with the shared service)
+    let youtubePlaylistId: string | undefined = undefined;
     if (youtube && youtubeTokens) {
-      const youtubePlaylistTitle = `${spotifyPlaylistData.body.name} (from Spotify)`;
+      const spotifyPlaylist = await spotifyApi.getPlaylist(playlistId);
+      const youtubePlaylistTitle = `${spotifyPlaylist.body.name} (from Spotify)`;
       Logger.external('YouTube', 'Looking for playlist', { title: youtubePlaylistTitle });
 
       let nextPageToken: string | undefined = undefined;
+      let youtubePlaylist: youtube_v3.Schema$Playlist | undefined = undefined;
 
       do {
-        const youtubePlaylistsResponse: youtube_v3.Schema$PlaylistListResponse = await youtube.playlists.list({
-          part: ['snippet'],
-          mine: true,
-          maxResults: 50,
-          pageToken: nextPageToken
-        }).then(res => res.data);
+        const youtubePlaylistsResponse: youtube_v3.Schema$PlaylistListResponse = await youtube.playlists
+          .list({
+            part: ['snippet'],
+            mine: true,
+            maxResults: 50,
+            pageToken: nextPageToken
+          })
+          .then(res => res.data);
 
         youtubePlaylist = youtubePlaylistsResponse.items?.find(
           (playlist: youtube_v3.Schema$Playlist) => playlist.snippet?.title === youtubePlaylistTitle
         );
 
-        // If we found it, break early
         if (youtubePlaylist) break;
-
         nextPageToken = youtubePlaylistsResponse.nextPageToken || undefined;
       } while (nextPageToken);
 
       if (youtubePlaylist) {
-      Logger.external('YouTube', 'Found matching playlist', { playlistId: youtubePlaylist.id });
-
-      // Get ALL YouTube playlist videos (with pagination to handle >50 videos)
-      const allPlaylistItems: youtube_v3.Schema$PlaylistItem[] = [];
-      let nextPageToken: string | undefined = undefined;
-
-      do {
-        const youtubeVideosResponse: youtube_v3.Schema$PlaylistItemListResponse = await youtube.playlistItems.list({
-          part: ['snippet', 'contentDetails'],
-          playlistId: youtubePlaylist.id!,
-          maxResults: 50,
-          pageToken: nextPageToken
-        }).then(res => res.data);
-
-        if (youtubeVideosResponse.items) {
-          allPlaylistItems.push(...youtubeVideosResponse.items);
-        }
-
-        nextPageToken = youtubeVideosResponse.nextPageToken || undefined;
-      } while (nextPageToken);
-
-      youtubeVideos = allPlaylistItems.map((item: youtube_v3.Schema$PlaylistItem): SimplifiedVideo => ({
-        id: item.snippet?.resourceId?.videoId || '',
-        title: item.snippet?.title || '',
-        description: item.snippet?.description || '',
-        thumbnail: item.snippet?.thumbnails?.medium?.url || item.snippet?.thumbnails?.default?.url || '',
-        publishedAt: item.snippet?.publishedAt || '',
-        url: `https://www.youtube.com/watch?v=${item.snippet?.resourceId?.videoId || ''}`
-      }));
-
-        Logger.info('Found YouTube videos', { count: youtubeVideos.length });
+        youtubePlaylistId = youtubePlaylist.id;
+        Logger.external('YouTube', 'Found matching playlist', { playlistId: youtubePlaylistId });
       } else {
         Logger.info('No corresponding YouTube playlist found');
       }
@@ -209,205 +116,25 @@ router.get('/playlist/:playlistId',
       Logger.info('YouTube not connected, skipping YouTube playlist lookup');
     }
 
-    // Create merged view of tracks with their YouTube counterparts using improved matching
-    const mergedTracks: MergedTrack[] = spotifyTracks.map((track: SimplifiedTrack): MergedTrack => {
-      // Find matching YouTube video using flexible matching algorithm
-      const matchingVideo = findBestMatch(track, youtubeVideos);
+    // Fetch all playlist details using shared service (eliminates code duplication)
+    const playlistDetails = await fetchPlaylistDetails(spotifyApi, youtube, playlistId, youtubePlaylistId);
 
-      return {
-        spotify: track,
-        youtube: matchingVideo || null,
-        linked: !!matchingVideo
-      };
-    });
-
-    // Helper function for flexible track matching
-    function findBestMatch(spotifyTrack: SimplifiedTrack, youtubeVideos: SimplifiedVideo[]): SimplifiedVideo | null {
-      let bestMatch = null;
-      let bestScore = 0;
-      const minScore = 0.4; // Minimum similarity threshold
-      
-      for (const video of youtubeVideos) {
-        const score = calculateMatchScore(spotifyTrack, video);
-        if (score > bestScore && score >= minScore) {
-          bestScore = score;
-          bestMatch = video;
-        }
-      }
-      
-      return bestMatch;
-    }
-    
-    // Calculate similarity score between Spotify track and YouTube video
-    function calculateMatchScore(spotifyTrack: SimplifiedTrack, youtubeVideo: SimplifiedVideo): number {
-      // Extract core titles by removing metadata
-      const coreTrackName = extractCoreTitle(spotifyTrack.name);
-      const coreArtistName = normalizeText(spotifyTrack.artist);
-      const coreVideoTitle = extractCoreTitle(youtubeVideo.title);
-      
-      let score = 0;
-      
-      // Strategy 1: Core track title exact match (highest priority)
-      if (coreVideoTitle.includes(coreTrackName) || coreTrackName.includes(coreVideoTitle)) {
-        score += 0.8;
-        
-        // Bonus if artist also matches
-        if (coreVideoTitle.includes(coreArtistName) || youtubeVideo.title.toLowerCase().includes(coreArtistName)) {
-          score += 0.15;
-        }
-      }
-      
-      // Strategy 2: Fuzzy core title matching (handles minor variations)
-      const titleSimilarity = calculateStringSimilarity(coreTrackName, coreVideoTitle);
-      if (titleSimilarity > 0.8) {
-        score += 0.7 * titleSimilarity;
-        
-        // Bonus if artist matches
-        if (coreVideoTitle.includes(coreArtistName) || youtubeVideo.title.toLowerCase().includes(coreArtistName)) {
-          score += 0.2;
-        }
-      }
-      
-      // Strategy 3: Word-by-word core matching
-      const trackCoreWords = coreTrackName.split(' ').filter(w => w.length > 2);
-      const videoCoreWords = coreVideoTitle.split(' ').filter(w => w.length > 2);
-      
-      if (trackCoreWords.length > 0) {
-        const coreWordMatches = trackCoreWords.filter(word => 
-          videoCoreWords.some(vw => 
-            vw === word || vw.includes(word) || word.includes(vw) ||
-            calculateStringSimilarity(word, vw) > 0.85
-          )
-        ).length;
-        
-        const coreMatchRatio = coreWordMatches / trackCoreWords.length;
-        if (coreMatchRatio > 0.5) {
-          score += 0.5 * coreMatchRatio;
-        }
-      }
-      
-      // Strategy 4: Artist name matching (secondary)
-      const videoTitle = normalizeText(youtubeVideo.title);
-      if (videoTitle.includes(coreArtistName)) {
-        score += 0.2;
-      }
-      
-      return Math.min(score, 1.0);
-    }
-    
-    // Extract core title by removing metadata, remaster info, live info, etc.
-    function extractCoreTitle(title: string): string {
-      let coreTitle = normalizeText(title);
-      
-      // Remove everything after common metadata indicators
-      const metadataPatterns = [
-        /\s*-\s*(remaster|live|acoustic|demo|radio|edit|mix|version|instrumental).*$/i,
-        /\s*\(\s*(remaster|live|acoustic|demo|radio|edit|mix|version|instrumental).*\).*$/i,
-        /\s*\[\s*(remaster|live|acoustic|demo|radio|edit|mix|version|instrumental).*\].*$/i,
-        /\s*-\s*\d{4}.*$/i, // Remove "- 2016 Remaster" etc.
-        /\s*\(\s*\d{4}.*\).*$/i, // Remove "(2016 Remaster)" etc.
-        /\s*\[\s*\d{4}.*\].*$/i, // Remove "[2016 Remaster]" etc.
-        /\s*\(\s*with\s+.*?\).*$/i, // Remove "(with Artist)" 
-        /\s*\(\s*feat\.?\s+.*?\).*$/i, // Remove "(feat. Artist)"
-        /\s*-\s*live\s+at.*$/i, // Remove "- Live at Venue"
-        /\s*\(\s*live\s+at.*\).*$/i, // Remove "(Live at Venue)"
-        /\s*,\s*pt\.?\s*\d+.*$/i, // Keep "Pt. 2" but remove metadata after it
-      ];
-      
-      for (const pattern of metadataPatterns) {
-        coreTitle = coreTitle.replace(pattern, '').trim();
-      }
-      
-      // Special handling for "Pt." - keep it but remove what comes after
-      coreTitle = coreTitle.replace(/(\s*,?\s*pt\.?\s*\d+).*$/i, '$1');
-      
-      // Clean up any remaining artifacts
-      coreTitle = coreTitle
-        .replace(/\s*-\s*$/, '') // Remove trailing dashes
-        .replace(/\s*,\s*$/, '') // Remove trailing commas
-        .replace(/\s+/g, ' ') // Normalize spaces
-        .trim();
-      
-      return coreTitle;
-    }
-    
-    // Normalize text for better matching
-    function normalizeText(text: string): string {
-      return text
-        .toLowerCase()
-        .replace(/[^\w\s]/g, ' ') // Replace punctuation with spaces
-        .replace(/\s+/g, ' ') // Collapse multiple spaces
-        .replace(/\b(official|video|audio|live|remix|version|ft|feat|featuring)\b/g, '') // Remove common extra words
-        .trim();
-    }
-    
-    // Simple string similarity using Jaro-Winkler-like algorithm
-    function calculateStringSimilarity(str1: string, str2: string): number {
-      if (str1 === str2) return 1.0;
-      
-      const longer = str1.length > str2.length ? str1 : str2;
-      const shorter = str1.length > str2.length ? str2 : str1;
-      
-      if (longer.length === 0) return 1.0;
-      
-      const editDistance = calculateLevenshteinDistance(longer, shorter);
-      return (longer.length - editDistance) / longer.length;
-    }
-    
-    // Calculate Levenshtein distance between two strings
-    function calculateLevenshteinDistance(str1: string, str2: string): number {
-      const matrix = Array(str2.length + 1).fill(null).map(() => Array(str1.length + 1).fill(null));
-      
-      for (let i = 0; i <= str1.length; i++) matrix[0][i] = i;
-      for (let j = 0; j <= str2.length; j++) matrix[j][0] = j;
-      
-      for (let j = 1; j <= str2.length; j++) {
-        for (let i = 1; i <= str1.length; i++) {
-          const indicator = str1[i - 1] === str2[j - 1] ? 0 : 1;
-          matrix[j][i] = Math.min(
-            matrix[j][i - 1] + 1, // deletion
-            matrix[j - 1][i] + 1, // insertion
-            matrix[j - 1][i - 1] + indicator // substitution
-          );
-        }
-      }
-      
-      return matrix[str2.length][str1.length];
-    }
-
-    // Only include YouTube videos that weren't matched to any Spotify tracks
-    const matchedVideoIds = mergedTracks
-      .filter((track: MergedTrack) => track.youtube)
-      .map((track: MergedTrack) => track.youtube!.id);
-
-    const unmatchedYoutubeVideos = youtubeVideos.filter((video: SimplifiedVideo) =>
-      !matchedVideoIds.includes(video.id)
-    );
-
-    const orphanedVideos: MergedTrack[] = unmatchedYoutubeVideos.map((video: SimplifiedVideo): MergedTrack => ({
-      spotify: null,
-      youtube: video,
-      linked: false
-    }));
-
-    const allTracks: MergedTrack[] = [...mergedTracks, ...orphanedVideos];
-
-    Logger.info('Track matching results', {
-      matchedTracks: mergedTracks.filter((t: MergedTrack) => t.linked).length,
-      spotifyOnlyTracks: mergedTracks.filter((t: MergedTrack) => !t.linked).length,
-      youtubeOnlyVideos: orphanedVideos.length
+    Logger.info('Playlist details fetched', {
+      playlistId,
+      totalTracks: playlistDetails.totalTracks,
+      linkedCount: playlistDetails.linkedCount
     });
 
     // Generate HTML response using shared template
     const viewsPath = path.join(__dirname, '../../views');
     const playlistDetailsHtml = await ejs.renderFile(path.join(viewsPath, 'partials/playlist-details.ejs'), {
-      playlistId,
-      playlistName: spotifyPlaylistData.body.name,
-      tracks: allTracks,
-      linkedCount: mergedTracks.filter((t: MergedTrack) => t.linked).length,
-      totalTracks: allTracks.length,
+      playlistId: playlistDetails.playlistId,
+      playlistName: playlistDetails.playlistName,
+      tracks: playlistDetails.tracks,
+      linkedCount: playlistDetails.linkedCount,
+      totalTracks: playlistDetails.totalTracks,
       hasYoutubeConnection: !!youtubeTokens,
-      hasYoutubePlaylist: !!youtubePlaylist
+      hasYoutubePlaylist: playlistDetails.hasYoutubePlaylist
     });
 
     const duration = Date.now() - startTime;

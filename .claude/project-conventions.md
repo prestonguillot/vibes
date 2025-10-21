@@ -68,6 +68,17 @@
 - When replacing or restructuring code, verify that old code is no longer referenced anywhere in the codebase before removing it
 - Dead code creates confusion, increases maintenance burden, and obscures the actual implementation
 
+### Code Duplication and Shared Logic
+- **Eliminate code duplication** - if the same logic appears in multiple places, extract it into a shared utility or service
+- **Create reusable utilities in `src/utils/`** for common operations (data fetching, transformation, validation)
+- **Create services/controllers** when business logic is used by multiple routes
+- **Example:** If two routes fetch and process playlist details the same way, create a `playlistDetailsService.ts` that both routes use
+- **Benefits of shared logic:**
+  - Single source of truth prevents bugs from duplication (like the 10-track limit bug that only existed in one route)
+  - Easier maintenance and refactoring
+  - Consistent behavior across endpoints
+  - Clearer separation of concerns
+
 ### Testing Requirements
 - **Run the test suite after every change** - use `npm run test:run` to verify all tests pass
 - **Ensure all changes are covered by tests** - add unit or integration tests for new functionality

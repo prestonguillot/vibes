@@ -15,6 +15,7 @@ import path from 'path';
 import { reorderPlaylistTracks } from '../utils/playlistReordering';
 import { optimalTrackMatching, SimplifiedTrack, SimplifiedVideo } from '../utils/trackMatching';
 import { formatErrorDetails } from '../utils/errorFormatter';
+import { fetchPlaylistDetails } from '../services/playlistDetailsService';
 
 const router = Router();
 
@@ -944,96 +945,26 @@ router.post('/playlist/:playlistId',
       youtubePlaylistUrl
     });
 
-    // Fetch updated playlist details to send as OOB swap
-    // This is the HTMX way - server does all the work and sends complete HTML
-    const updatedPlaylist = await spotifyApi.getPlaylist(playlistId);
-    const updatedSpotifyTracks = updatedPlaylist.body.tracks.items
-      .filter((item: unknown) => {
-        const typedItem = item as { track: unknown | null };
-        return typedItem.track !== null;
-      })
-      .map((item: unknown) => {
-        const typedItem = item as { track: { id: string; name: string; artists: Array<{ name?: string }>; album?: { name?: string }; duration_ms: number; external_urls: { spotify: string }; preview_url?: string | null } };
-        return {
-          id: typedItem.track.id,
-          name: typedItem.track.name,
-          artist: typedItem.track.artists[0]?.name || 'Unknown Artist',
-          album: typedItem.track.album?.name || 'Unknown Album'
-        };
-      });
+    // Fetch updated playlist details to send as OOB swap using shared service
+    // This eliminates code duplication with the playlistDetails route
+    const playlistDetails = await fetchPlaylistDetails(spotifyApi, youtube, playlistId, youtubePlaylistId);
 
-    // Get updated YouTube videos
-    const updatedYoutubeVideos: SimplifiedVideo[] = [];
-    let nextPageToken: string | undefined = undefined;
-    do {
-      const response: youtube_v3.Schema$PlaylistItemListResponse = await youtube.playlistItems.list({
-        part: ['id', 'snippet'],
-        playlistId: youtubePlaylistId,
-        maxResults: 50,
-        pageToken: nextPageToken
-      }).then(res => res.data);
-
-      if (response.items) {
-        for (const item of response.items) {
-          if (item.snippet?.resourceId?.videoId) {
-            updatedYoutubeVideos.push({
-              id: item.snippet.resourceId.videoId,
-              title: item.snippet.title || 'Unknown',
-              description: item.snippet.description || ''
-            });
-          }
-        }
-      }
-      nextPageToken = response.nextPageToken || undefined;
-    } while (nextPageToken);
-
-    // Match tracks to videos
-    const updatedMatches = optimalTrackMatching(updatedSpotifyTracks, updatedYoutubeVideos);
-    const linkedCount = updatedMatches.size;
-
-    Logger.info('OOB swap track matching results', {
-      totalSpotifyTracks: updatedSpotifyTracks.length,
-      totalYoutubeVideos: updatedYoutubeVideos.length,
-      matchedTracks: linkedCount,
-      youtubeVideoTitles: updatedYoutubeVideos.map(v => v.title)
-    });
-
-    // Transform tracks into MergedTrack format for template
-    const mergedTracks = updatedSpotifyTracks.slice(0, 10).map((track: any) => {
-      const matchedVideo = updatedMatches.get(track.id);
-      return {
-        spotify: {
-          id: track.id,
-          name: track.name,
-          artist: track.artist,
-          album: track.album
-        },
-        youtube: matchedVideo ? {
-          id: matchedVideo.id,
-          title: matchedVideo.title,
-          thumbnail: `https://img.youtube.com/vi/${matchedVideo.id}/default.jpg`,
-          url: `https://www.youtube.com/watch?v=${matchedVideo.id}`
-        } : null,
-        linked: !!matchedVideo
-      };
+    Logger.info('Sending response with OOB updates including playlist details', {
+      playlistId,
+      linkedCount: playlistDetails.linkedCount,
+      totalTracks: playlistDetails.totalTracks
     });
 
     // Generate playlist details HTML using shared template
     const viewsPath = path.join(__dirname, '../../views');
     const playlistDetailsHtml = await ejs.renderFile(path.join(viewsPath, 'partials/playlist-details.ejs'), {
-      playlistId,
-      playlistName: playlist.name,
-      tracks: mergedTracks,
-      linkedCount,
-      totalTracks: updatedSpotifyTracks.length,
+      playlistId: playlistDetails.playlistId,
+      playlistName: playlistDetails.playlistName,
+      tracks: playlistDetails.tracks,
+      linkedCount: playlistDetails.linkedCount,
+      totalTracks: playlistDetails.totalTracks,
       hasYoutubeConnection: true, // Sync always has YouTube connection
-      hasYoutubePlaylist: true // After sync, YouTube playlist exists
-    });
-
-    Logger.info('Sending response with OOB updates including playlist details', {
-      playlistId,
-      linkedCount,
-      totalTracks: updatedSpotifyTracks.length
+      hasYoutubePlaylist: playlistDetails.hasYoutubePlaylist
     });
 
     // Render response template with all components (properly escaped)
