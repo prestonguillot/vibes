@@ -282,13 +282,13 @@ router.get('/playlists',
     let summaryText: string;
     if (!youtubeTokens) {
       // YouTube not connected - can't determine sync status
-      summaryText = `Showing ${spotifyPlaylists.length} playlists${ownOnly ? ' (your playlists only)' : ''} (connect YouTube to check sync status)`;
+      summaryText = `Showing ${spotifyPlaylists.length} playlists`;
     } else if (syncedPlaylists.length > 0) {
       // YouTube connected and some playlists are synced
-      summaryText = `Showing ${syncedPlaylists.length} synced and ${unsyncedPlaylists.length} unsynced playlists${ownOnly ? ' (your playlists only)' : ''}`;
+      summaryText = `Showing ${syncedPlaylists.length} synced and ${unsyncedPlaylists.length} unsynced playlists`;
     } else {
       // YouTube connected but no playlists synced yet
-      summaryText = `Showing ${unsyncedPlaylists.length} playlists${ownOnly ? ' (your playlists only)' : ''} (none synced yet)`;
+      summaryText = `Showing ${unsyncedPlaylists.length} playlists (none synced yet)`;
     }
 
     // Cache for 30 minutes (LONG) - saves YouTube API quota
