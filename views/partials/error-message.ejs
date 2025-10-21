@@ -1,9 +1,11 @@
-<div class="alert alert-<%= typeof type !== 'undefined' ? type : 'danger' %>">
-  <% if (typeof title !== 'undefined' && title) { %>
-    <h6><%= title %></h6>
-  <% } %>
-  <p><%= message %></p>
+<div class="punk-alert punk-alert--<%= typeof type !== 'undefined' ? type : 'danger' %>">
+  <div class="punk-alert__header">
+    <% if (typeof title !== 'undefined' && title) { %>
+      <h6 class="punk-alert__title"><%= title %></h6>
+    <% } %>
+  </div>
+  <p class="punk-alert__message"><%= message %></p>
   <% if (typeof details !== 'undefined' && details) { %>
-    <small class="text-muted"><%= details %></small>
+    <small class="punk-alert__details"><%= details %></small>
   <% } %>
 </div>
