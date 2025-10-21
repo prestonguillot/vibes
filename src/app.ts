@@ -120,6 +120,11 @@ export function createApp() {
     res.render('index', { csrfToken });
   });
 
+  // Debug/Component showcase page
+  app.get('/debug/components', (req, res) => {
+    res.render('debug-components');
+  });
+
   // Health check
   app.get('/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });

@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Component Showcase - Spotify to YouTube Sync</title>
+    <!-- Preload fonts to prevent FOUT (Flash of Unstyled Text) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Creepster&family=Permanent+Marker&family=Fredoka+One&family=Bungee&family=Courier+Prime:wght@400;700&display=block" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .component-section {
+            margin-bottom: 60px;
+            padding: 30px;
+            background: #f0f0f0;
+            border: 2px dashed #ccc;
+            border-radius: 4px;
+        }
+        .component-title {
+            font-family: 'Fredoka One', cursive;
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+            color: #000;
+            border-bottom: 3px solid #000;
+            padding-bottom: 10px;
+        }
+        .component-description {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 20px;
+            font-style: italic;
+        }
+        .component-demo {
+            background: #fff;
+            padding: 20px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+        }
+        .demo-label {
+            font-size: 0.8rem;
+            color: #999;
+            margin-bottom: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <div class="punk-header text-center mb-5">
+            <h1 class="punk-title">COMPONENT SHOWCASE</h1>
+            <p class="punk-subtitle">All punk-styled UI elements in one place</p>
+        </div>
+
+        <!-- ALERTS / MESSAGES -->
+        <div class="component-section">
+            <h2 class="component-title">Punk Alerts</h2>
+            <p class="component-description">Custom styled alert components matching the punk zine aesthetic</p>
+
+            <div class="component-demo">
+                <div class="demo-label">Warning Alert</div>
+                <div class="punk-alert punk-alert--warning">
+                    <div class="punk-alert__header">
+                        <h6 class="punk-alert__title">Spotify Authentication Required</h6>
+                    </div>
+                    <p class="punk-alert__message">Please connect to Spotify first</p>
+                    <small class="punk-alert__details">Use the Spotify connection button at the top of the page to authenticate.</small>
+                </div>
+            </div>
+
+            <div class="component-demo">
+                <div class="demo-label">Danger Alert</div>
+                <div class="punk-alert punk-alert--danger">
+                    <div class="punk-alert__header">
+                        <h6 class="punk-alert__title">Error Occurred</h6>
+                    </div>
+                    <p class="punk-alert__message">Something went wrong while syncing</p>
+                    <small class="punk-alert__details">Please try again or check your connection.</small>
+                </div>
+            </div>
+
+            <div class="component-demo">
+                <div class="demo-label">Success Alert</div>
+                <div class="punk-alert punk-alert--success">
+                    <div class="punk-alert__header">
+                        <h6 class="punk-alert__title">Sync Complete</h6>
+                    </div>
+                    <p class="punk-alert__message">Your playlists have been synced successfully</p>
+                    <small class="punk-alert__details">All tracks have been matched with videos.</small>
+                </div>
+            </div>
+
+            <div class="component-demo">
+                <div class="demo-label">Loading Alert</div>
+                <div class="punk-alert punk-alert--loading">
+                    <div class="d-flex align-items-center justify-content-center gap-3">
+                        <div class="loading-spinner"></div>
+                        <div>
+                            <div class="punk-alert__title">Loading Playlists</div>
+                            <small class="punk-alert__details">Fetching your Spotify playlists...</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- LOADING STATES -->
+        <div class="component-section">
+            <h2 class="component-title">Loading States</h2>
+            <p class="component-description">Spinners and loading indicators throughout the app</p>
+
+            <div class="component-demo">
+                <div class="demo-label">Playlist Expansion Loading</div>
+                <div class="playlist-loading" style="border: 1px solid #ddd; margin: 20px auto; width: fit-content;">
+                    <div class="loading-spinner"></div>
+                    Loading playlist details...
+                </div>
+            </div>
+
+            <div class="component-demo">
+                <div class="demo-label">Spinner Styles</div>
+                <div class="d-flex gap-3 align-items-center">
+                    <div>
+                        <span class="loading-spinner" style="margin-right: 10px;"></span>
+                        Punk Spinner
+                    </div>
+                    <div>
+                        <div class="custom-punk-spinner" style="margin-right: 10px;"></div>
+                        Custom Spinner
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- BUTTONS -->
+        <div class="component-section">
+            <h2 class="component-title">Buttons</h2>
+            <p class="component-description">Punk-styled buttons with various states</p>
+
+            <div class="component-demo">
+                <div class="demo-label">Connection Buttons</div>
+                <div class="d-flex gap-2 flex-wrap">
+                    <button class="btn btn-success connect-btn">Connected</button>
+                    <button class="btn btn-danger connect-btn">Reconnect</button>
+                    <button class="btn btn-secondary connect-btn" disabled>Disabled</button>
+                </div>
+            </div>
+
+            <div class="component-demo">
+                <div class="demo-label">Sync Buttons</div>
+                <div class="d-flex gap-2 flex-wrap">
+                    <button class="btn btn-primary sync-btn">Sync Playlist</button>
+                    <button class="btn btn-outline-success sync-btn">Update YouTube</button>
+                    <button class="btn btn-primary sync-btn" disabled>Syncing...</button>
+                </div>
+            </div>
+
+            <div class="component-demo">
+                <div class="demo-label">Action Buttons</div>
+                <div class="d-flex gap-2 flex-wrap">
+                    <button class="btn btn-outline-primary btn-sm">Edit</button>
+                    <button class="btn btn-outline-secondary btn-sm">Cancel</button>
+                    <button class="btn btn-outline-primary">Refresh</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- CARDS -->
+        <div class="component-section">
+            <h2 class="component-title">Cards</h2>
+            <p class="component-description">Card containers for content grouping</p>
+
+            <div class="component-demo">
+                <div class="card" style="max-width: 400px;">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Your Playlists</h5>
+                    </div>
+                    <div class="card-body">
+                        <p>This is a card with header and body content.</p>
+                        <p class="mb-0">Cards use the punk border and shadow styling.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- HEADERS -->
+        <div class="component-section">
+            <h2 class="component-title">Headers</h2>
+            <p class="component-description">Punk-styled header with branding</p>
+
+            <div class="component-demo">
+                <div class="punk-header text-center">
+                    <h1 class="punk-title">SPOTIFY <span class="punk-arrow">→</span> YOUTUBE</h1>
+                    <p class="punk-subtitle">Sync your playlists with music videos</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- FORM CONTROLS -->
+        <div class="component-section">
+            <h2 class="component-title">Form Controls</h2>
+            <p class="component-description">Styled form inputs and selects</p>
+
+            <div class="component-demo">
+                <div class="demo-label">Select Input</div>
+                <select class="form-select" style="max-width: 200px;">
+                    <option selected>Tracks per sync</option>
+                    <option value="1">1</option>
+                    <option value="5">5</option>
+                    <option value="10">10</option>
+                    <option value="all">All</option>
+                </select>
+            </div>
+
+            <div class="component-demo">
+                <div class="demo-label">Checkbox</div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="exampleCheckbox" checked>
+                    <label class="form-check-label" for="exampleCheckbox">
+                        Show only playlists I created
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- BADGES -->
+        <div class="component-section">
+            <h2 class="component-title">Badges</h2>
+            <p class="component-description">Status and tag badges</p>
+
+            <div class="component-demo">
+                <div class="d-flex gap-2 flex-wrap">
+                    <span class="badge bg-success">Synced</span>
+                    <span class="badge bg-warning">Pending</span>
+                    <span class="badge bg-danger">Error</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- BACK TO HOME -->
+        <div class="text-center mb-5">
+            <a href="/" class="btn btn-outline-secondary">← Back to Home</a>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
