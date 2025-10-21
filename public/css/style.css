@@ -1471,6 +1471,10 @@ body.oauth-error-body {
     border-left: 8px solid #00ff00;
 }
 
+.punk-alert--loading {
+    border-left: 8px solid #0066ff;
+}
+
 .punk-alert__header {
     margin-bottom: 12px;
 }
