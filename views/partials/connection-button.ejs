@@ -23,7 +23,13 @@ const hasError = error && error.trim().length > 0;
 <% } else if (connected) { %>
   <button class="btn <%= buttonClass %> connect-btn connected" disabled data-service="<%= service %>" data-connected="true">Connected</button>
 <% } else { %>
-  <a href="<%= loginUrl %>" class="btn <%= buttonClass %> connect-btn" data-service="<%= service %>" data-connected="false">
-    Connect <%= serviceCapitalized %>
-  </a>
+  <% if (typeof isDebug !== 'undefined' && isDebug) { %>
+    <button class="btn <%= buttonClass %> connect-btn" data-service="<%= service %>" data-connected="false" title="(Demo mode)" onclick="return false;">
+      Connect <%= serviceCapitalized %>
+    </button>
+  <% } else { %>
+    <a href="<%= loginUrl %>" class="btn <%= buttonClass %> connect-btn" data-service="<%= service %>" data-connected="false">
+      Connect <%= serviceCapitalized %>
+    </a>
+  <% } %>
 <% } %>

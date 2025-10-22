@@ -120,6 +120,75 @@
             </div>
         </div>
 
+        <!-- CONNECTION BUTTONS -->
+        <div class="component-section">
+            <h2 class="component-title">Connection Buttons</h2>
+            <p class="component-description">Service connection status buttons in different states</p>
+
+            <% mockConnectionButtonProps.forEach((props) => { %>
+                <div class="component-demo">
+                    <div class="demo-label"><%= props.service %> - <%= props.connected ? 'Connected' : (props.loading ? 'Loading' : 'Disconnected') %></div>
+                    <%- include('./partials/connection-button.ejs', Object.assign({}, props, { isDebug })) %>
+                </div>
+            <% }); %>
+        </div>
+
+        <!-- SYNC FEEDBACK -->
+        <div class="component-section">
+            <h2 class="component-title">Sync Feedback Messages</h2>
+            <p class="component-description">Success message after playlist sync completion</p>
+
+            <div class="component-demo">
+                <div class="demo-label">Sync Feedback - Multiple Videos Found</div>
+                <%- include('./partials/sync-feedback.ejs', mockSyncFeedback) %>
+            </div>
+        </div>
+
+        <!-- SYNC BUTTONS -->
+        <div class="component-section">
+            <h2 class="component-title">Sync Buttons</h2>
+            <p class="component-description">Sync action buttons in different states</p>
+
+            <% ['demo-1', 'demo-2', 'demo-3'].forEach((playlistId) => { %>
+                <div class="component-demo">
+                    <div class="demo-label"><%= mockPlaylists.find(p => p.id.startsWith('demo-')) ? mockPlaylists.find(p => p.id.startsWith('demo-')).name : 'Playlist' %> Sync</div>
+                    <%- include('./partials/sync-button.ejs', { playlistId: playlistId, playlistName: 'Demo Playlist', trackCount: 25, buttonClass: 'btn-primary', buttonText: 'Sync to YouTube', isDebug }) %>
+                </div>
+            <% }); %>
+        </div>
+
+        <!-- CONNECTION ERROR ALERTS -->
+        <div class="component-section">
+            <h2 class="component-title">Connection Error Alerts</h2>
+            <p class="component-description">Error alerts when services fail to connect</p>
+
+            <div class="component-demo">
+                <div class="demo-label">Spotify Connection Error</div>
+                <%- include('./partials/connection-error-alert.ejs', { spotifyError: 'Failed to authenticate with Spotify. Please check your credentials.', youtubeError: null }) %>
+            </div>
+
+            <div class="component-demo">
+                <div class="demo-label">YouTube Connection Error</div>
+                <%- include('./partials/connection-error-alert.ejs', { spotifyError: null, youtubeError: 'YouTube API quota exceeded. Please try again later.' }) %>
+            </div>
+
+            <div class="component-demo">
+                <div class="demo-label">Both Services Error</div>
+                <%- include('./partials/connection-error-alert.ejs', { spotifyError: 'Spotify connection failed', youtubeError: 'YouTube connection failed' }) %>
+            </div>
+        </div>
+
+        <!-- SUCCESS MESSAGES -->
+        <div class="component-section">
+            <h2 class="component-title">Success Messages</h2>
+            <p class="component-description">Confirmation messages for successful actions</p>
+
+            <div class="component-demo">
+                <div class="demo-label">Video Replacement Success</div>
+                <%- include('./partials/video-replace-success.ejs', { message: 'Video successfully linked to track' }) %>
+            </div>
+        </div>
+
         <!-- BACK TO HOME -->
         <div class="text-center mb-5">
             <a href="/" class="btn btn-outline-secondary">← Back to Home</a>

@@ -1,5 +1,9 @@
 <button class="btn <%= buttonClass %> sync-btn"
         id="sync-btn-<%= playlistId %>"
+        <% if (typeof isDebug !== 'undefined' && isDebug) { %>
+        title="(Demo mode)"
+        onclick="return false;"
+        <% } else { %>
         hx-post="/api/sync/playlist/<%= playlistId %>"
         hx-target="#sync-result-<%= playlistId %>"
         hx-swap="innerHTML"
@@ -9,6 +13,7 @@
         hx-get="/auth/spotify/playlist-button/<%= playlistId %>"
         hx-trigger="playlistSynced-<%= playlistId %> from:body"
         hx-swap="outerHTML"
+        <% } %>
         data-playlist-name="<%= playlistName %>"
         data-playlist-id="<%= playlistId %>"
         data-track-count="<%= trackCount %>">
