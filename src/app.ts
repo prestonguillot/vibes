@@ -123,6 +123,7 @@ export function createApp() {
   // Debug/Component showcase page
   app.get('/debug/components', (req, res) => {
     res.render('debug-components', {
+      isDebug: true,
       mockPlaylists: [
         {
           id: 'demo-synced-1',
@@ -187,6 +188,26 @@ export function createApp() {
             youtube: null,
             linked: false
           }
+        ]
+      },
+      mockConnectionButtonProps: [
+        { service: 'spotify', connected: true, loading: false, error: null },
+        { service: 'spotify', connected: false, loading: false, error: null },
+        { service: 'spotify', connected: false, loading: true, error: null },
+        { service: 'youtube', connected: true, loading: false, error: null },
+        { service: 'youtube', connected: false, loading: false, error: null }
+      ],
+      mockSyncFeedback: {
+        playlistId: 'demo-feedback-1',
+        videosFound: 12,
+        totalSearched: 15,
+        totalTracks: 15,
+        isLimited: false,
+        isUpdate: false,
+        unlinkedTracks: [
+          { name: 'Unknown Track 1', artist: 'Unknown Artist' },
+          { name: 'Unknown Track 2', artist: 'Unknown Artist' },
+          { name: 'Unknown Track 3', artist: 'Unknown Artist' }
         ]
       }
     });
