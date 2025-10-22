@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <title>Component Showcase - Spotify to YouTube Sync</title>
-    <!-- Preload fonts to prevent FOUT (Flash of Unstyled Text) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Creepster&family=Permanent+Marker&family=Fredoka+One&family=Bungee&family=Courier+Prime:wght@400;700&display=block" rel="stylesheet">
@@ -55,311 +54,69 @@
             <p class="punk-subtitle">All punk-styled UI elements in one place</p>
         </div>
 
-        <!-- ALERTS / MESSAGES -->
+        <!-- ERROR MESSAGES -->
         <div class="component-section">
-            <h2 class="component-title">Punk Alerts</h2>
-            <p class="component-description">Custom styled alert components matching the punk zine aesthetic</p>
+            <h2 class="component-title">Error Messages</h2>
+            <p class="component-description">Error message components using real error-message.ejs template</p>
 
             <div class="component-demo">
-                <div class="demo-label">Warning Alert</div>
-                <div class="punk-alert punk-alert--warning">
-                    <div class="punk-alert__header">
-                        <h6 class="punk-alert__title">Spotify Authentication Required</h6>
-                    </div>
-                    <p class="punk-alert__message">Please connect to Spotify first</p>
-                    <small class="punk-alert__details">Use the Spotify connection button at the top of the page to authenticate.</small>
-                </div>
+                <div class="demo-label">Warning Message</div>
+                <%- include('./partials/error-message.ejs', { message: 'Please connect to Spotify first', type: 'warning' }) %>
             </div>
 
             <div class="component-demo">
-                <div class="demo-label">Danger Alert</div>
-                <div class="punk-alert punk-alert--danger">
-                    <div class="punk-alert__header">
-                        <h6 class="punk-alert__title">Error Occurred</h6>
-                    </div>
-                    <p class="punk-alert__message">Something went wrong while syncing</p>
-                    <small class="punk-alert__details">Please try again or check your connection.</small>
-                </div>
+                <div class="demo-label">Danger Message</div>
+                <%- include('./partials/error-message.ejs', { message: 'Error fetching playlists', type: 'danger' }) %>
             </div>
 
             <div class="component-demo">
-                <div class="demo-label">Success Alert</div>
-                <div class="punk-alert punk-alert--success">
-                    <div class="punk-alert__header">
-                        <h6 class="punk-alert__title">Sync Complete</h6>
-                    </div>
-                    <p class="punk-alert__message">Your playlists have been synced successfully</p>
-                    <small class="punk-alert__details">All tracks have been matched with videos.</small>
-                </div>
-            </div>
-
-            <div class="component-demo">
-                <div class="demo-label">Loading Alert</div>
-                <div class="punk-alert punk-alert--loading">
-                    <div class="d-flex align-items-center justify-content-center gap-3">
-                        <div class="loading-spinner"></div>
-                        <div>
-                            <div class="punk-alert__title">Loading Playlists</div>
-                            <small class="punk-alert__details">Fetching your Spotify playlists...</small>
-                        </div>
-                    </div>
-                </div>
+                <div class="demo-label">Success Message</div>
+                <%- include('./partials/error-message.ejs', { message: 'Playlists synced successfully!', type: 'success' }) %>
             </div>
         </div>
 
-        <!-- LOADING STATES -->
+        <!-- PROGRESS UPDATES -->
         <div class="component-section">
-            <h2 class="component-title">Loading States</h2>
-            <p class="component-description">Spinners and loading indicators throughout the app</p>
+            <h2 class="component-title">Progress Updates</h2>
+            <p class="component-description">Progress updates during sync using real progress-update.ejs template</p>
 
             <div class="component-demo">
-                <div class="demo-label">Playlist Expansion Loading</div>
-                <div class="playlist-loading debug-playlist-loading">
-                    <div class="loading-spinner"></div>
-                    Loading playlist details...
-                </div>
+                <div class="demo-label">Progress - In Progress</div>
+                <%- include('./partials/progress-update.ejs', { type: 'progress', message: 'Adding new tracks to playlist', percentage: 45, details: '✓ Linked 45 tracks • ⚠ Unlinked 5 tracks' }) %>
             </div>
 
             <div class="component-demo">
-                <div class="demo-label">Spinner Styles</div>
-                <div class="d-flex gap-3 align-items-center">
-                    <div>
-                        <span class="loading-spinner debug-spinner-wrapper"></span>
-                        Punk Spinner
-                    </div>
-                    <div>
-                        <div class="custom-punk-spinner debug-spinner-wrapper"></div>
-                        Custom Spinner
-                    </div>
-                </div>
+                <div class="demo-label">Progress - Complete</div>
+                <%- include('./partials/progress-update.ejs', { type: 'complete', message: 'Sync Complete', percentage: 100, details: null }) %>
+            </div>
+
+            <div class="component-demo">
+                <div class="demo-label">Progress - Error</div>
+                <%- include('./partials/progress-update.ejs', { type: 'error', message: 'Failed to sync playlist', percentage: null, details: null }) %>
             </div>
         </div>
 
-        <!-- BUTTONS -->
+        <!-- PLAYLIST ITEMS -->
         <div class="component-section">
-            <h2 class="component-title">Buttons</h2>
-            <p class="component-description">Punk-styled buttons with various states</p>
+            <h2 class="component-title">Playlist Items</h2>
+            <p class="component-description">Individual playlist items in different states using real playlist-item.ejs template</p>
 
-            <div class="component-demo">
-                <div class="demo-label">Connection Buttons</div>
-                <div class="d-flex gap-2 flex-wrap">
-                    <button class="btn btn-success connect-btn">Connected</button>
-                    <button class="btn btn-danger connect-btn">Reconnect</button>
-                    <button class="btn btn-secondary connect-btn" disabled>Disabled</button>
+            <% mockPlaylists.forEach((playlist) => { %>
+                <div class="component-demo">
+                    <div class="demo-label"><%= playlist.name %></div>
+                    <%- include('./partials/playlist-item.ejs', playlist) %>
                 </div>
-            </div>
-
-            <div class="component-demo">
-                <div class="demo-label">Sync Buttons</div>
-                <div class="d-flex gap-2 flex-wrap">
-                    <button class="btn btn-primary sync-btn">Sync Playlist</button>
-                    <button class="btn btn-outline-success sync-btn">Update YouTube</button>
-                    <button class="btn btn-primary sync-btn" disabled>Syncing...</button>
-                </div>
-            </div>
-
-            <div class="component-demo debug-dark-background">
-                <div class="demo-label">Action Buttons</div>
-                <div class="d-flex gap-2 flex-wrap">
-                    <button class="btn btn-outline-primary btn-sm">Edit</button>
-                    <button class="btn btn-outline-secondary btn-sm">Cancel</button>
-                    <button class="btn btn-outline-primary">Refresh</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- CARDS -->
-        <div class="component-section">
-            <h2 class="component-title">Cards</h2>
-            <p class="component-description">Card containers for content grouping</p>
-
-            <div class="component-demo">
-                <div class="card debug-card-container">
-                    <div class="card-header">
-                        <h5 class="card-title mb-0">Your Playlists</h5>
-                    </div>
-                    <div class="card-body">
-                        <p>This is a card with header and body content.</p>
-                        <p class="mb-0">Cards use the punk border and shadow styling.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- HEADERS -->
-        <div class="component-section">
-            <h2 class="component-title">Headers</h2>
-            <p class="component-description">Punk-styled header with branding</p>
-
-            <div class="component-demo">
-                <div class="punk-header text-center">
-                    <h1 class="punk-title">SPOTIFY <span class="punk-arrow">→</span> YOUTUBE</h1>
-                    <p class="punk-subtitle">Sync your playlists with music videos</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- FORM CONTROLS -->
-        <div class="component-section">
-            <h2 class="component-title">Form Controls</h2>
-            <p class="component-description">Styled form inputs and selects</p>
-
-            <div class="component-demo">
-                <div class="demo-label">Select Input</div>
-                <select class="form-select debug-select-width">
-                    <option selected>Tracks per sync</option>
-                    <option value="1">1</option>
-                    <option value="5">5</option>
-                    <option value="10">10</option>
-                    <option value="all">All</option>
-                </select>
-            </div>
-
-            <div class="component-demo">
-                <div class="demo-label">Toggle Switch</div>
-                <div class="form-check form-switch">
-                    <input class="form-check-input" type="checkbox" id="exampleCheckbox" checked>
-                    <label class="form-check-label" for="exampleCheckbox">
-                        Show only playlists I created
-                    </label>
-                </div>
-            </div>
-        </div>
-
-        <!-- BADGES -->
-        <div class="component-section">
-            <h2 class="component-title">Badges</h2>
-            <p class="component-description">Status and tag badges</p>
-
-            <div class="component-demo">
-                <div class="d-flex gap-2 flex-wrap">
-                    <span class="badge bg-success">Synced</span>
-                    <span class="badge bg-warning">Pending</span>
-                    <span class="badge bg-danger">Error</span>
-                </div>
-            </div>
+            <% }); %>
         </div>
 
         <!-- PLAYLIST DETAILS -->
         <div class="component-section">
             <h2 class="component-title">Playlist Details</h2>
-            <p class="component-description">Track items and linked video displays</p>
+            <p class="component-description">Expanded playlist details showing tracks using real playlist-details.ejs template</p>
 
             <div class="component-demo">
-                <div class="demo-label">Track Items with Alternating States</div>
-                <div class="debug-center-wrapper">
-                    <div class="track-item">
-                        <div class="track-number">1</div>
-                        <div class="track-content flex-grow-1">
-                            <div class="spotify-track">
-                                <div class="track-title fw-semibold">Blinding Lights</div>
-                                <div class="track-artist text-muted small">The Weeknd • After Hours</div>
-                            </div>
-                            <div class="youtube-video mt-1">
-                                <div class="d-flex align-items-center">
-                                    <img src="https://via.placeholder.com/120x90/FF0000/FFFFFF?text=YouTube" alt="Video" class="youtube-video__thumbnail debug-spinner-wrapper">
-                                    <div class="flex-grow-1">
-                                        <a href="#" target="_blank" class="text-decoration-none small">The Weeknd - Blinding Lights (Official Video)</a>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="track-status ms-2 d-flex align-items-center gap-2">
-                            <span class="badge bg-success">Linked</span>
-                            <button type="button" class="btn btn-outline-secondary btn-sm" title="Edit linked video">
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                                  <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="track-item track-item--even">
-                        <div class="track-number">2</div>
-                        <div class="track-content flex-grow-1">
-                            <div class="spotify-track">
-                                <div class="track-title fw-semibold">Levitating</div>
-                                <div class="track-artist text-muted small">Dua Lipa • Future Nostalgia</div>
-                            </div>
-                            <div class="youtube-video youtube-video--placeholder mt-1">
-                                <div class="d-flex align-items-center">
-                                    <div class="youtube-video__thumbnail youtube-video__thumbnail--placeholder">
-                                        <svg width="120" height="90" viewBox="0 0 120 90" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                          <rect width="120" height="90" fill="#e0e0e0"/>
-                                          <circle cx="60" cy="45" r="15" fill="#999"/>
-                                          <path d="M55 37L68 45L55 53V37Z" fill="#fff"/>
-                                        </svg>
-                                    </div>
-                                    <div class="flex-grow-1">
-                                        <span class="text-muted small fst-italic">No video linked</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="track-status ms-2 d-flex align-items-center gap-2">
-                            <span class="badge bg-warning">Unlinked</span>
-                            <button type="button" class="btn btn-outline-secondary btn-sm" title="Link video to this track">
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                                  <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="track-item track-item--simple">
-                        <div class="track-number">3</div>
-                        <div class="track-content flex-grow-1">
-                            <div class="spotify-track">
-                                <div class="track-title fw-semibold">Anti-Hero</div>
-                                <div class="track-artist text-muted small">Taylor Swift • Midnights</div>
-                            </div>
-                        </div>
-                        <div class="track-status ms-2 d-flex align-items-center gap-2">
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="component-demo">
-                <div class="demo-label">Track Status Badges</div>
-                <div class="d-flex gap-2 flex-wrap">
-                    <span class="badge bg-success">Linked</span>
-                    <span class="badge bg-warning">Unlinked</span>
-                    <span class="badge bg-info">YouTube Only</span>
-                </div>
-            </div>
-
-            <div class="component-demo">
-                <div class="demo-label">Playlist Expander (Collapsed - Arrow Only)</div>
-                <div class="debug-center-wrapper">
-                    <input type="checkbox" id="expand-demo-collapsed" class="playlist-expand-toggle hidden">
-                    <label for="expand-demo-collapsed" class="playlist-expand-area">
-                        <span class="expand-indicator">▼</span>
-                    </label>
-                </div>
-            </div>
-
-            <div class="component-demo">
-                <div class="demo-label">Playlist Progress (During Sync)</div>
-                <div class="debug-playlist-progress">
-                    <div class="debug-progress-title">Syncing: 45 / 50 tracks</div>
-                    <div class="progress debug-progress-bar debug-progress-bar-height">
-                        <div class="progress-bar" style="width: 90%;"></div>
-                    </div>
-                    <div class="debug-progress-details">
-                        ✓ Linked 45 tracks • ⚠ Unlinked 5 tracks
-                    </div>
-                </div>
-            </div>
-
-            <div class="component-demo">
-                <div class="demo-label">Playlist Sync Result (Completed)</div>
-                <div class="debug-playlist-sync-result">
-                    <div class="debug-sync-result-title">✓ Sync Complete</div>
-                    <div class="debug-sync-result-message">
-                        Successfully linked 48 tracks to YouTube videos
-                    </div>
-                </div>
+                <div class="demo-label">Playlist with Linked Tracks</div>
+                <%- include('./partials/playlist-details.ejs', mockPlaylistDetails) %>
             </div>
         </div>
 
