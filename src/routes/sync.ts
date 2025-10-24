@@ -654,8 +654,13 @@ router.post('/playlist/:playlistId',
       const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
         type: 'warning',
         title: 'No videos found',
-        message: 'Could not find any YouTube videos for the tracks in this playlist.',
-        details: `API calls made: ${apiCallCount} (${totalQuotaUsed} quota units)`
+        message: 'Could not find any YouTube videos for the tracks in this playlist.'
+      });
+      // Log API usage to server logs only (not exposed to client)
+      Logger.info('Sync operation completed with no matches', {
+        apiCallCount,
+        totalQuotaUsed,
+        playlistId: playlistIdParam
       });
       return res.send(html);
     }
