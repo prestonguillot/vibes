@@ -199,7 +199,7 @@ router.get('/playlists',
 
           do {
             const youtubeResponse: youtube_v3.Schema$PlaylistListResponse = await youtube.playlists.list({
-              part: ['snippet'],
+              part: ['snippet', 'contentDetails'],
               mine: true,
               maxResults: 50,
               pageToken: nextPageToken
@@ -262,11 +262,13 @@ router.get('/playlists',
       const youtubePlaylist = youtubePlaylistsMap.get(`${playlist.name} (from Spotify)`);
       const youtubePlaylistUrl = youtubePlaylist ?
         `https://www.youtube.com/playlist?list=${youtubePlaylist.id}` : undefined;
+      const youtubeTracksTotal = youtubePlaylist?.contentDetails?.itemCount || 0;
 
       return await ejs.renderFile(path.join(viewsPath, 'partials/playlist-item.ejs'), {
         id: playlist.id,
         name: playlist.name,
         tracksTotal: playlist.tracks.total,
+        youtubeTracksTotal,
         spotifyUrl: playlist.external_urls.spotify,
         youtubeUrl: youtubePlaylistUrl,
         isSynced,

@@ -3,7 +3,11 @@
     <div class="playlist-info">
       <h5 class="mb-1"><%= syncIcon || '' %><%= name %></h5>
       <p class="text-muted mb-1">
-        <%= tracksTotal %> tracks
+        <% if (youtubeTracksTotal && youtubeTracksTotal > 0) { %>
+          <%= tracksTotal %> tracks (<%= youtubeTracksTotal %> synced)
+        <% } else { %>
+          <%= tracksTotal %> tracks
+        <% } %>
       </p>
 
       <!-- Playlist Links -->
