@@ -5,7 +5,10 @@
       "Bash(npm run test:run -- tests/unit/errorTemplateEscaping.test.ts)",
       "Bash(cat src/app.ts)",
       "Bash(curl -s http://localhost:3000/debug/components)",
-      "Bash(xargs -I {} basename {})"
+      "Bash(xargs -I {} basename {})",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npx tsc --noEmit src/routes/spotify.ts)",
+      "Bash(cat package.json)"
     ],
     "deny": [],
     "ask": []
