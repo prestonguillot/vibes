@@ -150,11 +150,13 @@ body {
   background: #e3f2fd;
   border: 1px solid #2196f3;
   border-top: none;
-  padding: 8px 15px;
-  margin: 0;
+  padding: 20px 15px;
+  margin: 12px 0 0 0;
   font-family: 'Courier Prime', monospace;
   font-size: 0.9rem;
   color: #1976d2;
+  min-height: 80px;
+  display: block;
 }
 
 .playlist-sync-result {

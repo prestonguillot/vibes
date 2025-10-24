@@ -16,6 +16,15 @@ document.body.addEventListener('htmx:beforeRequest', (event) => {
 
   if (progressDiv) {
     progressDiv.classList.remove('hidden');
+    // Show initial loading spinner
+    progressDiv.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <div class="spinner-border spinner-border-sm text-primary" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        <span>Starting sync...</span>
+      </div>
+    `;
     startSSE(playlistId);
   }
 });
