@@ -660,7 +660,7 @@ router.post('/playlist/:playlistId',
       Logger.info('Sync operation completed with no matches', {
         apiCallCount,
         totalQuotaUsed,
-        playlistId: playlistIdParam
+        playlistId
       });
       return res.send(html);
     }
