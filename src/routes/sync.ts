@@ -159,24 +159,12 @@ router.post('/playlist/:playlistId',
 
     if (!spotifyTokens) {
       Logger.error('No Spotify tokens in cookies');
-      const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
-        type: 'warning',
-        title: 'Spotify Authentication Required',
-        message: 'Please connect to Spotify first',
-        details: 'Use the Spotify connection button at the top of the page to authenticate.'
-      });
-      return res.status(401).send(html);
+      return res.status(401).send('<strong>Spotify Authentication Required</strong><br>Please connect to Spotify first using the Spotify connection button at the top of the page.');
     }
 
     if (!youtubeTokens) {
       Logger.error('No YouTube tokens in cookies');
-      const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
-        type: 'warning',
-        title: 'YouTube Authentication Required',
-        message: 'Please connect to YouTube first',
-        details: 'Use the YouTube connection button at the top of the page to authenticate.'
-      });
-      return res.status(401).send(html);
+      return res.status(401).send('<strong>YouTube Authentication Required</strong><br>Please connect to YouTube first using the YouTube connection button at the top of the page.');
     }
 
     // Get YouTube user ID for isolating SSE connections
@@ -277,13 +265,15 @@ router.post('/playlist/:playlistId',
         message: 'No tracks found',
         details: 'No tracks found in the playlist'
       });
-      const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
-        type: 'warning',
-        title: 'No Tracks Found',
-        message: 'No tracks found to sync',
-        details: 'This playlist appears to be empty or contains only unplayable tracks.'
-      });
-      return res.send(html);
+
+      closeProgressConnections(playlistId, youtubeUserId);
+
+      // Return error in sync-result div for sync.js to handle
+      return res.send(`
+        <div id="sync-result-${playlistId}">
+          <strong>No Tracks Found</strong><br>This playlist appears to be empty or contains only unplayable tracks.
+        </div>
+      `);
     }
 
     // Calculate total progress phases: search (70%) + playlist operations (30%)
@@ -643,18 +633,48 @@ router.post('/playlist/:playlistId',
       });
     }
     
-    // Only create playlist if we found some videos
+    // Check if this is an update with no unsynced tracks (playlist already fully synced)
+    if (isUpdateMode && unsyncedTracks.length === 0 && videoIds.length === 0) {
+      Logger.info('Playlist already fully synced, no new videos to add', { playlistId });
+
+      // Return success response - playlist is up to date
+      const youtubePlaylistUrl = `https://www.youtube.com/playlist?list=${youtubePlaylistId}`;
+      const syncFeedbackHtml = await ejs.renderFile(
+        path.join(__dirname, '../../views/partials/sync-feedback.ejs'),
+        {
+          playlistId,
+          isUpdate: true,
+          isFullySynced: true,
+          videosFound: 0,
+          totalSearched: 0,
+          isLimited: false,
+          unlinkedTracks: []
+        }
+      );
+
+      return res.send(
+        await ejs.renderFile(path.join(__dirname, '../../views/partials/sync-response.ejs'), {
+          playlistId,
+          isUpdate: true,
+          buttonText: 'Update YouTube Playlist',
+          buttonClass: 'btn-outline-success',
+          syncFeedbackHtml,
+          playlistDetailsHtml: '',
+          playlistName: playlist.name,
+          trackCount: playlist.tracks.total,
+          spotifyUrl: playlist.external_urls.spotify,
+          youtubeUrl: youtubePlaylistUrl
+        })
+      );
+    }
+
+    // Only create playlist if we found some videos (for new playlists)
     if (videoIds.length === 0) {
-      Logger.warn('No videos found');
+      Logger.warn('No videos found for new sync');
       sendProgressUpdate(playlistId, youtubeUserId, {
         type: 'error',
         message: 'No videos found',
         details: 'No videos found in the playlist'
-      });
-      const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
-        type: 'warning',
-        title: 'No videos found',
-        message: 'Could not find any YouTube videos for the tracks in this playlist.'
       });
       // Log API usage to server logs only (not exposed to client)
       Logger.info('Sync operation completed with no matches', {
@@ -662,7 +682,15 @@ router.post('/playlist/:playlistId',
         totalQuotaUsed,
         playlistId
       });
-      return res.send(html);
+
+      closeProgressConnections(playlistId, youtubeUserId);
+
+      // Return error in sync-result div for sync.js to handle
+      return res.send(`
+        <div id="sync-result-${playlistId}">
+          <strong>No videos found</strong><br>Could not find any YouTube videos for the tracks in this playlist.
+        </div>
+      `);
     }
     
     // Create playlist if it doesn't exist
@@ -1012,13 +1040,7 @@ router.post('/playlist/:playlistId',
       const gaxiosError = error as { errors?: Array<{ reason?: string }> };
       if (gaxiosError.errors && gaxiosError.errors.some((e) => e.reason === 'quotaExceeded')) {
         Logger.warn('YouTube API quota exceeded - sync stopped gracefully');
-        const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
-          type: 'warning',
-          title: 'YouTube API Quota Exceeded',
-          message: "You've reached the daily YouTube API quota limit. The sync was stopped to prevent further errors.",
-          details: 'Please try again tomorrow when the quota resets, or consider reducing the number of tracks processed per sync. Some tracks may have been successfully added before hitting the quota limit.'
-        });
-        return res.status(429).send(html);
+        return res.status(429).send('<strong>YouTube API Quota Exceeded</strong><br>You\'ve reached the daily YouTube API quota limit. Please try again tomorrow when the quota resets.');
       }
     }
     
@@ -1038,13 +1060,7 @@ router.post('/playlist/:playlistId',
       return res.status(401).send(html);
     }
     
-    const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
-      type: 'danger',
-      title: 'Error syncing playlist',
-      message: 'Something went wrong during the sync process. Please try again.',
-      details: formatErrorDetails(error)
-    });
-    res.status(500).send(html);
+    res.status(500).send(`<strong>Error syncing playlist</strong><br>Something went wrong during the sync process. Please try again. Details: ${formatErrorDetails(error)}`);
   }
 });
 

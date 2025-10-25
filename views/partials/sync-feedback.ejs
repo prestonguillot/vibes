@@ -1,11 +1,16 @@
 <%
 const hasUnlinkedTracks = unlinkedTracks && unlinkedTracks.length > 0;
 const multipleUnlinked = unlinkedTracks && unlinkedTracks.length > 1;
+const isFullySyncedFlag = typeof isFullySynced !== 'undefined' ? isFullySynced : false;
 %>
 
 <div><strong>Playlist <%= isUpdate ? 'updated' : 'created' %> successfully!</strong></div>
 <div class="small">
-  Found <%= videosFound %> out of <%= totalSearched %> tracks<%= isLimited ? ` (limited from ${totalTracks} total)` : '' %>
+  <% if (isFullySyncedFlag) { %>
+    All tracks are already synced with YouTube
+  <% } else { %>
+    Found <%= videosFound %> out of <%= totalSearched %> tracks<%= isLimited ? ` (limited from ${totalTracks} total)` : '' %>
+  <% } %>
 </div>
 
 <% if (hasUnlinkedTracks) { %>
