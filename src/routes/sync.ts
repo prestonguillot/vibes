@@ -159,12 +159,22 @@ router.post('/playlist/:playlistId',
 
     if (!spotifyTokens) {
       Logger.error('No Spotify tokens in cookies');
-      return res.status(401).send('<strong>Spotify Authentication Required</strong><br>Please connect to Spotify first using the Spotify connection button at the top of the page.');
+      const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/sync-error.ejs'), {
+        playlistId: 'unknown',
+        title: 'Spotify Authentication Required',
+        message: 'Please connect to Spotify first using the Spotify connection button at the top of the page.'
+      });
+      return res.status(401).send(html);
     }
 
     if (!youtubeTokens) {
       Logger.error('No YouTube tokens in cookies');
-      return res.status(401).send('<strong>YouTube Authentication Required</strong><br>Please connect to YouTube first using the YouTube connection button at the top of the page.');
+      const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/sync-error.ejs'), {
+        playlistId: 'unknown',
+        title: 'YouTube Authentication Required',
+        message: 'Please connect to YouTube first using the YouTube connection button at the top of the page.'
+      });
+      return res.status(401).send(html);
     }
 
     // Get YouTube user ID for isolating SSE connections
@@ -269,11 +279,12 @@ router.post('/playlist/:playlistId',
       closeProgressConnections(playlistId, youtubeUserId);
 
       // Return error in sync-result div for sync.js to handle
-      return res.send(`
-        <div id="sync-result-${playlistId}">
-          <strong>No Tracks Found</strong><br>This playlist appears to be empty or contains only unplayable tracks.
-        </div>
-      `);
+      const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/sync-error.ejs'), {
+        playlistId,
+        title: 'No Tracks Found',
+        message: 'This playlist appears to be empty or contains only unplayable tracks.'
+      });
+      return res.send(html);
     }
 
     // Calculate total progress phases: search (70%) + playlist operations (30%)
@@ -637,6 +648,8 @@ router.post('/playlist/:playlistId',
     if (isUpdateMode && unsyncedTracks.length === 0 && videoIds.length === 0) {
       Logger.info('Playlist already fully synced, no new videos to add', { playlistId });
 
+      closeProgressConnections(playlistId, youtubeUserId);
+
       // Return success response - playlist is up to date
       const youtubePlaylistUrl = `https://www.youtube.com/playlist?list=${youtubePlaylistId}`;
       const syncFeedbackHtml = await ejs.renderFile(
@@ -652,6 +665,21 @@ router.post('/playlist/:playlistId',
         }
       );
 
+      // Fetch updated playlist details to send as OOB swap
+      const playlistDetails = await fetchPlaylistDetails(spotifyApi, youtube, playlistId, youtubePlaylistId);
+
+      // Generate playlist details HTML using shared template
+      const viewsPath = path.join(__dirname, '../../views');
+      const playlistDetailsHtml = await ejs.renderFile(path.join(viewsPath, 'partials/playlist-details.ejs'), {
+        playlistId: playlistDetails.playlistId,
+        playlistName: playlistDetails.playlistName,
+        tracks: playlistDetails.tracks,
+        linkedCount: playlistDetails.linkedCount,
+        totalTracks: playlistDetails.totalTracks,
+        hasYoutubeConnection: true,
+        hasYoutubePlaylist: playlistDetails.hasYoutubePlaylist
+      });
+
       return res.send(
         await ejs.renderFile(path.join(__dirname, '../../views/partials/sync-response.ejs'), {
           playlistId,
@@ -659,7 +687,7 @@ router.post('/playlist/:playlistId',
           buttonText: 'Update YouTube Playlist',
           buttonClass: 'btn-outline-success',
           syncFeedbackHtml,
-          playlistDetailsHtml: '',
+          playlistDetailsHtml,
           playlistName: playlist.name,
           trackCount: playlist.tracks.total,
           spotifyUrl: playlist.external_urls.spotify,
@@ -686,11 +714,12 @@ router.post('/playlist/:playlistId',
       closeProgressConnections(playlistId, youtubeUserId);
 
       // Return error in sync-result div for sync.js to handle
-      return res.send(`
-        <div id="sync-result-${playlistId}">
-          <strong>No videos found</strong><br>Could not find any YouTube videos for the tracks in this playlist.
-        </div>
-      `);
+      const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/sync-error.ejs'), {
+        playlistId,
+        title: 'No videos found',
+        message: 'Could not find any YouTube videos for the tracks in this playlist.'
+      });
+      return res.send(html);
     }
     
     // Create playlist if it doesn't exist
@@ -1040,7 +1069,12 @@ router.post('/playlist/:playlistId',
       const gaxiosError = error as { errors?: Array<{ reason?: string }> };
       if (gaxiosError.errors && gaxiosError.errors.some((e) => e.reason === 'quotaExceeded')) {
         Logger.warn('YouTube API quota exceeded - sync stopped gracefully');
-        return res.status(429).send('<strong>YouTube API Quota Exceeded</strong><br>You\'ve reached the daily YouTube API quota limit. Please try again tomorrow when the quota resets.');
+        const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/sync-error.ejs'), {
+          playlistId: 'unknown',
+          title: 'YouTube API Quota Exceeded',
+          message: 'You\'ve reached the daily YouTube API quota limit. Please try again tomorrow when the quota resets.'
+        });
+        return res.status(429).send(html);
       }
     }
     
@@ -1060,7 +1094,12 @@ router.post('/playlist/:playlistId',
       return res.status(401).send(html);
     }
     
-    res.status(500).send(`<strong>Error syncing playlist</strong><br>Something went wrong during the sync process. Please try again. Details: ${formatErrorDetails(error)}`);
+    const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/sync-error.ejs'), {
+      playlistId: 'unknown',
+      title: 'Error syncing playlist',
+      message: `Something went wrong during the sync process. Please try again. Details: ${formatErrorDetails(error)}`
+    });
+    res.status(500).send(html);
   }
 });
 
