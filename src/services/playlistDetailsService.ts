@@ -118,7 +118,7 @@ export async function fetchPlaylistDetails(
     do {
       const response: youtube_v3.Schema$PlaylistItemListResponse = await youtube.playlistItems
         .list({
-          part: ['snippet', 'contentDetails'],
+          part: ['id', 'snippet'],
           playlistId: youtubePlaylistId,
           maxResults: 50,
           pageToken: nextPageToken

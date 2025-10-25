@@ -75,13 +75,16 @@ function calculateMatchScore(spotifyTrack: SimplifiedTrack, youtubeVideo: Simpli
 }
 
 function extractCoreTitle(title: string): string {
-  let coreTitle = normalizeText(title);
+  let coreTitle = title;
 
-  // Remove everything after common metadata indicators
+  // FIRST: Remove metadata in parentheses/brackets BEFORE normalization
+  // This ensures we catch patterns like (Official Video), (Official Audio), etc.
+  coreTitle = coreTitle.replace(/\s*\(\s*(official|remaster|live|acoustic|demo|radio|edit|mix|version|instrumental|audio|video)\s*\).*$/i, '').trim();
+  coreTitle = coreTitle.replace(/\s*\[\s*(official|remaster|live|acoustic|demo|radio|edit|mix|version|instrumental|audio|video)\s*\].*$/i, '').trim();
+
+  // Remove other metadata patterns before normalization
   const metadataPatterns = [
     /\s*-\s*(remaster|live|acoustic|demo|radio|edit|mix|version|instrumental).*$/i,
-    /\s*\(\s*(remaster|live|acoustic|demo|radio|edit|mix|version|instrumental).*\).*$/i,
-    /\s*\[\s*(remaster|live|acoustic|demo|radio|edit|mix|version|instrumental).*\].*$/i,
     /\s*-\s*\d{4}.*$/i, // Remove "- 2016 Remaster" etc.
     /\s*\(\s*\d{4}.*\).*$/i, // Remove "(2016 Remaster)" etc.
     /\s*\[\s*\d{4}.*\].*$/i, // Remove "[2016 Remaster]" etc.
@@ -95,6 +98,9 @@ function extractCoreTitle(title: string): string {
   for (const pattern of metadataPatterns) {
     coreTitle = coreTitle.replace(pattern, '').trim();
   }
+
+  // THEN: Normalize after removing the obvious metadata
+  coreTitle = normalizeText(coreTitle);
 
   // Special handling for "Pt." - keep it but remove what comes after
   coreTitle = coreTitle.replace(/(\s*,?\s*pt\.?\s*\d+).*$/i, '$1');
@@ -114,7 +120,7 @@ function normalizeText(text: string): string {
     .toLowerCase()
     .replace(/[^\w\s]/g, ' ') // Replace punctuation with spaces
     .replace(/\s+/g, ' ') // Collapse multiple spaces
-    .replace(/\b(official|video|audio|live|remix|version|ft|feat|featuring)\b/g, '') // Remove common extra words
+    .replace(/\b(ft|feat|featuring)\b/g, '') // Only remove collaboration markers
     .trim();
 }
 
