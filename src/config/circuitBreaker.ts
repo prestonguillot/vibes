@@ -19,7 +19,7 @@ export interface CircuitBreakerConfig {
  */
 export const youtubeCircuitBreakerConfig: CircuitBreakerConfig = {
   failureThreshold: 2,        // Open after 2 quota failures
-  resetTimeout: 5 * 60 * 1000, // Wait 5 minutes before retrying
+  resetTimeout: 10 * 1000,    // Wait 10 seconds before retrying
   successThreshold: 1          // Close after 1 successful request
 };
 
@@ -31,6 +31,6 @@ export const youtubeCircuitBreakerConfig: CircuitBreakerConfig = {
  */
 export const spotifyCircuitBreakerConfig: CircuitBreakerConfig = {
   failureThreshold: 2,        // Open after 2 quota failures
-  resetTimeout: 5 * 60 * 1000, // Wait 5 minutes before retrying
+  resetTimeout: 10 * 1000,    // Wait 10 seconds before retrying
   successThreshold: 1          // Close after 1 successful request
 };
