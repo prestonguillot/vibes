@@ -10,7 +10,7 @@ html {
 /* === BASE STYLES === */
 body {
     background: #f8f8f8;
-    background-image: 
+    background-image:
         radial-gradient(circle at 20% 80%, rgba(0,0,0,0.1) 1px, transparent 1px),
         radial-gradient(circle at 80% 20%, rgba(0,0,0,0.1) 1px, transparent 1px),
         radial-gradient(circle at 40% 40%, rgba(0,0,0,0.05) 1px, transparent 1px),
@@ -20,7 +20,8 @@ body {
     font-family: 'Courier Prime', monospace;
     min-height: 100vh;
     width: 100%;
-    overflow-x: hidden;
+    min-width: 390px;
+    overflow-x: auto;
 }
 
 .container {
