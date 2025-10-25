@@ -1,10 +1,69 @@
 /**
- * Simplified Sync Module - HTMX-friendly approach
- * Handles only SSE progress updates; HTMX handles all other interactions
+ * Sync Status Box Manager
+ * Single component with multiple states: working, success, warning, error
  */
 
 // Track SSE connections for cleanup
 const sseConnections = new Map();
+const statusBoxTimers = new Map();
+
+// Helper function to set status box state
+function setStatusBoxState(playlistId, state, content = '') {
+  const statusBox = document.getElementById(`sync-status-${playlistId}`);
+  if (!statusBox) return;
+
+  // Cancel any pending timers
+  if (statusBoxTimers.has(playlistId)) {
+    clearTimeout(statusBoxTimers.get(playlistId));
+    statusBoxTimers.delete(playlistId);
+  }
+
+  // Remove fade-out class if present
+  statusBox.classList.remove('fade-out');
+
+  // Update state
+  statusBox.className = `sync-status-box sync-status-${state}`;
+  statusBox.setAttribute('data-state', state);
+
+  // Update content if provided
+  if (content) {
+    statusBox.querySelector('.sync-status-content').innerHTML = content;
+  }
+
+  // Setup close button handler for dismissible states
+  if (['success', 'warning', 'error'].includes(state)) {
+    const closeBtn = statusBox.querySelector('.sync-status-close');
+    if (closeBtn) {
+      closeBtn.onclick = () => hideStatusBox(playlistId);
+    }
+  }
+
+  // Auto-fade for success only (not warning or error)
+  if (state === 'success') {
+    const timer = setTimeout(() => {
+      hideStatusBox(playlistId);
+    }, 5000);
+    statusBoxTimers.set(playlistId, timer);
+  }
+}
+
+// Helper function to hide status box
+function hideStatusBox(playlistId) {
+  const statusBox = document.getElementById(`sync-status-${playlistId}`);
+  if (!statusBox) return;
+
+  // Cancel any pending timer
+  if (statusBoxTimers.has(playlistId)) {
+    clearTimeout(statusBoxTimers.get(playlistId));
+    statusBoxTimers.delete(playlistId);
+  }
+
+  statusBox.classList.add('fade-out');
+  setTimeout(() => {
+    statusBox.classList.remove('fade-out');
+    statusBox.style.display = 'none';
+  }, 300);
+}
 
 // Show progress and start SSE when sync begins
 document.body.addEventListener('htmx:beforeRequest', (event) => {
@@ -12,24 +71,25 @@ document.body.addEventListener('htmx:beforeRequest', (event) => {
   if (!path || !path.includes('/sync/playlist/')) return;
 
   const playlistId = path.split('/').pop();
-  const progressDiv = document.getElementById(`progress-${playlistId}`);
 
-  if (progressDiv) {
-    progressDiv.classList.remove('hidden');
-    // Show initial loading spinner
-    progressDiv.innerHTML = `
+  // Show status box in working state
+  const statusBox = document.getElementById(`sync-status-${playlistId}`);
+  if (statusBox) {
+    statusBox.style.display = 'block';
+    setStatusBoxState(playlistId, 'working', `
       <div style="display: flex; align-items: center; gap: 12px;">
         <div class="spinner-border spinner-border-sm text-primary" role="status">
           <span class="visually-hidden">Loading...</span>
         </div>
         <span>Starting sync...</span>
       </div>
-    `;
-    startSSE(playlistId);
+    `);
   }
+
+  startSSE(playlistId);
 });
 
-// Hide progress and close SSE when sync completes
+// Handle sync completion - update status box to success
 document.body.addEventListener('htmx:afterRequest', (event) => {
   const path = event.detail.requestConfig?.path;
   if (!path || !path.includes('/sync/playlist/')) return;
@@ -38,11 +98,17 @@ document.body.addEventListener('htmx:afterRequest', (event) => {
 
   closeSSE(playlistId);
 
-  // Hide progress after a short delay
-  setTimeout(() => {
-    const progressDiv = document.getElementById(`progress-${playlistId}`);
-    if (progressDiv) progressDiv.classList.add('hidden');
-  }, 2000);
+  // Find the sync feedback content that HTMX placed in sync-result
+  const syncResultDiv = document.getElementById(`sync-result-${playlistId}`);
+  if (syncResultDiv) {
+    const feedbackContent = syncResultDiv.innerHTML;
+
+    // Update status box to success with the feedback content
+    setStatusBoxState(playlistId, 'success', feedbackContent);
+
+    // Clear the sync-result div since content is now in status box
+    syncResultDiv.innerHTML = '';
+  }
 });
 
 // Handle HTMX errors specifically for sync operations
@@ -54,14 +120,22 @@ document.body.addEventListener('htmx:sendError', (event) => {
 
   const playlistId = path.split('/').pop();
 
-  // Clean up SSE connection on error
   closeSSE(playlistId);
 
-  // Hide progress on error
-  const progressDiv = document.getElementById(`progress-${playlistId}`);
-  if (progressDiv) {
-    progressDiv.classList.add('hidden');
+  // Show error state (does not auto-fade)
+  // If there's feedback content from the server, use it; otherwise show generic error
+  const syncResultDiv = document.getElementById(`sync-result-${playlistId}`);
+  let errorContent = '<strong>Sync failed</strong><br>Please try again';
+
+  if (syncResultDiv) {
+    const feedbackContent = syncResultDiv.innerHTML;
+    if (feedbackContent) {
+      errorContent = feedbackContent;
+    }
+    syncResultDiv.innerHTML = '';
   }
+
+  setStatusBoxState(playlistId, 'error', errorContent);
 });
 
 // Start SSE connection for a playlist
@@ -73,8 +147,8 @@ function startSSE(playlistId) {
   sseConnections.set(playlistId, eventSource);
 
   eventSource.onmessage = (event) => {
-    const progressDiv = document.getElementById(`progress-${playlistId}`);
-    if (!progressDiv) return;
+    const statusBox = document.getElementById(`sync-status-${playlistId}`);
+    if (!statusBox) return;
 
     // Check if this is a control message (JSON) or HTML content
     // Control messages like {"type":"connected"} should be ignored
@@ -83,8 +157,11 @@ function startSSE(playlistId) {
       return;
     }
 
-    // Server sends HTML directly - just swap it in
-    progressDiv.innerHTML = event.data;
+    // Server sends progress HTML - update the content while keeping working state
+    const contentDiv = statusBox.querySelector('.sync-status-content');
+    if (contentDiv) {
+      contentDiv.innerHTML = event.data;
+    }
   };
 
   // Listen for the "close" event from server (graceful shutdown)

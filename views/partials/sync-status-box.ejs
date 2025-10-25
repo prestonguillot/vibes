@@ -1,0 +1,14 @@
+<!-- Sync Status Box - Single component with multiple states -->
+<div id="sync-status-<%= playlistId %>"
+     class="sync-status-box sync-status-<%= state %>"
+     data-playlist-id="<%= playlistId %>"
+     data-state="<%= state %>">
+
+  <div class="sync-status-content">
+    <%- content %>
+  </div>
+
+  <% if (['success', 'warning', 'error'].includes(state)) { %>
+    <button type="button" class="sync-status-close" aria-label="Close"></button>
+  <% } %>
+</div>
