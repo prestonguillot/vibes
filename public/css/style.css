@@ -408,6 +408,12 @@ body {
   box-shadow: 2px 2px 0px rgba(0,0,0,0.3);
   justify-self: center;
   align-self: center;
+  transition: filter 0.2s ease, border-color 0.2s ease;
+}
+
+.youtube-video__thumbnail--clickable:hover {
+  filter: brightness(0.85);
+  border-color: #0066ff;
 }
 
 .youtube-video__thumbnail--placeholder {

@@ -9,7 +9,8 @@
       "Bash(npx tsc --noEmit)",
       "Bash(npx tsc --noEmit src/routes/spotify.ts)",
       "Bash(cat package.json)",
-      "Read(//Users/prestonguillot/Desktop/**)"
+      "Read(//Users/prestonguillot/Desktop/**)",
+      "Bash(awk:*)"
     ],
     "deny": [],
     "ask": []
