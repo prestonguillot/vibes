@@ -55,9 +55,10 @@
     </div>
   </div>
 
-  <!-- Progress display area for real-time SSE updates -->
-  <div id="progress-<%= id %>" class="playlist-progress hidden">
-    <!-- SSE progress updates will be swapped in here by sync.js -->
+  <!-- Sync Status Box - shows working, success, warning, or error states -->
+  <div id="sync-status-<%= id %>" class="sync-status-box sync-status-working" style="display: none;">
+    <div class="sync-status-content"></div>
+    <button type="button" class="sync-status-close" aria-label="Close"></button>
   </div>
 
   <!-- Sync result area for final summary -->

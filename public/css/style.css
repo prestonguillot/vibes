@@ -1478,6 +1478,81 @@ body.oauth-error-body {
     border-left: 8px solid #0066ff;
 }
 
+/* Sync Status Box - Single component with multiple states */
+.sync-status-box {
+    position: relative;
+    display: block;
+    padding: 20px 15px;
+    margin: 12px 0 0 0;
+    border: 1px solid;
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.9rem;
+    min-height: 80px;
+}
+
+.sync-status-content {
+    padding-right: 32px;
+}
+
+.sync-status-close {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: inherit;
+}
+
+.sync-status-close::before {
+    content: '✕';
+}
+
+/* Working state - blue */
+.sync-status-working {
+    background-color: #e3f2fd;
+    border-color: #2196f3;
+    color: #1976d2;
+}
+
+.sync-status-working .sync-status-close {
+    display: none;
+}
+
+/* Success state - green */
+.sync-status-success {
+    background-color: #d4edda;
+    border-color: #28a745;
+    color: #155724;
+}
+
+/* Warning state - yellow */
+.sync-status-warning {
+    background-color: #fff3cd;
+    border-color: #ffc107;
+    color: #856404;
+}
+
+/* Error state - red */
+.sync-status-error {
+    background-color: #f8d7da;
+    border-color: #f5c6cb;
+    color: #721c24;
+}
+
+/* Fade out animation */
+.sync-status-box.fade-out {
+    transition: opacity 0.3s ease;
+    opacity: 0;
+}
+
 .punk-alert__header {
     margin-bottom: 12px;
 }
