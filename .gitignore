@@ -144,3 +144,10 @@ local/
 # Test files
 test-results/
 coverage/
+
+# Claude Code configuration and project-specific files
+.claude/
+
+# Local development and debugging
+.debug/
+debug.log
