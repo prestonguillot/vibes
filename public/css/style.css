@@ -1605,3 +1605,46 @@ body.oauth-error-body {
     margin: 0;
     padding: 0;
 }
+
+/* === PLAYLIST SEARCH === */
+.search-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.search-icon {
+    position: absolute;
+    left: 12px;
+    font-size: 1.1rem;
+    pointer-events: none;
+    color: #666;
+}
+
+.search-input {
+    padding-left: 40px !important;
+    border: 2px solid #000;
+    border-radius: 0;
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.95rem;
+}
+
+.search-input:focus {
+    border-color: #0066ff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 102, 255, 0.25);
+    outline: none;
+}
+
+.search-input::placeholder {
+    color: #999;
+}
+
+/* Hide playlist items that don't match search */
+.playlist-item.search-hidden {
+    display: none;
+}
+
+/* Hide the "no search results" message by default */
+.no-search-results {
+    display: none;
+}

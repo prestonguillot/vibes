@@ -107,6 +107,18 @@
                                         </div>
                                     </div>
                                 </div>
+                                <!-- Playlist Search -->
+                                <div class="mb-3">
+                                    <div class="search-input-wrapper">
+                                        <span class="search-icon">🔍</span>
+                                        <input
+                                            type="text"
+                                            id="playlistSearch"
+                                            class="form-control form-control-sm search-input"
+                                            placeholder="Search playlists and tracks..."
+                                            autocomplete="off">
+                                    </div>
+                                </div>
                                 <div id="playlists-content"
                                      hx-get="/auth/spotify/playlists?ownOnly=true"
                                      hx-trigger="load">
@@ -157,6 +169,7 @@
     <script src="/js/videoModal.js"></script>
     <script src="/js/sync.js"></script>
     <script src="/js/playlistFilter.js"></script>
+    <script src="/js/playlistSearch.js"></script>
     <script src="/js/playlistScroll.js"></script>
     <script src="/js/youtubeConnectionRefresh.js"></script>
 
