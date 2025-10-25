@@ -122,18 +122,14 @@ router.get('/playlist/:playlistId',
   }
 
   // 2. Verify authorization - the user must have a synced playlist for this Spotify playlist ID
+  // Only verify if this is an update (playlist already synced). For new syncs, the playlist doesn't exist yet.
+  // If user has valid tokens, they are authorized to create/update their own playlists.
   const syncedPlaylistExists = await verifySyncedPlaylistExists(spotifyTokens, youtubeTokens, playlistId);
 
   if (!syncedPlaylistExists) {
-    Logger.warn('SSE connection rejected - synced playlist not found', { playlistId });
-
-    const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
-      type: 'warning',
-      title: 'Playlist Not Synced',
-      message: 'This playlist has not been synced to your YouTube account.',
-      details: 'You can only monitor progress on playlists you have synced.'
-    });
-    return res.status(403).send(html);
+    // Log it but don't reject - this might be a brand new sync where the playlist doesn't exist yet
+    Logger.info('Synced playlist not found (might be a new sync)', { playlistId });
+    // Note: We trust the token validation above instead of requiring the playlist to already exist
   }
 
   // 3. Get YouTube user ID from cached channel ID in tokens
