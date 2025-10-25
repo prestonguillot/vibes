@@ -12,6 +12,7 @@ import { youtubeRouter } from './routes/youtube';
 import { syncRouter } from './routes/sync';
 import { playlistDetailsRouter } from './routes/playlistDetails';
 import { progressRouter } from './routes/progress';
+import playlistTracksRouter from './routes/playlistTracks';
 import { Logger } from './utils/logger';
 import { validateSpotifyConnection, validateYouTubeConnection } from './utils/authValidation';
 import { csrfCookieMiddleware, getCsrfToken } from './utils/csrf';
@@ -111,6 +112,7 @@ export function createApp() {
   app.use('/api/sync', syncRouter);
   app.use('/api/playlistDetails', playlistDetailsRouter);
   app.use('/api/progress', progressRouter);
+  app.use(playlistTracksRouter);
 
   // Main page
   app.get('/', (req, res) => {

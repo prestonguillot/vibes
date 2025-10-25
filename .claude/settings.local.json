@@ -10,7 +10,10 @@
       "Bash(npx tsc --noEmit src/routes/spotify.ts)",
       "Bash(cat package.json)",
       "Read(//Users/prestonguillot/Desktop/**)",
-      "Bash(awk:*)"
+      "Bash(awk:*)",
+      "WebFetch(domain:developer.spotify.com)",
+      "Bash(npm run build:*)",
+      "Bash(npm run dev:*)"
     ],
     "deny": [],
     "ask": []
