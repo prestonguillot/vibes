@@ -89,6 +89,54 @@ document.body.addEventListener('htmx:beforeRequest', (event) => {
   startSSE(playlistId);
 });
 
+// Move a newly synced playlist to the correct position among synced playlists
+function movePlaylistToSyncedSection(playlistId) {
+  const playlistItem = document.querySelector(`[data-playlist-id="${playlistId}"]`);
+  if (!playlistItem) return;
+
+  const playlistsContainer = document.getElementById('playlists-content');
+  if (!playlistsContainer) return;
+
+  // Get the playlist name to use for alphabetical sorting
+  const nameElement = playlistItem.querySelector('h5');
+  if (!nameElement) return;
+
+  const playlistName = nameElement.textContent.trim();
+
+  // Find all playlist items in the container
+  const allPlaylistItems = Array.from(playlistsContainer.querySelectorAll('[data-playlist-id]'));
+
+  // Find where this playlist should be inserted (alphabetical order, case-insensitive)
+  let insertBeforeItem = null;
+  for (let i = 0; i < allPlaylistItems.length; i++) {
+    const otherItem = allPlaylistItems[i];
+    if (otherItem === playlistItem) continue;
+
+    // Check if the other item comes after this one alphabetically
+    const otherNameElement = otherItem.querySelector('h5');
+    if (!otherNameElement) continue;
+
+    const otherName = otherNameElement.textContent.trim();
+
+    // If we find an item that comes after this one alphabetically, insert before it
+    if (otherName.localeCompare(playlistName) > 0) {
+      insertBeforeItem = otherItem;
+      break;
+    }
+  }
+
+  // Move the playlist item to its correct position
+  if (insertBeforeItem) {
+    insertBeforeItem.parentNode.insertBefore(playlistItem, insertBeforeItem);
+  } else {
+    // If no item found after, move to the end
+    playlistsContainer.appendChild(playlistItem);
+  }
+
+  // Scroll to the top of the playlist item with a smooth animation
+  playlistItem.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 // Handle sync completion - update status box to success
 document.body.addEventListener('htmx:afterRequest', (event) => {
   const path = event.detail.requestConfig?.path;
@@ -109,6 +157,9 @@ document.body.addEventListener('htmx:afterRequest', (event) => {
     // Clear the sync-result div since content is now in status box
     syncResultDiv.innerHTML = '';
   }
+
+  // Move the playlist to its correct position among synced playlists
+  movePlaylistToSyncedSection(playlistId);
 });
 
 // Handle HTMX errors specifically for sync operations
