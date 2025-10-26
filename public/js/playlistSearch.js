@@ -133,7 +133,8 @@ document.addEventListener('DOMContentLoaded', function() {
       return;
     }
 
-    const playlistItems = playlistsContainer.querySelectorAll('[data-playlist-id]');
+    // Only select the main playlist item containers, not other elements with data-playlist-id
+    const playlistItems = playlistsContainer.querySelectorAll('.playlist-item');
     const playlistIds = Array.from(playlistItems).map(item => item.dataset.playlistId);
 
     if (playlistIds.length === 0) {
