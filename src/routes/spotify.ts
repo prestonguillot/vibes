@@ -237,15 +237,16 @@ router.get('/playlists',
             Logger.warn('YouTube API quota exceeded when fetching playlists, clearing tokens', { errorCode });
             // Open circuit breaker for quota errors
             youtubeCircuitBreaker.open();
-            // Clear YouTube tokens so user sees disconnected state
+            // Clear YouTube tokens
             res.clearCookie('youtube_tokens');
-            youtubeTokens = null;
+            // Redirect with error - same behavior as OAuth callback failure
+            return res.redirect('/?error=youtube&reason=quota_exceeded');
           } else {
             Logger.warn('Could not fetch YouTube playlists for sorting', {}, error);
             // Record failure but don't necessarily open circuit (might be transient)
             youtubeCircuitBreaker.recordFailure(error);
+            // Continue without YouTube playlist info
           }
-          // Continue without YouTube playlist info
         }
       }
     }
