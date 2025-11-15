@@ -226,14 +226,6 @@ export function createApp() {
     const spotifyTokens = parseSpotifyTokenCookie(req.cookies.spotify_tokens, res);
     const spotifyResult = await validateSpotifyConnection(spotifyTokens, res);
 
-    // Check for OAuth callback error cookie
-    let error = spotifyResult.error;
-    if (!error && req.cookies.spotify_connection_error) {
-      error = decodeURIComponent(req.cookies.spotify_connection_error);
-      // Clear the error cookie since we're displaying it
-      res.clearCookie('spotify_connection_error');
-    }
-
     // Ensure minimum display time of 500ms to prevent flash
     const elapsed = Date.now() - startTime;
     const minDisplayTime = 500;
@@ -244,7 +236,7 @@ export function createApp() {
     res.render('partials/connection-button', {
       service: 'spotify',
       connected: spotifyResult.connected,
-      error: error,
+      error: spotifyResult.error,
       loading: false
     });
   });
@@ -253,14 +245,6 @@ export function createApp() {
     const startTime = Date.now();
     const youtubeTokens = parseYouTubeTokenCookie(req.cookies.youtube_tokens, res);
     const youtubeResult = await validateYouTubeConnection(youtubeTokens, res);
-
-    // Check for OAuth callback error cookie
-    let error = youtubeResult.error;
-    if (!error && req.cookies.youtube_connection_error) {
-      error = decodeURIComponent(req.cookies.youtube_connection_error);
-      // Clear the error cookie since we're displaying it
-      res.clearCookie('youtube_connection_error');
-    }
 
     // Ensure minimum display time of 500ms to prevent flash
     const elapsed = Date.now() - startTime;
@@ -277,7 +261,7 @@ export function createApp() {
     res.render('partials/connection-button', {
       service: 'youtube',
       connected: youtubeResult.connected,
-      error: error,
+      error: youtubeResult.error,
       loading: false
     });
   });

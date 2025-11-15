@@ -129,25 +129,18 @@ router.get('/callback',
     res.redirect('/');
   } catch (error) {
     Logger.error('Error getting YouTube tokens', {}, error);
-    // Redirect back to home with error message in cookie
-    // so status endpoint can display it to user
-    let errorMessage = 'YouTube connection failed. Please try again.';
+    // Redirect back to home with error indicator in query params
+    let errorReason = 'failed';
     if (error instanceof Error) {
       const err = error as any;
       // Check for quota exceeded errors
       if (err.code === 403 || err.errors?.[0]?.reason === 'quotaExceeded') {
-        errorMessage = 'YouTube API quota exceeded. Please wait and try again later.';
+        errorReason = 'quota_exceeded';
       } else if (err.code === 401 || err.code === 400) {
-        errorMessage = 'YouTube authentication failed. Please try reconnecting.';
+        errorReason = 'auth_error';
       }
     }
-    // Set error cookie for status endpoint to display
-    res.cookie('youtube_connection_error', encodeURIComponent(errorMessage), {
-      httpOnly: false,
-      maxAge: 10000, // 10 seconds
-      sameSite: 'strict'
-    });
-    res.redirect('/');
+    res.redirect(`/?error=youtube&reason=${errorReason}`);
   }
 });
 

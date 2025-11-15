@@ -135,13 +135,9 @@ describe('Spotify Playlists', () => {
         .query({ code: 'test-authorization-code-from-spotify' });
 
       // Validation passes, but mocked Spotify API returns error
-      // Route catches the error and redirects back to home (302)
-      // Error message is stored in a cookie for the status endpoint to display
+      // Route catches the error and redirects back to home with error params
       expect(response.status).toBe(302);
-      expect(response.headers['location']).toBe('/');
-      expect(response.headers['set-cookie']).toBeDefined();
-      const setCookies = Array.isArray(response.headers['set-cookie']) ? response.headers['set-cookie'] : [response.headers['set-cookie']];
-      expect(setCookies.some((cookie: string) => cookie.includes('spotify_connection_error'))).toBe(true);
+      expect(response.headers['location']).toMatch(/^\/\?error=spotify&reason=/);
     });
   });
 

@@ -6,12 +6,10 @@ const loginUrl = `/auth/${service}/login`;
 const hasError = error && error.trim().length > 0;
 %>
 
-<% if (hasError) { %>
-  <div class="alert <%= alertClass %> alert-dismissible fade show mb-2" role="alert">
-    <strong><%= serviceCapitalized %> Connection Error:</strong> <%= error %>
-    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-  </div>
-<% } %>
+<%
+// Remove error from display - it will be shown in a modal instead
+// This keeps the connection button area clean and prevents layout shifts
+%>
 
 <% if (typeof loading !== 'undefined' && loading) { %>
   <button class="btn <%= buttonClass %> connect-btn disabled" disabled data-service="<%= service %>" data-connected="loading">

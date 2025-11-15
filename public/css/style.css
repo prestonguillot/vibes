@@ -1649,3 +1649,52 @@ body.oauth-error-body {
 .no-search-results {
     display: none;
 }
+
+/* Connection error modal styling */
+.connection-error-modal .modal-body {
+    padding: 30px;
+    text-align: center;
+}
+
+.connection-error-modal .modal-message {
+    font-size: 1rem;
+    line-height: 1.6;
+    margin-bottom: 20px;
+}
+
+/* Connection error modal button - matches app button style */
+.btn-error-modal {
+    font-family: 'Courier Prime', monospace;
+    font-weight: 700;
+    border: 2px solid #000;
+    border-radius: 0;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 8px 24px;
+    font-size: 14px;
+    background-color: #007bff;
+    color: #fff;
+    box-shadow: 2px 2px 0px rgba(0,0,0,0.3);
+    transition: all 0.2s ease;
+}
+
+.btn-error-modal:hover {
+    background-color: #0056b3;
+    color: #fff;
+    border: 2px solid #000;
+    transform: translateY(-1px);
+    box-shadow: 3px 3px 0px rgba(0,0,0,0.5);
+}
+
+.btn-error-modal:focus {
+    outline: none;
+    background-color: #0056b3;
+    border: 2px solid #000;
+    box-shadow: 3px 3px 0px rgba(0,0,0,0.5);
+}
+
+.btn-error-modal:active {
+    border: 2px solid #000;
+    transform: translateY(1px);
+    box-shadow: 1px 1px 0px rgba(0,0,0,0.3);
+}
