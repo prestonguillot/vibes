@@ -163,6 +163,26 @@
         </div>
     </div>
 
+    <!-- OAuth Connection Error Modal -->
+    <div class="modal fade connection-error-modal" id="connectionErrorModal" tabindex="-1" aria-labelledby="connectionErrorLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="connectionErrorLabel">Connection Failed</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <p class="modal-message" id="connectionErrorMessage">
+              <!-- Error message will be inserted here -->
+            </p>
+            <div class="text-center">
+              <button type="button" class="btn btn-error-modal" data-bs-dismiss="modal">OK</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- External JavaScript Modules -->
     <script src="/js/logger.js"></script>
     <script src="/js/eventLogging.js"></script>
@@ -173,8 +193,40 @@
     <script src="/js/playlistScroll.js"></script>
     <script src="/js/youtubeConnectionRefresh.js"></script>
 
-    <!-- Handle clickable video thumbnails -->
+    <!-- Handle OAuth errors and video thumbnails -->
     <script>
+      // Handle OAuth connection errors from query parameters
+      document.addEventListener('DOMContentLoaded', () => {
+        const params = new URLSearchParams(window.location.search);
+        const errorService = params.get('error');
+        const errorReason = params.get('reason');
+
+        if (errorService) {
+          let errorMessage = 'Connection failed. Please try again.';
+          const serviceDisplay = errorService.charAt(0).toUpperCase() + errorService.slice(1);
+
+          // Customize message based on error reason
+          if (errorReason === 'quota_exceeded') {
+            errorMessage = `${serviceDisplay} API quota exceeded. Please wait and try again later.`;
+          } else if (errorReason === 'rate_limited') {
+            errorMessage = `Rate limited by ${serviceDisplay}. Please wait a moment and try again.`;
+          } else if (errorReason === 'auth_error') {
+            errorMessage = `${serviceDisplay} authentication failed. Please try reconnecting.`;
+          } else if (errorReason === 'service_unavailable') {
+            errorMessage = `${serviceDisplay} service is temporarily unavailable. Please try again soon.`;
+          }
+
+          // Update modal content and show it
+          document.getElementById('connectionErrorLabel').textContent = `${serviceDisplay} Connection Failed`;
+          document.getElementById('connectionErrorMessage').textContent = errorMessage;
+          const modal = new bootstrap.Modal(document.getElementById('connectionErrorModal'));
+          modal.show();
+
+          // Clean up URL after showing modal
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+      });
+
       // Handle clickable video thumbnails
       document.addEventListener('click', (e) => {
         const thumbnail = e.target.closest('.youtube-video__thumbnail--clickable');

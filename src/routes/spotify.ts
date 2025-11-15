@@ -113,27 +113,20 @@ router.get('/callback',
     res.redirect('/');
   } catch (error) {
     Logger.error('Error getting Spotify tokens', {}, error);
-    // Redirect back to home with error message in cookie
-    // so status endpoint can display it to user
-    let errorMessage = 'Spotify connection failed. Please try again.';
+    // Redirect back to home with error indicator in query params
+    let errorReason = 'failed';
     if (error instanceof Error) {
       const err = error as any;
       // Check for specific error types
       if (err.statusCode === 429) {
-        errorMessage = 'Rate limited by Spotify. Please wait a moment and try again.';
+        errorReason = 'rate_limited';
       } else if (err.statusCode === 401) {
-        errorMessage = 'Spotify authentication failed. Please try reconnecting.';
+        errorReason = 'auth_error';
       } else if (err.statusCode === 503 || err.statusCode === 502) {
-        errorMessage = 'Spotify service is temporarily unavailable. Please try again soon.';
+        errorReason = 'service_unavailable';
       }
     }
-    // Set error cookie for status endpoint to display
-    res.cookie('spotify_connection_error', encodeURIComponent(errorMessage), {
-      httpOnly: false,
-      maxAge: 10000, // 10 seconds
-      sameSite: 'strict'
-    });
-    res.redirect('/');
+    res.redirect(`/?error=spotify&reason=${errorReason}`);
   }
 });
 
