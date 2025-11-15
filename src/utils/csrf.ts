@@ -83,10 +83,6 @@ export function csrfCookieMiddleware(req: Request, res: Response, next: NextFunc
     // Extract existing token from signed cookie
     const [token] = existingToken.split('.');
     res.locals.csrfToken = token;
-
-    Logger.debug('Using existing CSRF token', {
-      tokenPrefix: token ? token.substring(0, 8) + '...' : 'INVALID'
-    });
   }
 
   next();
