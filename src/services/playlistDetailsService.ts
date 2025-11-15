@@ -58,12 +58,26 @@ export async function fetchPlaylistDetails(
   playlistId: string,
   youtubePlaylistId?: string
 ): Promise<PlaylistDetails> {
-  // Get Spotify playlist and tracks
+  // Get Spotify playlist
   Logger.external('Spotify', 'Fetching playlist', { playlistId });
   const spotifyPlaylistData = await spotifyApi.getPlaylist(playlistId);
 
+  // Fetch all tracks with pagination
+  const allPlaylistItems: Array<unknown> = [];
+  let offset = 0;
+  const limit = 50;
+  const totalTracks = spotifyPlaylistData.body.tracks.total;
+
+  do {
+    const response = await spotifyApi.getPlaylistTracks(playlistId, { limit, offset });
+    if (response.body.items && response.body.items.length > 0) {
+      allPlaylistItems.push(...response.body.items);
+    }
+    offset += limit;
+  } while (allPlaylistItems.length < totalTracks);
+
   // Extract and filter Spotify tracks
-  const spotifyTracks: SimplifiedTrack[] = spotifyPlaylistData.body.tracks.items
+  const spotifyTracks: SimplifiedTrack[] = allPlaylistItems
     .filter((item: unknown) => {
       const typedItem = item as { track: unknown | null };
       return typedItem.track !== null;
@@ -91,7 +105,7 @@ export async function fetchPlaylistDetails(
       };
     });
 
-  const totalTracksInPlaylist = spotifyPlaylistData.body.tracks.items.length;
+  const totalTracksInPlaylist = spotifyPlaylistData.body.tracks.total;
   const nullTracksCount = totalTracksInPlaylist - spotifyTracks.length;
 
   if (nullTracksCount > 0) {

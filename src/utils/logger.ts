@@ -25,9 +25,26 @@ function getInitialLogLevel(): LogLevel {
 // Current log level (can be changed at runtime via setLevel())
 let currentLogLevel = getInitialLogLevel();
 
-// Helper function to format timestamp
+// Helper function to format timestamp in local time as ISO 8601
 function formatTimestamp(): string {
-    return new Date().toISOString();
+    const now = new Date();
+
+    // Get local date/time components
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    const ms = String(now.getMilliseconds()).padStart(3, '0');
+
+    // Calculate timezone offset
+    const tzOffset = -now.getTimezoneOffset();
+    const tzHours = String(Math.floor(Math.abs(tzOffset) / 60)).padStart(2, '0');
+    const tzMinutes = String(Math.abs(tzOffset) % 60).padStart(2, '0');
+    const tzSign = tzOffset >= 0 ? '+' : '-';
+
+    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${ms}${tzSign}${tzHours}:${tzMinutes}`;
 }
 
 // Sensitive keys that should be redacted from logs
