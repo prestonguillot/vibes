@@ -93,11 +93,11 @@ describe('Index Page', () => {
       expect(response.text).toContain('id="syncBatchSize"');
       expect(response.text).toContain('Tracks per sync:');
 
-      // Should have all options
-      expect(response.text).toContain('<option value="1" selected>1</option>');
+      // Should have all options with "all" as default
+      expect(response.text).toContain('<option value="1">1</option>');
       expect(response.text).toContain('<option value="5">5</option>');
       expect(response.text).toContain('<option value="10">10</option>');
-      expect(response.text).toContain('<option value="all">All</option>');
+      expect(response.text).toContain('<option value="all" selected>All</option>');
     });
 
     it('should include "Show only playlists I created" toggle checked by default', async () => {
