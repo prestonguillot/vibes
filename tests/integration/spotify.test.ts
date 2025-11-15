@@ -614,4 +614,115 @@ describe('Spotify Playlists', () => {
       expect(response.text).toContain('expand-indicator');
     });
   });
+
+  describe('YouTube Quota Error Handling During Playlist Fetch', () => {
+    it('should redirect with error modal when YouTube quota is exceeded during playlist fetch', async () => {
+      // Mock Spotify API to return playlists
+      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
+      SpotifyWebApi.prototype.getMe = vi.fn(() =>
+        Promise.resolve({ body: { id: 'test-user' } })
+      );
+      SpotifyWebApi.prototype.getUserPlaylists = vi.fn(() =>
+        Promise.resolve({
+          body: {
+            items: [
+              {
+                id: '1234567890123456789012',
+                name: 'Test Playlist',
+                tracks: { total: 10 },
+                external_urls: { spotify: 'https://open.spotify.com/playlist/123' },
+                owner: { id: 'test-user' }
+              }
+            ]
+          }
+        })
+      );
+
+      // Mock YouTube API to fail with 403 quota exceeded
+      const googleapis = await import('googleapis');
+      const mockYoutubeApi = googleapis.google.youtube({} as any);
+      mockYoutubeApi.playlists.list = vi.fn(() =>
+        Promise.reject({
+          code: 403,
+          message: 'The request cannot be completed because you have exceeded your quota.',
+          errors: [{ reason: 'quotaExceeded' }]
+        })
+      ) as any;
+
+      // Set both Spotify and YouTube tokens
+      const spotifyTokens = JSON.stringify({
+        accessToken: 'test-spotify-token',
+        refreshToken: 'test-spotify-refresh'
+      });
+      const youtubeTokens = createMockYouTubeToken();
+
+      const response = await request(app)
+        .get('/auth/spotify/playlists')
+        .set('Cookie', [
+          `spotify_tokens=${spotifyTokens}`,
+          `youtube_tokens=${youtubeTokens}`
+        ]);
+
+      // Should redirect with error query parameters for modal display
+      expect(response.status).toBe(302);
+      expect(response.headers['location']).toMatch(/^\/\?error=youtube&reason=quota_exceeded/);
+    });
+
+    it('should open circuit breaker when YouTube quota is exceeded during playlist fetch', async () => {
+      // Mock Spotify API
+      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
+      SpotifyWebApi.prototype.getMe = vi.fn(() =>
+        Promise.resolve({ body: { id: 'test-user' } })
+      );
+      SpotifyWebApi.prototype.getUserPlaylists = vi.fn(() =>
+        Promise.resolve({
+          body: {
+            items: [
+              {
+                id: '1234567890123456789012',
+                name: 'Test Playlist',
+                tracks: { total: 10 },
+                external_urls: { spotify: 'https://open.spotify.com/playlist/123' },
+                owner: { id: 'test-user' }
+              }
+            ]
+          }
+        })
+      );
+
+      // Mock YouTube API to fail with 403
+      const googleapis = await import('googleapis');
+      const mockYoutubeApi = googleapis.google.youtube({} as any);
+      mockYoutubeApi.playlists.list = vi.fn(() =>
+        Promise.reject({
+          code: 403,
+          message: 'Quota exceeded'
+        })
+      ) as any;
+
+      // Import circuit breaker to check its state
+      const { youtubeCircuitBreaker } = await import('../../src/utils/circuitBreaker');
+      youtubeCircuitBreaker.close(); // Start fresh
+
+      const spotifyTokens = JSON.stringify({
+        accessToken: 'test-spotify-token',
+        refreshToken: 'test-spotify-refresh'
+      });
+      const youtubeTokens = createMockYouTubeToken();
+
+      const response = await request(app)
+        .get('/auth/spotify/playlists')
+        .set('Cookie', [
+          `spotify_tokens=${spotifyTokens}`,
+          `youtube_tokens=${youtubeTokens}`
+        ]);
+
+      // Should have redirected with error
+      expect(response.status).toBe(302);
+      expect(response.headers['location']).toMatch(/^\/\?error=youtube&reason=quota_exceeded/);
+
+      // Circuit breaker should now be open
+      expect(youtubeCircuitBreaker.isOpen()).toBe(true);
+    });
+  });
 });
