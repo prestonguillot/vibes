@@ -283,48 +283,107 @@ export async function reorderPlaylistTracks(
     });
   }
 
-  // Calculate operations based on the greedy algorithm
-  // Working copy of current order to track position changes during simulation
-  const workingOrder = [...currentOrder];
+  // Calculate operations using Longest Increasing Subsequence (LIS) algorithm
+  // This minimizes the number of moves needed by only moving videos that are out of order
 
-  Logger.info('Starting reorder calculation', {
+  Logger.info('Starting reorder calculation with LIS algorithm', {
     currentOrder: currentOrder.slice(0, 10),
     targetOrder: targetOrder.slice(0, 10)
   });
 
-  // Process videos in target order from start to end
-  for (let finalPosition = 0; finalPosition < targetOrder.length; finalPosition++) {
-    const videoId = targetOrder[finalPosition];
-    const currentPosition = workingOrder.indexOf(videoId);
+  // Create a map of each video's target position
+  const targetPositionMap = new Map<string, number>();
+  for (let i = 0; i < targetOrder.length; i++) {
+    targetPositionMap.set(targetOrder[i], i);
+  }
 
-    if (currentPosition !== finalPosition) {
+  // Find the Longest Increasing Subsequence of videos already in correct relative order
+  // Videos in the LIS don't need to be moved, only videos outside the LIS need moving
+  const positions = currentOrder.map(videoId => targetPositionMap.get(videoId) ?? -1);
+
+  // Calculate LIS using dynamic programming
+  const lisLength = positions.length;
+  const dp: number[] = Array(lisLength).fill(1);
+  const parent: number[] = Array(lisLength).fill(-1);
+
+  for (let i = 1; i < lisLength; i++) {
+    for (let j = 0; j < i; j++) {
+      if (positions[j] < positions[i] && dp[j] + 1 > dp[i]) {
+        dp[i] = dp[j] + 1;
+        parent[i] = j;
+      }
+    }
+  }
+
+  // Find the index with maximum LIS length
+  let maxLen = 0;
+  let maxIdx = -1;
+  for (let i = 0; i < lisLength; i++) {
+    if (dp[i] > maxLen && positions[i] !== -1) {
+      maxLen = dp[i];
+      maxIdx = i;
+    }
+  }
+
+  // Reconstruct the LIS indices
+  const lisIndices = new Set<number>();
+  let idx = maxIdx;
+  while (idx !== -1) {
+    lisIndices.add(idx);
+    idx = parent[idx];
+  }
+
+  Logger.info('Calculated LIS for reordering', {
+    currentOrderLength: currentOrder.length,
+    lisLength: maxLen,
+    videosThatNeedMoving: currentOrder.length - maxLen,
+    lisVideoIds: Array.from(lisIndices).map(i => ({
+      index: i,
+      videoId: currentOrder[i],
+      targetPosition: targetPositionMap.get(currentOrder[i])
+    }))
+  });
+
+  // Videos NOT in the LIS need to be moved
+  const videosToMove = currentOrder.filter((_, i) => !lisIndices.has(i));
+
+  // Simulate the final order by moving videos one-by-one
+  const workingOrder = [...currentOrder];
+
+  // Build a list of operations for videos that need to be moved
+  // We'll process them in order to calculate correct final positions
+  for (const videoId of videosToMove) {
+    const currentPosition = workingOrder.indexOf(videoId);
+    const targetPosition = targetPositionMap.get(videoId) ?? workingOrder.length;
+
+    if (currentPosition !== -1 && targetPosition !== -1) {
       const info = videoInfoMap.get(videoId);
       if (!info) continue;
 
-      Logger.info('Calculating reorder operation', {
+      Logger.info('Calculating reorder operation for out-of-order video', {
         track: info.trackName,
         videoId: videoId,
         currentPosition,
-        targetPosition: finalPosition,
-        workingOrderBefore: [...workingOrder]
+        targetPosition,
+        workingOrderBefore: workingOrder.slice(0, 15)
       });
 
       operations.push({
         videoId: videoId,
         playlistItemId: info.playlistItemId,
         fromPosition: currentPosition,
-        toPosition: finalPosition,
+        toPosition: targetPosition,
         trackName: info.trackName,
         artist: info.artist
       });
 
-      // Simulate YouTube API's behavior: remove from current position and insert at target
+      // Simulate the move: remove and re-insert
       workingOrder.splice(currentPosition, 1);
-      workingOrder.splice(finalPosition, 0, videoId);
+      workingOrder.splice(targetPosition, 0, videoId);
 
       Logger.info('After simulation', {
         track: info.trackName,
-        workingOrderAfter: [...workingOrder]
+        workingOrderAfter: workingOrder.slice(0, 15)
       });
     }
   }
