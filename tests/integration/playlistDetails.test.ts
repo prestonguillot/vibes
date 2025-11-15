@@ -45,8 +45,43 @@ vi.mock('spotify-web-api-node', () => {
                 preview_url: null
               }
             }
-          ]
+          ],
+          total: 2,
+          href: 'https://api.spotify.com/v1/playlists/test/tracks'
         }
+      }
+    })
+  );
+
+  SpotifyWebApi.prototype.getPlaylistTracks = vi.fn(() =>
+    Promise.resolve({
+      body: {
+        items: [
+          {
+            track: {
+              id: 'track1',
+              name: 'Test Track 1',
+              artists: [{ name: 'Test Artist 1' }],
+              album: { name: 'Test Album 1' },
+              duration_ms: 180000,
+              external_urls: { spotify: 'https://open.spotify.com/track/track1' },
+              preview_url: 'https://preview.url'
+            }
+          },
+          {
+            track: {
+              id: 'track2',
+              name: 'Test Track 2',
+              artists: [{ name: 'Test Artist 2' }],
+              album: { name: 'Test Album 2' },
+              duration_ms: 200000,
+              external_urls: { spotify: 'https://open.spotify.com/track/track2' },
+              preview_url: null
+            }
+          }
+        ],
+        total: 2,
+        next: null
       }
     })
   );

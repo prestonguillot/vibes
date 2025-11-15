@@ -13,7 +13,9 @@
       "Bash(awk:*)",
       "WebFetch(domain:developer.spotify.com)",
       "Bash(npm run build:*)",
-      "Bash(npm run dev:*)"
+      "Bash(npm run dev:*)",
+      "Bash(pkill:*)",
+      "Bash(npm run test:run:*)"
     ],
     "deny": [],
     "ask": []
