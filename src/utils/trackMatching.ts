@@ -12,10 +12,64 @@ export interface SimplifiedVideo {
   title: string;
   description: string;
   playlistItemId?: string;
+  channelTitle?: string;
+  viewCount?: number;
 }
 
 /**
- * Calculate how well a Spotify track matches a YouTube video
+ * Detect if a video is an official music video from an artist/label account
+ */
+function isOfficialVideo(youtubeVideo: SimplifiedVideo, spotifyArtist: string): boolean {
+  const title = youtubeVideo.title.toLowerCase();
+  const description = (youtubeVideo.description || '').toLowerCase();
+  const channel = (youtubeVideo.channelTitle || '').toLowerCase();
+  const normalizedArtist = spotifyArtist.toLowerCase();
+
+  // Check for official video indicators in title
+  const officialIndicators = /\bofficial\s+(music\s+)?video\b|\bofficial\s+audio\b/i;
+  if (officialIndicators.test(youtubeVideo.title)) {
+    // Additional check: channel should contain artist name or be a known label
+    if (channel.includes(normalizedArtist) ||
+        isKnownLabel(channel) ||
+        isVerifiedChannel(youtubeVideo)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Check if channel is a known record label or official music source
+ */
+function isKnownLabel(channel: string): boolean {
+  const knownLabels = [
+    'vevo', 'universal', 'sony', 'warner', 'republic', 'geffen', 'atlantic',
+    'island', 'capitol', 'elektra', 'mercy', 'roadrunner', 'nuclear blast',
+    'metal blade', 'earache', 'century media', 'prosthetic', 'relapse'
+  ];
+  return knownLabels.some(label => channel.includes(label));
+}
+
+/**
+ * Simple heuristic for verified/official channels (channels with very high view counts tend to be official)
+ */
+function isVerifiedChannel(youtubeVideo: SimplifiedVideo): boolean {
+  // Videos with very high view counts (>10M) are likely from official sources
+  return (youtubeVideo.viewCount ?? 0) > 10_000_000;
+}
+
+/**
+ * Detect if a video is a live performance
+ */
+function isLiveVideo(youtubeVideo: SimplifiedVideo): boolean {
+  const title = youtubeVideo.title.toLowerCase();
+  const liveIndicators = /\blive\b|\blive\s+(at|performance|concert|session)\b|\b\(live\b/i;
+  return liveIndicators.test(youtubeVideo.title);
+}
+
+/**
+ * Calculate how well a Spotify track matches a YouTube video, prioritizing official videos
  */
 function calculateMatchScore(spotifyTrack: SimplifiedTrack, youtubeVideo: SimplifiedVideo): number {
   // Extract core titles by removing metadata
@@ -27,48 +81,64 @@ function calculateMatchScore(spotifyTrack: SimplifiedTrack, youtubeVideo: Simpli
 
   // Strategy 1: Core track title exact match (highest priority)
   if (coreVideoTitle.includes(coreTrackName) || coreTrackName.includes(coreVideoTitle)) {
-    score += 0.8;
+    score += 0.6; // Reduced from 0.8 to make room for quality bonuses
 
     // Bonus if artist is also mentioned
     if (coreVideoTitle.includes(coreArtistName) || youtubeVideo.title.toLowerCase().includes(coreArtistName)) {
-      score += 0.2;
+      score += 0.15;
     }
-    return Math.min(score, 1.0);
-  }
+  } else {
+    // Strategy 2: Core title similarity (for slight variations)
+    const titleSimilarity = calculateStringSimilarity(coreTrackName, coreVideoTitle);
+    if (titleSimilarity > 0.8) {
+      score += 0.5 * titleSimilarity;
 
-  // Strategy 2: Core title similarity (for slight variations)
-  const titleSimilarity = calculateStringSimilarity(coreTrackName, coreVideoTitle);
-  if (titleSimilarity > 0.8) {
-    score += 0.7 * titleSimilarity;
+      // Bonus if artist matches
+      if (coreVideoTitle.includes(coreArtistName) || youtubeVideo.title.toLowerCase().includes(coreArtistName)) {
+        score += 0.15;
+      }
+    } else {
+      // Strategy 3: Word-by-word core matching
+      const trackCoreWords = coreTrackName.split(' ').filter(w => w.length > 2);
+      const videoCoreWords = coreVideoTitle.split(' ').filter(w => w.length > 2);
 
-    // Bonus if artist matches
-    if (coreVideoTitle.includes(coreArtistName) || youtubeVideo.title.toLowerCase().includes(coreArtistName)) {
-      score += 0.2;
-    }
-  }
+      if (trackCoreWords.length > 0) {
+        const coreWordMatches = trackCoreWords.filter(word =>
+          videoCoreWords.some(vw =>
+            vw === word || vw.includes(word) || word.includes(vw) ||
+            calculateStringSimilarity(word, vw) > 0.85
+          )
+        ).length;
 
-  // Strategy 3: Word-by-word core matching
-  const trackCoreWords = coreTrackName.split(' ').filter(w => w.length > 2);
-  const videoCoreWords = coreVideoTitle.split(' ').filter(w => w.length > 2);
-
-  if (trackCoreWords.length > 0) {
-    const coreWordMatches = trackCoreWords.filter(word =>
-      videoCoreWords.some(vw =>
-        vw === word || vw.includes(word) || word.includes(vw) ||
-        calculateStringSimilarity(word, vw) > 0.85
-      )
-    ).length;
-
-    const coreMatchRatio = coreWordMatches / trackCoreWords.length;
-    if (coreMatchRatio > 0.5) {
-      score += 0.5 * coreMatchRatio;
+        const coreMatchRatio = coreWordMatches / trackCoreWords.length;
+        if (coreMatchRatio > 0.5) {
+          score += 0.4 * coreMatchRatio;
+        }
+      }
     }
   }
 
   // Strategy 4: Artist name matching (secondary)
   const videoTitle = normalizeText(youtubeVideo.title);
   if (videoTitle.includes(coreArtistName)) {
-    score += 0.2;
+    score += 0.1;
+  }
+
+  // QUALITY BONUSES: Prioritize official videos and high-view-count videos
+  // Official music video from official channel: highest bonus
+  if (isOfficialVideo(youtubeVideo, spotifyTrack.artist)) {
+    score += 0.3; // +0.3 for official music videos
+  }
+  // Live performance from official source: medium bonus
+  else if (isLiveVideo(youtubeVideo) && (youtubeVideo.viewCount ?? 0) > 1_000_000) {
+    score += 0.15; // +0.15 for live videos with decent views
+  }
+
+  // High view count bonus: videos with many views are more likely to be official/popular
+  if ((youtubeVideo.viewCount ?? 0) > 5_000_000) {
+    score += 0.1;
+  } else if ((youtubeVideo.viewCount ?? 0) > 1_000_000) {
+    score += 0.05;
   }
 
   return Math.min(score, 1.0);
