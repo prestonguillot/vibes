@@ -94,26 +94,50 @@ describe('Validation Schemas', () => {
   });
 
   describe('batchSize', () => {
-    it('should accept valid batch sizes', () => {
-      const validSizes = ['1', '5', '10', 'all'];
+    it('should accept any positive integer', () => {
+      const validSizes = ['1', '10', '25', '50', '100', '999', '1000'];
 
       validSizes.forEach(size => {
         expect(() => schemas.batchSize.parse(size)).not.toThrow();
       });
     });
 
+    it('should accept the special value "all"', () => {
+      expect(() => schemas.batchSize.parse('all')).not.toThrow();
+      expect(schemas.batchSize.parse('all')).toBe('all');
+    });
+
     it('should reject invalid batch sizes', () => {
-      const invalidSizes = ['0', '25', '50', '100', 'invalid', ''];
+      const invalidSizes = [
+        '0',           // zero not allowed
+        '-1',          // negative not allowed
+        '-50',         // negative not allowed
+        'invalid',     // non-numeric (except 'all')
+        '',            // empty string
+        '12.5',        // decimals not allowed
+        '1a',          // alphanumeric not allowed
+        'a1'           // alphanumeric not allowed
+      ];
 
       invalidSizes.forEach(size => {
         expect(() => schemas.batchSize.parse(size)).toThrow();
       });
     });
 
-    it('should be string literals not numbers', () => {
-      // batchSize expects string literals, not numbers
-      expect(schemas.batchSize.parse('10')).toBe('10');
-      expect(schemas.batchSize.parse('all')).toBe('all');
+    it('should transform positive integers to string format', () => {
+      // The schema accepts numeric strings and transforms them appropriately
+      const result = schemas.batchSize.parse('25');
+      expect(result).toBe('25');
+      expect(typeof result).toBe('string');
+    });
+
+    it('should accept the preset options from the UI dropdown', () => {
+      // These are the current preset options in the UI
+      const presetOptions = ['10', '25', '50', '100', 'all'];
+
+      presetOptions.forEach(option => {
+        expect(() => schemas.batchSize.parse(option)).not.toThrow();
+      });
     });
   });
 

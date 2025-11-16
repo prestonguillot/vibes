@@ -98,13 +98,11 @@ export const schemas = {
   // OAuth authorization code
   oauthCode: z.string().min(1).max(1000),
 
-  // Batch size for syncing
+  // Batch size for syncing - accepts any positive integer or 'all'
   batchSize: z.union([
-    z.literal('1'),
-    z.literal('5'),
-    z.literal('10'),
+    z.string().regex(/^\d+$/, 'Must be a positive number').pipe(z.coerce.number().int().positive('Must be greater than 0')),
     z.literal('all')
-  ]),
+  ]).transform(val => typeof val === 'number' ? val.toString() : val),
 
   // Boolean flag
   booleanFlag: z.enum(['true', 'false']).transform(val => val === 'true'),
