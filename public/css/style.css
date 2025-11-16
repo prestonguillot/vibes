@@ -1805,12 +1805,6 @@ body.oauth-error-body {
     flex-shrink: 0;
 }
 
-.match-score-badge--modal .match-score-tooltip {
-    /* Positioned by JavaScript in matchScoreTooltip.js */
-    position: fixed;
-    white-space: normal;
-    max-width: 250px;
-}
 
 
 /* Responsive adjustments for tooltips */
