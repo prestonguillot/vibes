@@ -1,6 +1,7 @@
 import fetch from 'node-fetch';
 import * as cheerio from 'cheerio';
 import { Logger } from './logger';
+import { calculateMatchScore } from './trackMatching';
 
 interface SearchResult {
   videoId: string;
@@ -8,6 +9,7 @@ interface SearchResult {
   duration: string;
   views: string;
   channel: string;
+  description?: string;
 }
 
 /**
@@ -166,103 +168,15 @@ export async function scrapeYouTubeSearch(query: string, maxResults: number = 3)
 }
 
 /**
- * Search for a music video specifically 
- * Prioritizes official music videos and high-quality results
+ * Search and score YouTube videos for a track
+ * Uses the same calculateMatchScore function as the modal for consistent scoring
+ * Returns all results with scores so both modal and sync can use it
  */
-// Simple fuzzy string matching function
-function calculateStringSimilarity(str1: string, str2: string): number {
-  const longer = str1.length > str2.length ? str1 : str2;
-  const shorter = str1.length > str2.length ? str2 : str1;
-  
-  if (longer.length === 0) return 1.0;
-  
-  const editDistance = levenshteinDistance(longer, shorter);
-  return (longer.length - editDistance) / longer.length;
-}
-
-function levenshteinDistance(str1: string, str2: string): number {
-  const matrix = [];
-  
-  for (let i = 0; i <= str2.length; i++) {
-    matrix[i] = [i];
-  }
-  
-  for (let j = 0; j <= str1.length; j++) {
-    matrix[0][j] = j;
-  }
-  
-  for (let i = 1; i <= str2.length; i++) {
-    for (let j = 1; j <= str1.length; j++) {
-      if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
-        matrix[i][j] = matrix[i - 1][j - 1];
-      } else {
-        matrix[i][j] = Math.min(
-          matrix[i - 1][j - 1] + 1,
-          matrix[i][j - 1] + 1,
-          matrix[i - 1][j] + 1
-        );
-      }
-    }
-  }
-  
-  return matrix[str2.length][str1.length];
-}
-
-// Score a video result for how well it matches the requested song
-function scoreVideoMatch(result: SearchResult, songName: string, artist: string): number {
-  let score = 0;
-  
-  const normalizedSongName = songName.toLowerCase().replace(/[^\w\s]/g, '').trim();
-  const normalizedVideoTitle = result.title.toLowerCase().replace(/[^\w\s]/g, '').trim();
-  const normalizedArtist = artist.toLowerCase().replace(/[^\w\s]/g, '').trim();
-  
-  // 1. Official video bonus (highest priority)
-  if (result.title.toLowerCase().includes('official') || 
-      result.channel.toLowerCase().includes(normalizedArtist) ||
-      result.channel.toLowerCase().includes('official')) {
-    score += 0.4;
-  }
-  
-  // 2. Title matching (fuzzy)
-  const titleSimilarity = calculateStringSimilarity(normalizedSongName, normalizedVideoTitle);
-  if (titleSimilarity > 0.6) {
-    score += 0.3 * titleSimilarity;
-  }
-  
-  // 3. Exact title substring match
-  if (normalizedVideoTitle.includes(normalizedSongName) || 
-      normalizedSongName.includes(normalizedVideoTitle)) {
-    score += 0.2;
-  }
-  
-  // 4. Artist name in title
-  if (normalizedVideoTitle.includes(normalizedArtist)) {
-    score += 0.1;
-  }
-  
-  // 5. Word-by-word matching
-  const songWords = normalizedSongName.split(' ').filter(w => w.length > 2);
-  const titleWords = normalizedVideoTitle.split(' ').filter(w => w.length > 2);
-  
-  if (songWords.length > 0) {
-    const wordMatches = songWords.filter(word => 
-      titleWords.some(tw => 
-        tw === word || tw.includes(word) || word.includes(tw) ||
-        calculateStringSimilarity(word, tw) > 0.8
-      )
-    ).length;
-    
-    const wordMatchRatio = wordMatches / songWords.length;
-    if (wordMatchRatio > 0.3) {
-      score += 0.1 * wordMatchRatio;
-    }
-  }
-  
-  return Math.min(score, 1.0);
-}
-
-export async function searchMusicVideo(artist: string, songName: string): Promise<string | null> {
-  // Try different search query variations to find the best match
+export async function searchAndScoreVideos(
+  artist: string,
+  songName: string,
+  maxResults: number = 5
+): Promise<Array<SearchResult & { matchScore: ReturnType<typeof calculateMatchScore>['breakdown'] }>> {
   const queries = [
     `"${artist}" "${songName}" official music video`,
     `"${artist}" "${songName}" official video`,
@@ -270,48 +184,96 @@ export async function searchMusicVideo(artist: string, songName: string): Promis
     `${artist} ${songName} official`,
     `${artist} ${songName}`
   ];
-  
-  let bestMatch: { result: SearchResult; score: number } | null = null;
-  const minScore = 0.3; // Minimum score threshold
-  
+
+  const scoredResults: Array<SearchResult & { matchScore: ReturnType<typeof calculateMatchScore>['breakdown'] }> = [];
+
   for (const query of queries) {
     try {
       Logger.debug(`🎵 Searching for music video: ${query}`);
-      const results = await scrapeYouTubeSearch(query, 5); // Get more results for better selection
-      
+      const results = await scrapeYouTubeSearch(query, maxResults);
+
       if (results.length > 0) {
-        // Score all results and find the best match
+        // Score all results using the same calculateMatchScore function as the modal
         for (const result of results) {
-          const score = scoreVideoMatch(result, songName, artist);
-          
-          Logger.debug(`📊 Video "${result.title}" by ${result.channel} scored ${score.toFixed(3)}`);
-          
-          if (score >= minScore && (!bestMatch || score > bestMatch.score)) {
-            bestMatch = { result, score };
+          const spotifyTrack = {
+            id: '',
+            name: songName,
+            artist: artist
+          };
+
+          const youtubeVideo = {
+            id: result.videoId,
+            title: result.title,
+            description: result.views || '',
+            channelTitle: result.channel
+          };
+
+          const { score, breakdown } = calculateMatchScore(spotifyTrack, youtubeVideo);
+
+          Logger.debug(`📊 Video "${result.title}" by ${result.channel} scored ${(score * 100).toFixed(0)}%`);
+
+          if (score >= 0.4) {
+            scoredResults.push({
+              ...result,
+              matchScore: breakdown
+            });
           }
         }
-        
-        // If we found a good match, return it
-        if (bestMatch && bestMatch.score > 0.6) {
-          Logger.debug(`🎯 Found high-quality match: "${bestMatch.result.title}" by ${bestMatch.result.channel} (score: ${bestMatch.score.toFixed(3)})`);
-          return bestMatch.result.videoId;
+
+        // If we found good matches, return them (sorted by score)
+        if (scoredResults.length > 0) {
+          Logger.debug(`🎯 Found ${scoredResults.length} videos matching ${artist} - ${songName}`);
+          return scoredResults;
         }
       }
     } catch (error) {
       Logger.warn('Search failed for query', { query }, error);
       continue;
     }
-    
+
     // Add a small delay between searches to be respectful
     await new Promise(resolve => setTimeout(resolve, 1000));
   }
-  
-  // Return best match if we found one above minimum threshold
-  if (bestMatch) {
-    Logger.debug(`🎯 Found acceptable match: "${bestMatch.result.title}" by ${bestMatch.result.channel} (score: ${bestMatch.score.toFixed(3)})`);
-    return bestMatch.result.videoId;
+
+  Logger.debug(`❌ No suitable videos found for ${artist} - ${songName}`);
+  return [];
+}
+
+/**
+ * Search for a music video and return the best match
+ * Uses searchAndScoreVideos internally for consistent scoring
+ */
+export async function searchMusicVideo(artist: string, songName: string): Promise<string | null> {
+  const results = await searchAndScoreVideos(artist, songName, 5);
+
+  if (results.length === 0) {
+    return null;
   }
-  
-  Logger.debug(`❌ No suitable video found for ${artist} - ${songName}`);
-  return null;
+
+  // Find the best match (highest score)
+  let bestMatch = results[0];
+  for (const result of results) {
+    const bestScore = (bestMatch.matchScore.coreMatch || 0) +
+                      (bestMatch.matchScore.artistBonus || 0) +
+                      (bestMatch.matchScore.fuzzySimilarity || 0) +
+                      (bestMatch.matchScore.wordMatching || 0) +
+                      (bestMatch.matchScore.officialVideo || 0) +
+                      (bestMatch.matchScore.livePerformance || 0) +
+                      (bestMatch.matchScore.viewCount || 0);
+
+    const resultScore = (result.matchScore.coreMatch || 0) +
+                        (result.matchScore.artistBonus || 0) +
+                        (result.matchScore.fuzzySimilarity || 0) +
+                        (result.matchScore.wordMatching || 0) +
+                        (result.matchScore.officialVideo || 0) +
+                        (result.matchScore.livePerformance || 0) +
+                        (result.matchScore.viewCount || 0);
+
+    if (resultScore > bestScore) {
+      bestMatch = result;
+    }
+  }
+
+  Logger.debug(`🎯 Selected best match: "${bestMatch.title}" by ${bestMatch.channel}`);
+  return bestMatch.videoId;
 }
