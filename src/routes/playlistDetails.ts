@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { google } from 'googleapis';
-import { scrapeYouTubeSearch } from '../utils/youtubeScraper';
+import { scrapeYouTubeSearch, parseViewCount } from '../utils/youtubeScraper';
 import { Logger } from '../utils/logger';
 import { validate, schemas, ValidatedRequest } from '../utils/validation';
 import { csrfValidationMiddleware } from '../utils/csrf';
@@ -226,7 +226,12 @@ router.get('/search/:trackId',
     };
 
     const videosWithScores = videos.map((video: SimplifiedVideo) => {
-      const { score, breakdown } = calculateMatchScore(spotifyTrack, video);
+      // Enhance video with parsed view count for accurate scoring
+      const enhancedVideo: SimplifiedVideo = {
+        ...video,
+        viewCount: parseViewCount(video.description)
+      };
+      const { score, breakdown } = calculateMatchScore(spotifyTrack, enhancedVideo);
       return {
         ...video,
         matchScore: breakdown

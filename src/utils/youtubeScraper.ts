@@ -10,6 +10,10 @@ interface SearchResult {
   views: string;
   channel: string;
   description?: string;
+  matchScore?: {
+    score: number;
+    breakdown: ReturnType<typeof calculateMatchScore>['breakdown'];
+  };
 }
 
 /**
@@ -168,6 +172,41 @@ export async function scrapeYouTubeSearch(query: string, maxResults: number = 3)
 }
 
 /**
+ * Parse view count string (e.g., "1.5M views" or "1,234,567 views") to a number
+ */
+export function parseViewCount(viewsString: string): number {
+  if (!viewsString) return 0;
+
+  const normalized = viewsString.toLowerCase().trim();
+
+  // Handle "X.XM views" format (e.g., "1.5M views", "21.7M views")
+  const millionMatch = normalized.match(/^([\d.]+)\s*m/);
+  if (millionMatch) {
+    return Math.floor(parseFloat(millionMatch[1]) * 1_000_000);
+  }
+
+  // Handle "X.XK views" format (e.g., "500K views")
+  const thousandMatch = normalized.match(/^([\d.]+)\s*k/);
+  if (thousandMatch) {
+    return Math.floor(parseFloat(thousandMatch[1]) * 1_000);
+  }
+
+  // Handle "X,XXX,XXX views" format with commas
+  const commaMatch = normalized.match(/^([\d,]+)/);
+  if (commaMatch) {
+    return parseInt(commaMatch[1].replace(/,/g, ''), 10) || 0;
+  }
+
+  // Try direct number parse
+  const directMatch = normalized.match(/^(\d+)/);
+  if (directMatch) {
+    return parseInt(directMatch[1], 10) || 0;
+  }
+
+  return 0;
+}
+
+/**
  * Search and score YouTube videos for a track
  * Uses the same calculateMatchScore function as the modal for consistent scoring
  * Returns all results with scores so both modal and sync can use it
@@ -176,7 +215,7 @@ export async function searchAndScoreVideos(
   artist: string,
   songName: string,
   maxResults: number = 5
-): Promise<Array<SearchResult & { matchScore: ReturnType<typeof calculateMatchScore>['breakdown'] }>> {
+): Promise<Array<SearchResult>> {
   const queries = [
     `"${artist}" "${songName}" official music video`,
     `"${artist}" "${songName}" official video`,
@@ -185,7 +224,7 @@ export async function searchAndScoreVideos(
     `${artist} ${songName}`
   ];
 
-  const scoredResults: Array<SearchResult & { matchScore: ReturnType<typeof calculateMatchScore>['breakdown'] }> = [];
+  const scoredResults: Array<SearchResult> = [];
 
   for (const query of queries) {
     try {
@@ -205,7 +244,8 @@ export async function searchAndScoreVideos(
             id: result.videoId,
             title: result.title,
             description: result.views || '',
-            channelTitle: result.channel
+            channelTitle: result.channel,
+            viewCount: parseViewCount(result.views)
           };
 
           const { score, breakdown } = calculateMatchScore(spotifyTrack, youtubeVideo);
@@ -215,7 +255,7 @@ export async function searchAndScoreVideos(
           if (score >= 0.4) {
             scoredResults.push({
               ...result,
-              matchScore: breakdown
+              matchScore: { score, breakdown }
             });
           }
         }
@@ -250,30 +290,21 @@ export async function searchMusicVideo(artist: string, songName: string): Promis
     return null;
   }
 
-  // Find the best match (highest score)
+  // Find the best match (highest normalized score from the algorithm)
   let bestMatch = results[0];
+  if (!bestMatch.matchScore) {
+    return null;
+  }
+
   for (const result of results) {
-    const bestScore = (bestMatch.matchScore.coreMatch || 0) +
-                      (bestMatch.matchScore.artistBonus || 0) +
-                      (bestMatch.matchScore.fuzzySimilarity || 0) +
-                      (bestMatch.matchScore.wordMatching || 0) +
-                      (bestMatch.matchScore.officialVideo || 0) +
-                      (bestMatch.matchScore.livePerformance || 0) +
-                      (bestMatch.matchScore.viewCount || 0);
+    if (!result.matchScore) continue;
 
-    const resultScore = (result.matchScore.coreMatch || 0) +
-                        (result.matchScore.artistBonus || 0) +
-                        (result.matchScore.fuzzySimilarity || 0) +
-                        (result.matchScore.wordMatching || 0) +
-                        (result.matchScore.officialVideo || 0) +
-                        (result.matchScore.livePerformance || 0) +
-                        (result.matchScore.viewCount || 0);
-
-    if (resultScore > bestScore) {
+    // Use the actual normalized score from calculateMatchScore, not a reconstruction
+    if (result.matchScore.score > bestMatch.matchScore.score) {
       bestMatch = result;
     }
   }
 
-  Logger.debug(`🎯 Selected best match: "${bestMatch.title}" by ${bestMatch.channel}`);
+  Logger.debug(`🎯 Selected best match: "${bestMatch.title}" by ${bestMatch.channel} (${(bestMatch.matchScore.score * 100).toFixed(0)}%)`);
   return bestMatch.videoId;
 }
