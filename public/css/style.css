@@ -417,6 +417,12 @@ body {
   border-color: #0066ff;
 }
 
+/* Album art is square, so use different dimensions than 16:9 video thumbnails */
+.track-item:has(.youtube-video__thumbnail[alt="Album art"]) .youtube-video__thumbnail {
+  width: 120px;
+  height: 120px;
+}
+
 .youtube-video__thumbnail--placeholder {
   grid-column: 1;
   grid-row: 1 / -1;

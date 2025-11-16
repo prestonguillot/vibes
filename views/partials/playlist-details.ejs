@@ -19,7 +19,7 @@
 
   <div class="tracks-list">
     <% tracks.forEach((track, index) => { %>
-      <div class="track-item <%= index % 2 === 0 ? 'track-item--even' : '' %> <%= !hasYoutubeConnection || !hasYoutubePlaylist ? 'track-item--simple' : '' %>">
+      <div class="track-item <%= index % 2 === 0 ? 'track-item--even' : '' %> <%= (!hasYoutubeConnection && (!track.spotify || !track.spotify.albumArt)) || (!hasYoutubePlaylist && hasYoutubeConnection) ? 'track-item--simple' : '' %>">
         <div class="track-number">
           <%= index + 1 %>
         </div>
@@ -62,6 +62,17 @@
                 </div>
               </div>
             <% } %>
+          <% } else if (track.spotify && track.spotify.albumArt) { %>
+            <!-- Show album art when YouTube is not connected -->
+            <div class="youtube-video <%= track.spotify ? 'mt-1' : '' %>">
+              <div class="d-flex align-items-center">
+                <img src="<%= track.spotify.albumArt %>" alt="Album art"
+                     class="youtube-video__thumbnail">
+                <div class="flex-grow-1">
+                  <span class="text-muted small"><%= track.spotify.album %></span>
+                </div>
+              </div>
+            </div>
           <% } %>
         </div>
 

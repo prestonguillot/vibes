@@ -1051,6 +1051,83 @@ describe('Playlist Details Error Handling', () => {
       expect(response.text).not.toContain('Video thumbnail');
     });
 
+    it('should handle tracks without album art gracefully', async () => {
+      // Mock Spotify API with a track that has no album images
+      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
+      SpotifyWebApi.prototype.getPlaylist = vi.fn(() =>
+        Promise.resolve({
+          body: {
+            name: 'Test Playlist',
+            tracks: {
+              items: [
+                {
+                  track: {
+                    id: 'track1',
+                    name: 'Track Without Art',
+                    artists: [{ name: 'Artist 1' }],
+                    album: {
+                      name: 'Album 1',
+                      images: []  // No album images
+                    },
+                    duration_ms: 180000,
+                    external_urls: { spotify: 'https://open.spotify.com/track/track1' },
+                    preview_url: null
+                  }
+                }
+              ],
+              total: 1
+            }
+          }
+        })
+      );
+
+      SpotifyWebApi.prototype.getPlaylistTracks = vi.fn(() =>
+        Promise.resolve({
+          body: {
+            items: [
+              {
+                track: {
+                  id: 'track1',
+                  name: 'Track Without Art',
+                  artists: [{ name: 'Artist 1' }],
+                  album: {
+                    name: 'Album 1',
+                    images: []  // No album images
+                  },
+                  duration_ms: 180000,
+                  external_urls: { spotify: 'https://open.spotify.com/track/track1' },
+                  preview_url: null
+                }
+              }
+            ],
+            total: 1,
+            next: null
+          }
+        })
+      );
+
+      const spotifyTokens = JSON.stringify({
+        accessToken: 'test-spotify-token',
+        refreshToken: 'test-spotify-refresh'
+      });
+
+      const response = await request(app)
+        .get('/api/playlistDetails/playlist/1234567890123456789012')
+        .set('Cookie', [`spotify_tokens=${spotifyTokens}`]);
+
+      expect(response.status).toBe(200);
+
+      // Should render the playlist without error
+      expect(response.text).toContain('Track Without Art');
+      expect(response.text).toContain('Album 1');
+
+      // Should apply track-item--simple class when no album art
+      expect(response.text).toContain('track-item--simple');
+
+      // Should not try to display empty album art image
+      expect(response.text).not.toContain('src=""');
+    });
+
     it('should preserve full grid layout when album art is displayed', async () => {
       // Mock Spotify API
       const SpotifyWebApi = (await import('spotify-web-api-node')).default;
