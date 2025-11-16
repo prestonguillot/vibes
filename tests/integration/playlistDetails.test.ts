@@ -28,7 +28,12 @@ vi.mock('spotify-web-api-node', () => {
                 id: 'track1',
                 name: 'Test Track 1',
                 artists: [{ name: 'Test Artist 1' }],
-                album: { name: 'Test Album 1' },
+                album: {
+                  name: 'Test Album 1',
+                  images: [
+                    { url: 'https://example.com/album1-large.jpg', height: 640, width: 640 }
+                  ]
+                },
                 duration_ms: 180000,
                 external_urls: { spotify: 'https://open.spotify.com/track/track1' },
                 preview_url: 'https://preview.url'
@@ -39,7 +44,12 @@ vi.mock('spotify-web-api-node', () => {
                 id: 'track2',
                 name: 'Test Track 2',
                 artists: [{ name: 'Test Artist 2' }],
-                album: { name: 'Test Album 2' },
+                album: {
+                  name: 'Test Album 2',
+                  images: [
+                    { url: 'https://example.com/album2-large.jpg', height: 640, width: 640 }
+                  ]
+                },
                 duration_ms: 200000,
                 external_urls: { spotify: 'https://open.spotify.com/track/track2' },
                 preview_url: null
@@ -62,7 +72,13 @@ vi.mock('spotify-web-api-node', () => {
               id: 'track1',
               name: 'Test Track 1',
               artists: [{ name: 'Test Artist 1' }],
-              album: { name: 'Test Album 1' },
+              album: {
+                name: 'Test Album 1',
+                images: [
+                  { url: 'https://example.com/album1-large.jpg', height: 640, width: 640 },
+                  { url: 'https://example.com/album1-medium.jpg', height: 300, width: 300 }
+                ]
+              },
               duration_ms: 180000,
               external_urls: { spotify: 'https://open.spotify.com/track/track1' },
               preview_url: 'https://preview.url'
@@ -73,7 +89,12 @@ vi.mock('spotify-web-api-node', () => {
               id: 'track2',
               name: 'Test Track 2',
               artists: [{ name: 'Test Artist 2' }],
-              album: { name: 'Test Album 2' },
+              album: {
+                name: 'Test Album 2',
+                images: [
+                  { url: 'https://example.com/album2-large.jpg', height: 640, width: 640 }
+                ]
+              },
               duration_ms: 200000,
               external_urls: { spotify: 'https://open.spotify.com/track/track2' },
               preview_url: null
@@ -180,7 +201,12 @@ describe('Playlist Details Error Handling', () => {
                     id: 'track1',
                     name: 'Test Track 1',
                     artists: [{ name: 'Test Artist 1' }],
-                    album: { name: 'Test Album 1' },
+                    album: {
+                      name: 'Test Album 1',
+                      images: [
+                        { url: 'https://example.com/album1.jpg', height: 640, width: 640 }
+                      ]
+                    },
                     duration_ms: 180000,
                     external_urls: { spotify: 'https://open.spotify.com/track/track1' },
                     preview_url: 'https://preview.url'
@@ -191,7 +217,12 @@ describe('Playlist Details Error Handling', () => {
                     id: 'track2',
                     name: 'Test Track 2',
                     artists: [{ name: 'Test Artist 2' }],
-                    album: { name: 'Test Album 2' },
+                    album: {
+                      name: 'Test Album 2',
+                      images: [
+                        { url: 'https://example.com/album2.jpg', height: 640, width: 640 }
+                      ]
+                    },
                     duration_ms: 200000,
                     external_urls: { spotify: 'https://open.spotify.com/track/track2' },
                     preview_url: null
@@ -241,7 +272,12 @@ describe('Playlist Details Error Handling', () => {
                     id: 'track1',
                     name: 'Track 1',
                     artists: [{ name: 'Artist 1' }],
-                    album: { name: 'Album 1' },
+                    album: {
+                      name: 'Album 1',
+                      images: [
+                        { url: 'https://example.com/album1.jpg', height: 640, width: 640 }
+                      ]
+                    },
                     duration_ms: 180000,
                     external_urls: { spotify: 'https://open.spotify.com/track/track1' },
                     preview_url: null
@@ -252,7 +288,12 @@ describe('Playlist Details Error Handling', () => {
                     id: 'track2',
                     name: 'Track 2',
                     artists: [{ name: 'Artist 2' }],
-                    album: { name: 'Album 2' },
+                    album: {
+                      name: 'Album 2',
+                      images: [
+                        { url: 'https://example.com/album2.jpg', height: 640, width: 640 }
+                      ]
+                    },
                     duration_ms: 200000,
                     external_urls: { spotify: 'https://open.spotify.com/track/track2' },
                     preview_url: null
@@ -297,14 +338,47 @@ describe('Playlist Details Error Handling', () => {
                     id: 'track1',
                     name: 'Track 1',
                     artists: [{ name: 'Artist 1' }],
-                    album: { name: 'Album 1' },
+                    album: {
+                      name: 'Album 1',
+                      images: [
+                        { url: 'https://example.com/album1.jpg', height: 640, width: 640 }
+                      ]
+                    },
                     duration_ms: 180000,
                     external_urls: { spotify: 'https://open.spotify.com/track/track1' },
                     preview_url: null
                   }
                 }
-              ]
+              ],
+              total: 1
             }
+          }
+        })
+      );
+
+      SpotifyWebApi.prototype.getPlaylistTracks = vi.fn(() =>
+        Promise.resolve({
+          body: {
+            items: [
+              {
+                track: {
+                  id: 'track1',
+                  name: 'Track 1',
+                  artists: [{ name: 'Artist 1' }],
+                  album: {
+                    name: 'Album 1',
+                    images: [
+                      { url: 'https://example.com/album1.jpg', height: 640, width: 640 }
+                    ]
+                  },
+                  duration_ms: 180000,
+                  external_urls: { spotify: 'https://open.spotify.com/track/track1' },
+                  preview_url: null
+                }
+              }
+            ],
+            total: 1,
+            next: null
           }
         })
       );
@@ -320,8 +394,8 @@ describe('Playlist Details Error Handling', () => {
 
       expect(response.status).toBe(200);
 
-      // Should NOT show YouTube video elements
-      expect(response.text).not.toContain('youtube-video');
+      // Should NOT show YouTube API-specific elements (Video thumbnail, YouTube links, etc.)
+      // NOTE: The youtube-video CSS class IS used for album art styling, so we check for actual YouTube content instead
       expect(response.text).not.toContain('img.youtube.com');
       expect(response.text).not.toContain('youtube.com/watch');
       expect(response.text).not.toContain('Video thumbnail');
@@ -341,7 +415,12 @@ describe('Playlist Details Error Handling', () => {
                     id: 'track1',
                     name: 'Track 1',
                     artists: [{ name: 'Artist 1' }],
-                    album: { name: 'Album 1' },
+                    album: {
+                      name: 'Album 1',
+                      images: [
+                        { url: 'https://example.com/album1.jpg', height: 640, width: 640 }
+                      ]
+                    },
                     duration_ms: 180000,
                     external_urls: { spotify: 'https://open.spotify.com/track/track1' },
                     preview_url: null
@@ -386,7 +465,12 @@ describe('Playlist Details Error Handling', () => {
                     id: 'track1',
                     name: 'Track 1',
                     artists: [{ name: 'Artist 1' }],
-                    album: { name: 'Album 1' },
+                    album: {
+                      name: 'Album 1',
+                      images: [
+                        { url: 'https://example.com/album1.jpg', height: 640, width: 640 }
+                      ]
+                    },
                     duration_ms: 180000,
                     external_urls: { spotify: 'https://open.spotify.com/track/track1' },
                     preview_url: null
@@ -429,7 +513,12 @@ describe('Playlist Details Error Handling', () => {
                     id: 'track1',
                     name: 'Track 1',
                     artists: [{ name: 'Artist 1' }],
-                    album: { name: 'Album 1' },
+                    album: {
+                      name: 'Album 1',
+                      images: [
+                        { url: 'https://example.com/album1.jpg', height: 640, width: 640 }
+                      ]
+                    },
                     duration_ms: 180000,
                     external_urls: { spotify: 'https://open.spotify.com/track/track1' },
                     preview_url: null
@@ -472,7 +561,12 @@ describe('Playlist Details Error Handling', () => {
                     id: 'track1',
                     name: 'Track 1',
                     artists: [{ name: 'Artist 1' }],
-                    album: { name: 'Album 1' },
+                    album: {
+                      name: 'Album 1',
+                      images: [
+                        { url: 'https://example.com/album1.jpg', height: 640, width: 640 }
+                      ]
+                    },
                     duration_ms: 180000,
                     external_urls: { spotify: 'https://open.spotify.com/track/track1' },
                     preview_url: null
@@ -514,7 +608,12 @@ describe('Playlist Details Error Handling', () => {
                     id: 'track1',
                     name: 'Track 1',
                     artists: [{ name: 'Artist 1' }],
-                    album: { name: 'Album 1' },
+                    album: {
+                      name: 'Album 1',
+                      images: [
+                        { url: 'https://example.com/album1.jpg', height: 640, width: 640 }
+                      ]
+                    },
                     duration_ms: 180000,
                     external_urls: { spotify: 'https://open.spotify.com/track/track1' },
                     preview_url: null
@@ -564,7 +663,12 @@ describe('Playlist Details Error Handling', () => {
                     id: 'track1',
                     name: 'Track 1',
                     artists: [{ name: 'Artist 1' }],
-                    album: { name: 'Album 1' },
+                    album: {
+                      name: 'Album 1',
+                      images: [
+                        { url: 'https://example.com/album1.jpg', height: 640, width: 640 }
+                      ]
+                    },
                     duration_ms: 180000,
                     external_urls: { spotify: 'https://open.spotify.com/track/track1' },
                     preview_url: null
@@ -609,7 +713,12 @@ describe('Playlist Details Error Handling', () => {
                     id: 'track1',
                     name: 'Track 1',
                     artists: [{ name: 'Artist 1' }],
-                    album: { name: 'Album 1' },
+                    album: {
+                      name: 'Album 1',
+                      images: [
+                        { url: 'https://example.com/album1.jpg', height: 640, width: 640 }
+                      ]
+                    },
                     duration_ms: 180000,
                     external_urls: { spotify: 'https://open.spotify.com/track/track1' },
                     preview_url: null
@@ -673,7 +782,12 @@ describe('Playlist Details Error Handling', () => {
                     id: 'track1',
                     name: 'Track 1',
                     artists: [{ name: 'Artist 1' }],
-                    album: { name: 'Album 1' },
+                    album: {
+                      name: 'Album 1',
+                      images: [
+                        { url: 'https://example.com/album1.jpg', height: 640, width: 640 }
+                      ]
+                    },
                     duration_ms: 180000,
                     external_urls: { spotify: 'https://open.spotify.com/track/track1' },
                     preview_url: null
@@ -705,6 +819,319 @@ describe('Playlist Details Error Handling', () => {
       const refreshTextMatches = response.text.match(/<button[^>]*>[\s\S]*?Refresh[\s\S]*?<\/button>/g);
       expect(refreshTextMatches).not.toBeNull();
       expect(refreshTextMatches?.length).toBe(1);
+    });
+  });
+
+  describe('Album Art Display (Spotify-Only Mode)', () => {
+    it('should display album art when Spotify-only mode is active', async () => {
+      // Mock Spotify API with album images
+      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
+      SpotifyWebApi.prototype.getPlaylist = vi.fn(() =>
+        Promise.resolve({
+          body: {
+            name: 'Test Playlist',
+            tracks: {
+              items: [
+                {
+                  track: {
+                    id: 'track1',
+                    name: 'Track 1',
+                    artists: [{ name: 'Artist 1' }],
+                    album: {
+                      name: 'Album 1',
+                      images: [
+                        { url: 'https://example.com/album1.jpg', height: 640, width: 640 }
+                      ]
+                    },
+                    duration_ms: 180000,
+                    external_urls: { spotify: 'https://open.spotify.com/track/track1' },
+                    preview_url: null
+                  }
+                }
+              ],
+              total: 1
+            }
+          }
+        })
+      );
+
+      SpotifyWebApi.prototype.getPlaylistTracks = vi.fn(() =>
+        Promise.resolve({
+          body: {
+            items: [
+              {
+                track: {
+                  id: 'track1',
+                  name: 'Track 1',
+                  artists: [{ name: 'Artist 1' }],
+                  album: {
+                    name: 'Album 1',
+                    images: [
+                      { url: 'https://example.com/album1.jpg', height: 640, width: 640 }
+                    ]
+                  },
+                  duration_ms: 180000,
+                  external_urls: { spotify: 'https://open.spotify.com/track/track1' },
+                  preview_url: null
+                }
+              }
+            ],
+            total: 1,
+            next: null
+          }
+        })
+      );
+
+      const spotifyTokens = JSON.stringify({
+        accessToken: 'test-spotify-token',
+        refreshToken: 'test-spotify-refresh'
+      });
+
+      const response = await request(app)
+        .get('/api/playlistDetails/playlist/1234567890123456789012')
+        .set('Cookie', [`spotify_tokens=${spotifyTokens}`]);
+
+      expect(response.status).toBe(200);
+
+      // Should display album art image
+      expect(response.text).toContain('https://example.com/album1.jpg');
+      expect(response.text).toContain('Album art');
+    });
+
+    it('should use youtube-video CSS class for album art container', async () => {
+      // Mock Spotify API with album images
+      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
+      SpotifyWebApi.prototype.getPlaylist = vi.fn(() =>
+        Promise.resolve({
+          body: {
+            name: 'Test Playlist',
+            tracks: {
+              items: [
+                {
+                  track: {
+                    id: 'track1',
+                    name: 'Track 1',
+                    artists: [{ name: 'Artist 1' }],
+                    album: {
+                      name: 'Album 1',
+                      images: [
+                        { url: 'https://example.com/album1.jpg', height: 640, width: 640 }
+                      ]
+                    },
+                    duration_ms: 180000,
+                    external_urls: { spotify: 'https://open.spotify.com/track/track1' },
+                    preview_url: null
+                  }
+                }
+              ],
+              total: 1
+            }
+          }
+        })
+      );
+
+      SpotifyWebApi.prototype.getPlaylistTracks = vi.fn(() =>
+        Promise.resolve({
+          body: {
+            items: [
+              {
+                track: {
+                  id: 'track1',
+                  name: 'Track 1',
+                  artists: [{ name: 'Artist 1' }],
+                  album: {
+                    name: 'Album 1',
+                    images: [
+                      { url: 'https://example.com/album1.jpg', height: 640, width: 640 }
+                    ]
+                  },
+                  duration_ms: 180000,
+                  external_urls: { spotify: 'https://open.spotify.com/track/track1' },
+                  preview_url: null
+                }
+              }
+            ],
+            total: 1,
+            next: null
+          }
+        })
+      );
+
+      const spotifyTokens = JSON.stringify({
+        accessToken: 'test-spotify-token',
+        refreshToken: 'test-spotify-refresh'
+      });
+
+      const response = await request(app)
+        .get('/api/playlistDetails/playlist/1234567890123456789012')
+        .set('Cookie', [`spotify_tokens=${spotifyTokens}`]);
+
+      expect(response.status).toBe(200);
+
+      // Album art should use the youtube-video CSS class for consistent styling
+      expect(response.text).toContain('<div class="youtube-video');
+      expect(response.text).toContain('youtube-video__thumbnail');
+      expect(response.text).toContain('https://example.com/album1.jpg');
+      expect(response.text).toContain('Album art');
+    });
+
+    it('should not display YouTube elements when only Spotify is connected', async () => {
+      // Mock Spotify API
+      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
+      SpotifyWebApi.prototype.getPlaylist = vi.fn(() =>
+        Promise.resolve({
+          body: {
+            name: 'Test Playlist',
+            tracks: {
+              items: [
+                {
+                  track: {
+                    id: 'track1',
+                    name: 'Track 1',
+                    artists: [{ name: 'Artist 1' }],
+                    album: {
+                      name: 'Album 1',
+                      images: [
+                        { url: 'https://example.com/album1.jpg', height: 640, width: 640 }
+                      ]
+                    },
+                    duration_ms: 180000,
+                    external_urls: { spotify: 'https://open.spotify.com/track/track1' },
+                    preview_url: null
+                  }
+                }
+              ],
+              total: 1
+            }
+          }
+        })
+      );
+
+      SpotifyWebApi.prototype.getPlaylistTracks = vi.fn(() =>
+        Promise.resolve({
+          body: {
+            items: [
+              {
+                track: {
+                  id: 'track1',
+                  name: 'Track 1',
+                  artists: [{ name: 'Artist 1' }],
+                  album: {
+                    name: 'Album 1',
+                    images: [
+                      { url: 'https://example.com/album1.jpg', height: 640, width: 640 }
+                    ]
+                  },
+                  duration_ms: 180000,
+                  external_urls: { spotify: 'https://open.spotify.com/track/track1' },
+                  preview_url: null
+                }
+              }
+            ],
+            total: 1,
+            next: null
+          }
+        })
+      );
+
+      const spotifyTokens = JSON.stringify({
+        accessToken: 'test-spotify-token',
+        refreshToken: 'test-spotify-refresh'
+      });
+
+      const response = await request(app)
+        .get('/api/playlistDetails/playlist/1234567890123456789012')
+        .set('Cookie', [`spotify_tokens=${spotifyTokens}`]);
+
+      expect(response.status).toBe(200);
+
+      // Should not have YouTube video URLs or thumbnails from YouTube
+      expect(response.text).not.toContain('img.youtube.com');
+      expect(response.text).not.toContain('youtube.com/watch');
+      expect(response.text).not.toContain('Video thumbnail');
+    });
+
+    it('should preserve full grid layout when album art is displayed', async () => {
+      // Mock Spotify API
+      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
+      SpotifyWebApi.prototype.getPlaylist = vi.fn(() =>
+        Promise.resolve({
+          body: {
+            name: 'Test Playlist',
+            tracks: {
+              items: [
+                {
+                  track: {
+                    id: 'track1',
+                    name: 'Track 1',
+                    artists: [{ name: 'Artist 1' }],
+                    album: {
+                      name: 'Album 1',
+                      images: [
+                        { url: 'https://example.com/album1.jpg', height: 640, width: 640 }
+                      ]
+                    },
+                    duration_ms: 180000,
+                    external_urls: { spotify: 'https://open.spotify.com/track/track1' },
+                    preview_url: null
+                  }
+                }
+              ],
+              total: 1
+            }
+          }
+        })
+      );
+
+      SpotifyWebApi.prototype.getPlaylistTracks = vi.fn(() =>
+        Promise.resolve({
+          body: {
+            items: [
+              {
+                track: {
+                  id: 'track1',
+                  name: 'Track 1',
+                  artists: [{ name: 'Artist 1' }],
+                  album: {
+                    name: 'Album 1',
+                    images: [
+                      { url: 'https://example.com/album1.jpg', height: 640, width: 640 }
+                    ]
+                  },
+                  duration_ms: 180000,
+                  external_urls: { spotify: 'https://open.spotify.com/track/track1' },
+                  preview_url: null
+                }
+              }
+            ],
+            total: 1,
+            next: null
+          }
+        })
+      );
+
+      const spotifyTokens = JSON.stringify({
+        accessToken: 'test-spotify-token',
+        refreshToken: 'test-spotify-refresh'
+      });
+
+      const response = await request(app)
+        .get('/api/playlistDetails/playlist/1234567890123456789012')
+        .set('Cookie', [`spotify_tokens=${spotifyTokens}`]);
+
+      expect(response.status).toBe(200);
+
+      // Should include track-item class (for full grid layout)
+      expect(response.text).toContain('class="track-item');
+
+      // Should include album art image
+      expect(response.text).toContain('https://example.com/album1.jpg');
+
+      // Should include track number (4-column grid shows track number)
+      expect(response.text).toContain('class="track-number"');
+
+      // Should NOT have YouTube-specific elements
+      expect(response.text).not.toContain('img.youtube.com');
     });
   });
 });
