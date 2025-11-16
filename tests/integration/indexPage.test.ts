@@ -94,9 +94,10 @@ describe('Index Page', () => {
       expect(response.text).toContain('Tracks per sync:');
 
       // Should have all options with "all" as default
-      expect(response.text).toContain('<option value="1">1</option>');
-      expect(response.text).toContain('<option value="5">5</option>');
       expect(response.text).toContain('<option value="10">10</option>');
+      expect(response.text).toContain('<option value="25">25</option>');
+      expect(response.text).toContain('<option value="50">50</option>');
+      expect(response.text).toContain('<option value="100">100</option>');
       expect(response.text).toContain('<option value="all" selected>All</option>');
     });
 
