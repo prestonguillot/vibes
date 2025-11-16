@@ -141,12 +141,13 @@ describe('Index Page', () => {
       expect(response.text).toContain('id="ownPlaylistsOnly"');
     });
 
-    it('should have flex-wrap on controls container for responsive behavior', async () => {
+    it('should have responsive grid layout for controls', async () => {
       const response = await request(app)
         .get('/');
 
-      // Controls container should have flex-wrap
-      expect(response.text).toMatch(/class="[^"]*d-flex[^"]*align-items-center[^"]*gap-3[^"]*flex-wrap[^"]*"/);
+      // Controls should use responsive grid with Bootstrap breakpoints
+      expect(response.text).toContain('col-12 col-sm-auto');
+      expect(response.text).toContain('row g-3');
     });
   });
 });
