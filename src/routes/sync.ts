@@ -452,7 +452,7 @@ router.post('/playlist/:playlistId',
           };
 
           // Check if this track was matched in the optimal matching
-          const matchingVideo = trackMatches.get(track.id);
+          const matchingVideo = trackMatches.matches.get(track.id);
 
           if (!matchingVideo) {
             unsyncedTracks.push(item);
