@@ -135,7 +135,7 @@ router.post('/playlist/:playlistId',
   async (req: ValidatedRequest<
     { playlistId: string },
     Record<string, unknown>,
-    { batchSize?: '1' | '5' | '10' | 'all' }
+    { batchSize?: string }
   >, res) => {
   const startTime = Date.now();
   const playlistId = req.params.playlistId;
@@ -216,12 +216,6 @@ router.post('/playlist/:playlistId',
     const playlist = playlistResponse.body;
     Logger.external('Spotify', 'Playlist details fetched', { name: playlist.name, totalTracks: playlist.tracks.total });
 
-    sendProgressUpdate(playlistId, youtubeUserId, {
-      type: 'progress',
-      message: `Found playlist: "${playlist.name}"`,
-      details: `Fetching tracks (limit: 10)...`
-    });
-
     // Get batch size from request, default to 1 if not provided
     let batchSize = 1;
     if (req.body.batchSize) {
@@ -233,8 +227,14 @@ router.post('/playlist/:playlistId',
       }
     }
     const trackLimit = batchSize; // Use user-selected batch size
-    
+
     Logger.info('Using user-selected batch size', { batchSize, trackLimit });
+
+    sendProgressUpdate(playlistId, youtubeUserId, {
+      type: 'progress',
+      message: `Found playlist: "${playlist.name}"`,
+      details: `Fetching tracks (limit: ${trackLimit})...`
+    });
     Logger.external('Spotify', 'Fetching all tracks for analysis');
 
     // Fetch all tracks (handle pagination if needed)
