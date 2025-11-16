@@ -233,6 +233,10 @@ export function createApp() {
       await new Promise(resolve => setTimeout(resolve, minDisplayTime - elapsed));
     }
 
+    // Disable caching to ensure error states are always shown
+    // Connection status can change (connected → error), so we must not return cached responses
+    res.set('Cache-Control', 'no-cache');
+
     res.render('partials/connection-button', {
       service: 'spotify',
       connected: spotifyResult.connected,
@@ -252,6 +256,10 @@ export function createApp() {
     if (elapsed < minDisplayTime) {
       await new Promise(resolve => setTimeout(resolve, minDisplayTime - elapsed));
     }
+
+    // Disable caching to ensure error states are always shown
+    // Connection status can change (connected → error), so we must not return cached responses
+    res.set('Cache-Control', 'no-cache');
 
     // Trigger playlist refresh when YouTube becomes connected
     if (youtubeResult.connected) {
