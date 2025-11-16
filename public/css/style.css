@@ -1781,6 +1781,56 @@ body.oauth-error-body {
     visibility: visible;
 }
 
+/* Modal context: display match score as static content */
+.match-score-badge--modal .match-score-tooltip {
+    position: static;
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 8px 0 0 0;
+    color: #555;
+    font-size: 0.75rem;
+    white-space: normal;
+    pointer-events: auto;
+    max-width: none;
+    max-height: none;
+    overflow-y: visible;
+    font-family: 'Courier Prime', monospace;
+}
+
+.match-score-badge--modal .match-score-tooltip::after {
+    display: none;
+}
+
+.match-score-badge--modal .tooltip-title {
+    font-weight: 600;
+    margin-bottom: 4px;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 4px;
+    color: #333;
+}
+
+.match-score-badge--modal .tooltip-components {
+    margin-top: 4px;
+    gap: 2px;
+}
+
+.match-score-badge--modal .tooltip-components div {
+    font-size: 0.72rem;
+    color: #666;
+    line-height: 1.3;
+}
+
+.match-score-badge--modal {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+}
+
 .tooltip-title {
     font-weight: bold;
     margin-bottom: 6px;
