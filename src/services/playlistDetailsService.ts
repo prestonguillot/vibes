@@ -6,7 +6,7 @@
 
 import SpotifyWebApi from 'spotify-web-api-node';
 import { youtube_v3 } from 'googleapis';
-import { optimalTrackMatching } from '../utils/trackMatching';
+import { optimalTrackMatching, ScoreBreakdown } from '../utils/trackMatching';
 import { Logger } from '../utils/logger';
 
 export interface SimplifiedTrack {
@@ -34,6 +34,7 @@ export interface MergedTrack {
   spotify: SimplifiedTrack | null;
   youtube: SimplifiedVideo | null;
   linked: boolean;
+  matchScore?: ScoreBreakdown; // Match score for linked videos
 }
 
 export interface PlaylistDetails {
@@ -205,12 +206,15 @@ export async function fetchPlaylistDetails(
   }
 
   // Match Spotify tracks to YouTube videos
-  const trackMatches = optimalTrackMatching(spotifyTracks, youtubeVideos);
+  const matchingResult = optimalTrackMatching(spotifyTracks, youtubeVideos);
+  const trackMatches = matchingResult.matches;
+  const matchScores = matchingResult.scores;
   const linkedCount = trackMatches.size;
 
   // Build merged tracks (all Spotify tracks with optional YouTube matches)
   const mergedTracks: MergedTrack[] = spotifyTracks.map((track: SimplifiedTrack): MergedTrack => {
     const matchedVideo = trackMatches.get(track.id);
+    const matchScore = matchedVideo ? matchScores.get(track.id) : undefined;
     return {
       spotify: track,
       youtube: matchedVideo
@@ -222,7 +226,8 @@ export async function fetchPlaylistDetails(
             url: `https://www.youtube.com/watch?v=${matchedVideo.id}`
           }
         : null,
-      linked: !!matchedVideo
+      linked: !!matchedVideo,
+      matchScore
     };
   });
 

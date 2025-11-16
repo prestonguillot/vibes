@@ -16,6 +16,7 @@ import path from 'path';
 import SpotifyWebApi from 'spotify-web-api-node';
 import { reorderPlaylistTracks } from '../utils/playlistReordering';
 import { fetchPlaylistDetails } from '../services/playlistDetailsService';
+import { calculateMatchScore, SimplifiedTrack, SimplifiedVideo } from '../utils/trackMatching';
 const router = Router();
 
 // Helper function to get Spotify API instance
@@ -202,7 +203,7 @@ router.get('/search/:trackId',
     // Search for videos using the YouTube scraper
     const searchQuery = `${trackName} ${artistName}`;
     Logger.external('YouTube', 'Searching for videos', { query: searchQuery });
-    
+
     const searchResults = await scrapeYouTubeSearch(searchQuery, 10);
 
     const videos = searchResults.map((result) => ({
@@ -216,6 +217,21 @@ router.get('/search/:trackId',
     }));
 
     Logger.info('Found alternative videos', { count: videos.length });
+
+    // Calculate match scores for each video
+    const spotifyTrack: SimplifiedTrack = {
+      id: trackId,
+      name: trackName,
+      artist: artistName
+    };
+
+    const videosWithScores = videos.map((video: SimplifiedVideo) => {
+      const { score, breakdown } = calculateMatchScore(spotifyTrack, video);
+      return {
+        ...video,
+        matchScore: breakdown
+      };
+    });
 
     // Determine if this is for a new link or replacing an existing one
     const isReplacing = currentVideoId && currentVideoId !== '';
@@ -234,7 +250,7 @@ router.get('/search/:trackId',
         trackId,
         modalTitle,
         instructionText,
-        videos,
+        videos: videosWithScores,
         currentVideoId: currentVideoId || '',
         playlistId
       }
