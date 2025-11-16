@@ -1068,13 +1068,9 @@ router.post('/playlist/:playlistId',
     if (error && typeof error === 'object' && 'code' in error && error.code === 403) {
       const gaxiosError = error as { errors?: Array<{ reason?: string }> };
       if (gaxiosError.errors && gaxiosError.errors.some((e) => e.reason === 'quotaExceeded')) {
-        Logger.warn('YouTube API quota exceeded - sync stopped gracefully');
-        const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/sync-error.ejs'), {
-          playlistId: 'unknown',
-          title: 'YouTube API Quota Exceeded',
-          message: 'You\'ve reached the daily YouTube API quota limit. Please try again tomorrow when the quota resets.'
-        });
-        return res.status(429).send(html);
+        Logger.warn('YouTube API quota exceeded - redirecting with error modal');
+        // Redirect to home with error modal - consistent with other quota error handling
+        return res.redirect('/?error=youtube&reason=quota_exceeded');
       }
     }
     
