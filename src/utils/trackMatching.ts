@@ -69,33 +69,58 @@ function isLiveVideo(youtubeVideo: SimplifiedVideo): boolean {
 }
 
 /**
- * Calculate how well a Spotify track matches a YouTube video, prioritizing official videos
+ * Score breakdown details for a match
  */
-function calculateMatchScore(spotifyTrack: SimplifiedTrack, youtubeVideo: SimplifiedVideo): number {
+export interface ScoreBreakdown {
+  totalScore: number;
+  stars: number; // 0-5 star rating
+  color: string; // hex color based on score
+  components: {
+    coreMatch?: number;
+    artistBonus?: number;
+    fuzzySimilarity?: number;
+    wordMatching?: number;
+    officialVideo?: number;
+    livePerformance?: number;
+    viewCount?: number;
+  };
+}
+
+/**
+ * Calculate how well a Spotify track matches a YouTube video, prioritizing official videos
+ * @returns { score: number, breakdown: ScoreBreakdown }
+ */
+export function calculateMatchScore(spotifyTrack: SimplifiedTrack, youtubeVideo: SimplifiedVideo): { score: number; breakdown: ScoreBreakdown } {
   // Extract core titles by removing metadata
   const coreTrackName = extractCoreTitle(spotifyTrack.name);
   const coreArtistName = normalizeText(spotifyTrack.artist);
   const coreVideoTitle = extractCoreTitle(youtubeVideo.title);
 
   let score = 0;
+  const components: ScoreBreakdown['components'] = {};
 
   // Strategy 1: Core track title exact match (highest priority)
   if (coreVideoTitle.includes(coreTrackName) || coreTrackName.includes(coreVideoTitle)) {
-    score += 0.6; // Reduced from 0.8 to make room for quality bonuses
+    score += 0.6;
+    components.coreMatch = 0.6;
 
     // Bonus if artist is also mentioned
     if (coreVideoTitle.includes(coreArtistName) || youtubeVideo.title.toLowerCase().includes(coreArtistName)) {
       score += 0.15;
+      components.artistBonus = 0.15;
     }
   } else {
     // Strategy 2: Core title similarity (for slight variations)
     const titleSimilarity = calculateStringSimilarity(coreTrackName, coreVideoTitle);
     if (titleSimilarity > 0.8) {
-      score += 0.5 * titleSimilarity;
+      const fuzzySimilarityScore = 0.5 * titleSimilarity;
+      score += fuzzySimilarityScore;
+      components.fuzzySimilarity = fuzzySimilarityScore;
 
       // Bonus if artist matches
       if (coreVideoTitle.includes(coreArtistName) || youtubeVideo.title.toLowerCase().includes(coreArtistName)) {
         score += 0.15;
+        components.artistBonus = 0.15;
       }
     } else {
       // Strategy 3: Word-by-word core matching
@@ -112,7 +137,9 @@ function calculateMatchScore(spotifyTrack: SimplifiedTrack, youtubeVideo: Simpli
 
         const coreMatchRatio = coreWordMatches / trackCoreWords.length;
         if (coreMatchRatio > 0.5) {
-          score += 0.4 * coreMatchRatio;
+          const wordMatchScore = 0.4 * coreMatchRatio;
+          score += wordMatchScore;
+          components.wordMatching = wordMatchScore;
         }
       }
     }
@@ -120,28 +147,85 @@ function calculateMatchScore(spotifyTrack: SimplifiedTrack, youtubeVideo: Simpli
 
   // Strategy 4: Artist name matching (secondary)
   const videoTitle = normalizeText(youtubeVideo.title);
-  if (videoTitle.includes(coreArtistName)) {
+  if (videoTitle.includes(coreArtistName) && !components.artistBonus) {
     score += 0.1;
+    components.artistBonus = 0.1;
   }
 
   // QUALITY BONUSES: Prioritize official videos and high-view-count videos
   // Official music video from official channel: highest bonus
   if (isOfficialVideo(youtubeVideo, spotifyTrack.artist)) {
-    score += 0.3; // +0.3 for official music videos
+    score += 0.3;
+    components.officialVideo = 0.3;
   }
   // Live performance from official source: medium bonus
   else if (isLiveVideo(youtubeVideo) && (youtubeVideo.viewCount ?? 0) > 1_000_000) {
-    score += 0.15; // +0.15 for live videos with decent views
+    score += 0.15;
+    components.livePerformance = 0.15;
   }
 
   // High view count bonus: videos with many views are more likely to be official/popular
   if ((youtubeVideo.viewCount ?? 0) > 5_000_000) {
     score += 0.1;
+    components.viewCount = 0.1;
   } else if ((youtubeVideo.viewCount ?? 0) > 1_000_000) {
     score += 0.05;
+    components.viewCount = 0.05;
   }
 
-  return Math.min(score, 1.0);
+  const finalScore = Math.min(score, 1.0);
+  const stars = Math.round(finalScore * 5 * 10) / 10; // Round to 1 decimal place
+  const color = scoreToColor(finalScore);
+
+  return {
+    score: finalScore,
+    breakdown: {
+      totalScore: finalScore,
+      stars,
+      color,
+      components
+    }
+  };
+}
+
+/**
+ * Convert a score (0-1) to a gradient color from red to green
+ */
+function scoreToColor(score: number): string {
+  // 0.0-0.4: Red (#FF0000 to #FF8800)
+  // 0.4-0.6: Orange/Yellow (#FF8800 to #FFFF00)
+  // 0.6-0.8: Yellow-Green (#FFFF00 to #88FF00)
+  // 0.8-1.0: Green (#88FF00 to #00FF00)
+
+  if (score < 0.4) {
+    // Red to Orange: 0.0 -> 1.0
+    const t = score / 0.4;
+    const r = 255;
+    const g = Math.round(136 * t); // 0 to 136
+    const b = 0;
+    return `rgb(${r}, ${g}, ${b})`;
+  } else if (score < 0.6) {
+    // Orange to Yellow: 0.0 -> 1.0
+    const t = (score - 0.4) / 0.2;
+    const r = 255;
+    const g = Math.round(136 + (119 * t)); // 136 to 255
+    const b = 0;
+    return `rgb(${r}, ${g}, ${b})`;
+  } else if (score < 0.8) {
+    // Yellow to Yellow-Green: 0.0 -> 1.0
+    const t = (score - 0.6) / 0.2;
+    const r = Math.round(255 - (167 * t)); // 255 to 88
+    const g = 255;
+    const b = 0;
+    return `rgb(${r}, ${g}, ${b})`;
+  } else {
+    // Yellow-Green to Green: 0.0 -> 1.0
+    const t = (score - 0.8) / 0.2;
+    const r = Math.round(88 - (88 * t)); // 88 to 0
+    const g = 255;
+    const b = 0;
+    return `rgb(${r}, ${g}, ${b})`;
+  }
 }
 
 function extractCoreTitle(title: string): string {
@@ -227,6 +311,14 @@ function calculateLevenshteinDistance(str1: string, str2: string): number {
 }
 
 /**
+ * Result of optimal track matching including scores
+ */
+export interface MatchingResult {
+  matches: Map<string, SimplifiedVideo>;
+  scores: Map<string, ScoreBreakdown>; // Track ID -> Score breakdown
+}
+
+/**
  * Optimal track-to-video matching algorithm
  *
  * Resolves conflicts by assigning videos to tracks based on match quality,
@@ -241,12 +333,12 @@ function calculateLevenshteinDistance(str1: string, str2: string): number {
  *
  * @param tracks Array of Spotify tracks to match
  * @param videos Array of YouTube videos to match against
- * @returns Map of track ID -> matched video (only includes successful matches)
+ * @returns MatchingResult with matches map and scores map
  */
 export function optimalTrackMatching(
   tracks: SimplifiedTrack[],
   videos: SimplifiedVideo[]
-): Map<string, SimplifiedVideo> {
+): MatchingResult {
   const minScore = 0.4; // Minimum similarity threshold
 
   // Step 1: Calculate all match scores
@@ -254,15 +346,16 @@ export function optimalTrackMatching(
     track: SimplifiedTrack;
     video: SimplifiedVideo;
     score: number;
+    breakdown: ScoreBreakdown;
   }
 
   const candidates: MatchCandidate[] = [];
 
   for (const track of tracks) {
     for (const video of videos) {
-      const score = calculateMatchScore(track, video);
+      const { score, breakdown } = calculateMatchScore(track, video);
       if (score >= minScore) {
-        candidates.push({ track, video, score });
+        candidates.push({ track, video, score, breakdown });
       }
     }
   }
@@ -274,6 +367,7 @@ export function optimalTrackMatching(
   const assignedTracks = new Set<string>();
   const assignedVideos = new Set<string>();
   const matches = new Map<string, SimplifiedVideo>();
+  const scores = new Map<string, ScoreBreakdown>();
 
   for (const candidate of candidates) {
     // Skip if this track or video is already assigned
@@ -283,6 +377,7 @@ export function optimalTrackMatching(
 
     // Assign this match
     matches.set(candidate.track.id, candidate.video);
+    scores.set(candidate.track.id, candidate.breakdown);
     assignedTracks.add(candidate.track.id);
     assignedVideos.add(candidate.video.id);
   }
@@ -295,5 +390,5 @@ export function optimalTrackMatching(
     unmatchedTracks: tracks.length - matches.size
   });
 
-  return matches;
+  return { matches, scores };
 }

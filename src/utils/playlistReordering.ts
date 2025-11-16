@@ -119,7 +119,8 @@ export async function reorderPlaylistTracks(
   }
 
   // Use optimal matching algorithm to resolve conflicts based on match quality
-  const trackMatches = optimalTrackMatching(tracksToMatch, existingVideos);
+  const matchingResult = optimalTrackMatching(tracksToMatch, existingVideos);
+  const trackMatches = matchingResult.matches; // Extract the matches Map from the result object
 
   // Build map of YouTube videoId to Spotify track info (including position)
   // This includes both manually added and synced videos
