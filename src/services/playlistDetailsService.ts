@@ -14,6 +14,7 @@ export interface SimplifiedTrack {
   name: string;
   artist: string;
   album: string;
+  albumArt?: string;
   duration_ms?: number;
   external_urls?: { spotify: string };
   preview_url?: string | null;
@@ -88,17 +89,26 @@ export async function fetchPlaylistDetails(
           id: string;
           name: string;
           artists: Array<{ name?: string }>;
-          album?: { name?: string };
+          album?: {
+            name?: string;
+            images?: Array<{ url?: string; height?: number; width?: number }>;
+          };
           duration_ms: number;
           external_urls: { spotify: string };
           preview_url?: string | null;
         };
       };
+
+      // Get the largest album art image (Spotify returns multiple sizes)
+      const albumImages = typedItem.track.album?.images || [];
+      const largestImage = albumImages.length > 0 ? albumImages[0].url : undefined;
+
       return {
         id: typedItem.track.id,
         name: typedItem.track.name,
         artist: typedItem.track.artists[0]?.name || 'Unknown Artist',
         album: typedItem.track.album?.name || 'Unknown Album',
+        albumArt: largestImage,
         duration_ms: typedItem.track.duration_ms,
         external_urls: typedItem.track.external_urls,
         preview_url: typedItem.track.preview_url || null
