@@ -141,12 +141,18 @@ export async function scrapeYouTubeSearch(query: string, maxResults: number = 3)
     for (const item of videoData) {
       if (item.videoRenderer && results.length < maxResults) {
         const video = item.videoRenderer;
-        
+
         const videoId = video.videoId;
         const title = video.title?.runs?.[0]?.text || video.title?.simpleText || 'Unknown Title';
         const duration = video.lengthText?.simpleText || 'Unknown Duration';
         const views = video.viewCountText?.simpleText || 'Unknown Views';
-        const channel = video.ownerText?.runs?.[0]?.text || video.longBylineText?.runs?.[0]?.text || 'Unknown Channel';
+        // Get channel name - try multiple sources to ensure we get the actual channel name
+        let channel = 'Unknown Channel';
+        if (video.longBylineText?.runs?.[0]?.text) {
+          channel = video.longBylineText.runs[0].text;
+        } else if (video.ownerText?.runs?.[0]?.text) {
+          channel = video.ownerText.runs[0].text;
+        }
         
         if (videoId) {
           results.push({
