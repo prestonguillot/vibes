@@ -234,9 +234,10 @@ router.get('/search/:trackId',
       const { score, breakdown } = calculateMatchScore(spotifyTrack, enhancedVideo);
       return {
         ...video,
-        matchScore: breakdown
+        matchScore: breakdown,
+        matchScore_score: score  // Store the actual score for sorting
       };
-    });
+    }).sort((a, b) => (b.matchScore_score || 0) - (a.matchScore_score || 0));  // Sort by score descending
 
     // Determine if this is for a new link or replacing an existing one
     const isReplacing = currentVideoId && currentVideoId !== '';
