@@ -156,9 +156,15 @@ router.get('/playlist/:playlistId',
     const gaxiosError = error as { errors?: Array<{ reason?: string }> };
 
     if (errorCode === 403 || (gaxiosError.errors && gaxiosError.errors.some((e) => e.reason === 'quotaExceeded'))) {
-      Logger.warn('YouTube API quota exceeded - redirecting with error modal');
-      // Redirect to home with error modal - consistent with other quota error handling
-      return res.redirect('/?error=youtube&reason=quota_exceeded');
+      Logger.warn('YouTube API quota exceeded - returning error partial for HTMX');
+      // Return error partial for HTMX instead of redirecting
+      const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
+        type: 'warning',
+        title: 'YouTube Quota Exceeded',
+        message: 'Your YouTube API quota has been exceeded. YouTube limits API usage per day.',
+        details: 'The quota resets at midnight Pacific Time. You can continue using the app with existing playlists, but cannot load new playlist details until the quota resets.'
+      });
+      return res.status(403).send(html);
     }
 
     const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
