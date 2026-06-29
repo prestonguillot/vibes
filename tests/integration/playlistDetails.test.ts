@@ -17,6 +17,7 @@ vi.mock('spotify-web-api-node', () => {
   const SpotifyWebApi = vi.fn();
   SpotifyWebApi.prototype.setAccessToken = vi.fn();
   SpotifyWebApi.prototype.setRefreshToken = vi.fn();
+  SpotifyWebApi.prototype.getAccessToken = vi.fn(() => 'test-access-token');
   SpotifyWebApi.prototype.getPlaylist = vi.fn(() =>
     Promise.resolve({
       body: {
@@ -109,6 +110,18 @@ vi.mock('spotify-web-api-node', () => {
 
   return { default: SpotifyWebApi };
 });
+
+// Track fetching moved to the /items helper (the old getPlaylistTracks mock above
+// is no longer exercised). Mock the helper to derive its items from whatever the
+// current getPlaylist mock returns under body.tracks.items - already in the
+// normalized { track } shape - so per-test getPlaylist overrides keep working.
+vi.mock('@/utils/spotifyPlaylistItems', () => ({
+  fetchAllPlaylistItems: vi.fn(async () => {
+    const SpotifyWebApi = (await import('spotify-web-api-node')).default;
+    const data: any = await new SpotifyWebApi().getPlaylist('');
+    return data?.body?.tracks?.items || [];
+  })
+}));
 
 const app = createApp();
 

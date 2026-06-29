@@ -129,15 +129,54 @@ describe('Spotify Playlists', () => {
       expect(response.headers['content-type']).toMatch(/html/);
     });
 
-    it('should accept valid code parameter format', async () => {
+    it('should accept valid code with matching OAuth state', async () => {
+      // A valid flow presents both the state query param and the matching
+      // state cookie set during /login. Validation + state check pass, then the
+      // mocked Spotify API rejects the code exchange, so the route redirects
+      // home with error params.
       const response = await request(app)
         .get('/auth/spotify/callback')
-        .query({ code: 'test-authorization-code-from-spotify' });
+        .set('Cookie', 'spotify_oauth_state=matching-state-value')
+        .query({ code: 'test-authorization-code-from-spotify', state: 'matching-state-value' });
 
-      // Validation passes, but mocked Spotify API returns error
-      // Route catches the error and redirects back to home with error params
       expect(response.status).toBe(302);
       expect(response.headers['location']).toMatch(/^\/\?error=spotify&reason=/);
+    });
+
+    it('should reject callback when OAuth state does not match the cookie', async () => {
+      const response = await request(app)
+        .get('/auth/spotify/callback')
+        .set('Cookie', 'spotify_oauth_state=expected-state')
+        .query({ code: 'test-authorization-code-from-spotify', state: 'attacker-supplied-state' });
+
+      expect(response.status).toBe(302);
+      expect(response.headers['location']).toBe('/?error=spotify&reason=state_mismatch');
+    });
+
+    it('should reject callback when OAuth state cookie is missing', async () => {
+      const response = await request(app)
+        .get('/auth/spotify/callback')
+        .query({ code: 'test-authorization-code-from-spotify', state: 'some-state' });
+
+      expect(response.status).toBe(302);
+      expect(response.headers['location']).toBe('/?error=spotify&reason=state_mismatch');
+    });
+  });
+
+  describe('GET /auth/spotify/login - OAuth state', () => {
+    it('should set a non-empty spotify_oauth_state cookie', async () => {
+      const response = await request(app)
+        .get('/auth/spotify/login')
+        .expect(302);
+
+      const setCookie = response.headers['set-cookie'];
+      expect(setCookie).toBeDefined();
+      const stateCookie = ([] as string[]).concat(setCookie).find(c => c.startsWith('spotify_oauth_state='));
+      expect(stateCookie).toBeDefined();
+      // Cookie must carry an actual value and use SameSite=Lax so it survives
+      // the cross-site redirect back from Spotify.
+      expect(stateCookie).not.toMatch(/^spotify_oauth_state=;/);
+      expect(stateCookie).toMatch(/SameSite=Lax/i);
     });
   });
 
