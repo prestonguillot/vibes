@@ -156,9 +156,8 @@ export async function fetchPlaylistDetails(
     } while (nextPageToken);
 
     // Build video objects from the playlist-item snippets. Matching uses only
-    // title + channelTitle (both present here), so we no longer make a separate
-    // videos.list call for view counts - it was matching-only and is gone now,
-    // saving a YouTube API call per details load.
+    // title + channelTitle, both available on the snippet, so no videos.list
+    // call is needed.
     youtubeVideos = allPlaylistItems.map((item: youtube_v3.Schema$PlaylistItem): SimplifiedVideo => ({
       id: item.snippet?.resourceId?.videoId || '',
       title: item.snippet?.title || '',

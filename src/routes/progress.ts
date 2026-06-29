@@ -6,8 +6,6 @@ import { parseSpotifyTokenCookie, parseYouTubeTokenCookie } from '../utils/cooki
 import { z } from 'zod';
 import ejs from 'ejs';
 import path from 'path';
-import SpotifyWebApi from 'spotify-web-api-node';
-import { google } from 'googleapis';
 
 const router = Router();
 
@@ -21,74 +19,6 @@ function getYouTubeUserId(youtubeTokens: YouTubeTokens): string {
     throw new Error('YouTube channel ID not found in tokens - re-authenticate with YouTube');
   }
   return youtubeTokens.channel_id;
-}
-
-// Helper function to verify that a user has a synced playlist for a given Spotify playlist ID
-async function verifySyncedPlaylistExists(
-  spotifyTokens: SpotifyTokens,
-  youtubeTokens: YouTubeTokens,
-  spotifyPlaylistId: string
-): Promise<boolean> {
-  try {
-    // Get Spotify playlist name to construct the expected YouTube playlist title
-    const spotifyApi = new SpotifyWebApi({
-      clientId: process.env.SPOTIFY_CLIENT_ID,
-      clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
-      redirectUri: process.env.SPOTIFY_REDIRECT_URI
-    });
-    spotifyApi.setAccessToken(spotifyTokens.accessToken);
-    spotifyApi.setRefreshToken(spotifyTokens.refreshToken);
-
-    Logger.external('Spotify', 'Fetching playlist name for verification', { playlistId: spotifyPlaylistId });
-    const spotifyPlaylist = await spotifyApi.getPlaylist(spotifyPlaylistId);
-    const expectedYouTubePlaylistTitle = `${spotifyPlaylist.body.name} (from Spotify)`;
-
-    // Set up YouTube OAuth2 client
-    const oauth2Client = new google.auth.OAuth2(
-      process.env.YOUTUBE_CLIENT_ID,
-      process.env.YOUTUBE_CLIENT_SECRET,
-      process.env.YOUTUBE_REDIRECT_URI
-    );
-    oauth2Client.setCredentials(youtubeTokens);
-
-    const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
-
-    // Search for the synced YouTube playlist
-    Logger.external('YouTube', 'Looking for synced playlist', { title: expectedYouTubePlaylistTitle });
-
-    let nextPageToken: string | undefined = undefined;
-    do {
-      const playlistsResponse = await youtube.playlists.list({
-        part: ['snippet'],
-        mine: true,
-        maxResults: 50,
-        pageToken: nextPageToken
-      });
-
-      const foundPlaylist = playlistsResponse.data.items?.find(
-        (playlist) => playlist.snippet?.title === expectedYouTubePlaylistTitle
-      );
-
-      if (foundPlaylist) {
-        Logger.info('Verified synced playlist exists', {
-          spotifyPlaylistId,
-          youtubePlaylistId: foundPlaylist.id
-        });
-        return true;
-      }
-
-      nextPageToken = playlistsResponse.data.nextPageToken || undefined;
-    } while (nextPageToken);
-
-    Logger.warn('Synced playlist not found during verification', {
-      spotifyPlaylistId,
-      expectedTitle: expectedYouTubePlaylistTitle
-    });
-    return false;
-  } catch (error) {
-    Logger.error('Failed to verify synced playlist', { spotifyPlaylistId }, error);
-    return false;
-  }
 }
 
 // SSE endpoint for real-time progress updates
@@ -121,16 +51,8 @@ router.get('/playlist/:playlistId',
     return res.status(401).send(html);
   }
 
-  // 2. Verify authorization - the user must have a synced playlist for this Spotify playlist ID
-  // Only verify if this is an update (playlist already synced). For new syncs, the playlist doesn't exist yet.
-  // If user has valid tokens, they are authorized to create/update their own playlists.
-  const syncedPlaylistExists = await verifySyncedPlaylistExists(spotifyTokens, youtubeTokens, playlistId);
-
-  if (!syncedPlaylistExists) {
-    // Log it but don't reject - this might be a brand new sync where the playlist doesn't exist yet
-    Logger.info('Synced playlist not found (might be a new sync)', { playlistId });
-    // Note: We trust the token validation above instead of requiring the playlist to already exist
-  }
+  // 2. Authorization: valid Spotify + YouTube tokens are sufficient - the user
+  //    can create or update their own playlists, so no playlist lookup is needed.
 
   // 3. Get YouTube user ID from cached channel ID in tokens
   let youtubeUserId: string;

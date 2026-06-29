@@ -1,6 +1,6 @@
 import { Router, Request } from 'express';
 import SpotifyWebApi from 'spotify-web-api-node';
-import { google, youtube_v3 } from 'googleapis';
+import { google } from 'googleapis';
 import { Logger } from '../utils/logger';
 import { getSecureCookieOptions } from '../utils/authValidation';
 import { validate, schemas, ValidatedRequest } from '../utils/validation';
@@ -8,6 +8,7 @@ import { CacheDuration, setCache } from '../utils/cache';
 import { youtubeCircuitBreaker } from '../utils/circuitBreaker';
 import { parseSpotifyTokenCookie, parseYouTubeTokenCookie, validateAndSerializeSpotifyTokens } from '../utils/cookieParser';
 import { generateCsrfToken } from '../utils/csrf';
+import { fetchAllYoutubePlaylists, findSyncedYoutubePlaylist, syncedPlaylistTitle } from '../utils/youtubePlaylist';
 import { z } from 'zod';
 import ejs from 'ejs';
 import path from 'path';
@@ -248,26 +249,12 @@ router.get('/playlists',
         youtubeTokens = null;
       } else {
         try {
-          let nextPageToken: string | undefined = undefined;
-
-          do {
-            const youtubeResponse: youtube_v3.Schema$PlaylistListResponse = await youtube.playlists.list({
-              part: ['snippet', 'contentDetails'],
-              mine: true,
-              maxResults: 50,
-              pageToken: nextPageToken
-            }).then(res => res.data);
-
-            if (youtubeResponse.items) {
-              youtubeResponse.items.forEach((playlist: youtube_v3.Schema$Playlist) => {
-                const title = playlist.snippet?.title || '';
-                youtubePlaylistNames.add(title);
-                youtubePlaylistsMap.set(title, playlist);
-              });
-            }
-
-            nextPageToken = youtubeResponse.nextPageToken || undefined;
-          } while (nextPageToken);
+          const allYoutubePlaylists = await fetchAllYoutubePlaylists(youtube);
+          allYoutubePlaylists.forEach((playlist) => {
+            const title = playlist.snippet?.title || '';
+            youtubePlaylistNames.add(title);
+            youtubePlaylistsMap.set(title, playlist);
+          });
 
           // Success - record it
           youtubeCircuitBreaker.recordSuccess();
@@ -294,11 +281,11 @@ router.get('/playlists',
     // Categorize and sort playlists
     // Check if a Spotify playlist has been synced by looking for a YouTube playlist with " (from Spotify)" suffix
     const syncedPlaylists = spotifyPlaylists
-      .filter((playlist: any) => youtubePlaylistNames.has(`${playlist.name} (from Spotify)`))
+      .filter((playlist: any) => youtubePlaylistNames.has(syncedPlaylistTitle(playlist.name)))
       .sort((a: any, b: any) => a.name.localeCompare(b.name));
 
     const unsyncedPlaylists = spotifyPlaylists
-      .filter((playlist: any) => !youtubePlaylistNames.has(`${playlist.name} (from Spotify)`))
+      .filter((playlist: any) => !youtubePlaylistNames.has(syncedPlaylistTitle(playlist.name)))
       .sort((a: any, b: any) => a.name.localeCompare(b.name));
     
     // Combine with synced playlists first
@@ -307,13 +294,13 @@ router.get('/playlists',
     const viewsPath = path.join(__dirname, '../../views');
 
     const playlistsHtml = await Promise.all(sortedPlaylists.map(async (playlist: any) => {
-      const isSynced = youtubePlaylistNames.has(`${playlist.name} (from Spotify)`);
+      const isSynced = youtubePlaylistNames.has(syncedPlaylistTitle(playlist.name));
       const syncIcon = isSynced ? '' : '';
       const buttonText = isSynced ? 'Update YouTube Playlist' : 'Sync to YouTube';
       const buttonClass = isSynced ? 'btn-outline-success' : 'btn-primary';
 
       // Get YouTube playlist info if it exists
-      const youtubePlaylist = youtubePlaylistsMap.get(`${playlist.name} (from Spotify)`);
+      const youtubePlaylist = youtubePlaylistsMap.get(syncedPlaylistTitle(playlist.name));
       const youtubePlaylistUrl = youtubePlaylist ?
         `https://www.youtube.com/playlist?list=${youtubePlaylist.id}` : undefined;
       const youtubeTracksTotal = youtubePlaylist?.contentDetails?.itemCount || 0;
@@ -444,28 +431,7 @@ router.get('/playlist-button/:playlistId',
     let isSynced = false;
 
     try {
-      const playlistTitle = `${playlist.name} (from Spotify)`;
-
-      // Search for the YouTube playlist (paginate if necessary)
-      let nextPageToken: string | undefined = undefined;
-      let foundPlaylist: youtube_v3.Schema$Playlist | undefined = undefined;
-
-      do {
-        const youtubeResponse: youtube_v3.Schema$PlaylistListResponse = await youtube.playlists.list({
-          part: ['snippet'],
-          mine: true,
-          maxResults: 50,
-          pageToken: nextPageToken
-        }).then(res => res.data);
-
-        foundPlaylist = youtubeResponse.items?.find((p: youtube_v3.Schema$Playlist) =>
-          p.snippet?.title === playlistTitle
-        );
-
-        if (foundPlaylist) break;
-        nextPageToken = youtubeResponse.nextPageToken || undefined;
-      } while (nextPageToken);
-
+      const foundPlaylist = await findSyncedYoutubePlaylist(youtube, playlist.name);
       if (foundPlaylist) {
         isSynced = true;
       }
