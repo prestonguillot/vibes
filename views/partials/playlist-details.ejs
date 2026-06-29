@@ -15,6 +15,12 @@
         Refresh
       </button>
     </div>
+    <% if (hasYoutubeConnection && hasYoutubePlaylist && needsResync) { %>
+      <div class="resync-notice" role="status">
+        <span class="resync-notice__dot" aria-hidden="true"></span>
+        YouTube is out of sync with Spotify — re-sync to fix the order and add missing tracks.
+      </div>
+    <% } %>
   </div>
 
   <div class="tracks-list">

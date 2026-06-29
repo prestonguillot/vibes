@@ -402,7 +402,8 @@ router.post('/playlist/:playlistId',
         linkedCount: playlistDetails.linkedCount,
         totalTracks: playlistDetails.totalTracks,
         hasYoutubeConnection: true,
-        hasYoutubePlaylist: playlistDetails.hasYoutubePlaylist
+        hasYoutubePlaylist: playlistDetails.hasYoutubePlaylist,
+        needsResync: playlistDetails.needsResync
       });
 
       return res.send(
@@ -618,7 +619,8 @@ router.post('/playlist/:playlistId',
       linkedCount: playlistDetails.linkedCount,
       totalTracks: playlistDetails.totalTracks,
       hasYoutubeConnection: true, // Sync always has YouTube connection
-      hasYoutubePlaylist: playlistDetails.hasYoutubePlaylist
+      hasYoutubePlaylist: playlistDetails.hasYoutubePlaylist,
+      needsResync: playlistDetails.needsResync
     });
 
     // Render response template with all components (properly escaped)
