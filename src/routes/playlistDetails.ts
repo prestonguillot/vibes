@@ -81,24 +81,41 @@ router.get('/playlist/:playlistId',
       return google.youtube({ version: 'v3', auth: oauth2Client });
     })() : null;
 
-    // Find YouTube playlist ID if YouTube is connected (for use with the shared service)
+    // Resolve the YouTube playlist id. The client may send the id it has cached
+    // (X-YT-Playlist-Id); trusting it skips listing all of the user's playlists
+    // plus a Spotify name lookup. Without it, resolve by the synced-playlist title.
     let youtubePlaylistId: string | undefined = undefined;
+    const cachedYoutubePlaylistId = (req.headers['x-yt-playlist-id'] as string | undefined)?.trim();
     if (youtube && youtubeTokens) {
-      const spotifyPlaylist = await spotifyApi.getPlaylist(playlistId);
-      const youtubePlaylist = await findSyncedYoutubePlaylist(youtube, spotifyPlaylist.body.name);
-
-      if (youtubePlaylist) {
-        youtubePlaylistId = youtubePlaylist.id || undefined;
-        Logger.external('YouTube', 'Found matching playlist', { playlistId: youtubePlaylistId });
+      if (cachedYoutubePlaylistId) {
+        youtubePlaylistId = cachedYoutubePlaylistId;
       } else {
-        Logger.info('No corresponding YouTube playlist found');
+        const spotifyPlaylist = await spotifyApi.getPlaylist(playlistId);
+        youtubePlaylistId = (await findSyncedYoutubePlaylist(youtube, spotifyPlaylist.body.name))?.id || undefined;
       }
-    } else {
-      Logger.info('YouTube not connected, skipping YouTube playlist lookup');
     }
 
-    // Fetch all playlist details using shared service (eliminates code duplication)
-    const playlistDetails = await fetchPlaylistDetails(spotifyApi, youtube, playlistId, youtubePlaylistId);
+    // Fetch details. A cached id can be stale (the playlist was deleted/recreated):
+    // if the fetch fails because the playlist is gone, resolve fresh and retry once.
+    let playlistDetails;
+    try {
+      playlistDetails = await fetchPlaylistDetails(spotifyApi, youtube, playlistId, youtubePlaylistId);
+    } catch (error) {
+      const notFound = (error as { code?: number }).code === 404;
+      if (youtube && youtubeTokens && cachedYoutubePlaylistId && notFound) {
+        const spotifyPlaylist = await spotifyApi.getPlaylist(playlistId);
+        youtubePlaylistId = (await findSyncedYoutubePlaylist(youtube, spotifyPlaylist.body.name))?.id || undefined;
+        playlistDetails = await fetchPlaylistDetails(spotifyApi, youtube, playlistId, youtubePlaylistId);
+      } else {
+        throw error;
+      }
+    }
+
+    // Return the authoritative YouTube playlist id so the client can cache it
+    // (empty string clears a now-invalid cached id).
+    if (youtube && youtubeTokens) {
+      res.set('X-YT-Playlist-Id', youtubePlaylistId || '');
+    }
 
     Logger.info('Playlist details fetched', {
       playlistId,
@@ -121,9 +138,8 @@ router.get('/playlist/:playlistId',
     const duration = Date.now() - startTime;
     Logger.requestEnd('Playlist Details Request', duration, { playlistId });
 
-    // No caching: the browser was serving stale playlist-detail HTML for up to
-    // 10 minutes, so edits/fixes didn't show up until expiry. Always revalidate.
-    // (Smarter revalidation can be reintroduced later - see refactor plan.)
+    // Always revalidate: the rendered details must reflect the current playlist
+    // state on every load (a refresh sends Cache-Control: no-cache to bust it).
     setCache(res, CacheDuration.NO_CACHE);
     res.send(playlistDetailsHtml);
 
