@@ -45,6 +45,9 @@ export interface PlaylistDetails {
   linkedCount: number;
   totalTracks: number;
   hasYoutubePlaylist: boolean;
+  /** True when a sync would change the YouTube playlist (order drift, orphan
+   *  videos, or unsynced tracks) - i.e. the two playlists are out of sync. */
+  needsResync: boolean;
 }
 
 /**
@@ -209,12 +212,27 @@ export async function fetchPlaylistDetails(
 
   const allTracks = [...mergedTracks, ...orphanedVideos];
 
+  // A synced playlist "needs re-sync" when a sync would change it: the matched
+  // videos are out of Spotify order, there are orphan videos, or some tracks
+  // have no video yet. Compares the desired order (matched videos in Spotify
+  // order) against the actual YouTube order, using the same matching as sync.
+  let needsResync = false;
+  if (hasYoutubePlaylist) {
+    const desiredVideoIds = spotifyTracks
+      .map(track => trackMatches.get(track.id)?.id)
+      .filter((id): id is string => !!id);
+    const actualVideoIds = youtubeVideos.map(video => video.id);
+    const orderOrSetDiffers = desiredVideoIds.join(' ') !== actualVideoIds.join(' ');
+    needsResync = orderOrSetDiffers || linkedCount < spotifyTracks.length;
+  }
+
   Logger.info('Playlist details processed', {
     totalSpotifyTracks: spotifyTracks.length,
     totalYoutubeVideos: youtubeVideos.length,
     matchedTracks: linkedCount,
     orphanedYoutubeVideos: orphanedVideos.length,
-    totalTracks: allTracks.length
+    totalTracks: allTracks.length,
+    needsResync
   });
 
   return {
@@ -223,6 +241,7 @@ export async function fetchPlaylistDetails(
     tracks: allTracks,
     linkedCount,
     totalTracks: spotifyTracks.length,
-    hasYoutubePlaylist
+    hasYoutubePlaylist,
+    needsResync
   };
 }

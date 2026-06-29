@@ -1876,3 +1876,22 @@ body.oauth-error-body {
         font-size: 1rem;
     }
 }
+
+/* "Needs re-sync" notice on the playlist details header, shown when the YouTube
+   playlist is out of sync with Spotify (order drift, orphans, or missing tracks). */
+.resync-notice {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: 0.4rem;
+    font-size: 0.8rem;
+    color: #8a6d3b;
+}
+
+.resync-notice__dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background-color: #e0a800;
+    flex-shrink: 0;
+}

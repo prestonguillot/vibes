@@ -121,7 +121,8 @@ router.get('/playlist/:playlistId',
       linkedCount: playlistDetails.linkedCount,
       totalTracks: playlistDetails.totalTracks,
       hasYoutubeConnection: !!youtubeTokens,
-      hasYoutubePlaylist: playlistDetails.hasYoutubePlaylist
+      hasYoutubePlaylist: playlistDetails.hasYoutubePlaylist,
+      needsResync: playlistDetails.needsResync
     });
 
     const duration = Date.now() - startTime;
