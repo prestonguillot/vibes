@@ -318,20 +318,17 @@ router.get('/playlists',
         `https://www.youtube.com/playlist?list=${youtubePlaylist.id}` : undefined;
       const youtubeTracksTotal = youtubePlaylist?.contentDetails?.itemCount || 0;
 
-      // Spotify's playlist list endpoint can return entries with missing fields
-      // (e.g. certain algorithmic/blend playlists), so read defensively rather
-      // than letting one malformed playlist crash the entire list render.
-      if (!playlist.tracks || typeof playlist.tracks.total !== 'number') {
-        Logger.warn('Spotify playlist missing tracks metadata, defaulting to 0', {
-          playlistId: playlist.id,
-          playlistName: playlist.name
-        });
-      }
+      // Spotify's dev-mode /me/playlists no longer returns tracks.total (the
+      // Feb 2026 API changes strip it), so the per-playlist count is unknown in
+      // the list. Pass null and let the template omit it; the real count shows
+      // in the details view, which fetches the items.
+      const spotifyTrackCount: number | null =
+        typeof playlist.tracks?.total === 'number' ? playlist.tracks.total : null;
 
       return await ejs.renderFile(path.join(viewsPath, 'partials/playlist-item.ejs'), {
         id: playlist.id,
         name: playlist.name,
-        tracksTotal: playlist.tracks?.total ?? 0,
+        tracksTotal: spotifyTrackCount,
         youtubeTracksTotal,
         spotifyUrl: playlist.external_urls?.spotify ?? `https://open.spotify.com/playlist/${playlist.id}`,
         youtubeUrl: youtubePlaylistUrl,

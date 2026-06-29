@@ -4,9 +4,11 @@
       <h5 class="mb-1"><%= syncIcon || '' %><%= name %></h5>
       <p class="text-muted mb-1">
         <% if (youtubeTracksTotal && youtubeTracksTotal > 0) { %>
-          <%= youtubeTracksTotal %> of <%= tracksTotal %> tracks synced
-        <% } else { %>
+          <%= youtubeTracksTotal %> tracks synced to YouTube<%= (tracksTotal != null) ? ` of ${tracksTotal}` : '' %>
+        <% } else if (tracksTotal != null) { %>
           <%= tracksTotal %> tracks
+        <% } else { %>
+          Open to view tracks
         <% } %>
       </p>
 
