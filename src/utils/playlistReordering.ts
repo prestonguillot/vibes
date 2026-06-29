@@ -1,6 +1,7 @@
 import { youtube_v3 } from 'googleapis';
 import { Logger } from './logger';
 import { optimalTrackMatching, SimplifiedTrack, SimplifiedVideo } from './trackMatching';
+import { youtubeWrite } from './youtubeWrites';
 
 interface ProgressCallback {
   (message: string, details?: string, percentage?: number): void;
@@ -424,7 +425,7 @@ export async function reorderPlaylistTracks(
       // CRITICAL: Use YouTube API UPDATE method to change position directly
       // NEVER use DELETE and INSERT - that's destructive and doesn't preserve order
       // See docs/YOUTUBE_REORDERING_PRINCIPLES.md for details
-      const updateResult = await youtube.playlistItems.update({
+      const updateResult = await youtubeWrite('playlistItems.update', () => youtube.playlistItems.update({
         part: ['snippet'],
         requestBody: {
           id: operation.playlistItemId,
@@ -437,7 +438,7 @@ export async function reorderPlaylistTracks(
             }
           }
         }
-      });
+      }));
 
       reorderedCount++;
       Logger.info('Successfully reordered track', {
