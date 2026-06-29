@@ -5,6 +5,7 @@ import { searchMusicVideo } from '../utils/youtubeScraper';
 import { fetchAllPlaylistItems } from '../utils/spotifyPlaylistItems';
 import { findSyncedYoutubePlaylist, syncedPlaylistTitle } from '../utils/youtubePlaylist';
 import { youtubeWrite } from '../utils/youtubeWrites';
+import { reconcilePlaylist, buildSyncDesiredVideoIds } from '../utils/playlistReconcile';
 import { sendProgressUpdate, closeProgressConnections } from './progress';
 import { Logger } from '../utils/logger';
 import { getSecureCookieOptions } from '../utils/authValidation';
@@ -740,60 +741,26 @@ router.post('/playlist/:playlistId',
       // before adding the first video.
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // Add all videos to the new playlist in correct order
-      // Sort search results by Spotify position to maintain order
-      const foundResults = searchResults.filter(result => result.found && result.videoId);
-      foundResults.sort((a, b) => a.spotifyPosition - b.spotifyPosition);
-      
-      for (let i = 0; i < foundResults.length; i++) {
-        const result = foundResults[i];
-        const videoId = result.videoId!;
-        
-        try {
-          // YouTube API doesn't support position on insert, videos are added to the end
-          await youtubeWrite('playlistItems.insert', () => youtube.playlistItems.insert({
-            part: ['snippet'],
-            requestBody: {
-              snippet: {
-                playlistId: youtubePlaylistId,
-                resourceId: {
-                  kind: 'youtube#video',
-                  videoId: videoId,
-                }
-              }
-            }
-          }));
-          logApiCall('add video to new playlist', 50); // playlistItems.insert costs 50 units
-          Logger.external('YouTube', 'Added video to new playlist', { videoId, position: result.spotifyPosition });
-          const currentIndex = i + 1;
-          // Calculate total progress: 70% (search complete) + 30% * (current/total) for playlist phase
-          const playlistProgress = (currentIndex / foundResults.length) * PLAYLIST_PHASE_WEIGHT;
-          const totalPercentage = Math.round((SEARCH_PHASE_WEIGHT + playlistProgress) * 100);
-          
-          // Use the result we already have
-          const songName = result.track;
-          const artistName = result.artist;
-          
-          sendProgressUpdate(playlistId, youtubeUserId, {
-            type: 'progress',
-            message: `Adding videos to playlist`,
-            details: `Adding "${songName}" by ${artistName} (${currentIndex}/${foundResults.length})`,
-            currentTrack: currentIndex,
-            totalTracks: foundResults.length,
-            currentSong: songName,
-            currentArtist: artistName,
-            percentage: totalPercentage
-          });
-        } catch (error) {
-          Logger.error('Error adding video to playlist', { videoId }, error);
-          sendProgressUpdate(playlistId, youtubeUserId, {
-            type: 'error',
-            message: 'Error adding video to playlist',
-            details: formatErrorDetails(error)
-          });
-        }
-      }
-      
+      // Reconcile the brand-new (empty) playlist to the desired order: every
+      // found video inserted at its Spotify position, in one pass. Errors
+      // propagate to the outer catch rather than being swallowed per-track.
+      const orderedTrackIds = tracks
+        .map(item => (item as { track?: { id?: string } }).track?.id)
+        .filter((id): id is string => !!id);
+      const desiredVideoIds = buildSyncDesiredVideoIds(orderedTrackIds, [], searchResults);
+
+      const reconcileResult = await reconcilePlaylist(
+        youtube, youtubePlaylistId, desiredVideoIds, [],
+        (done, total) => sendProgressUpdate(playlistId, youtubeUserId, {
+          type: 'progress',
+          message: 'Adding videos to playlist',
+          details: `Adding videos (${done}/${total})`,
+          percentage: Math.round((SEARCH_PHASE_WEIGHT + (done / Math.max(total, 1)) * PLAYLIST_PHASE_WEIGHT) * 100)
+        })
+      );
+      logApiCall('reconcile new playlist', reconcileResult.inserted * 50);
+      Logger.info('CREATE mode reconcile complete', reconcileResult);
+
     } else {
       // UPDATE MODE: Add the videos found for next unsynced tracks
       Logger.info('UPDATE MODE: Adding videos for next unsynced tracks');

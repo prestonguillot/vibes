@@ -71,6 +71,40 @@ export function computeReconcileOps(
   return ops;
 }
 
+/**
+ * Build the desired ordered list of video IDs for a sync.
+ *
+ * Walks the Spotify tracks in playlist order and emits each track's chosen video:
+ * a freshly-searched video takes precedence, otherwise the video it's already
+ * matched to. Tracks with no video are skipped, and a video is emitted at most
+ * once (first track wins) so reconcile never tries to add a duplicate.
+ */
+export function buildSyncDesiredVideoIds(
+  orderedSpotifyTrackIds: string[],
+  existingMatches: Array<{ trackId: string; videoId: string }>,
+  newSearchResults: Array<{ spotifyTrackId: string; videoId?: string; found: boolean }>
+): string[] {
+  const trackToVideo = new Map<string, string>();
+  for (const m of existingMatches) {
+    if (m.trackId && m.videoId) trackToVideo.set(m.trackId, m.videoId);
+  }
+  // New searches override an existing match for the same track.
+  for (const r of newSearchResults) {
+    if (r.found && r.videoId && r.spotifyTrackId) trackToVideo.set(r.spotifyTrackId, r.videoId);
+  }
+
+  const desired: string[] = [];
+  const used = new Set<string>();
+  for (const trackId of orderedSpotifyTrackIds) {
+    const videoId = trackToVideo.get(trackId);
+    if (videoId && !used.has(videoId)) {
+      used.add(videoId);
+      desired.push(videoId);
+    }
+  }
+  return desired;
+}
+
 export interface ReconcileResult {
   inserted: number;
   deleted: number;
@@ -85,7 +119,8 @@ export async function reconcilePlaylist(
   youtube: youtube_v3.Youtube,
   youtubePlaylistId: string,
   desiredVideoIds: string[],
-  current: CurrentPlaylistItem[]
+  current: CurrentPlaylistItem[],
+  onProgress?: (done: number, total: number) => void
 ): Promise<ReconcileResult> {
   const ops = computeReconcileOps(desiredVideoIds, current);
   const result: ReconcileResult = { inserted: 0, deleted: 0, moved: 0 };
@@ -97,6 +132,7 @@ export async function reconcilePlaylist(
     ops: ops.length
   });
 
+  let done = 0;
   for (const op of ops) {
     if (op.kind === 'delete') {
       await youtubeWrite('playlistItems.delete', () => youtube.playlistItems.delete({ id: op.playlistItemId }));
@@ -127,6 +163,8 @@ export async function reconcilePlaylist(
       }));
       result.moved++;
     }
+    done++;
+    if (onProgress) onProgress(done, ops.length);
   }
 
   Logger.info('Reconcile complete', { youtubePlaylistId, ...result });

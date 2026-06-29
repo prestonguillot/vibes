@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { computeReconcileOps, CurrentPlaylistItem } from '../../src/utils/playlistReconcile';
+import { computeReconcileOps, buildSyncDesiredVideoIds, CurrentPlaylistItem } from '../../src/utils/playlistReconcile';
 
 const ci = (...videoIds: string[]): CurrentPlaylistItem[] =>
   videoIds.map(videoId => ({ videoId, playlistItemId: `pi-${videoId}` }));
@@ -87,5 +87,65 @@ describe('computeReconcileOps', () => {
       { kind: 'delete', playlistItemId: 'pi-ORPHAN', videoId: 'ORPHAN' },
       { kind: 'move', playlistItemId: 'pi-b', videoId: 'b', position: 1 }
     ]);
+  });
+});
+
+describe('buildSyncDesiredVideoIds', () => {
+  const order = ['t1', 't2', 't3'];
+
+  it('emits videos in Spotify track order', () => {
+    const result = buildSyncDesiredVideoIds(
+      order,
+      [{ trackId: 't1', videoId: 'v1' }, { trackId: 't2', videoId: 'v2' }, { trackId: 't3', videoId: 'v3' }],
+      []
+    );
+    expect(result).toEqual(['v1', 'v2', 'v3']);
+  });
+
+  it('combines existing matches with new search results', () => {
+    // t1/t3 already matched; t2 newly searched.
+    const result = buildSyncDesiredVideoIds(
+      order,
+      [{ trackId: 't1', videoId: 'v1' }, { trackId: 't3', videoId: 'v3' }],
+      [{ spotifyTrackId: 't2', videoId: 'v2', found: true }]
+    );
+    expect(result).toEqual(['v1', 'v2', 'v3']);
+  });
+
+  it('skips tracks with no video (unfound / unmatched)', () => {
+    const result = buildSyncDesiredVideoIds(
+      order,
+      [{ trackId: 't1', videoId: 'v1' }],
+      [{ spotifyTrackId: 't3', videoId: 'v3', found: true }]
+      // t2 has neither -> skipped, but order of the rest is preserved
+    );
+    expect(result).toEqual(['v1', 'v3']);
+  });
+
+  it('ignores unfound search results', () => {
+    const result = buildSyncDesiredVideoIds(
+      order,
+      [],
+      [{ spotifyTrackId: 't1', videoId: undefined, found: false }, { spotifyTrackId: 't2', videoId: 'v2', found: true }]
+    );
+    expect(result).toEqual(['v2']);
+  });
+
+  it('lets a new search override an existing match for the same track', () => {
+    const result = buildSyncDesiredVideoIds(
+      ['t1'],
+      [{ trackId: 't1', videoId: 'old' }],
+      [{ spotifyTrackId: 't1', videoId: 'new', found: true }]
+    );
+    expect(result).toEqual(['new']);
+  });
+
+  it('emits a video at most once even if two tracks map to it', () => {
+    const result = buildSyncDesiredVideoIds(
+      ['t1', 't2'],
+      [{ trackId: 't1', videoId: 'dup' }, { trackId: 't2', videoId: 'dup' }],
+      []
+    );
+    expect(result).toEqual(['dup']);
   });
 });
