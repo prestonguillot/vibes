@@ -1,106 +1,145 @@
 /**
- * Route test for the sync handler's UPDATE path - the one that wiped a playlist.
+ * Route tests for the sync handler - the critical path that previously wiped a
+ * playlist. These pin the desired order passed to reconcile across the main
+ * branches (re-sync unchanged, update with a new track, create, create with no
+ * matches) so a future refactor of the handler can't silently regress it.
  *
- * Re-syncing an already-synced, unchanged playlist must reconcile to the SAME
- * order (every existing video present in the desired order), so reconcile plans
- * zero deletes. This pins the desired-order assembly that previously came out
- * empty and deleted everything.
- *
- * reconcilePlaylist is spied (the real planner/safety-rail are tested elsewhere);
- * everything else is mocked so no real API is hit.
+ * reconcilePlaylist is spied (its planner + safety rail are unit-tested
+ * separately); everything else is mocked so no real API is hit.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 
-// --- Spotify: two tracks ---
+const h = vi.hoisted(() => ({
+  getPlaylist: vi.fn(),
+  fetchAllPlaylistItems: vi.fn(),
+  searchMusicVideo: vi.fn(),
+  playlistsList: vi.fn(),
+  playlistsInsert: vi.fn(),
+  playlistItemsList: vi.fn(),
+  reconcilePlaylist: vi.fn(() => Promise.resolve({ inserted: 0, deleted: 0, moved: 0 }))
+}));
+
 vi.mock('spotify-web-api-node', () => {
   const SpotifyWebApi = vi.fn();
   SpotifyWebApi.prototype.setAccessToken = vi.fn();
   SpotifyWebApi.prototype.setRefreshToken = vi.fn();
   SpotifyWebApi.prototype.getAccessToken = vi.fn(() => 'spotify-token');
   SpotifyWebApi.prototype.getMe = vi.fn(() => Promise.resolve({ body: { id: 'user' } }));
-  SpotifyWebApi.prototype.getPlaylist = vi.fn(() =>
-    Promise.resolve({ body: { name: 'My Playlist', tracks: { total: 2 } } })
-  );
+  SpotifyWebApi.prototype.getPlaylist = h.getPlaylist;
   return { default: SpotifyWebApi };
 });
 
-// --- Spotify /items helper: the two tracks in order ---
-vi.mock('@/utils/spotifyPlaylistItems', () => ({
-  fetchAllPlaylistItems: vi.fn(() => Promise.resolve([
-    { track: { id: 't1', name: 'Song One', type: 'track', artists: [{ name: 'Artist' }] } },
-    { track: { id: 't2', name: 'Song Two', type: 'track', artists: [{ name: 'Artist' }] } }
-  ]))
-}));
+vi.mock('@/utils/spotifyPlaylistItems', () => ({ fetchAllPlaylistItems: h.fetchAllPlaylistItems }));
+vi.mock('@/utils/youtubeScraper', () => ({ searchMusicVideo: h.searchMusicVideo }));
 
-// --- Scraper: not needed (nothing unsynced), but mock to be safe ---
-vi.mock('@/utils/youtubeScraper', () => ({
-  searchMusicVideo: vi.fn(() => Promise.resolve(null))
-}));
-
-// --- googleapis: existing playlist already has both videos, titles match tracks ---
 vi.mock('googleapis', () => {
-  const playlists = {
-    list: vi.fn(() => Promise.resolve({ data: { items: [
-      { id: 'YT_PL', snippet: { title: 'My Playlist (from Spotify)' } }
-    ] } }))
-  };
-  const playlistItems = {
-    list: vi.fn(() => Promise.resolve({ data: { items: [
-      { id: 'pi1', snippet: { title: 'Song One', resourceId: { videoId: 'v1' } } },
-      { id: 'pi2', snippet: { title: 'Song Two', resourceId: { videoId: 'v2' } } }
-    ] } })),
-    insert: vi.fn(), update: vi.fn(), delete: vi.fn()
-  };
+  const playlists = { list: h.playlistsList, insert: h.playlistsInsert };
+  const playlistItems = { list: h.playlistItemsList, insert: vi.fn(), update: vi.fn(), delete: vi.fn() };
   const channels = { list: vi.fn(() => Promise.resolve({ data: { items: [{ id: 'chan' }] } })) };
   const youtube = vi.fn(() => ({ playlists, playlistItems, channels }));
   const OAuth2 = vi.fn(() => ({ setCredentials: vi.fn(), refreshAccessToken: vi.fn() }));
   return { google: { youtube, auth: { OAuth2 } }, youtube_v3: {} };
 });
 
-// --- reconcile: spy the executor, keep the real planner + safety rail ---
 vi.mock('@/utils/playlistReconcile', async (importActual) => {
   const actual = await importActual<typeof import('@/utils/playlistReconcile')>();
-  return { ...actual, reconcilePlaylist: vi.fn(() => Promise.resolve({ inserted: 0, deleted: 0, moved: 0 })) };
+  return { ...actual, reconcilePlaylist: h.reconcilePlaylist };
 });
 
 import { createApp } from '@/app';
-import { reconcilePlaylist } from '@/utils/playlistReconcile';
 
 const app = createApp();
-const mockedReconcile = vi.mocked(reconcilePlaylist);
 
 const spotifyCookie = JSON.stringify({ accessToken: 'a', refreshToken: 'b' });
 const youtubeCookie = JSON.stringify({
   access_token: 'a', refresh_token: 'b', scope: 's', token_type: 'Bearer', channel_id: 'chan'
 });
 
+const track = (id: string, name: string) => ({ track: { id, name, type: 'track', artists: [{ name: 'Artist' }] } });
+const ytItem = (pi: string, videoId: string, title: string) =>
+  ({ id: pi, snippet: { title, resourceId: { videoId } } });
+const SYNCED_TITLE = 'My Playlist (from Spotify)';
+
 async function getCsrf() {
   const res = await request(app).get('/health');
   const setCookie = ([] as string[]).concat(res.headers['set-cookie'] || []);
-  const csrf = setCookie.find(c => c.startsWith('csrf_token='))!;
-  const value = csrf.split(';')[0].split('=')[1];
+  const value = setCookie.find(c => c.startsWith('csrf_token='))!.split(';')[0].split('=')[1];
   return { cookie: `csrf_token=${value}`, token: decodeURIComponent(value).split('.')[0] };
 }
 
-describe('POST /api/sync/playlist/:id - UPDATE re-sync of an unchanged playlist', () => {
-  beforeEach(() => mockedReconcile.mockClear());
-
-  it('reconciles to the same order (all existing videos desired -> zero deletes)', async () => {
-    const { cookie, token } = await getCsrf();
-
-    const res = await request(app)
+function post() {
+  return getCsrf().then(({ cookie, token }) =>
+    request(app)
       .post('/api/sync/playlist/1234567890123456789012')
       .set('Cookie', [cookie, `spotify_tokens=${spotifyCookie}`, `youtube_tokens=${youtubeCookie}`])
       .set('X-CSRF-Token', token)
-      .send({ batchSize: 'all' });
+      .send({ batchSize: 'all' })
+  );
+}
+
+/** desiredVideoIds passed to the spied reconcile on its most recent call. */
+const lastDesired = () => h.reconcilePlaylist.mock.calls.at(-1)?.[2];
+
+describe('POST /api/sync/playlist/:id', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    h.getPlaylist.mockResolvedValue({ body: { name: 'My Playlist', tracks: { total: 2 } } });
+    h.reconcilePlaylist.mockResolvedValue({ inserted: 0, deleted: 0, moved: 0 });
+    h.searchMusicVideo.mockResolvedValue(null);
+  });
+
+  it('re-sync unchanged: reconciles to the existing order, zero deletes', async () => {
+    h.fetchAllPlaylistItems.mockResolvedValue([track('t1', 'Song One'), track('t2', 'Song Two')]);
+    h.playlistsList.mockResolvedValue({ data: { items: [{ id: 'YT_PL', snippet: { title: SYNCED_TITLE } }] } });
+    h.playlistItemsList.mockResolvedValue({ data: { items: [ytItem('pi1', 'v1', 'Song One'), ytItem('pi2', 'v2', 'Song Two')] } });
+
+    const res = await post();
 
     expect(res.status).toBe(200);
-    expect(mockedReconcile).toHaveBeenCalledTimes(1);
+    expect(h.reconcilePlaylist).toHaveBeenCalledTimes(1);
+    expect(lastDesired()).toEqual(['v1', 'v2']); // both existing videos present -> no orphan deletes
+  });
 
-    const [, , desiredVideoIds] = mockedReconcile.mock.calls[0];
-    // The fix: desired order contains BOTH existing videos, so reconcile deletes nothing.
-    expect(desiredVideoIds).toEqual(['v1', 'v2']);
+  it('update with a new track: desired order keeps existing and appends the new video', async () => {
+    h.getPlaylist.mockResolvedValue({ body: { name: 'My Playlist', tracks: { total: 3 } } });
+    h.fetchAllPlaylistItems.mockResolvedValue([track('t1', 'Song One'), track('t2', 'Song Two'), track('t3', 'Song Three')]);
+    h.playlistsList.mockResolvedValue({ data: { items: [{ id: 'YT_PL', snippet: { title: SYNCED_TITLE } }] } });
+    h.playlistItemsList.mockResolvedValue({ data: { items: [ytItem('pi1', 'v1', 'Song One'), ytItem('pi2', 'v2', 'Song Two')] } });
+    h.searchMusicVideo.mockImplementation((_artist: string, song: string) => Promise.resolve(song === 'Song Three' ? 'v3' : null));
+
+    const res = await post();
+
+    expect(res.status).toBe(200);
+    expect(lastDesired()).toEqual(['v1', 'v2', 'v3']);
+  });
+
+  it('create: no existing playlist, builds desired order from found videos', async () => {
+    h.fetchAllPlaylistItems.mockResolvedValue([track('t1', 'Song One'), track('t2', 'Song Two')]);
+    h.playlistsList.mockResolvedValue({ data: { items: [] } }); // none synced yet
+    h.playlistsInsert.mockResolvedValue({ data: { id: 'NEW_PL', snippet: { title: SYNCED_TITLE } } });
+    h.playlistItemsList.mockResolvedValue({ data: { items: [] } });
+    h.searchMusicVideo.mockImplementation((_artist: string, song: string) =>
+      Promise.resolve(song === 'Song One' ? 'v1' : song === 'Song Two' ? 'v2' : null));
+
+    const res = await post();
+
+    expect(res.status).toBe(200);
+    expect(h.reconcilePlaylist).toHaveBeenCalledTimes(1);
+    expect(lastDesired()).toEqual(['v1', 'v2']);
+  });
+
+  it('create with no matches: errors and never reconciles (no destructive writes)', async () => {
+    h.fetchAllPlaylistItems.mockResolvedValue([track('t1', 'Song One'), track('t2', 'Song Two')]);
+    h.playlistsList.mockResolvedValue({ data: { items: [] } });
+    h.searchMusicVideo.mockResolvedValue(null); // nothing found for any track
+
+    const res = await post();
+
+    expect(res.status).toBe(200);
+    expect(res.text).toContain('No videos found');
+    expect(h.reconcilePlaylist).not.toHaveBeenCalled();
+    expect(h.playlistsInsert).not.toHaveBeenCalled();
   });
 });
