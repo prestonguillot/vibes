@@ -6,7 +6,13 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { computeReconcileOps, buildSyncDesiredVideoIds, CurrentPlaylistItem } from '../../src/utils/playlistReconcile';
+import {
+  computeReconcileOps,
+  buildSyncDesiredVideoIds,
+  assertReconcileSafe,
+  ReconcileSafetyError,
+  CurrentPlaylistItem
+} from '../../src/utils/playlistReconcile';
 
 const ci = (...videoIds: string[]): CurrentPlaylistItem[] =>
   videoIds.map(videoId => ({ videoId, playlistItemId: `pi-${videoId}` }));
@@ -147,5 +153,44 @@ describe('buildSyncDesiredVideoIds', () => {
       []
     );
     expect(result).toEqual(['dup']);
+  });
+});
+
+describe('assertReconcileSafe (delete-safety rail)', () => {
+  const items = (n: number): CurrentPlaylistItem[] =>
+    Array.from({ length: n }, (_, i) => ({ videoId: `v${i}`, playlistItemId: `pi${i}` }));
+
+  it('throws on the catastrophe shape: empty desired wiping a full playlist', () => {
+    // The exact bug: desired came out empty, so every current item is an orphan.
+    const current = items(10);
+    const ops = computeReconcileOps([], current); // 10 deletes
+    expect(() => assertReconcileSafe(ops, [], current.length)).toThrow(ReconcileSafetyError);
+  });
+
+  it('throws when a plan would delete more than half of a non-trivial playlist', () => {
+    const current = items(10);
+    // desired keeps only 3 of the 10 -> 7 deletes (>50%)
+    const ops = computeReconcileOps(['v0', 'v1', 'v2'], current);
+    expect(() => assertReconcileSafe(ops, ['v0', 'v1', 'v2'], current.length)).toThrow(ReconcileSafetyError);
+  });
+
+  it('allows a normal re-sync that deletes nothing', () => {
+    const current = items(10);
+    const desired = current.map(c => c.videoId); // identical -> 0 ops
+    const ops = computeReconcileOps(desired, current);
+    expect(() => assertReconcileSafe(ops, desired, current.length)).not.toThrow();
+  });
+
+  it('allows removing a few tracks (under the threshold)', () => {
+    const current = items(10);
+    const desired = current.slice(0, 8).map(c => c.videoId); // 2 deletes (20%)
+    const ops = computeReconcileOps(desired, current);
+    expect(() => assertReconcileSafe(ops, desired, current.length)).not.toThrow();
+  });
+
+  it('does not trip on tiny playlists', () => {
+    const current = items(2);
+    const ops = computeReconcileOps([], current); // delete both, but current < min
+    expect(() => assertReconcileSafe(ops, [], current.length)).not.toThrow();
   });
 });

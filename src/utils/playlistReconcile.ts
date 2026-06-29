@@ -111,6 +111,41 @@ export interface ReconcileResult {
   moved: number;
 }
 
+/** Thrown when a reconcile plan looks destructive enough to be a bug, not intent. */
+export class ReconcileSafetyError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ReconcileSafetyError';
+  }
+}
+
+// A correct desired order overlaps heavily with the current playlist, so a plan
+// that deletes most of it almost always means the desired order was computed
+// wrong (as happened when existing matches came back empty and every item looked
+// like an orphan). Bail before any writes rather than wipe the user's data.
+const MAX_DELETE_FRACTION = 0.5;
+const SAFETY_MIN_CURRENT = 3;
+
+/**
+ * Throws ReconcileSafetyError if the plan would delete more than half of a
+ * non-trivial playlist while the desired list is non-empty. Pure, so it can be
+ * unit-tested directly.
+ */
+export function assertReconcileSafe(
+  ops: ReconcileOp[],
+  desiredVideoIds: string[],
+  currentCount: number
+): void {
+  if (currentCount < SAFETY_MIN_CURRENT) return;
+  const deletes = ops.filter(op => op.kind === 'delete').length;
+  if (deletes / currentCount > MAX_DELETE_FRACTION) {
+    throw new ReconcileSafetyError(
+      `Refusing reconcile: would delete ${deletes} of ${currentCount} items ` +
+      `(desired=${desiredVideoIds.length}) - the desired order looks wrong, not a real removal.`
+    );
+  }
+}
+
 /**
  * Execute a reconcile against YouTube. All writes go through youtubeWrite, so the
  * circuit breaker stops the run early if the quota is exhausted.
@@ -123,6 +158,7 @@ export async function reconcilePlaylist(
   onProgress?: (done: number, total: number) => void
 ): Promise<ReconcileResult> {
   const ops = computeReconcileOps(desiredVideoIds, current);
+  assertReconcileSafe(ops, desiredVideoIds, current.length);
   const result: ReconcileResult = { inserted: 0, deleted: 0, moved: 0 };
 
   Logger.info('Reconciling YouTube playlist', {
