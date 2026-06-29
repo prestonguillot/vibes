@@ -8,15 +8,13 @@
 
 import { describe, it, expect } from 'vitest';
 import { calculateMatchScore, optimalTrackMatching } from '../../src/utils/trackMatching';
-import { parseViewCount } from '../../src/utils/youtubeScraper';
 
 const track = (name: string, artist: string) => ({ id: `${name}-${artist}`, name, artist });
-const video = (over: Partial<{ id: string; title: string; description: string; channelTitle: string; viewCount: number }>) => ({
+const video = (over: Partial<{ id: string; title: string; description: string; channelTitle: string }>) => ({
   id: over.id ?? 'v1',
   title: over.title ?? '',
   description: over.description ?? '',
-  channelTitle: over.channelTitle,
-  viewCount: over.viewCount
+  channelTitle: over.channelTitle
 });
 
 describe('calculateMatchScore (golden master)', () => {
@@ -40,34 +38,37 @@ describe('calculateMatchScore (golden master)', () => {
     expect(score).toBe(1.0);
   });
 
-  it('treats a >10M view count as a verified channel for the official-video bonus', () => {
+  it('grants the official-video bonus for a known label channel (e.g. VEVO)', () => {
     const { breakdown } = calculateMatchScore(
       track('Creep', 'Radiohead'),
-      video({ title: 'Creep (Official Music Video)', channelTitle: 'SomeUploader', viewCount: 20_000_000 })
+      video({ title: 'Creep (Official Music Video)', channelTitle: 'RadioheadVEVO' })
     );
     expect(breakdown.components.officialVideo).toBe(0.3);
   });
 
-  it('applies the live-performance bonus (0.15) for a live video with >1M views', () => {
+  it('does NOT grant the official bonus when the channel is unrelated (no view-count shortcut anymore)', () => {
     const { breakdown } = calculateMatchScore(
       track('Creep', 'Radiohead'),
-      video({ title: 'Radiohead - Creep (Live at Glastonbury)', viewCount: 2_000_000 })
+      video({ title: 'Creep (Official Music Video)', channelTitle: 'SomeRandomUploader' })
     );
-    expect(breakdown.components.livePerformance).toBe(0.15);
     expect(breakdown.components.officialVideo).toBeUndefined();
   });
 
-  it('applies view-count bonuses: 0.1 above 5M, 0.05 above 1M', () => {
-    const high = calculateMatchScore(track('Creep', 'Radiohead'), video({ title: 'Radiohead - Creep', viewCount: 6_000_000 }));
-    expect(high.breakdown.components.viewCount).toBe(0.1);
-    const mid = calculateMatchScore(track('Creep', 'Radiohead'), video({ title: 'Radiohead - Creep', viewCount: 2_000_000 }));
-    expect(mid.breakdown.components.viewCount).toBe(0.05);
+  it('ignores view counts entirely (no view-count or live-performance components exist)', () => {
+    const { breakdown } = calculateMatchScore(
+      track('Creep', 'Radiohead'),
+      video({ title: 'Radiohead - Creep (Live at Glastonbury)' })
+    );
+    // Live/view bonuses were removed; only the stable components remain.
+    expect(breakdown.components).not.toHaveProperty('viewCount');
+    expect(breakdown.components).not.toHaveProperty('livePerformance');
   });
 
   it('caps the total score at 1.0 and reports 5 stars at the cap', () => {
+    // 0.6 core + 0.15 artist + 0.3 official = 1.05, capped at 1.0 (no view count needed).
     const { score, breakdown } = calculateMatchScore(
       track('Creep', 'Radiohead'),
-      video({ title: 'Radiohead - Creep (Official Video)', channelTitle: 'Radiohead', viewCount: 50_000_000 })
+      video({ title: 'Radiohead - Creep (Official Video)', channelTitle: 'Radiohead' })
     );
     expect(score).toBe(1.0);
     expect(breakdown.stars).toBe(5);
@@ -89,20 +90,6 @@ describe('calculateMatchScore (golden master)', () => {
     // stars = Math.round(0.75 * 5 * 10) / 10 = Math.round(37.5) / 10 = 3.8
     expect(breakdown.stars).toBe(3.8);
     expect(breakdown.color).toMatch(/^rgb\(/);
-  });
-});
-
-describe('parseViewCount (golden master)', () => {
-  it.each([
-    ['1.5M views', 1_500_000],
-    ['21.7M views', 21_700_000],
-    ['500K views', 500_000],
-    ['1,234,567 views', 1_234_567],
-    ['742 views', 742],
-    ['No views', 0],
-    ['', 0]
-  ])('parses %j -> %i', (input, expected) => {
-    expect(parseViewCount(input)).toBe(expected);
   });
 });
 

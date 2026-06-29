@@ -13,15 +13,13 @@ export interface SimplifiedVideo {
   description: string;
   playlistItemId?: string;
   channelTitle?: string;
-  viewCount?: number;
 }
 
 /**
- * Detect if a video is an official music video from an artist/label account
+ * Detect if a video is an official music video from an artist/label account.
+ * Uses only stable signals (title + channel name) so matching stays deterministic.
  */
 function isOfficialVideo(youtubeVideo: SimplifiedVideo, spotifyArtist: string): boolean {
-  const title = youtubeVideo.title.toLowerCase();
-  const description = (youtubeVideo.description || '').toLowerCase();
   const channel = (youtubeVideo.channelTitle || '').toLowerCase();
   const normalizedArtist = spotifyArtist.toLowerCase();
 
@@ -29,9 +27,7 @@ function isOfficialVideo(youtubeVideo: SimplifiedVideo, spotifyArtist: string): 
   const officialIndicators = /\bofficial\s+(music\s+)?video\b|\bofficial\s+audio\b/i;
   if (officialIndicators.test(youtubeVideo.title)) {
     // Additional check: channel should contain artist name or be a known label
-    if (channel.includes(normalizedArtist) ||
-        isKnownLabel(channel) ||
-        isVerifiedChannel(youtubeVideo)) {
+    if (channel.includes(normalizedArtist) || isKnownLabel(channel)) {
       return true;
     }
   }
@@ -52,23 +48,6 @@ function isKnownLabel(channel: string): boolean {
 }
 
 /**
- * Simple heuristic for verified/official channels (channels with very high view counts tend to be official)
- */
-function isVerifiedChannel(youtubeVideo: SimplifiedVideo): boolean {
-  // Videos with very high view counts (>10M) are likely from official sources
-  return (youtubeVideo.viewCount ?? 0) > 10_000_000;
-}
-
-/**
- * Detect if a video is a live performance
- */
-function isLiveVideo(youtubeVideo: SimplifiedVideo): boolean {
-  const title = youtubeVideo.title.toLowerCase();
-  const liveIndicators = /\blive\b|\blive\s+(at|performance|concert|session)\b|\b\(live\b/i;
-  return liveIndicators.test(youtubeVideo.title);
-}
-
-/**
  * Score breakdown details for a match
  */
 export interface ScoreBreakdown {
@@ -81,8 +60,6 @@ export interface ScoreBreakdown {
     fuzzySimilarity?: number;
     wordMatching?: number;
     officialVideo?: number;
-    livePerformance?: number;
-    viewCount?: number;
   };
 }
 
@@ -152,25 +129,13 @@ export function calculateMatchScore(spotifyTrack: SimplifiedTrack, youtubeVideo:
     components.artistBonus = 0.1;
   }
 
-  // QUALITY BONUSES: Prioritize official videos and high-view-count videos
-  // Official music video from official channel: highest bonus
+  // QUALITY BONUS: prefer an official music video from the artist's / a label's
+  // channel. Matching deliberately ignores view count - it is volatile (counts
+  // tick across thresholds over time), which would make matches non-deterministic
+  // and make the sync flow disagree with the details view.
   if (isOfficialVideo(youtubeVideo, spotifyTrack.artist)) {
     score += 0.3;
     components.officialVideo = 0.3;
-  }
-  // Live performance from official source: medium bonus
-  else if (isLiveVideo(youtubeVideo) && (youtubeVideo.viewCount ?? 0) > 1_000_000) {
-    score += 0.15;
-    components.livePerformance = 0.15;
-  }
-
-  // High view count bonus: videos with many views are more likely to be official/popular
-  if ((youtubeVideo.viewCount ?? 0) > 5_000_000) {
-    score += 0.1;
-    components.viewCount = 0.1;
-  } else if ((youtubeVideo.viewCount ?? 0) > 1_000_000) {
-    score += 0.05;
-    components.viewCount = 0.05;
   }
 
   const finalScore = Math.min(score, 1.0);
