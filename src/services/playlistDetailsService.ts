@@ -4,10 +4,10 @@
  * Used by both playlistDetails routes and sync operations to eliminate code duplication
  */
 
-import SpotifyWebApi from 'spotify-web-api-node';
 import { youtube_v3 } from 'googleapis';
 import { optimalTrackMatching, ScoreBreakdown } from '../utils/trackMatching';
 import { fetchAllPlaylistItems } from '../utils/spotifyPlaylistItems';
+import { getPlaylist } from '../utils/spotifyClient';
 import { Logger } from '../utils/logger';
 
 export interface SimplifiedTrack {
@@ -49,29 +49,22 @@ export interface PlaylistDetails {
 
 /**
  * Fetch and process complete playlist details with track/video matching
- * @param spotifyApi - Authenticated Spotify API instance
+ * @param accessToken - Valid Spotify access token
  * @param youtube - Authenticated YouTube API instance (optional)
  * @param playlistId - Spotify playlist ID
  * @param youtubePlaylistId - YouTube playlist ID (optional, for matching)
  * @returns Complete playlist details with all tracks and matches
  */
 export async function fetchPlaylistDetails(
-  spotifyApi: SpotifyWebApi,
+  accessToken: string,
   youtube: youtube_v3.Youtube | null,
   playlistId: string,
   youtubePlaylistId?: string
 ): Promise<PlaylistDetails> {
-  // Get Spotify playlist
+  // Get Spotify playlist metadata and all of its items (the /items endpoint;
+  // /tracks was removed in Feb 2026).
   Logger.external('Spotify', 'Fetching playlist', { playlistId });
-  const spotifyPlaylistData = await spotifyApi.getPlaylist(playlistId);
-
-  // Fetch all tracks via the /items endpoint. The library's getPlaylistTracks()
-  // uses the /tracks endpoint that Spotify removed in Feb 2026 (now 403); see
-  // fetchAllPlaylistItems.
-  const accessToken = spotifyApi.getAccessToken();
-  if (!accessToken) {
-    throw new Error('Spotify access token unavailable for fetching playlist items');
-  }
+  const spotifyPlaylist = await getPlaylist(accessToken, playlistId);
   const allPlaylistItems: Array<unknown> = await fetchAllPlaylistItems(accessToken, playlistId);
 
   // Extract and filter Spotify tracks
@@ -114,7 +107,7 @@ export async function fetchPlaylistDetails(
       };
     });
 
-  const totalTracksInPlaylist = spotifyPlaylistData.body.tracks?.total ?? spotifyTracks.length;
+  const totalTracksInPlaylist = spotifyPlaylist.trackTotal ?? spotifyTracks.length;
   const nullTracksCount = totalTracksInPlaylist - spotifyTracks.length;
 
   if (nullTracksCount > 0) {
@@ -226,7 +219,7 @@ export async function fetchPlaylistDetails(
 
   return {
     playlistId,
-    playlistName: spotifyPlaylistData.body.name,
+    playlistName: spotifyPlaylist.name,
     tracks: allTracks,
     linkedCount,
     totalTracks: spotifyTracks.length,

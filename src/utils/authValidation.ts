@@ -1,9 +1,9 @@
 import { Response } from 'express';
-import SpotifyWebApi from 'spotify-web-api-node';
 import { google } from 'googleapis';
 import { Logger } from './logger';
 import { SpotifyTokens, YouTubeTokens } from '../types/oauth';
 import { youtubeCircuitBreaker, spotifyCircuitBreaker } from './circuitBreaker';
+import { getCurrentUser, refreshAccessToken, SpotifyApiError } from './spotifyClient';
 
 /**
  * Cookie configuration for authentication tokens
@@ -53,23 +53,14 @@ export async function validateSpotifyConnection(
   }
 
   try {
-    const spotifyApi = new SpotifyWebApi({
-      clientId: process.env.SPOTIFY_CLIENT_ID,
-      clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
-      redirectUri: process.env.SPOTIFY_REDIRECT_URI
-    });
-
-    spotifyApi.setAccessToken(spotifyTokens.accessToken);
-    spotifyApi.setRefreshToken(spotifyTokens.refreshToken);
-
     // Test with a lightweight API call
-    await spotifyApi.getMe();
+    await getCurrentUser(spotifyTokens.accessToken);
     Logger.auth('Spotify', 'connection validated');
     spotifyCircuitBreaker.recordSuccess();
     return { connected: true };
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    const statusCode = (error as { statusCode?: number }).statusCode;
+    const statusCode = error instanceof SpotifyApiError ? error.status : undefined;
     Logger.auth('Spotify', 'connection invalid', { error: errorMessage, statusCode });
 
     // Quota exceeded - open circuit breaker and clear tokens
@@ -89,20 +80,14 @@ export async function validateSpotifyConnection(
     // Try to refresh the token on 401
     if (statusCode === 401 && spotifyTokens.refreshToken) {
       try {
-        const spotifyApi = new SpotifyWebApi({
-          clientId: process.env.SPOTIFY_CLIENT_ID,
-          clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
-          redirectUri: process.env.SPOTIFY_REDIRECT_URI
-        });
+        const refreshed = await refreshAccessToken(spotifyTokens.refreshToken);
 
-        spotifyApi.setAccessToken(spotifyTokens.accessToken);
-        spotifyApi.setRefreshToken(spotifyTokens.refreshToken);
-
-        const data = await spotifyApi.refreshAccessToken();
-        const { access_token } = data.body;
-
-        // Update cookie with new token
-        const updatedTokens = { ...spotifyTokens, accessToken: access_token };
+        // Update cookie with new token (Spotify may not return a new refresh token)
+        const updatedTokens = {
+          ...spotifyTokens,
+          accessToken: refreshed.accessToken,
+          refreshToken: refreshed.refreshToken ?? spotifyTokens.refreshToken
+        };
         res.cookie('spotify_tokens', JSON.stringify(updatedTokens), getSecureCookieOptions());
 
         Logger.auth('Spotify', 'token refreshed successfully');

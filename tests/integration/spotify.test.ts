@@ -2,9 +2,10 @@
  * Integration tests for Spotify routes
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import request from 'supertest';
 import { createApp } from '@/app';
+import { getCurrentUser, getUserPlaylists } from '@/utils/spotifyClient';
 
 // Helper to create valid YouTube token cookies (with all required Zod fields)
 const createMockYouTubeToken = (overrides?: Partial<any>) =>
@@ -16,20 +17,39 @@ const createMockYouTubeToken = (overrides?: Partial<any>) =>
     ...overrides
   });
 
-// Mock spotify-web-api-node
-vi.mock('spotify-web-api-node', () => {
-  const SpotifyWebApi = vi.fn();
-  SpotifyWebApi.prototype.createAuthorizeURL = vi.fn(() => 'https://accounts.spotify.com/authorize?client_id=test');
-  SpotifyWebApi.prototype.authorizationCodeGrant = vi.fn(() =>
-    Promise.reject({
-      statusCode: 400,
-      body: { error: 'invalid_client', error_description: 'Invalid client' }
-    })
-  );
-  SpotifyWebApi.prototype.setAccessToken = vi.fn();
-  SpotifyWebApi.prototype.setRefreshToken = vi.fn();
+// Mock the hand-written Spotify client. The real SpotifyApiError class is kept so
+// the route's status-based error branching works; the code-exchange default
+// rejects (as the old authorizationCodeGrant mock did) so the callback redirects
+// home with an error.
+vi.mock('@/utils/spotifyClient', async (importActual) => {
+  const actual = await importActual<typeof import('@/utils/spotifyClient')>();
+  return {
+    ...actual,
+    getAuthorizeUrl: vi.fn(() => 'https://accounts.spotify.com/authorize?client_id=test'),
+    exchangeCodeForTokens: vi.fn(() =>
+      Promise.reject(new actual.SpotifyApiError('Invalid client', 400))
+    ),
+    getCurrentUser: vi.fn(async () => ({ id: 'test-user', displayName: null })),
+    getUserPlaylists: vi.fn(async () => [])
+  };
+});
 
-  return { default: SpotifyWebApi };
+// The /playlists route resolves a valid access token via ensureValidSpotifyToken.
+vi.mock('@/utils/spotifyAuth', () => ({
+  ensureValidSpotifyToken: vi.fn(async () => 'test-access-token')
+}));
+
+const mockedGetCurrentUser = vi.mocked(getCurrentUser);
+const mockedGetUserPlaylists = vi.mocked(getUserPlaylists);
+
+// Maps the old spotify-web-api-node playlist fixture shape to the clean
+// SpotifyPlaylistSummary the new client returns.
+const playlistSummary = (id: string, name: string, trackTotal: number, ownerId = 'test-user') => ({
+  id,
+  name,
+  ownerId,
+  trackTotal,
+  spotifyUrl: `https://open.spotify.com/playlist/${id}`
 });
 
 // Mock googleapis
@@ -183,25 +203,10 @@ describe('Spotify Playlists', () => {
   describe('Sync Button Visibility (YouTube Connection)', () => {
     it('should show disabled button when YouTube is not connected', async () => {
       // Mock Spotify API to return playlists
-      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
-      SpotifyWebApi.prototype.getMe = vi.fn(() =>
-        Promise.resolve({ body: { id: 'test-user' } })
-      );
-      SpotifyWebApi.prototype.getUserPlaylists = vi.fn(() =>
-        Promise.resolve({
-          body: {
-            items: [
-              {
-                id: '1234567890123456789012',
-                name: 'Test Playlist',
-                tracks: { total: 10 },
-                external_urls: { spotify: 'https://open.spotify.com/playlist/123' },
-                owner: { id: 'test-user' }
-              }
-            ]
-          }
-        })
-      );
+      mockedGetCurrentUser.mockResolvedValue({ id: 'test-user', displayName: null });
+      mockedGetUserPlaylists.mockResolvedValue([
+        playlistSummary('1234567890123456789012', 'Test Playlist', 10)
+      ]);
 
       // Set Spotify cookie but NOT YouTube cookie
       const spotifyTokens = JSON.stringify({
@@ -223,25 +228,10 @@ describe('Spotify Playlists', () => {
 
     it('should show enabled sync button when both Spotify and YouTube are connected', async () => {
       // Mock Spotify API
-      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
-      SpotifyWebApi.prototype.getMe = vi.fn(() =>
-        Promise.resolve({ body: { id: 'test-user' } })
-      );
-      SpotifyWebApi.prototype.getUserPlaylists = vi.fn(() =>
-        Promise.resolve({
-          body: {
-            items: [
-              {
-                id: '1234567890123456789012',
-                name: 'Test Playlist',
-                tracks: { total: 10 },
-                external_urls: { spotify: 'https://open.spotify.com/playlist/123' },
-                owner: { id: 'test-user' }
-              }
-            ]
-          }
-        })
-      );
+      mockedGetCurrentUser.mockResolvedValue({ id: 'test-user', displayName: null });
+      mockedGetUserPlaylists.mockResolvedValue([
+        playlistSummary('1234567890123456789012', 'Test Playlist', 10)
+      ]);
 
       // Set both Spotify AND YouTube cookies
       const spotifyTokens = JSON.stringify({
@@ -266,25 +256,10 @@ describe('Spotify Playlists', () => {
 
     it('should show "Update YouTube Playlist" for synced playlists when YouTube is connected', async () => {
       // Mock Spotify API
-      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
-      SpotifyWebApi.prototype.getMe = vi.fn(() =>
-        Promise.resolve({ body: { id: 'test-user' } })
-      );
-      SpotifyWebApi.prototype.getUserPlaylists = vi.fn(() =>
-        Promise.resolve({
-          body: {
-            items: [
-              {
-                id: '1234567890123456789012',
-                name: 'Synced Playlist',
-                tracks: { total: 10 },
-                external_urls: { spotify: 'https://open.spotify.com/playlist/123' },
-                owner: { id: 'test-user' }
-              }
-            ]
-          }
-        })
-      );
+      mockedGetCurrentUser.mockResolvedValue({ id: 'test-user', displayName: null });
+      mockedGetUserPlaylists.mockResolvedValue([
+        playlistSummary('1234567890123456789012', 'Synced Playlist', 10)
+      ]);
 
       // Set both cookies
       const spotifyTokens = JSON.stringify({
@@ -309,32 +284,11 @@ describe('Spotify Playlists', () => {
   describe('Playlist Summary Text Based on YouTube Connection', () => {
     it('should show playlist count when YouTube is not connected', async () => {
       // Mock Spotify API
-      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
-      SpotifyWebApi.prototype.getMe = vi.fn(() =>
-        Promise.resolve({ body: { id: 'test-user' } })
-      );
-      SpotifyWebApi.prototype.getUserPlaylists = vi.fn(() =>
-        Promise.resolve({
-          body: {
-            items: [
-              {
-                id: '1234567890123456789012',
-                name: 'Test Playlist 1',
-                tracks: { total: 10 },
-                external_urls: { spotify: 'https://open.spotify.com/playlist/123' },
-                owner: { id: 'test-user' }
-              },
-              {
-                id: '2234567890123456789012',
-                name: 'Test Playlist 2',
-                tracks: { total: 5 },
-                external_urls: { spotify: 'https://open.spotify.com/playlist/456' },
-                owner: { id: 'test-user' }
-              }
-            ]
-          }
-        })
-      );
+      mockedGetCurrentUser.mockResolvedValue({ id: 'test-user', displayName: null });
+      mockedGetUserPlaylists.mockResolvedValue([
+        playlistSummary('1234567890123456789012', 'Test Playlist 1', 10),
+        playlistSummary('2234567890123456789012', 'Test Playlist 2', 5)
+      ]);
 
       // Set only Spotify cookie (no YouTube)
       const spotifyTokens = JSON.stringify({
@@ -357,25 +311,10 @@ describe('Spotify Playlists', () => {
 
     it('should show "none synced yet" when YouTube is connected but no playlists are synced', async () => {
       // Mock Spotify API
-      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
-      SpotifyWebApi.prototype.getMe = vi.fn(() =>
-        Promise.resolve({ body: { id: 'test-user' } })
-      );
-      SpotifyWebApi.prototype.getUserPlaylists = vi.fn(() =>
-        Promise.resolve({
-          body: {
-            items: [
-              {
-                id: '1234567890123456789012',
-                name: 'Unsynced Playlist',
-                tracks: { total: 10 },
-                external_urls: { spotify: 'https://open.spotify.com/playlist/123' },
-                owner: { id: 'test-user' }
-              }
-            ]
-          }
-        })
-      );
+      mockedGetCurrentUser.mockResolvedValue({ id: 'test-user', displayName: null });
+      mockedGetUserPlaylists.mockResolvedValue([
+        playlistSummary('1234567890123456789012', 'Unsynced Playlist', 10)
+      ]);
 
       // Set both Spotify and YouTube cookies
       const spotifyTokens = JSON.stringify({
@@ -401,32 +340,11 @@ describe('Spotify Playlists', () => {
 
     it('should show synced/unsynced counts when YouTube is connected and playlists are synced', async () => {
       // Mock Spotify API
-      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
-      SpotifyWebApi.prototype.getMe = vi.fn(() =>
-        Promise.resolve({ body: { id: 'test-user' } })
-      );
-      SpotifyWebApi.prototype.getUserPlaylists = vi.fn(() =>
-        Promise.resolve({
-          body: {
-            items: [
-              {
-                id: '1234567890123456789012',
-                name: 'Synced Playlist',
-                tracks: { total: 10 },
-                external_urls: { spotify: 'https://open.spotify.com/playlist/123' },
-                owner: { id: 'test-user' }
-              },
-              {
-                id: '2234567890123456789012',
-                name: 'Unsynced Playlist',
-                tracks: { total: 5 },
-                external_urls: { spotify: 'https://open.spotify.com/playlist/456' },
-                owner: { id: 'test-user' }
-              }
-            ]
-          }
-        })
-      );
+      mockedGetCurrentUser.mockResolvedValue({ id: 'test-user', displayName: null });
+      mockedGetUserPlaylists.mockResolvedValue([
+        playlistSummary('1234567890123456789012', 'Synced Playlist', 10),
+        playlistSummary('2234567890123456789012', 'Unsynced Playlist', 5)
+      ]);
 
       // Mock YouTube API to return a synced playlist
       const googleapis = await import('googleapis');
@@ -469,25 +387,10 @@ describe('Spotify Playlists', () => {
 
     it('should include "your playlists only" when ownOnly=true and YouTube not connected', async () => {
       // Mock Spotify API
-      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
-      SpotifyWebApi.prototype.getMe = vi.fn(() =>
-        Promise.resolve({ body: { id: 'test-user' } })
-      );
-      SpotifyWebApi.prototype.getUserPlaylists = vi.fn(() =>
-        Promise.resolve({
-          body: {
-            items: [
-              {
-                id: '1234567890123456789012',
-                name: 'My Playlist',
-                tracks: { total: 10 },
-                external_urls: { spotify: 'https://open.spotify.com/playlist/123' },
-                owner: { id: 'test-user' }
-              }
-            ]
-          }
-        })
-      );
+      mockedGetCurrentUser.mockResolvedValue({ id: 'test-user', displayName: null });
+      mockedGetUserPlaylists.mockResolvedValue([
+        playlistSummary('1234567890123456789012', 'My Playlist', 10)
+      ]);
 
       // Set only Spotify cookie
       const spotifyTokens = JSON.stringify({
@@ -509,25 +412,10 @@ describe('Spotify Playlists', () => {
   describe('Playlist Expand Functionality', () => {
     it('should show expand button when YouTube is not connected', async () => {
       // Mock Spotify API
-      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
-      SpotifyWebApi.prototype.getMe = vi.fn(() =>
-        Promise.resolve({ body: { id: 'test-user' } })
-      );
-      SpotifyWebApi.prototype.getUserPlaylists = vi.fn(() =>
-        Promise.resolve({
-          body: {
-            items: [
-              {
-                id: '1234567890123456789012',
-                name: 'Test Playlist',
-                tracks: { total: 10 },
-                external_urls: { spotify: 'https://open.spotify.com/playlist/123' },
-                owner: { id: 'test-user' }
-              }
-            ]
-          }
-        })
-      );
+      mockedGetCurrentUser.mockResolvedValue({ id: 'test-user', displayName: null });
+      mockedGetUserPlaylists.mockResolvedValue([
+        playlistSummary('1234567890123456789012', 'Test Playlist', 10)
+      ]);
 
       // Set only Spotify cookie (no YouTube)
       const spotifyTokens = JSON.stringify({
@@ -549,25 +437,10 @@ describe('Spotify Playlists', () => {
 
     it('should show expand button for unsynced playlists when YouTube is connected', async () => {
       // Mock Spotify API
-      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
-      SpotifyWebApi.prototype.getMe = vi.fn(() =>
-        Promise.resolve({ body: { id: 'test-user' } })
-      );
-      SpotifyWebApi.prototype.getUserPlaylists = vi.fn(() =>
-        Promise.resolve({
-          body: {
-            items: [
-              {
-                id: '1234567890123456789012',
-                name: 'Unsynced Playlist',
-                tracks: { total: 10 },
-                external_urls: { spotify: 'https://open.spotify.com/playlist/123' },
-                owner: { id: 'test-user' }
-              }
-            ]
-          }
-        })
-      );
+      mockedGetCurrentUser.mockResolvedValue({ id: 'test-user', displayName: null });
+      mockedGetUserPlaylists.mockResolvedValue([
+        playlistSummary('1234567890123456789012', 'Unsynced Playlist', 10)
+      ]);
 
       // Set both Spotify and YouTube cookies
       const spotifyTokens = JSON.stringify({
@@ -593,25 +466,10 @@ describe('Spotify Playlists', () => {
 
     it('should show expand button for synced playlists when YouTube is connected', async () => {
       // Mock Spotify API
-      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
-      SpotifyWebApi.prototype.getMe = vi.fn(() =>
-        Promise.resolve({ body: { id: 'test-user' } })
-      );
-      SpotifyWebApi.prototype.getUserPlaylists = vi.fn(() =>
-        Promise.resolve({
-          body: {
-            items: [
-              {
-                id: '1234567890123456789012',
-                name: 'Synced Playlist',
-                tracks: { total: 10 },
-                external_urls: { spotify: 'https://open.spotify.com/playlist/123' },
-                owner: { id: 'test-user' }
-              }
-            ]
-          }
-        })
-      );
+      mockedGetCurrentUser.mockResolvedValue({ id: 'test-user', displayName: null });
+      mockedGetUserPlaylists.mockResolvedValue([
+        playlistSummary('1234567890123456789012', 'Synced Playlist', 10)
+      ]);
 
       // Mock YouTube API to return a synced playlist
       const googleapis = await import('googleapis');
@@ -657,25 +515,10 @@ describe('Spotify Playlists', () => {
   describe('YouTube Quota Error Handling During Playlist Fetch', () => {
     it('should redirect with error modal when YouTube quota is exceeded during playlist fetch', async () => {
       // Mock Spotify API to return playlists
-      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
-      SpotifyWebApi.prototype.getMe = vi.fn(() =>
-        Promise.resolve({ body: { id: 'test-user' } })
-      );
-      SpotifyWebApi.prototype.getUserPlaylists = vi.fn(() =>
-        Promise.resolve({
-          body: {
-            items: [
-              {
-                id: '1234567890123456789012',
-                name: 'Test Playlist',
-                tracks: { total: 10 },
-                external_urls: { spotify: 'https://open.spotify.com/playlist/123' },
-                owner: { id: 'test-user' }
-              }
-            ]
-          }
-        })
-      );
+      mockedGetCurrentUser.mockResolvedValue({ id: 'test-user', displayName: null });
+      mockedGetUserPlaylists.mockResolvedValue([
+        playlistSummary('1234567890123456789012', 'Test Playlist', 10)
+      ]);
 
       // Mock YouTube API to fail with 403 quota exceeded
       const googleapis = await import('googleapis');
@@ -709,25 +552,10 @@ describe('Spotify Playlists', () => {
 
     it('should open circuit breaker when YouTube quota is exceeded during playlist fetch', async () => {
       // Mock Spotify API
-      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
-      SpotifyWebApi.prototype.getMe = vi.fn(() =>
-        Promise.resolve({ body: { id: 'test-user' } })
-      );
-      SpotifyWebApi.prototype.getUserPlaylists = vi.fn(() =>
-        Promise.resolve({
-          body: {
-            items: [
-              {
-                id: '1234567890123456789012',
-                name: 'Test Playlist',
-                tracks: { total: 10 },
-                external_urls: { spotify: 'https://open.spotify.com/playlist/123' },
-                owner: { id: 'test-user' }
-              }
-            ]
-          }
-        })
-      );
+      mockedGetCurrentUser.mockResolvedValue({ id: 'test-user', displayName: null });
+      mockedGetUserPlaylists.mockResolvedValue([
+        playlistSummary('1234567890123456789012', 'Test Playlist', 10)
+      ]);
 
       // Mock YouTube API to fail with 403
       const googleapis = await import('googleapis');

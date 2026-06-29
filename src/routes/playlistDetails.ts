@@ -13,23 +13,14 @@ import { youtube_v3 } from 'googleapis';
 import { z } from 'zod';
 import ejs from 'ejs';
 import path from 'path';
-import SpotifyWebApi from 'spotify-web-api-node';
 import { reconcilePlaylist } from '../utils/playlistReconcile';
 import { fetchPlaylistDetails } from '../services/playlistDetailsService';
 import { fetchAllPlaylistItems } from '../utils/spotifyPlaylistItems';
+import { getPlaylist } from '../utils/spotifyClient';
 import { findSyncedYoutubePlaylist } from '../utils/youtubePlaylist';
 import { youtubeWrite } from '../utils/youtubeWrites';
 import { calculateMatchScore, SimplifiedTrack, SimplifiedVideo } from '../utils/trackMatching';
 const router = Router();
-
-// Helper function to get Spotify API instance
-function getSpotifyApi() {
-  return new SpotifyWebApi({
-    clientId: process.env.SPOTIFY_CLIENT_ID,
-    clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
-    redirectUri: process.env.SPOTIFY_REDIRECT_URI
-  });
-}
 
 // Helper function to get YouTube OAuth2 client
 function getOAuth2Client() {
@@ -70,10 +61,7 @@ router.get('/playlist/:playlistId',
       return res.status(401).send(html);
     }
 
-    // Initialize Spotify API
-    const spotifyApi = getSpotifyApi();
-    spotifyApi.setAccessToken(spotifyTokens.accessToken);
-    spotifyApi.setRefreshToken(spotifyTokens.refreshToken);
+    const accessToken = spotifyTokens.accessToken;
 
     // Initialize YouTube API (optional - only if user is connected)
     const youtube = youtubeTokens ? (() => {
@@ -91,8 +79,8 @@ router.get('/playlist/:playlistId',
       if (cachedYoutubePlaylistId) {
         youtubePlaylistId = cachedYoutubePlaylistId;
       } else {
-        const spotifyPlaylist = await spotifyApi.getPlaylist(playlistId);
-        youtubePlaylistId = (await findSyncedYoutubePlaylist(youtube, spotifyPlaylist.body.name))?.id || undefined;
+        const spotifyPlaylist = await getPlaylist(accessToken, playlistId);
+        youtubePlaylistId = (await findSyncedYoutubePlaylist(youtube, spotifyPlaylist.name))?.id || undefined;
       }
     }
 
@@ -100,13 +88,13 @@ router.get('/playlist/:playlistId',
     // if the fetch fails because the playlist is gone, resolve fresh and retry once.
     let playlistDetails;
     try {
-      playlistDetails = await fetchPlaylistDetails(spotifyApi, youtube, playlistId, youtubePlaylistId);
+      playlistDetails = await fetchPlaylistDetails(accessToken, youtube, playlistId, youtubePlaylistId);
     } catch (error) {
       const notFound = (error as { code?: number }).code === 404;
       if (youtube && youtubeTokens && cachedYoutubePlaylistId && notFound) {
-        const spotifyPlaylist = await spotifyApi.getPlaylist(playlistId);
-        youtubePlaylistId = (await findSyncedYoutubePlaylist(youtube, spotifyPlaylist.body.name))?.id || undefined;
-        playlistDetails = await fetchPlaylistDetails(spotifyApi, youtube, playlistId, youtubePlaylistId);
+        const spotifyPlaylist = await getPlaylist(accessToken, playlistId);
+        youtubePlaylistId = (await findSyncedYoutubePlaylist(youtube, spotifyPlaylist.name))?.id || undefined;
+        playlistDetails = await fetchPlaylistDetails(accessToken, youtube, playlistId, youtubePlaylistId);
       } else {
         throw error;
       }
@@ -336,12 +324,8 @@ router.post('/replace/:trackId',
 
     // We need to find the YouTube playlist that corresponds to this Spotify playlist
     // First, get the Spotify playlist name to construct the YouTube playlist name
-    const spotifyApi = getSpotifyApi();
-    spotifyApi.setAccessToken(spotifyTokens.accessToken);
-    spotifyApi.setRefreshToken(spotifyTokens.refreshToken);
-    
-    const spotifyPlaylistData = await spotifyApi.getPlaylist(playlistId);
-    const expectedYouTubePlaylistName = `${spotifyPlaylistData.body.name} (from Spotify)`;
+    const spotifyPlaylistData = await getPlaylist(spotifyTokens.accessToken, playlistId);
+    const expectedYouTubePlaylistName = `${spotifyPlaylistData.name} (from Spotify)`;
     
     Logger.external('YouTube', 'Looking for playlist', { name: expectedYouTubePlaylistName });
 
@@ -499,11 +483,7 @@ router.post('/replace/:trackId',
 
       // Fetch all Spotify tracks for the playlist (full format with .track) to
       // build the desired order for reconcile.
-      const spotifyAccessToken = spotifyApi.getAccessToken();
-      if (!spotifyAccessToken) {
-        throw new Error('Spotify access token unavailable for fetching playlist items');
-      }
-      const spotifyTracks = await fetchAllPlaylistItems(spotifyAccessToken, playlistId);
+      const spotifyTracks = await fetchAllPlaylistItems(spotifyTokens.accessToken, playlistId);
 
       // Build list of synced tracks (tracks that have YouTube videos)
       // For simplicity, we'll fetch YouTube playlist again and match with Spotify

@@ -21,15 +21,10 @@ const h = vi.hoisted(() => ({
   reconcilePlaylist: vi.fn(() => Promise.resolve({ inserted: 0, deleted: 0, moved: 0 }))
 }));
 
-vi.mock('spotify-web-api-node', () => {
-  const SpotifyWebApi = vi.fn();
-  SpotifyWebApi.prototype.setAccessToken = vi.fn();
-  SpotifyWebApi.prototype.setRefreshToken = vi.fn();
-  SpotifyWebApi.prototype.getAccessToken = vi.fn(() => 'spotify-token');
-  SpotifyWebApi.prototype.getMe = vi.fn(() => Promise.resolve({ body: { id: 'user' } }));
-  SpotifyWebApi.prototype.getPlaylist = h.getPlaylist;
-  return { default: SpotifyWebApi };
-});
+// The sync route now resolves a valid token via ensureValidSpotifyToken and reads
+// playlist metadata via the hand-written spotifyClient's getPlaylist.
+vi.mock('@/utils/spotifyAuth', () => ({ ensureValidSpotifyToken: vi.fn(async () => 'test-access-token') }));
+vi.mock('@/utils/spotifyClient', () => ({ getPlaylist: h.getPlaylist }));
 
 vi.mock('@/utils/spotifyPlaylistItems', () => ({ fetchAllPlaylistItems: h.fetchAllPlaylistItems }));
 vi.mock('@/utils/youtubeScraper', () => ({ searchMusicVideo: h.searchMusicVideo }));
@@ -85,7 +80,7 @@ const lastDesired = () => h.reconcilePlaylist.mock.calls.at(-1)?.[2];
 describe('POST /api/sync/playlist/:id', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    h.getPlaylist.mockResolvedValue({ body: { name: 'My Playlist', tracks: { total: 2 } } });
+    h.getPlaylist.mockResolvedValue({ id: 'p', name: 'My Playlist', ownerId: 'me', trackTotal: 2, spotifyUrl: 'u' });
     h.reconcilePlaylist.mockResolvedValue({ inserted: 0, deleted: 0, moved: 0 });
     h.searchMusicVideo.mockResolvedValue(null);
   });
@@ -103,7 +98,7 @@ describe('POST /api/sync/playlist/:id', () => {
   });
 
   it('update with a new track: desired order keeps existing and appends the new video', async () => {
-    h.getPlaylist.mockResolvedValue({ body: { name: 'My Playlist', tracks: { total: 3 } } });
+    h.getPlaylist.mockResolvedValue({ id: 'p', name: 'My Playlist', ownerId: 'me', trackTotal: 3, spotifyUrl: 'u' });
     h.fetchAllPlaylistItems.mockResolvedValue([track('t1', 'Song One'), track('t2', 'Song Two'), track('t3', 'Song Three')]);
     h.playlistsList.mockResolvedValue({ data: { items: [{ id: 'YT_PL', snippet: { title: SYNCED_TITLE } }] } });
     h.playlistItemsList.mockResolvedValue({ data: { items: [ytItem('pi1', 'v1', 'Song One'), ytItem('pi2', 'v2', 'Song Two')] } });
