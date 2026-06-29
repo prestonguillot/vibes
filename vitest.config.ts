@@ -1,10 +1,13 @@
-import { defineConfig } from 'vitest/config';
+import { defineConfig, configDefaults } from 'vitest/config';
 import path from 'path';
 
 export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    // tests/live hits the real Spotify API; it is opt-in via `npm run test:spotify:live`
+    // (vitest.live.config.ts) and must never run on the normal cycle.
+    exclude: [...configDefaults.exclude, 'tests/live/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

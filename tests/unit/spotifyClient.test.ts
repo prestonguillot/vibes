@@ -1,0 +1,197 @@
+/**
+ * Unit tests for the hand-written Spotify client: request construction (auth
+ * headers, body encoding, URLs), response -> typed domain mapping, the Dev Mode
+ * `items`/`tracks` count fallback, optional refresh_token handling, pagination,
+ * and HTTP-status -> SpotifyApiError mapping.
+ *
+ * fetch is mocked, so these run every cycle. The mock response shapes here are
+ * the contract the gated live harness (tests/live/spotify.live.test.ts) verifies
+ * against the real API.
+ */
+
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+vi.mock('node-fetch', () => ({ default: vi.fn() }));
+import fetch from 'node-fetch';
+import {
+  getAuthorizeUrl,
+  exchangeCodeForTokens,
+  refreshAccessToken,
+  getCurrentUser,
+  getUserPlaylists,
+  getPlaylist,
+  SpotifyApiError
+} from '../../src/utils/spotifyClient';
+
+const mockFetch = vi.mocked(fetch);
+
+// Minimal node-fetch Response stand-ins.
+const okJson = (data: unknown) =>
+  ({ ok: true, status: 200, statusText: 'OK', json: async () => data, text: async () => JSON.stringify(data) }) as never;
+const errResp = (status: number, body: unknown) =>
+  ({ ok: false, status, statusText: 'Error', json: async () => body, text: async () => (typeof body === 'string' ? body : JSON.stringify(body)) }) as never;
+
+const lastCall = () => mockFetch.mock.calls.at(-1) as [string, { method?: string; headers?: Record<string, string>; body?: string }];
+const EXPECTED_BASIC = `Basic ${Buffer.from('cid:secret').toString('base64')}`;
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  process.env.SPOTIFY_CLIENT_ID = 'cid';
+  process.env.SPOTIFY_CLIENT_SECRET = 'secret';
+  process.env.SPOTIFY_REDIRECT_URI = 'http://127.0.0.1:3000/auth/spotify/callback';
+});
+
+describe('getAuthorizeUrl', () => {
+  it('builds the authorize URL with client_id, code response type, scopes and state', () => {
+    const url = new URL(getAuthorizeUrl(['playlist-read-private', 'playlist-read-collaborative'], 'st8'));
+    expect(url.origin + url.pathname).toBe('https://accounts.spotify.com/authorize');
+    expect(url.searchParams.get('client_id')).toBe('cid');
+    expect(url.searchParams.get('response_type')).toBe('code');
+    expect(url.searchParams.get('redirect_uri')).toBe('http://127.0.0.1:3000/auth/spotify/callback');
+    expect(url.searchParams.get('state')).toBe('st8');
+    expect(url.searchParams.get('scope')).toBe('playlist-read-private playlist-read-collaborative');
+    expect(url.searchParams.get('show_dialog')).toBeNull();
+  });
+
+  it('adds show_dialog=true when requested', () => {
+    const url = new URL(getAuthorizeUrl([], 's', true));
+    expect(url.searchParams.get('show_dialog')).toBe('true');
+  });
+});
+
+describe('exchangeCodeForTokens', () => {
+  it('POSTs form-urlencoded with Basic auth and maps the token response', async () => {
+    mockFetch.mockResolvedValue(okJson({
+      access_token: 'AT', token_type: 'Bearer', scope: 'playlist-read-private', expires_in: 3600, refresh_token: 'RT'
+    }));
+
+    const tokens = await exchangeCodeForTokens('auth-code');
+
+    const [url, opts] = lastCall();
+    expect(url).toBe('https://accounts.spotify.com/api/token');
+    expect(opts.method).toBe('POST');
+    expect(opts.headers?.Authorization).toBe(EXPECTED_BASIC);
+    expect(opts.headers?.['Content-Type']).toBe('application/x-www-form-urlencoded');
+    const body = new URLSearchParams(opts.body);
+    expect(body.get('grant_type')).toBe('authorization_code');
+    expect(body.get('code')).toBe('auth-code');
+    expect(body.get('redirect_uri')).toBe('http://127.0.0.1:3000/auth/spotify/callback');
+
+    expect(tokens).toEqual({ accessToken: 'AT', refreshToken: 'RT', expiresIn: 3600, scope: 'playlist-read-private', tokenType: 'Bearer' });
+  });
+
+  it('throws SpotifyApiError with the account error_description', async () => {
+    mockFetch.mockResolvedValue(errResp(400, { error: 'invalid_grant', error_description: 'Invalid authorization code' }));
+    await expect(exchangeCodeForTokens('bad')).rejects.toMatchObject({ status: 400, message: expect.stringContaining('Invalid authorization code') });
+  });
+});
+
+describe('refreshAccessToken', () => {
+  it('sends grant_type=refresh_token and the refresh token', async () => {
+    mockFetch.mockResolvedValue(okJson({ access_token: 'AT2', token_type: 'Bearer', expires_in: 3600, scope: '' }));
+    await refreshAccessToken('stored-rt');
+    const body = new URLSearchParams(lastCall()[1].body);
+    expect(body.get('grant_type')).toBe('refresh_token');
+    expect(body.get('refresh_token')).toBe('stored-rt');
+  });
+
+  it('leaves refreshToken undefined when the response omits it (caller reuses old)', async () => {
+    mockFetch.mockResolvedValue(okJson({ access_token: 'AT2', token_type: 'Bearer', expires_in: 3600, scope: '' }));
+    const tokens = await refreshAccessToken('stored-rt');
+    expect(tokens.accessToken).toBe('AT2');
+    expect(tokens.refreshToken).toBeUndefined();
+  });
+
+  it('returns the new refresh token when the response includes one', async () => {
+    mockFetch.mockResolvedValue(okJson({ access_token: 'AT2', token_type: 'Bearer', expires_in: 3600, scope: '', refresh_token: 'RT2' }));
+    const tokens = await refreshAccessToken('stored-rt');
+    expect(tokens.refreshToken).toBe('RT2');
+  });
+});
+
+describe('getCurrentUser', () => {
+  it('sends a Bearer token and maps id + display name', async () => {
+    mockFetch.mockResolvedValue(okJson({ id: 'user42', display_name: 'Jane' }));
+    const user = await getCurrentUser('AT');
+    expect(lastCall()[0]).toBe('https://api.spotify.com/v1/me');
+    expect(lastCall()[1].headers?.Authorization).toBe('Bearer AT');
+    expect(user).toEqual({ id: 'user42', displayName: 'Jane' });
+  });
+
+  it('maps an absent display_name to null', async () => {
+    mockFetch.mockResolvedValue(okJson({ id: 'user42' }));
+    expect((await getCurrentUser('AT')).displayName).toBeNull();
+  });
+});
+
+describe('getUserPlaylists', () => {
+  it('reads the count from the new items.total or legacy tracks.total, drops nulls', async () => {
+    mockFetch.mockResolvedValue(okJson({
+      next: null,
+      items: [
+        { id: 'p1', name: 'New mode', owner: { id: 'me' }, items: { total: 12 }, external_urls: { spotify: 'u1' } },
+        { id: 'p2', name: 'Legacy mode', owner: { id: 'other' }, tracks: { total: 7 } },
+        null,
+        { id: 'p3', name: 'No count', owner: { id: 'me' } }
+      ]
+    }));
+
+    const playlists = await getUserPlaylists('AT');
+
+    expect(playlists).toEqual([
+      { id: 'p1', name: 'New mode', ownerId: 'me', trackTotal: 12, spotifyUrl: 'u1' },
+      { id: 'p2', name: 'Legacy mode', ownerId: 'other', trackTotal: 7, spotifyUrl: 'https://open.spotify.com/playlist/p2' },
+      { id: 'p3', name: 'No count', ownerId: 'me', trackTotal: null, spotifyUrl: 'https://open.spotify.com/playlist/p3' }
+    ]);
+  });
+
+  it('paginates while next is present', async () => {
+    mockFetch
+      .mockResolvedValueOnce(okJson({ next: 'page2', items: [{ id: 'p1', name: 'A', owner: { id: 'me' } }] }))
+      .mockResolvedValueOnce(okJson({ next: null, items: [{ id: 'p2', name: 'B', owner: { id: 'me' } }] }));
+
+    const playlists = await getUserPlaylists('AT');
+
+    expect(playlists.map(p => p.id)).toEqual(['p1', 'p2']);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(mockFetch.mock.calls[0][0]).toContain('offset=0');
+    expect(mockFetch.mock.calls[1][0]).toContain('offset=50');
+  });
+});
+
+describe('getPlaylist', () => {
+  it('maps a single playlist, preferring items.total over tracks.total', async () => {
+    mockFetch.mockResolvedValue(okJson({
+      id: 'pid', name: 'My List', owner: { id: 'me' }, items: { total: 30 }, tracks: { total: 99 }, external_urls: { spotify: 'spotify:url' }
+    }));
+    const playlist = await getPlaylist('AT', 'pid');
+    expect(lastCall()[0]).toBe('https://api.spotify.com/v1/playlists/pid');
+    expect(playlist).toEqual({ id: 'pid', name: 'My List', ownerId: 'me', trackTotal: 30, spotifyUrl: 'spotify:url' });
+  });
+
+  it('falls back to a constructed URL and null count when fields are absent', async () => {
+    mockFetch.mockResolvedValue(okJson({ id: 'pid', name: 'Bare' }));
+    const playlist = await getPlaylist('AT', 'pid');
+    expect(playlist).toEqual({ id: 'pid', name: 'Bare', ownerId: null, trackTotal: null, spotifyUrl: 'https://open.spotify.com/playlist/pid' });
+  });
+});
+
+describe('error mapping', () => {
+  it('maps a 401 to SpotifyApiError with status 401', async () => {
+    mockFetch.mockResolvedValue(errResp(401, { error: { status: 401, message: 'The access token expired' } }));
+    await expect(getCurrentUser('AT')).rejects.toMatchObject({ status: 401, name: 'SpotifyApiError' });
+  });
+
+  it('maps a 429 and preserves the Web API error message', async () => {
+    mockFetch.mockResolvedValue(errResp(429, { error: { status: 429, message: 'rate limited' } }));
+    await expect(getPlaylist('AT', 'p')).rejects.toMatchObject({ status: 429, message: expect.stringContaining('rate limited') });
+  });
+
+  it('SpotifyApiError is the thrown type with the raw body attached', async () => {
+    mockFetch.mockResolvedValue(errResp(403, 'forbidden text'));
+    const err = await getPlaylist('AT', 'p').catch(e => e);
+    expect(err).toBeInstanceOf(SpotifyApiError);
+    expect(err.status).toBe(403);
+    expect(err.body).toBe('forbidden text');
+  });
+});
