@@ -178,41 +178,6 @@ export async function scrapeYouTubeSearch(query: string, maxResults: number = 3)
 }
 
 /**
- * Parse view count string (e.g., "1.5M views" or "1,234,567 views") to a number
- */
-export function parseViewCount(viewsString: string): number {
-  if (!viewsString) return 0;
-
-  const normalized = viewsString.toLowerCase().trim();
-
-  // Handle "X.XM views" format (e.g., "1.5M views", "21.7M views")
-  const millionMatch = normalized.match(/^([\d.]+)\s*m/);
-  if (millionMatch) {
-    return Math.floor(parseFloat(millionMatch[1]) * 1_000_000);
-  }
-
-  // Handle "X.XK views" format (e.g., "500K views")
-  const thousandMatch = normalized.match(/^([\d.]+)\s*k/);
-  if (thousandMatch) {
-    return Math.floor(parseFloat(thousandMatch[1]) * 1_000);
-  }
-
-  // Handle "X,XXX,XXX views" format with commas
-  const commaMatch = normalized.match(/^([\d,]+)/);
-  if (commaMatch) {
-    return parseInt(commaMatch[1].replace(/,/g, ''), 10) || 0;
-  }
-
-  // Try direct number parse
-  const directMatch = normalized.match(/^(\d+)/);
-  if (directMatch) {
-    return parseInt(directMatch[1], 10) || 0;
-  }
-
-  return 0;
-}
-
-/**
  * Search and score YouTube videos for a track
  * Uses the same calculateMatchScore function as the modal for consistent scoring
  * Returns all results with scores so both modal and sync can use it
@@ -249,9 +214,8 @@ export async function searchAndScoreVideos(
           const youtubeVideo = {
             id: result.videoId,
             title: result.title,
-            description: result.views || '',
-            channelTitle: result.channel,
-            viewCount: parseViewCount(result.views)
+            description: '',
+            channelTitle: result.channel
           };
 
           const { score, breakdown } = calculateMatchScore(spotifyTrack, youtubeVideo);

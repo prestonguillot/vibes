@@ -391,7 +391,8 @@ router.post('/playlist/:playlistId',
           const video: SimplifiedVideo = {
             id: item.snippet.resourceId.videoId,
             title: item.snippet!.title || 'Unknown',
-            description: item.snippet!.description || ''
+            description: item.snippet!.description || '',
+            channelTitle: item.snippet!.channelTitle || undefined
           };
           existingVideos.push(video);
           Logger.debug('Existing YouTube video for matching', {

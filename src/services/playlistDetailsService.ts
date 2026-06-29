@@ -155,45 +155,15 @@ export async function fetchPlaylistDetails(
       nextPageToken = response.nextPageToken || undefined;
     } while (nextPageToken);
 
-    // First pass: Create video objects with basic info
-    const videoIds = allPlaylistItems
-      .map(item => item.snippet?.resourceId?.videoId)
-      .filter(Boolean) as string[];
-
-    // Fetch video statistics (view counts) if we have IDs
-    const videoStats = new Map<string, number>();
-    if (videoIds.length > 0) {
-      try {
-        // YouTube API allows 50 IDs per request
-        for (let i = 0; i < videoIds.length; i += 50) {
-          const batch = videoIds.slice(i, i + 50);
-          const statsResponse = await youtube.videos.list({
-            part: ['statistics'],
-            id: batch
-          }).then(res => res.data);
-
-          if (statsResponse.items) {
-            statsResponse.items.forEach((video: any) => {
-              const viewCount = parseInt(video.statistics?.viewCount || '0', 10);
-              videoStats.set(video.id || '', viewCount);
-            });
-          }
-        }
-        Logger.debug('Fetched video statistics for all playlist items', {
-          videosWithStats: videoStats.size,
-          totalVideos: videoIds.length
-        });
-      } catch (error: any) {
-        Logger.warn('Error fetching video statistics, continuing without them', error);
-      }
-    }
-
+    // Build video objects from the playlist-item snippets. Matching uses only
+    // title + channelTitle (both present here), so we no longer make a separate
+    // videos.list call for view counts - it was matching-only and is gone now,
+    // saving a YouTube API call per details load.
     youtubeVideos = allPlaylistItems.map((item: youtube_v3.Schema$PlaylistItem): SimplifiedVideo => ({
       id: item.snippet?.resourceId?.videoId || '',
       title: item.snippet?.title || '',
       description: item.snippet?.description || '',
       channelTitle: item.snippet?.channelTitle,
-      viewCount: videoStats.get(item.snippet?.resourceId?.videoId || ''),
       thumbnail: item.snippet?.thumbnails?.medium?.url || item.snippet?.thumbnails?.default?.url,
       publishedAt: item.snippet?.publishedAt,
       url: `https://www.youtube.com/watch?v=${item.snippet?.resourceId?.videoId || ''}`
