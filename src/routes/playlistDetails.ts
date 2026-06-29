@@ -18,6 +18,7 @@ import { reorderPlaylistTracks } from '../utils/playlistReordering';
 import { fetchPlaylistDetails } from '../services/playlistDetailsService';
 import { fetchAllPlaylistItems } from '../utils/spotifyPlaylistItems';
 import { findSyncedYoutubePlaylist } from '../utils/youtubePlaylist';
+import { youtubeWrite } from '../utils/youtubeWrites';
 import { calculateMatchScore, SimplifiedTrack, SimplifiedVideo } from '../utils/trackMatching';
 const router = Router();
 
@@ -386,7 +387,7 @@ router.post('/replace/:trackId',
       // ADD MODE: Simply add the new video to the end of the playlist
       Logger.info('Adding new video to playlist', { newVideoId, trackId, playlistTitle: targetPlaylist.snippet?.title });
 
-      await youtube.playlistItems.insert({
+      await youtubeWrite('playlistItems.insert', () => youtube.playlistItems.insert({
         part: ['snippet'],
         requestBody: {
           snippet: {
@@ -397,7 +398,7 @@ router.post('/replace/:trackId',
             }
           }
         }
-      });
+      }));
 
       Logger.info('Added new video successfully', { newVideoId });
     } else {
@@ -453,7 +454,7 @@ router.post('/replace/:trackId',
       const currentPosition = playlistItemToReplace.snippet?.position || 0;
 
       // Add the new video at the same position
-      await youtube.playlistItems.insert({
+      await youtubeWrite('playlistItems.insert', () => youtube.playlistItems.insert({
         part: ['snippet'],
         requestBody: {
           snippet: {
@@ -465,14 +466,14 @@ router.post('/replace/:trackId',
             }
           }
         }
-      });
+      }));
 
       Logger.info('Added new video', { newVideoId, position: currentPosition });
 
       // Remove the old video (it will now be at position + 1 due to the insert)
-      await youtube.playlistItems.delete({
+      await youtubeWrite('playlistItems.delete', () => youtube.playlistItems.delete({
         id: playlistItemToReplace.id!
-      });
+      }));
 
       Logger.info('Removed old video', { currentVideoId });
     }
