@@ -14,7 +14,7 @@ import { z } from 'zod';
 import ejs from 'ejs';
 import path from 'path';
 import SpotifyWebApi from 'spotify-web-api-node';
-import { reorderPlaylistTracks } from '../utils/playlistReordering';
+import { reconcilePlaylist } from '../utils/playlistReconcile';
 import { fetchPlaylistDetails } from '../services/playlistDetailsService';
 import { fetchAllPlaylistItems } from '../utils/spotifyPlaylistItems';
 import { findSyncedYoutubePlaylist } from '../utils/youtubePlaylist';
@@ -497,10 +497,8 @@ router.post('/replace/:trackId',
       });
       await new Promise(resolve => setTimeout(resolve, waitTime));
 
-      // Fetch all Spotify tracks for the playlist
-      // Fetch tracks via the /items endpoint (the library's getPlaylistTracks uses
-      // the removed /tracks endpoint - see fetchAllPlaylistItems). Keep the full
-      // format (with .track property) for reorderPlaylistTracks.
+      // Fetch all Spotify tracks for the playlist (full format with .track) to
+      // build the desired order for reconcile.
       const spotifyAccessToken = spotifyApi.getAccessToken();
       if (!spotifyAccessToken) {
         throw new Error('Spotify access token unavailable for fetching playlist items');
@@ -526,10 +524,12 @@ router.post('/replace/:trackId',
         pageToken = response.nextPageToken || undefined;
       } while (pageToken);
 
-      // Import track matching functionality
+      // Build the desired video order: content-match the current playlist to the
+      // Spotify tracks, then override the linked track with the user's explicit
+      // pick (which may not content-match). Reconcile then makes YouTube match
+      // this order, so the manual pick lands at its track's position.
       const { optimalTrackMatching } = await import('../utils/trackMatching');
 
-      // Extract track info from the full Spotify format
       const tracksToMatch = spotifyTracks
         .filter((item: any) => item.track && item.track.type === 'track')
         .map((item: any) => ({
@@ -547,51 +547,24 @@ router.post('/replace/:trackId',
           playlistItemId: item.id!
         }));
 
-      const trackMatches = optimalTrackMatching(tracksToMatch, existingVideos);
+      const matches = optimalTrackMatching(tracksToMatch, existingVideos).matches;
 
-      // Build synced tracks array
-      // Need to use the full Spotify format with .track.id for matching
-      const syncedTracks = [];
-      for (const [trackId, videoInfo] of trackMatches.entries()) {
-        const playlistItem = spotifyTracks.find((item: any) => item.track && item.track.id === trackId);
-        if (playlistItem) {
-          syncedTracks.push({
-            track: playlistItem.track,
-            matchedVideoId: videoInfo.id
-          });
+      const desiredVideoIds: string[] = [];
+      for (const track of tracksToMatch) {
+        if (track.id === trackId) {
+          desiredVideoIds.push(newVideoId); // honor the explicit manual pick
+        } else {
+          const matched = matches.get(track.id);
+          if (matched) desiredVideoIds.push(matched.id);
         }
       }
 
-      Logger.info('Manual reordering data', {
-        totalSpotifyItems: spotifyTracks.length,
-        matchedTracks: trackMatches.size,
-        syncedTracksCount: syncedTracks.length,
-        syncedTrackDetails: syncedTracks.slice(0, 5).map((st: any) => ({
-          trackName: st.track.name,
-          artist: st.track.artists[0]?.name || 'Unknown',
-          videoId: st.matchedVideoId
-        }))
-      });
+      const currentItems = allPlaylistItems
+        .filter(item => item.snippet?.resourceId?.videoId && item.id)
+        .map(item => ({ videoId: item.snippet!.resourceId!.videoId!, playlistItemId: item.id! }));
 
-      // Perform reordering
-      if (syncedTracks.length > 0) {
-        const { reorderedCount } = await reorderPlaylistTracks(
-          youtube,
-          targetPlaylist.id!,
-          spotifyTracks,
-          syncedTracks
-        );
-
-        Logger.info('Manual playlist reordering completed', {
-          reorderedCount,
-          syncedTracksProcessed: syncedTracks.length
-        });
-      } else {
-        Logger.warn('No synced tracks found for reordering during manual link', {
-          matchesFound: trackMatches.size,
-          spotifyTracksCount: spotifyTracks.length
-        });
-      }
+      const reconcileResult = await reconcilePlaylist(youtube, targetPlaylist.id!, desiredVideoIds, currentItems);
+      Logger.info('Manual link reconcile completed', { trackId, newVideoId, ...reconcileResult });
 
     } catch (reorderError) {
       // Log the error but don't fail the entire operation
