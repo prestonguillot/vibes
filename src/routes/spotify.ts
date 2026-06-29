@@ -7,6 +7,7 @@ import { validate, schemas, ValidatedRequest } from '../utils/validation';
 import { CacheDuration, setCache } from '../utils/cache';
 import { youtubeCircuitBreaker } from '../utils/circuitBreaker';
 import { parseSpotifyTokenCookie, parseYouTubeTokenCookie, validateAndSerializeSpotifyTokens } from '../utils/cookieParser';
+import { generateCsrfToken } from '../utils/csrf';
 import { z } from 'zod';
 import ejs from 'ejs';
 import path from 'path';
@@ -18,6 +19,21 @@ const getSpotifyApi = () => new SpotifyWebApi({
   clientId: process.env.SPOTIFY_CLIENT_ID,
   clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
   redirectUri: process.env.SPOTIFY_REDIRECT_URI
+});
+
+// Cookie name for the one-time OAuth state value used for CSRF protection.
+const SPOTIFY_OAUTH_STATE_COOKIE = 'spotify_oauth_state';
+
+// The OAuth state cookie must use SameSite=Lax (not Strict) so the browser
+// includes it on the top-level cross-site redirect back from Spotify's consent
+// page. With Strict it would be withheld on that navigation and verification
+// would always fail.
+const getOAuthStateCookieOptions = () => ({
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'lax' as const,
+  maxAge: 10 * 60 * 1000, // 10 minutes
+  path: '/'
 });
 
 // Helper function to refresh Spotify tokens if needed
@@ -70,7 +86,16 @@ router.get('/login', (req, res) => {
   
   const spotifyApi = getSpotifyApi();
   const scopes = ['playlist-read-private', 'playlist-read-collaborative'];
-  const authorizeURL = spotifyApi.createAuthorizeURL(scopes, '');
+
+  // Generate a random OAuth state. This serves two purposes:
+  // 1. CSRF protection - verified against a cookie in the callback.
+  // 2. Spotify's authorize endpoint rejects a present-but-empty `state=`
+  //    parameter for authenticated users (it renders a generic error page),
+  //    so a non-empty value is required for the flow to work at all.
+  const state = generateCsrfToken();
+  res.cookie(SPOTIFY_OAUTH_STATE_COOKIE, state, getOAuthStateCookieOptions());
+
+  const authorizeURL = spotifyApi.createAuthorizeURL(scopes, state);
   Logger.auth('Spotify', 'redirecting to authorization', { authorizeURL });
 
   res.redirect(authorizeURL);
@@ -80,7 +105,8 @@ router.get('/login', (req, res) => {
 router.get('/callback',
   validate({
     query: z.object({
-      code: schemas.oauthCode
+      code: schemas.oauthCode,
+      state: z.string().optional()
     })
   }),
   async (req, res) => {
@@ -89,7 +115,19 @@ router.get('/callback',
     authCodePresent: !!req.query.code
   });
 
-  const { code } = req.query;
+  const { code, state } = req.query;
+
+  // Verify the OAuth state against the one-time cookie set during /login to
+  // prevent CSRF. The cookie is single-use, so clear it regardless of outcome.
+  const expectedState = req.cookies[SPOTIFY_OAUTH_STATE_COOKIE];
+  res.clearCookie(SPOTIFY_OAUTH_STATE_COOKIE, { path: '/' });
+  if (!expectedState || !state || state !== expectedState) {
+    Logger.warn('Spotify callback rejected - OAuth state mismatch', {
+      hasExpectedState: !!expectedState,
+      hasReceivedState: !!state
+    });
+    return res.redirect('/?error=spotify&reason=state_mismatch');
+  }
 
   try {
     const spotifyApi = getSpotifyApi();
@@ -169,7 +207,9 @@ router.get('/playlists',
 
     // Get Spotify playlists
     const data = await spotifyApi.getUserPlaylists();
-    let spotifyPlaylists = data.body.items;
+    // Spotify occasionally returns null entries in the items array (deleted or
+    // unavailable playlists); drop them so later field access can't crash.
+    let spotifyPlaylists = (data.body.items || []).filter((playlist: any) => playlist != null);
 
     // Filter for own playlists only if requested
     // Note: Zod transforms the string 'true'/'false' to boolean true/false
@@ -184,7 +224,7 @@ router.get('/playlists',
     if (ownOnly) {
       const beforeFilter = spotifyPlaylists.length;
       spotifyPlaylists = spotifyPlaylists.filter((playlist: any) =>
-        playlist.owner.id === currentUserId
+        playlist.owner?.id === currentUserId
       );
       Logger.debug('Applied ownOnly filter', {
         before: beforeFilter,
@@ -278,12 +318,22 @@ router.get('/playlists',
         `https://www.youtube.com/playlist?list=${youtubePlaylist.id}` : undefined;
       const youtubeTracksTotal = youtubePlaylist?.contentDetails?.itemCount || 0;
 
+      // Spotify's playlist list endpoint can return entries with missing fields
+      // (e.g. certain algorithmic/blend playlists), so read defensively rather
+      // than letting one malformed playlist crash the entire list render.
+      if (!playlist.tracks || typeof playlist.tracks.total !== 'number') {
+        Logger.warn('Spotify playlist missing tracks metadata, defaulting to 0', {
+          playlistId: playlist.id,
+          playlistName: playlist.name
+        });
+      }
+
       return await ejs.renderFile(path.join(viewsPath, 'partials/playlist-item.ejs'), {
         id: playlist.id,
         name: playlist.name,
-        tracksTotal: playlist.tracks.total,
+        tracksTotal: playlist.tracks?.total ?? 0,
         youtubeTracksTotal,
-        spotifyUrl: playlist.external_urls.spotify,
+        spotifyUrl: playlist.external_urls?.spotify ?? `https://open.spotify.com/playlist/${playlist.id}`,
         youtubeUrl: youtubePlaylistUrl,
         isSynced,
         syncIcon,
@@ -435,7 +485,7 @@ router.get('/playlist-button/:playlistId',
       buttonClass,
       playlistId,
       playlistName: playlist.name,
-      trackCount: playlist.tracks.total,
+      trackCount: playlist.tracks?.total ?? 0,
       buttonText
     });
 

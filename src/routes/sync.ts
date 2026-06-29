@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import SpotifyWebApi from 'spotify-web-api-node';
 import { google } from 'googleapis';
 import { searchMusicVideo } from '../utils/youtubeScraper';
+import { fetchAllPlaylistItems } from '../utils/spotifyPlaylistItems';
 import { sendProgressUpdate, closeProgressConnections } from './progress';
 import { Logger } from '../utils/logger';
 import { getSecureCookieOptions } from '../utils/authValidation';
@@ -214,14 +215,14 @@ router.post('/playlist/:playlistId',
     Logger.external('Spotify', 'Fetching playlist details');
     const playlistResponse = await spotifyApi.getPlaylist(playlistId);
     const playlist = playlistResponse.body;
-    Logger.external('Spotify', 'Playlist details fetched', { name: playlist.name, totalTracks: playlist.tracks.total });
+    Logger.external('Spotify', 'Playlist details fetched', { name: playlist.name, totalTracks: playlist.tracks?.total ?? 0 });
 
     // Get batch size from request, default to 1 if not provided
     let batchSize = 1;
     if (req.body.batchSize) {
       if (req.body.batchSize === 'all') {
         // "all" means process all tracks (use playlist total)
-        batchSize = playlist.tracks.total || 999;
+        batchSize = playlist.tracks?.total || 999;
       } else {
         batchSize = parseInt(req.body.batchSize);
       }
@@ -237,28 +238,21 @@ router.post('/playlist/:playlistId',
     });
     Logger.external('Spotify', 'Fetching all tracks for analysis');
 
-    // Fetch all tracks (handle pagination if needed)
-    let allTracks: unknown[] = [];
-    let offset = 0;
-    const limit = 50;
+    // Fetch all tracks via the /items endpoint. The library's getPlaylistTracks()
+    // uses the /tracks endpoint that Spotify removed in Feb 2026 (now 403); see
+    // fetchAllPlaylistItems.
+    const spotifyAccessToken = spotifyApi.getAccessToken();
+    if (!spotifyAccessToken) {
+      throw new Error('Spotify access token unavailable for fetching playlist items');
+    }
+    const allItems = await fetchAllPlaylistItems(spotifyAccessToken, playlistId);
+    const allTracks: unknown[] = allItems.filter((item: unknown) => {
+      const typedItem = item as { track: { type?: string } | null };
+      return typedItem.track && typedItem.track.type === 'track';
+    });
 
-    let totalTracks = 0;
-    do {
-      const tracksResponse = await spotifyApi.getPlaylistTracks(playlistId, { limit, offset });
-      const trackItems = tracksResponse.body.items.filter((item: unknown) => {
-        const typedItem = item as { track: { type?: string } | null };
-        return typedItem.track && typedItem.track.type === 'track';
-      });
-      allTracks = allTracks.concat(trackItems);
-      offset += limit;
-      totalTracks = tracksResponse.body.total;
-
-      // Break if we've fetched all tracks
-      if (tracksResponse.body.items.length < limit) break;
-    } while (allTracks.length < totalTracks);
-    
     const tracks = allTracks;
-    Logger.info('Found valid tracks to analyze', { count: tracks.length, totalPlaylistTracks: playlist.tracks.total });
+    Logger.info('Found valid tracks to analyze', { count: tracks.length, totalPlaylistTracks: playlist.tracks?.total ?? 0 });
 
     sendProgressUpdate(playlistId, youtubeUserId, {
       type: 'progress',
@@ -689,8 +683,8 @@ router.post('/playlist/:playlistId',
           syncFeedbackHtml,
           playlistDetailsHtml,
           playlistName: playlist.name,
-          trackCount: playlist.tracks.total,
-          spotifyUrl: playlist.external_urls.spotify,
+          trackCount: playlist.tracks?.total ?? 0,
+          spotifyUrl: playlist.external_urls?.spotify ?? `https://open.spotify.com/playlist/${playlistId}`,
           youtubeUrl: youtubePlaylistUrl
         })
       );
@@ -1037,7 +1031,7 @@ router.post('/playlist/:playlistId',
       buttonClass,
       playlistName: playlist.name,
       trackCount: tracks.length,
-      spotifyUrl: playlist.external_urls.spotify,
+      spotifyUrl: playlist.external_urls?.spotify ?? `https://open.spotify.com/playlist/${playlistId}`,
       youtubeUrl: youtubePlaylistUrl,
       playlistDetailsHtml // Already rendered - use <%- %> to include as HTML
     });

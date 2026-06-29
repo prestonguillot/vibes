@@ -7,6 +7,7 @@
 import SpotifyWebApi from 'spotify-web-api-node';
 import { youtube_v3 } from 'googleapis';
 import { optimalTrackMatching, ScoreBreakdown } from '../utils/trackMatching';
+import { fetchAllPlaylistItems } from '../utils/spotifyPlaylistItems';
 import { Logger } from '../utils/logger';
 
 export interface SimplifiedTrack {
@@ -64,25 +65,22 @@ export async function fetchPlaylistDetails(
   Logger.external('Spotify', 'Fetching playlist', { playlistId });
   const spotifyPlaylistData = await spotifyApi.getPlaylist(playlistId);
 
-  // Fetch all tracks with pagination
-  const allPlaylistItems: Array<unknown> = [];
-  let offset = 0;
-  const limit = 50;
-  const totalTracks = spotifyPlaylistData.body.tracks.total;
-
-  do {
-    const response = await spotifyApi.getPlaylistTracks(playlistId, { limit, offset });
-    if (response.body.items && response.body.items.length > 0) {
-      allPlaylistItems.push(...response.body.items);
-    }
-    offset += limit;
-  } while (allPlaylistItems.length < totalTracks);
+  // Fetch all tracks via the /items endpoint. The library's getPlaylistTracks()
+  // uses the /tracks endpoint that Spotify removed in Feb 2026 (now 403); see
+  // fetchAllPlaylistItems.
+  const accessToken = spotifyApi.getAccessToken();
+  if (!accessToken) {
+    throw new Error('Spotify access token unavailable for fetching playlist items');
+  }
+  const allPlaylistItems: Array<unknown> = await fetchAllPlaylistItems(accessToken, playlistId);
 
   // Extract and filter Spotify tracks
   const spotifyTracks: SimplifiedTrack[] = allPlaylistItems
     .filter((item: unknown) => {
       const typedItem = item as { track: unknown | null };
-      return typedItem.track !== null;
+      // Drop items with no track (null OR undefined): removed/unavailable tracks
+      // and local files come back without a usable track object.
+      return typedItem.track != null;
     })
     .map((item: unknown): SimplifiedTrack => {
       const typedItem = item as {
@@ -116,7 +114,7 @@ export async function fetchPlaylistDetails(
       };
     });
 
-  const totalTracksInPlaylist = spotifyPlaylistData.body.tracks.total;
+  const totalTracksInPlaylist = spotifyPlaylistData.body.tracks?.total ?? spotifyTracks.length;
   const nullTracksCount = totalTracksInPlaylist - spotifyTracks.length;
 
   if (nullTracksCount > 0) {

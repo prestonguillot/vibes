@@ -16,6 +16,7 @@ import path from 'path';
 import SpotifyWebApi from 'spotify-web-api-node';
 import { reorderPlaylistTracks } from '../utils/playlistReordering';
 import { fetchPlaylistDetails } from '../services/playlistDetailsService';
+import { fetchAllPlaylistItems } from '../utils/spotifyPlaylistItems';
 import { calculateMatchScore, SimplifiedTrack, SimplifiedVideo } from '../utils/trackMatching';
 const router = Router();
 
@@ -141,9 +142,10 @@ router.get('/playlist/:playlistId',
     const duration = Date.now() - startTime;
     Logger.requestEnd('Playlist Details Request', duration, { playlistId });
 
-    // Cache for 10 minutes (MEDIUM) - balances freshness with API quota
-    // Users may frequently modify playlist contents, so keep cache relatively short
-    setCache(res, CacheDuration.MEDIUM);
+    // No caching: the browser was serving stale playlist-detail HTML for up to
+    // 10 minutes, so edits/fixes didn't show up until expiry. Always revalidate.
+    // (Smarter revalidation can be reintroduced later - see refactor plan.)
+    setCache(res, CacheDuration.NO_CACHE);
     res.send(playlistDetailsHtml);
 
   } catch (error) {
@@ -505,14 +507,14 @@ router.post('/replace/:trackId',
       await new Promise(resolve => setTimeout(resolve, waitTime));
 
       // Fetch all Spotify tracks for the playlist
-      // Note: reorderPlaylistTracks expects the full format with .track property
-      const spotifyPlaylistResponse = await spotifyApi.getPlaylistTracks(playlistId, {
-        limit: 50,
-        offset: 0
-      });
-
-      // Keep the full format (with .track property) for reorderPlaylistTracks
-      const spotifyTracks = spotifyPlaylistResponse.body.items;
+      // Fetch tracks via the /items endpoint (the library's getPlaylistTracks uses
+      // the removed /tracks endpoint - see fetchAllPlaylistItems). Keep the full
+      // format (with .track property) for reorderPlaylistTracks.
+      const spotifyAccessToken = spotifyApi.getAccessToken();
+      if (!spotifyAccessToken) {
+        throw new Error('Spotify access token unavailable for fetching playlist items');
+      }
+      const spotifyTracks = await fetchAllPlaylistItems(spotifyAccessToken, playlistId);
 
       // Build list of synced tracks (tracks that have YouTube videos)
       // For simplicity, we'll fetch YouTube playlist again and match with Spotify
