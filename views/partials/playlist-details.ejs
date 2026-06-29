@@ -1,4 +1,6 @@
-<div class="playlist-details" data-playlist-id="<%= playlistId %>">
+<div class="playlist-details" data-playlist-id="<%= playlistId %>"
+     data-track-count="<%= totalTracks %>"
+     data-needs-resync="<%= (hasYoutubeConnection && hasYoutubePlaylist && needsResync) ? 'true' : 'false' %>">
   <div class="playlist-header mb-3">
     <h6><%= playlistName %></h6>
     <div class="d-flex justify-content-between align-items-center">

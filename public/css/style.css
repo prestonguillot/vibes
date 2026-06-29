@@ -1895,3 +1895,19 @@ body.oauth-error-body {
     background-color: #e0a800;
     flex-shrink: 0;
 }
+
+/* Out-of-sync dot next to a playlist name in the collapsed list. Hidden until
+   the cached drift state (playlistMeta.js) marks the row out of sync. */
+.drift-dot {
+    display: none;
+    width: 0.5rem;
+    height: 0.5rem;
+    margin-left: 0.4rem;
+    border-radius: 50%;
+    background-color: #e0a800;
+    vertical-align: middle;
+}
+
+.drift-dot.is-visible {
+    display: inline-block;
+}
