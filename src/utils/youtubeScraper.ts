@@ -17,6 +17,21 @@ interface SearchResult {
 }
 
 /**
+ * Parse a scraped YouTube view-count string ("1.5M views", "500K views",
+ * "1,234,567 views") into a number. Returns 0 for unknown/unparseable values.
+ */
+export function parseViewCount(views: string | undefined): number {
+  if (!views) return 0;
+  const match = views.replace(/,/g, '').match(/([\d.]+)\s*([KMB])?/i);
+  if (!match) return 0;
+  const num = parseFloat(match[1]);
+  if (isNaN(num)) return 0;
+  const unit = (match[2] || '').toUpperCase();
+  const multiplier = unit === 'B' ? 1e9 : unit === 'M' ? 1e6 : unit === 'K' ? 1e3 : 1;
+  return Math.round(num * multiplier);
+}
+
+/**
  * YouTube's scraped video data structure (partial)
  * Note: This is an incomplete type definition - YouTube's actual structure is much larger
  */
@@ -215,7 +230,8 @@ export async function searchAndScoreVideos(
             id: result.videoId,
             title: result.title,
             description: '',
-            channelTitle: result.channel
+            channelTitle: result.channel,
+            viewCount: parseViewCount(result.views)
           };
 
           const { score, breakdown } = calculateMatchScore(spotifyTrack, youtubeVideo);

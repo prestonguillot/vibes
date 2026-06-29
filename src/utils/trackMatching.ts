@@ -13,6 +13,10 @@ export interface SimplifiedVideo {
   description: string;
   playlistItemId?: string;
   channelTitle?: string;
+  /** Optional view count. Only set on search-result candidates (the scraper
+   *  provides it); the playlist-matching path leaves it unset so that path stays
+   *  deterministic. See the popularity nudge in calculateMatchScore. */
+  viewCount?: number;
 }
 
 /**
@@ -60,6 +64,7 @@ export interface ScoreBreakdown {
     fuzzySimilarity?: number;
     wordMatching?: number;
     officialVideo?: number;
+    viewCountBonus?: number;
   };
 }
 
@@ -130,11 +135,21 @@ export function calculateMatchScore(spotifyTrack: SimplifiedTrack, youtubeVideo:
   }
 
   // QUALITY BONUS: prefer an official music video from the artist's / a label's
-  // channel. Scoring uses only stable signals (title + channel); view count is
-  // excluded because it is volatile and would make matches non-deterministic.
+  // channel. Uses only stable signals (title + channel).
   if (isOfficialVideo(youtubeVideo, spotifyTrack.artist)) {
     score += 0.3;
     components.officialVideo = 0.3;
+  }
+
+  // POPULARITY NUDGE: when a view count is available (search-result candidates
+  // carry one; the playlist-matching path does not), add a small, log-scaled,
+  // capped bonus so near-ties resolve toward the canonical/popular upload without
+  // overriding the text and artist signals. Only applied when a count is present,
+  // so the no-view-count path is unchanged and deterministic.
+  if (typeof youtubeVideo.viewCount === 'number' && youtubeVideo.viewCount > 0) {
+    const viewBonus = Math.min(0.1, Math.log10(youtubeVideo.viewCount) / 100);
+    score += viewBonus;
+    components.viewCountBonus = viewBonus;
   }
 
   const finalScore = Math.min(score, 1.0);
