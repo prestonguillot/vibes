@@ -107,7 +107,7 @@ router.get('/playlist/:playlistId',
 });
 
 // Function to send progress update to all connected clients for a playlist (isolated per user)
-export async function sendProgressUpdate(playlistId: string, youtubeUserId: string, update: {
+export interface ProgressUpdate {
   type: 'progress' | 'complete' | 'error';
   message: string;
   details?: string;
@@ -117,7 +117,9 @@ export async function sendProgressUpdate(playlistId: string, youtubeUserId: stri
   currentArtist?: string;
   percentage?: number;
   timestamp?: string;
-}) {
+}
+
+export async function sendProgressUpdate(playlistId: string, youtubeUserId: string, update: ProgressUpdate) {
   const connectionKey = `${playlistId}:${youtubeUserId}`;
   const connections = progressConnections.get(connectionKey);
   if (!connections || connections.length === 0) {
