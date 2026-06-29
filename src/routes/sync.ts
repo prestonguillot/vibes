@@ -24,6 +24,7 @@ import path from 'path';
 import { optimalTrackMatching, SimplifiedTrack, SimplifiedVideo } from '../utils/trackMatching';
 import { formatErrorDetails } from '../utils/errorFormatter';
 import { fetchPlaylistDetails } from '../services/playlistDetailsService';
+import { searchTracksForVideos } from '../services/videoSearch';
 
 const router = Router();
 
@@ -494,101 +495,14 @@ router.post('/playlist/:playlistId',
       tracksToSearch = tracks.slice(0, trackLimit);
     }
     
-    // STEP 3: Search for YouTube videos
-    const videoIds: string[] = [];
-    const searchResults: Array<{track: string, artist: string, found: boolean, videoId?: string, spotifyPosition: number, spotifyTrackId: string}> = [];
-    let searchCount = 0;
-    
-    const searchMessage = isUpdateMode ? 'Checking for playlist updates' : 'Finding music videos';
-    Logger.info(`Starting video search: ${searchMessage}`, { tracksToSearch: tracksToSearch.length });
-    
-    for (let i = 0; i < tracksToSearch.length; i++) {
-      const item = tracksToSearch[i];
-      const typedItem = item as { track: { id: string; name: string; artists: Array<{ name?: string }>; type?: string } | null };
-      if (typedItem.track && typedItem.track.type === 'track') {
-        const track = typedItem.track;
-        const artist = track.artists[0]?.name || 'Unknown Artist';
-        const songName = track.name;
-        
-        // Calculate the original Spotify position
-        const spotifyPosition = isUpdateMode ?
-          existingVideoIds.size + i : // Update mode: position after existing items
-          i; // Create mode: position from beginning
-        
-        try {
-          Logger.debug('Searching for track', { trackNumber: searchCount + 1, totalTracks: tracksToSearch.length, artist, songName });
-          
-          // Send progress update with current song info (search phase: 0-70% of total)
-          const searchProgress = (searchCount / tracksToSearch.length) * SEARCH_PHASE_WEIGHT;
-          const totalPercentage = Math.round(searchProgress * 100);
-          
-          const progressMessage = isUpdateMode ? 'Checking for playlist updates' : 'Finding music videos';
-          const progressDetails = isUpdateMode ? 
-            `Analyzing "${songName}" by ${artist}... (${searchCount + 1}/${tracksToSearch.length})` :
-            `Searching for "${songName}" by ${artist}... (${searchCount + 1}/${tracksToSearch.length})`;
-          
-          sendProgressUpdate(playlistId, youtubeUserId, {
-            type: 'progress',
-            message: progressMessage,
-            details: progressDetails,
-            currentTrack: searchCount + 1,
-            totalTracks: tracksToSearch.length,
-            currentSong: songName,
-            currentArtist: artist,
-            percentage: totalPercentage
-          });
-          
-          const videoId = await searchMusicVideo(artist, songName);
-          searchCount++;
-          
-          if (videoId) {
-            videoIds.push(videoId);
-            searchResults.push({
-              track: songName,
-              artist: artist,
-              found: true,
-              videoId: videoId,
-              spotifyPosition: spotifyPosition,
-              spotifyTrackId: track.id
-            });
-            Logger.info('Found video for track', { songName, artist, videoId, spotifyPosition });
-          } else {
-            searchResults.push({
-              track: songName,
-              artist: artist,
-              found: false,
-              spotifyPosition: spotifyPosition,
-              spotifyTrackId: track.id
-            });
-            Logger.warn('No video found for track', { songName, artist, spotifyPosition });
-          }
-          
-          // Rate limiting: add delay between searches to be respectful
-          if (searchCount < tracks.length) {
-            Logger.debug('Rate limiting delay', { delayMs: 100 });
-            await new Promise(resolve => setTimeout(resolve, 100));
-          }
-          
-        } catch (error) {
-          searchCount++;
-          Logger.error('Error searching for track', { artist, songName }, error);
-          sendProgressUpdate(playlistId, youtubeUserId, {
-            type: 'error',
-            message: 'Error searching for video',
-            details: formatErrorDetails(error)
-          });
-          searchResults.push({
-            track: songName,
-            artist: artist,
-            found: false,
-            spotifyPosition: spotifyPosition,
-            spotifyTrackId: track.id
-          });
-        }
-      }
-    }
-    
-    Logger.info('Scraping completed', { searchesMade: searchCount, videosFound: videoIds.length, quotaSaved: searchCount * 100 });
+    // STEP 3: Search YouTube (quota-free scraper) for a video per track, in order
+    const { videoIds, searchResults } = await searchTracksForVideos(tracksToSearch, {
+      isUpdateMode,
+      existingVideoCount: existingVideoIds.size,
+      totalTrackCount: tracks.length,
+      searchPhaseWeight: SEARCH_PHASE_WEIGHT,
+      emitProgress: (payload) => sendProgressUpdate(playlistId, youtubeUserId, payload)
+    });
     
     // After search phase completes, we're at 70% progress
     sendProgressUpdate(playlistId, youtubeUserId, {
