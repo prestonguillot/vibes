@@ -16,7 +16,6 @@ import { parseSpotifyTokenCookie, parseYouTubeTokenCookie, validateAndSerializeS
 import { z } from 'zod';
 import ejs from 'ejs';
 import path from 'path';
-import { reorderPlaylistTracks } from '../utils/playlistReordering';
 import { optimalTrackMatching, SimplifiedTrack, SimplifiedVideo } from '../utils/trackMatching';
 import { formatErrorDetails } from '../utils/errorFormatter';
 import { fetchPlaylistDetails } from '../services/playlistDetailsService';
@@ -359,6 +358,9 @@ router.post('/playlist/:playlistId',
     let tracksToSearch: unknown[] = [];
     let syncedTracks: unknown[] = [];
     let unsyncedTracks: unknown[] = [];
+    // Existing track->video matches (Spotify trackId -> YouTube videoId) captured
+    // as tracks are classified as synced, for building the reconcile desired order.
+    const existingMatchPairs: Array<{ trackId: string; videoId: string }> = [];
 
     if (isUpdateMode) {
       // UPDATE MODE: Use track matching to identify which tracks are actually unsynced
@@ -451,6 +453,7 @@ router.post('/playlist/:playlistId',
             });
           } else {
             syncedTracks.push(item);
+            existingMatchPairs.push({ trackId: track.id, videoId: matchingVideo.id });
             Logger.debug('Track identified as SYNCED', {
               trackName: spotifyTrack.name,
               artist: spotifyTrack.artist,
@@ -468,27 +471,8 @@ router.post('/playlist/:playlistId',
         existingVideos: existingVideos.length
       });
 
-      // STEP 2.5: In UPDATE mode, skip pre-reordering - reorder after adding new videos
-      // This ensures all positions exist before attempting moves
-      if (!isUpdateMode) {
-        Logger.info('CREATE mode: Reordering existing tracks before adding new videos');
-        await reorderPlaylistTracks(
-          youtube,
-          youtubePlaylistId,
-          tracks,
-          syncedTracks,
-          (message, details, percentage) => {
-            sendProgressUpdate(playlistId, youtubeUserId, {
-              type: 'progress',
-              message,
-              details,
-              percentage
-            });
-          }
-        );
-      } else {
-        Logger.info('UPDATE mode: Deferring reorder until after new videos are added');
-      }
+      // Ordering happens at the end via reconcile, once new videos are added, so
+      // every position exists before any moves.
       
       // Limit to trackLimit unsynced tracks per operation
       tracksToSearch = unsyncedTracks.slice(0, trackLimit);
@@ -636,6 +620,18 @@ router.post('/playlist/:playlistId',
     if (isUpdateMode && unsyncedTracks.length === 0 && videoIds.length === 0) {
       Logger.info('Playlist already fully synced, no new videos to add', { playlistId });
 
+      // Still reconcile: the Spotify order may have changed or tracks been removed
+      // even when nothing new needs adding. No-op when already identical; the
+      // delete-safety rail protects against a bad desired order.
+      const orderedTrackIds = tracks
+        .map(item => (item as { track?: { id?: string } }).track?.id)
+        .filter((id): id is string => !!id);
+      const desiredVideoIds = buildSyncDesiredVideoIds(orderedTrackIds, existingMatchPairs, searchResults);
+      const currentItems = Array.from(existingItemsMap.values())
+        .filter(item => item.snippet?.resourceId?.videoId && item.id)
+        .map(item => ({ videoId: item.snippet!.resourceId!.videoId!, playlistItemId: item.id! }));
+      await reconcilePlaylist(youtube, youtubePlaylistId, desiredVideoIds, currentItems);
+
       closeProgressConnections(playlistId, youtubeUserId);
 
       // Return success response - playlist is up to date
@@ -684,8 +680,9 @@ router.post('/playlist/:playlistId',
       );
     }
 
-    // Only create playlist if we found some videos (for new playlists)
-    if (videoIds.length === 0) {
+    // Only error on "no videos" for a NEW playlist. An update with nothing new is
+    // valid (it may still reorder existing videos), so it falls through to reconcile.
+    if (!isUpdateMode && videoIds.length === 0) {
       Logger.warn('No videos found for new sync');
       sendProgressUpdate(playlistId, youtubeUserId, {
         type: 'error',
@@ -776,135 +773,30 @@ router.post('/playlist/:playlistId',
         percentage: Math.round(SEARCH_PHASE_WEIGHT * 100)
       });
       
-      // Add all videos found (these are only for the next unsynced tracks) in correct order
-      const foundResults = searchResults.filter(result => result.found && result.videoId);
-      foundResults.sort((a, b) => a.spotifyPosition - b.spotifyPosition);
-      
-      let addedCount = 0;
-      const totalToAdd = foundResults.length;
-      
-      if (totalToAdd > 0) {
-        Logger.info('Adding new videos from next unsynced tracks', { count: totalToAdd });
-        
-        for (const result of foundResults) {
-          const videoId = result.videoId!;
-          
-          try {
-            // YouTube API doesn't support position on insert, videos are added to the end
-            await youtubeWrite('playlistItems.insert', () => youtube.playlistItems.insert({
-              part: ['snippet'],
-              requestBody: {
-                snippet: {
-                  playlistId: youtubePlaylistId,
-                  resourceId: {
-                    kind: 'youtube#video',
-                    videoId: videoId,
-                  }
-                }
-              }
-            }));
-            logApiCall('add new video', 50); // playlistItems.insert costs 50 units
-            addedCount++;
-            Logger.external('YouTube', 'Added new video to playlist', { videoId, position: result.spotifyPosition });
-            
-            // Use the result we already have
-            const songName = result.track;
-            const artistName = result.artist;
-            
-            // Update progress
-            const playlistProgress = (addedCount / Math.max(totalToAdd, 1)) * PLAYLIST_PHASE_WEIGHT;
-            const totalPercentage = Math.round((SEARCH_PHASE_WEIGHT + playlistProgress) * 100);
-            
-            sendProgressUpdate(playlistId, youtubeUserId, {
-              type: 'progress',
-              message: `Adding new tracks`,
-              details: `Added "${songName}" by ${artistName} (${addedCount}/${totalToAdd})`,
-              currentTrack: addedCount,
-              totalTracks: totalToAdd,
-              currentSong: songName,
-              currentArtist: artistName,
-              percentage: totalPercentage
-            });
-          } catch (error) {
-            Logger.error('Error adding new video to playlist', { videoId }, error);
-            sendProgressUpdate(playlistId, youtubeUserId, {
-              type: 'error',
-              message: 'Error adding video to playlist',
-              details: formatErrorDetails(error)
-            });
-          }
-        }
-      }
+      // Build the desired order (existing matches + this batch's new searches, in
+      // Spotify order) and reconcile in one pass: insert new at position, move
+      // existing into order, delete genuine orphans. The delete-safety rail in
+      // reconcilePlaylist refuses to run if this would delete most of the playlist.
+      const orderedTrackIds = tracks
+        .map(item => (item as { track?: { id?: string } }).track?.id)
+        .filter((id): id is string => !!id);
+      const desiredVideoIds = buildSyncDesiredVideoIds(orderedTrackIds, existingMatchPairs, searchResults);
 
-      // Step 3: Reorder all synced tracks to match Spotify order (UPDATE mode only)
-      // This ensures that order changes in Spotify are reflected in YouTube, even if no new videos were added
-      if (isUpdateMode) {
-        // If we just added new videos, wait a moment for YouTube to process the changes
-        // This prevents race conditions where we fetch the playlist before additions are fully propagated
-        if (addedCount > 0) {
-          Logger.info('Waiting for YouTube to process newly added tracks before reordering', {
-            addedCount,
-            waitTime: 2000
-          });
-          await new Promise(resolve => setTimeout(resolve, 2000));
-        }
-        // Create a complete list of ALL synced tracks (existing + newly added)
-        const allSyncedTracks = [...syncedTracks];
+      const currentItems = Array.from(existingItemsMap.values())
+        .filter(item => item.snippet?.resourceId?.videoId && item.id)
+        .map(item => ({ videoId: item.snippet!.resourceId!.videoId!, playlistItemId: item.id! }));
 
-        // Add the newly added tracks to the list
-        if (addedCount > 0) {
-          for (const result of foundResults) {
-            if (result.found && result.videoId) {
-              allSyncedTracks.push({
-                track: {
-                  id: result.spotifyTrackId,
-                  name: result.track,
-                  artists: [{ name: result.artist }]
-                },
-                matchedVideoId: result.videoId
-              });
-            }
-          }
-        }
-
-        Logger.info('UPDATE mode: Reordering all tracks to match current Spotify order', {
-          existingSyncedTracks: syncedTracks.length,
-          newVideosAdded: addedCount,
-          totalTracksToReorder: allSyncedTracks.length
-        });
-
-        sendProgressUpdate(playlistId, youtubeUserId, {
+      const reconcileResult = await reconcilePlaylist(
+        youtube, youtubePlaylistId, desiredVideoIds, currentItems,
+        (done, total) => sendProgressUpdate(playlistId, youtubeUserId, {
           type: 'progress',
-          message: `Finalizing playlist order`,
-          details: 'Ensuring track order matches Spotify...',
-          percentage: 95
-        });
-
-        // Reorder ALL synced tracks (including newly added ones) to match current Spotify positions
-        await reorderPlaylistTracks(
-          youtube,
-          youtubePlaylistId,
-          tracks,
-          allSyncedTracks,
-          (message, details, percentage) => {
-            sendProgressUpdate(playlistId, youtubeUserId, {
-              type: 'progress',
-              message,
-              details,
-              percentage
-            });
-          }
-        );
-      } else if (isUpdateMode) {
-        Logger.info('UPDATE mode: No synced tracks to reorder');
-      } else {
-        Logger.info('CREATE mode: Reordering already happened before adding videos');
-      }
-      
-      Logger.info('Update completed', {
-        videosAdded: addedCount,
-        totalVideosToAdd: totalToAdd
-      });
+          message: 'Updating playlist',
+          details: `Updating playlist (${done}/${total})`,
+          percentage: Math.round((SEARCH_PHASE_WEIGHT + (done / Math.max(total, 1)) * PLAYLIST_PHASE_WEIGHT) * 100)
+        })
+      );
+      logApiCall('reconcile update', (reconcileResult.inserted + reconcileResult.moved + reconcileResult.deleted) * 50);
+      Logger.info('UPDATE mode reconcile complete', reconcileResult);
     }
     
     Logger.requestEnd('Sync Request Completed', Date.now() - startTime);
