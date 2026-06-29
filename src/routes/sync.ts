@@ -4,6 +4,7 @@ import { google } from 'googleapis';
 import { searchMusicVideo } from '../utils/youtubeScraper';
 import { fetchAllPlaylistItems } from '../utils/spotifyPlaylistItems';
 import { findSyncedYoutubePlaylist, syncedPlaylistTitle } from '../utils/youtubePlaylist';
+import { youtubeWrite } from '../utils/youtubeWrites';
 import { sendProgressUpdate, closeProgressConnections } from './progress';
 import { Logger } from '../utils/logger';
 import { getSecureCookieOptions } from '../utils/authValidation';
@@ -710,7 +711,7 @@ router.post('/playlist/:playlistId',
     
     // Create playlist if it doesn't exist
     if (!existingPlaylist) {
-      const playlistResponse = await youtube.playlists.insert({
+      const playlistResponse = await youtubeWrite('playlists.insert', () => youtube.playlists.insert({
         part: ['snippet', 'status'],
         requestBody: {
           snippet: {
@@ -721,7 +722,7 @@ router.post('/playlist/:playlistId',
             privacyStatus: 'private',
           }
         }
-      });
+      }));
       
       logApiCall('playlist creation', 50); // playlists.insert costs 50 units
       
@@ -745,7 +746,7 @@ router.post('/playlist/:playlistId',
         
         try {
           // YouTube API doesn't support position on insert, videos are added to the end
-          await youtube.playlistItems.insert({
+          await youtubeWrite('playlistItems.insert', () => youtube.playlistItems.insert({
             part: ['snippet'],
             requestBody: {
               snippet: {
@@ -756,7 +757,7 @@ router.post('/playlist/:playlistId',
                 }
               }
             }
-          });
+          }));
           logApiCall('add video to new playlist', 50); // playlistItems.insert costs 50 units
           Logger.external('YouTube', 'Added video to new playlist', { videoId, position: result.spotifyPosition });
           const currentIndex = i + 1;
@@ -818,7 +819,7 @@ router.post('/playlist/:playlistId',
           
           try {
             // YouTube API doesn't support position on insert, videos are added to the end
-            await youtube.playlistItems.insert({
+            await youtubeWrite('playlistItems.insert', () => youtube.playlistItems.insert({
               part: ['snippet'],
               requestBody: {
                 snippet: {
@@ -829,7 +830,7 @@ router.post('/playlist/:playlistId',
                   }
                 }
               }
-            });
+            }));
             logApiCall('add new video', 50); // playlistItems.insert costs 50 units
             addedCount++;
             Logger.external('YouTube', 'Added new video to playlist', { videoId, position: result.spotifyPosition });

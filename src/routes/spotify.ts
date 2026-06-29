@@ -341,9 +341,9 @@ router.get('/playlists',
       summaryText = `Showing ${unsyncedPlaylists.length} playlists (none synced yet)`;
     }
 
-    // Cache for 30 minutes (LONG) - saves YouTube API quota
-    // This is expensive because it checks ALL YouTube playlists for sync status
-    // Playlist lists change infrequently compared to playlist contents
+    // Cache for 30 minutes (LONG): this response lists ALL YouTube playlists to
+    // determine sync status, so caching it protects the scarce YouTube quota.
+    // The refresh button sends Cache-Control: no-cache to get fresh data on demand.
     setCache(res, CacheDuration.LONG);
     Logger.info('Setting cache header for playlists response', { cacheDuration: CacheDuration.LONG });
     res.render('partials/playlist-list-container', { summaryText, playlistsHtml });
