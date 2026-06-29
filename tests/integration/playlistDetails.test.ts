@@ -12,120 +12,70 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import { createApp } from '@/app';
 
-// Mock spotify-web-api-node
-vi.mock('spotify-web-api-node', () => {
-  const SpotifyWebApi = vi.fn();
-  SpotifyWebApi.prototype.setAccessToken = vi.fn();
-  SpotifyWebApi.prototype.setRefreshToken = vi.fn();
-  SpotifyWebApi.prototype.getAccessToken = vi.fn(() => 'test-access-token');
-  SpotifyWebApi.prototype.getPlaylist = vi.fn(() =>
-    Promise.resolve({
-      body: {
-        name: 'Test Playlist',
-        tracks: {
-          items: [
-            {
-              track: {
-                id: 'track1',
-                name: 'Test Track 1',
-                artists: [{ name: 'Test Artist 1' }],
-                album: {
-                  name: 'Test Album 1',
-                  images: [
-                    { url: 'https://example.com/album1-large.jpg', height: 640, width: 640 }
-                  ]
-                },
-                duration_ms: 180000,
-                external_urls: { spotify: 'https://open.spotify.com/track/track1' },
-                preview_url: 'https://preview.url'
-              }
-            },
-            {
-              track: {
-                id: 'track2',
-                name: 'Test Track 2',
-                artists: [{ name: 'Test Artist 2' }],
-                album: {
-                  name: 'Test Album 2',
-                  images: [
-                    { url: 'https://example.com/album2-large.jpg', height: 640, width: 640 }
-                  ]
-                },
-                duration_ms: 200000,
-                external_urls: { spotify: 'https://open.spotify.com/track/track2' },
-                preview_url: null
-              }
-            }
-          ],
-          total: 2,
-          href: 'https://api.spotify.com/v1/playlists/test/tracks'
-        }
-      }
-    })
-  );
+// The route reads playlist metadata via the hand-written spotifyClient
+// (getPlaylist -> { name, trackTotal, ... }) and the track list via the /items
+// helper (fetchAllPlaylistItems -> [{ track }]). Both are mocked with hoisted
+// vi.fns so the factory and the per-test overrides share the same mocks.
+const h = vi.hoisted(() => ({
+  getPlaylist: vi.fn(),
+  fetchAllPlaylistItems: vi.fn()
+}));
 
-  SpotifyWebApi.prototype.getPlaylistTracks = vi.fn(() =>
-    Promise.resolve({
-      body: {
-        items: [
-          {
-            track: {
-              id: 'track1',
-              name: 'Test Track 1',
-              artists: [{ name: 'Test Artist 1' }],
-              album: {
-                name: 'Test Album 1',
-                images: [
-                  { url: 'https://example.com/album1-large.jpg', height: 640, width: 640 },
-                  { url: 'https://example.com/album1-medium.jpg', height: 300, width: 300 }
-                ]
-              },
-              duration_ms: 180000,
-              external_urls: { spotify: 'https://open.spotify.com/track/track1' },
-              preview_url: 'https://preview.url'
-            }
-          },
-          {
-            track: {
-              id: 'track2',
-              name: 'Test Track 2',
-              artists: [{ name: 'Test Artist 2' }],
-              album: {
-                name: 'Test Album 2',
-                images: [
-                  { url: 'https://example.com/album2-large.jpg', height: 640, width: 640 }
-                ]
-              },
-              duration_ms: 200000,
-              external_urls: { spotify: 'https://open.spotify.com/track/track2' },
-              preview_url: null
-            }
-          }
-        ],
-        total: 2,
-        next: null
-      }
-    })
-  );
-
-  return { default: SpotifyWebApi };
+vi.mock('@/utils/spotifyClient', async (importActual) => {
+  const actual = await importActual<typeof import('@/utils/spotifyClient')>();
+  return { ...actual, getPlaylist: h.getPlaylist };
 });
 
-// Track fetching moved to the /items helper (the old getPlaylistTracks mock above
-// is no longer exercised). Mock the helper to derive its items from whatever the
-// current getPlaylist mock returns under body.tracks.items - already in the
-// normalized { track } shape - so per-test getPlaylist overrides keep working.
 vi.mock('@/utils/spotifyPlaylistItems', () => ({
-  fetchAllPlaylistItems: vi.fn(async () => {
-    const SpotifyWebApi = (await import('spotify-web-api-node')).default;
-    const data: any = await new SpotifyWebApi().getPlaylist('');
-    return data?.body?.tracks?.items || [];
-  })
+  fetchAllPlaylistItems: h.fetchAllPlaylistItems
 }));
+
+// Builds a normalized playlist-item ({ track }) matching what fetchAllPlaylistItems returns.
+const trackItem = (
+  id: string,
+  name: string,
+  artist: string,
+  albumName: string,
+  imageUrl: string | null,
+  preview: string | null = null
+) => ({
+  track: {
+    id,
+    name,
+    artists: [{ name: artist }],
+    album: {
+      name: albumName,
+      images: imageUrl ? [{ url: imageUrl, height: 640, width: 640 }] : []
+    },
+    duration_ms: 180000,
+    external_urls: { spotify: `https://open.spotify.com/track/${id}` },
+    preview_url: preview
+  }
+});
+
+// Sets both mocks for a playlist: metadata via getPlaylist, tracks via fetchAllPlaylistItems.
+const mockPlaylist = (name: string, items: ReturnType<typeof trackItem>[], trackTotal: number | null = null) => {
+  h.getPlaylist.mockResolvedValue({
+    id: 'playlist',
+    name,
+    ownerId: null,
+    trackTotal,
+    spotifyUrl: 'https://open.spotify.com/playlist/test'
+  });
+  h.fetchAllPlaylistItems.mockResolvedValue(items);
+};
 
 const app = createApp();
 
 describe('Playlist Details Error Handling', () => {
+  beforeEach(() => {
+    // Default: a two-track "Test Playlist" so tests that don't override still resolve.
+    mockPlaylist('Test Playlist', [
+      trackItem('track1', 'Test Track 1', 'Test Artist 1', 'Test Album 1', 'https://example.com/album1-large.jpg', 'https://preview.url'),
+      trackItem('track2', 'Test Track 2', 'Test Artist 2', 'Test Album 2', 'https://example.com/album2-large.jpg', null)
+    ], 2);
+  });
+
   /**
    * YouTube API Quota Error Handling Verification
    *
@@ -201,51 +151,10 @@ describe('Playlist Details Error Handling', () => {
 
   describe('Spotify-Only Mode', () => {
     it('should successfully render playlist details with only Spotify connected', async () => {
-      // Mock Spotify API dynamically for this test
-      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
-      SpotifyWebApi.prototype.getPlaylist = vi.fn(() =>
-        Promise.resolve({
-          body: {
-            name: 'Test Playlist',
-            tracks: {
-              items: [
-                {
-                  track: {
-                    id: 'track1',
-                    name: 'Test Track 1',
-                    artists: [{ name: 'Test Artist 1' }],
-                    album: {
-                      name: 'Test Album 1',
-                      images: [
-                        { url: 'https://example.com/album1.jpg', height: 640, width: 640 }
-                      ]
-                    },
-                    duration_ms: 180000,
-                    external_urls: { spotify: 'https://open.spotify.com/track/track1' },
-                    preview_url: 'https://preview.url'
-                  }
-                },
-                {
-                  track: {
-                    id: 'track2',
-                    name: 'Test Track 2',
-                    artists: [{ name: 'Test Artist 2' }],
-                    album: {
-                      name: 'Test Album 2',
-                      images: [
-                        { url: 'https://example.com/album2.jpg', height: 640, width: 640 }
-                      ]
-                    },
-                    duration_ms: 200000,
-                    external_urls: { spotify: 'https://open.spotify.com/track/track2' },
-                    preview_url: null
-                  }
-                }
-              ]
-            }
-          }
-        })
-      );
+      mockPlaylist('Test Playlist', [
+        trackItem('track1', 'Test Track 1', 'Test Artist 1', 'Test Album 1', 'https://example.com/album1.jpg', 'https://preview.url'),
+        trackItem('track2', 'Test Track 2', 'Test Artist 2', 'Test Album 2', 'https://example.com/album2.jpg', null)
+      ]);
 
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-spotify-token',
@@ -272,51 +181,10 @@ describe('Playlist Details Error Handling', () => {
     });
 
     it('should not show "linked" count when YouTube is not connected', async () => {
-      // Mock Spotify API
-      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
-      SpotifyWebApi.prototype.getPlaylist = vi.fn(() =>
-        Promise.resolve({
-          body: {
-            name: 'Test Playlist',
-            tracks: {
-              items: [
-                {
-                  track: {
-                    id: 'track1',
-                    name: 'Track 1',
-                    artists: [{ name: 'Artist 1' }],
-                    album: {
-                      name: 'Album 1',
-                      images: [
-                        { url: 'https://example.com/album1.jpg', height: 640, width: 640 }
-                      ]
-                    },
-                    duration_ms: 180000,
-                    external_urls: { spotify: 'https://open.spotify.com/track/track1' },
-                    preview_url: null
-                  }
-                },
-                {
-                  track: {
-                    id: 'track2',
-                    name: 'Track 2',
-                    artists: [{ name: 'Artist 2' }],
-                    album: {
-                      name: 'Album 2',
-                      images: [
-                        { url: 'https://example.com/album2.jpg', height: 640, width: 640 }
-                      ]
-                    },
-                    duration_ms: 200000,
-                    external_urls: { spotify: 'https://open.spotify.com/track/track2' },
-                    preview_url: null
-                  }
-                }
-              ]
-            }
-          }
-        })
-      );
+      mockPlaylist('Test Playlist', [
+        trackItem('track1', 'Track 1', 'Artist 1', 'Album 1', 'https://example.com/album1.jpg', null),
+        trackItem('track2', 'Track 2', 'Artist 2', 'Album 2', 'https://example.com/album2.jpg', null)
+      ]);
 
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-spotify-token',
@@ -338,63 +206,9 @@ describe('Playlist Details Error Handling', () => {
     });
 
     it('should not show YouTube video elements when YouTube is not connected', async () => {
-      // Mock Spotify API
-      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
-      SpotifyWebApi.prototype.getPlaylist = vi.fn(() =>
-        Promise.resolve({
-          body: {
-            name: 'Test Playlist',
-            tracks: {
-              items: [
-                {
-                  track: {
-                    id: 'track1',
-                    name: 'Track 1',
-                    artists: [{ name: 'Artist 1' }],
-                    album: {
-                      name: 'Album 1',
-                      images: [
-                        { url: 'https://example.com/album1.jpg', height: 640, width: 640 }
-                      ]
-                    },
-                    duration_ms: 180000,
-                    external_urls: { spotify: 'https://open.spotify.com/track/track1' },
-                    preview_url: null
-                  }
-                }
-              ],
-              total: 1
-            }
-          }
-        })
-      );
-
-      SpotifyWebApi.prototype.getPlaylistTracks = vi.fn(() =>
-        Promise.resolve({
-          body: {
-            items: [
-              {
-                track: {
-                  id: 'track1',
-                  name: 'Track 1',
-                  artists: [{ name: 'Artist 1' }],
-                  album: {
-                    name: 'Album 1',
-                    images: [
-                      { url: 'https://example.com/album1.jpg', height: 640, width: 640 }
-                    ]
-                  },
-                  duration_ms: 180000,
-                  external_urls: { spotify: 'https://open.spotify.com/track/track1' },
-                  preview_url: null
-                }
-              }
-            ],
-            total: 1,
-            next: null
-          }
-        })
-      );
+      mockPlaylist('Test Playlist', [
+        trackItem('track1', 'Track 1', 'Artist 1', 'Album 1', 'https://example.com/album1.jpg', null)
+      ], 1);
 
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-spotify-token',
@@ -415,35 +229,9 @@ describe('Playlist Details Error Handling', () => {
     });
 
     it('should not show link/unlink badges when YouTube is not connected', async () => {
-      // Mock Spotify API
-      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
-      SpotifyWebApi.prototype.getPlaylist = vi.fn(() =>
-        Promise.resolve({
-          body: {
-            name: 'Test Playlist',
-            tracks: {
-              items: [
-                {
-                  track: {
-                    id: 'track1',
-                    name: 'Track 1',
-                    artists: [{ name: 'Artist 1' }],
-                    album: {
-                      name: 'Album 1',
-                      images: [
-                        { url: 'https://example.com/album1.jpg', height: 640, width: 640 }
-                      ]
-                    },
-                    duration_ms: 180000,
-                    external_urls: { spotify: 'https://open.spotify.com/track/track1' },
-                    preview_url: null
-                  }
-                }
-              ]
-            }
-          }
-        })
-      );
+      mockPlaylist('Test Playlist', [
+        trackItem('track1', 'Track 1', 'Artist 1', 'Album 1', 'https://example.com/album1.jpg', null)
+      ]);
 
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-spotify-token',
@@ -465,35 +253,9 @@ describe('Playlist Details Error Handling', () => {
     });
 
     it('should not show edit buttons when YouTube is not connected', async () => {
-      // Mock Spotify API
-      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
-      SpotifyWebApi.prototype.getPlaylist = vi.fn(() =>
-        Promise.resolve({
-          body: {
-            name: 'Test Playlist',
-            tracks: {
-              items: [
-                {
-                  track: {
-                    id: 'track1',
-                    name: 'Track 1',
-                    artists: [{ name: 'Artist 1' }],
-                    album: {
-                      name: 'Album 1',
-                      images: [
-                        { url: 'https://example.com/album1.jpg', height: 640, width: 640 }
-                      ]
-                    },
-                    duration_ms: 180000,
-                    external_urls: { spotify: 'https://open.spotify.com/track/track1' },
-                    preview_url: null
-                  }
-                }
-              ]
-            }
-          }
-        })
-      );
+      mockPlaylist('Test Playlist', [
+        trackItem('track1', 'Track 1', 'Artist 1', 'Album 1', 'https://example.com/album1.jpg', null)
+      ]);
 
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-spotify-token',
@@ -513,35 +275,9 @@ describe('Playlist Details Error Handling', () => {
     });
 
     it('should not show "YouTube Only" badge when YouTube is not connected', async () => {
-      // Mock Spotify API
-      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
-      SpotifyWebApi.prototype.getPlaylist = vi.fn(() =>
-        Promise.resolve({
-          body: {
-            name: 'Test Playlist',
-            tracks: {
-              items: [
-                {
-                  track: {
-                    id: 'track1',
-                    name: 'Track 1',
-                    artists: [{ name: 'Artist 1' }],
-                    album: {
-                      name: 'Album 1',
-                      images: [
-                        { url: 'https://example.com/album1.jpg', height: 640, width: 640 }
-                      ]
-                    },
-                    duration_ms: 180000,
-                    external_urls: { spotify: 'https://open.spotify.com/track/track1' },
-                    preview_url: null
-                  }
-                }
-              ]
-            }
-          }
-        })
-      );
+      mockPlaylist('Test Playlist', [
+        trackItem('track1', 'Track 1', 'Artist 1', 'Album 1', 'https://example.com/album1.jpg', null)
+      ]);
 
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-spotify-token',
@@ -561,35 +297,9 @@ describe('Playlist Details Error Handling', () => {
 
   describe('Refresh Button Functionality', () => {
     it('should include refresh button in playlist details', async () => {
-      // Mock Spotify API
-      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
-      SpotifyWebApi.prototype.getPlaylist = vi.fn(() =>
-        Promise.resolve({
-          body: {
-            name: 'Test Playlist',
-            tracks: {
-              items: [
-                {
-                  track: {
-                    id: 'track1',
-                    name: 'Track 1',
-                    artists: [{ name: 'Artist 1' }],
-                    album: {
-                      name: 'Album 1',
-                      images: [
-                        { url: 'https://example.com/album1.jpg', height: 640, width: 640 }
-                      ]
-                    },
-                    duration_ms: 180000,
-                    external_urls: { spotify: 'https://open.spotify.com/track/track1' },
-                    preview_url: null
-                  }
-                }
-              ]
-            }
-          }
-        })
-      );
+      mockPlaylist('Test Playlist', [
+        trackItem('track1', 'Track 1', 'Artist 1', 'Album 1', 'https://example.com/album1.jpg', null)
+      ]);
 
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-spotify-token',
@@ -608,35 +318,9 @@ describe('Playlist Details Error Handling', () => {
     });
 
     it('should use correct HTMX attributes to prevent nesting', async () => {
-      // Mock Spotify API
-      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
-      SpotifyWebApi.prototype.getPlaylist = vi.fn(() =>
-        Promise.resolve({
-          body: {
-            name: 'Test Playlist',
-            tracks: {
-              items: [
-                {
-                  track: {
-                    id: 'track1',
-                    name: 'Track 1',
-                    artists: [{ name: 'Artist 1' }],
-                    album: {
-                      name: 'Album 1',
-                      images: [
-                        { url: 'https://example.com/album1.jpg', height: 640, width: 640 }
-                      ]
-                    },
-                    duration_ms: 180000,
-                    external_urls: { spotify: 'https://open.spotify.com/track/track1' },
-                    preview_url: null
-                  }
-                }
-              ]
-            }
-          }
-        })
-      );
+      mockPlaylist('Test Playlist', [
+        trackItem('track1', 'Track 1', 'Artist 1', 'Album 1', 'https://example.com/album1.jpg', null)
+      ]);
 
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-spotify-token',
@@ -663,35 +347,9 @@ describe('Playlist Details Error Handling', () => {
     });
 
     it('should not include duplicate id attributes that cause nesting', async () => {
-      // Mock Spotify API
-      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
-      SpotifyWebApi.prototype.getPlaylist = vi.fn(() =>
-        Promise.resolve({
-          body: {
-            name: 'Test Playlist',
-            tracks: {
-              items: [
-                {
-                  track: {
-                    id: 'track1',
-                    name: 'Track 1',
-                    artists: [{ name: 'Artist 1' }],
-                    album: {
-                      name: 'Album 1',
-                      images: [
-                        { url: 'https://example.com/album1.jpg', height: 640, width: 640 }
-                      ]
-                    },
-                    duration_ms: 180000,
-                    external_urls: { spotify: 'https://open.spotify.com/track/track1' },
-                    preview_url: null
-                  }
-                }
-              ]
-            }
-          }
-        })
-      );
+      mockPlaylist('Test Playlist', [
+        trackItem('track1', 'Track 1', 'Artist 1', 'Album 1', 'https://example.com/album1.jpg', null)
+      ]);
 
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-spotify-token',
@@ -713,35 +371,9 @@ describe('Playlist Details Error Handling', () => {
     });
 
     it('should return same structure on refresh as initial load', async () => {
-      // Mock Spotify API
-      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
-      SpotifyWebApi.prototype.getPlaylist = vi.fn(() =>
-        Promise.resolve({
-          body: {
-            name: 'Test Playlist',
-            tracks: {
-              items: [
-                {
-                  track: {
-                    id: 'track1',
-                    name: 'Track 1',
-                    artists: [{ name: 'Artist 1' }],
-                    album: {
-                      name: 'Album 1',
-                      images: [
-                        { url: 'https://example.com/album1.jpg', height: 640, width: 640 }
-                      ]
-                    },
-                    duration_ms: 180000,
-                    external_urls: { spotify: 'https://open.spotify.com/track/track1' },
-                    preview_url: null
-                  }
-                }
-              ]
-            }
-          }
-        })
-      );
+      mockPlaylist('Test Playlist', [
+        trackItem('track1', 'Track 1', 'Artist 1', 'Album 1', 'https://example.com/album1.jpg', null)
+      ]);
 
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-spotify-token',
@@ -782,35 +414,9 @@ describe('Playlist Details Error Handling', () => {
     });
 
     it('should only return one refresh button per response', async () => {
-      // Mock Spotify API
-      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
-      SpotifyWebApi.prototype.getPlaylist = vi.fn(() =>
-        Promise.resolve({
-          body: {
-            name: 'Test Playlist',
-            tracks: {
-              items: [
-                {
-                  track: {
-                    id: 'track1',
-                    name: 'Track 1',
-                    artists: [{ name: 'Artist 1' }],
-                    album: {
-                      name: 'Album 1',
-                      images: [
-                        { url: 'https://example.com/album1.jpg', height: 640, width: 640 }
-                      ]
-                    },
-                    duration_ms: 180000,
-                    external_urls: { spotify: 'https://open.spotify.com/track/track1' },
-                    preview_url: null
-                  }
-                }
-              ]
-            }
-          }
-        })
-      );
+      mockPlaylist('Test Playlist', [
+        trackItem('track1', 'Track 1', 'Artist 1', 'Album 1', 'https://example.com/album1.jpg', null)
+      ]);
 
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-spotify-token',
@@ -837,63 +443,9 @@ describe('Playlist Details Error Handling', () => {
 
   describe('Album Art Display (Spotify-Only Mode)', () => {
     it('should display album art when Spotify-only mode is active', async () => {
-      // Mock Spotify API with album images
-      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
-      SpotifyWebApi.prototype.getPlaylist = vi.fn(() =>
-        Promise.resolve({
-          body: {
-            name: 'Test Playlist',
-            tracks: {
-              items: [
-                {
-                  track: {
-                    id: 'track1',
-                    name: 'Track 1',
-                    artists: [{ name: 'Artist 1' }],
-                    album: {
-                      name: 'Album 1',
-                      images: [
-                        { url: 'https://example.com/album1.jpg', height: 640, width: 640 }
-                      ]
-                    },
-                    duration_ms: 180000,
-                    external_urls: { spotify: 'https://open.spotify.com/track/track1' },
-                    preview_url: null
-                  }
-                }
-              ],
-              total: 1
-            }
-          }
-        })
-      );
-
-      SpotifyWebApi.prototype.getPlaylistTracks = vi.fn(() =>
-        Promise.resolve({
-          body: {
-            items: [
-              {
-                track: {
-                  id: 'track1',
-                  name: 'Track 1',
-                  artists: [{ name: 'Artist 1' }],
-                  album: {
-                    name: 'Album 1',
-                    images: [
-                      { url: 'https://example.com/album1.jpg', height: 640, width: 640 }
-                    ]
-                  },
-                  duration_ms: 180000,
-                  external_urls: { spotify: 'https://open.spotify.com/track/track1' },
-                  preview_url: null
-                }
-              }
-            ],
-            total: 1,
-            next: null
-          }
-        })
-      );
+      mockPlaylist('Test Playlist', [
+        trackItem('track1', 'Track 1', 'Artist 1', 'Album 1', 'https://example.com/album1.jpg', null)
+      ], 1);
 
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-spotify-token',
@@ -912,63 +464,9 @@ describe('Playlist Details Error Handling', () => {
     });
 
     it('should use youtube-video CSS class for album art container', async () => {
-      // Mock Spotify API with album images
-      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
-      SpotifyWebApi.prototype.getPlaylist = vi.fn(() =>
-        Promise.resolve({
-          body: {
-            name: 'Test Playlist',
-            tracks: {
-              items: [
-                {
-                  track: {
-                    id: 'track1',
-                    name: 'Track 1',
-                    artists: [{ name: 'Artist 1' }],
-                    album: {
-                      name: 'Album 1',
-                      images: [
-                        { url: 'https://example.com/album1.jpg', height: 640, width: 640 }
-                      ]
-                    },
-                    duration_ms: 180000,
-                    external_urls: { spotify: 'https://open.spotify.com/track/track1' },
-                    preview_url: null
-                  }
-                }
-              ],
-              total: 1
-            }
-          }
-        })
-      );
-
-      SpotifyWebApi.prototype.getPlaylistTracks = vi.fn(() =>
-        Promise.resolve({
-          body: {
-            items: [
-              {
-                track: {
-                  id: 'track1',
-                  name: 'Track 1',
-                  artists: [{ name: 'Artist 1' }],
-                  album: {
-                    name: 'Album 1',
-                    images: [
-                      { url: 'https://example.com/album1.jpg', height: 640, width: 640 }
-                    ]
-                  },
-                  duration_ms: 180000,
-                  external_urls: { spotify: 'https://open.spotify.com/track/track1' },
-                  preview_url: null
-                }
-              }
-            ],
-            total: 1,
-            next: null
-          }
-        })
-      );
+      mockPlaylist('Test Playlist', [
+        trackItem('track1', 'Track 1', 'Artist 1', 'Album 1', 'https://example.com/album1.jpg', null)
+      ], 1);
 
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-spotify-token',
@@ -989,63 +487,9 @@ describe('Playlist Details Error Handling', () => {
     });
 
     it('should not display YouTube elements when only Spotify is connected', async () => {
-      // Mock Spotify API
-      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
-      SpotifyWebApi.prototype.getPlaylist = vi.fn(() =>
-        Promise.resolve({
-          body: {
-            name: 'Test Playlist',
-            tracks: {
-              items: [
-                {
-                  track: {
-                    id: 'track1',
-                    name: 'Track 1',
-                    artists: [{ name: 'Artist 1' }],
-                    album: {
-                      name: 'Album 1',
-                      images: [
-                        { url: 'https://example.com/album1.jpg', height: 640, width: 640 }
-                      ]
-                    },
-                    duration_ms: 180000,
-                    external_urls: { spotify: 'https://open.spotify.com/track/track1' },
-                    preview_url: null
-                  }
-                }
-              ],
-              total: 1
-            }
-          }
-        })
-      );
-
-      SpotifyWebApi.prototype.getPlaylistTracks = vi.fn(() =>
-        Promise.resolve({
-          body: {
-            items: [
-              {
-                track: {
-                  id: 'track1',
-                  name: 'Track 1',
-                  artists: [{ name: 'Artist 1' }],
-                  album: {
-                    name: 'Album 1',
-                    images: [
-                      { url: 'https://example.com/album1.jpg', height: 640, width: 640 }
-                    ]
-                  },
-                  duration_ms: 180000,
-                  external_urls: { spotify: 'https://open.spotify.com/track/track1' },
-                  preview_url: null
-                }
-              }
-            ],
-            total: 1,
-            next: null
-          }
-        })
-      );
+      mockPlaylist('Test Playlist', [
+        trackItem('track1', 'Track 1', 'Artist 1', 'Album 1', 'https://example.com/album1.jpg', null)
+      ], 1);
 
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-spotify-token',
@@ -1065,59 +509,10 @@ describe('Playlist Details Error Handling', () => {
     });
 
     it('should handle tracks without album art gracefully', async () => {
-      // Mock Spotify API with a track that has no album images
-      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
-      SpotifyWebApi.prototype.getPlaylist = vi.fn(() =>
-        Promise.resolve({
-          body: {
-            name: 'Test Playlist',
-            tracks: {
-              items: [
-                {
-                  track: {
-                    id: 'track1',
-                    name: 'Track Without Art',
-                    artists: [{ name: 'Artist 1' }],
-                    album: {
-                      name: 'Album 1',
-                      images: []  // No album images
-                    },
-                    duration_ms: 180000,
-                    external_urls: { spotify: 'https://open.spotify.com/track/track1' },
-                    preview_url: null
-                  }
-                }
-              ],
-              total: 1
-            }
-          }
-        })
-      );
-
-      SpotifyWebApi.prototype.getPlaylistTracks = vi.fn(() =>
-        Promise.resolve({
-          body: {
-            items: [
-              {
-                track: {
-                  id: 'track1',
-                  name: 'Track Without Art',
-                  artists: [{ name: 'Artist 1' }],
-                  album: {
-                    name: 'Album 1',
-                    images: []  // No album images
-                  },
-                  duration_ms: 180000,
-                  external_urls: { spotify: 'https://open.spotify.com/track/track1' },
-                  preview_url: null
-                }
-              }
-            ],
-            total: 1,
-            next: null
-          }
-        })
-      );
+      // A track that has no album images
+      mockPlaylist('Test Playlist', [
+        trackItem('track1', 'Track Without Art', 'Artist 1', 'Album 1', null, null)
+      ], 1);
 
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-spotify-token',
@@ -1142,63 +537,9 @@ describe('Playlist Details Error Handling', () => {
     });
 
     it('should preserve full grid layout when album art is displayed', async () => {
-      // Mock Spotify API
-      const SpotifyWebApi = (await import('spotify-web-api-node')).default;
-      SpotifyWebApi.prototype.getPlaylist = vi.fn(() =>
-        Promise.resolve({
-          body: {
-            name: 'Test Playlist',
-            tracks: {
-              items: [
-                {
-                  track: {
-                    id: 'track1',
-                    name: 'Track 1',
-                    artists: [{ name: 'Artist 1' }],
-                    album: {
-                      name: 'Album 1',
-                      images: [
-                        { url: 'https://example.com/album1.jpg', height: 640, width: 640 }
-                      ]
-                    },
-                    duration_ms: 180000,
-                    external_urls: { spotify: 'https://open.spotify.com/track/track1' },
-                    preview_url: null
-                  }
-                }
-              ],
-              total: 1
-            }
-          }
-        })
-      );
-
-      SpotifyWebApi.prototype.getPlaylistTracks = vi.fn(() =>
-        Promise.resolve({
-          body: {
-            items: [
-              {
-                track: {
-                  id: 'track1',
-                  name: 'Track 1',
-                  artists: [{ name: 'Artist 1' }],
-                  album: {
-                    name: 'Album 1',
-                    images: [
-                      { url: 'https://example.com/album1.jpg', height: 640, width: 640 }
-                    ]
-                  },
-                  duration_ms: 180000,
-                  external_urls: { spotify: 'https://open.spotify.com/track/track1' },
-                  preview_url: null
-                }
-              }
-            ],
-            total: 1,
-            next: null
-          }
-        })
-      );
+      mockPlaylist('Test Playlist', [
+        trackItem('track1', 'Track 1', 'Artist 1', 'Album 1', 'https://example.com/album1.jpg', null)
+      ], 1);
 
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-spotify-token',

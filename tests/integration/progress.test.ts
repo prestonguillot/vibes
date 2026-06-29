@@ -54,24 +54,6 @@ vi.mock('googleapis', () => ({
   },
 }));
 
-// Mock Spotify Web API
-vi.mock('spotify-web-api-node', () => {
-  return {
-    default: vi.fn().mockImplementation(() => ({
-      setAccessToken: vi.fn(),
-      setRefreshToken: vi.fn(),
-      getPlaylist: vi.fn().mockResolvedValue({
-        body: {
-          id: '1234567890123456789012',
-          name: 'Test Playlist',
-          owner: { display_name: 'Test User' }
-        }
-      }),
-      getMe: vi.fn().mockResolvedValue({ body: { id: 'test_user_id' } }),
-    }))
-  };
-});
-
 describe('SSE Progress Updates', () => {
   let app: Express;
 

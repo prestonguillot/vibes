@@ -1,5 +1,4 @@
 import { Router, Request, Response } from 'express';
-import SpotifyWebApi from 'spotify-web-api-node';
 import { google, youtube_v3 } from 'googleapis';
 
 // The exact OAuth2 client instance type google.auth.OAuth2 produces (googleapis
@@ -17,7 +16,7 @@ import { getSecureCookieOptions } from '../utils/authValidation';
 import { validate, schemas, ValidatedRequest } from '../utils/validation';
 import { csrfValidationMiddleware } from '../utils/csrf';
 import { SpotifyTokens, YouTubeTokens } from '../types/oauth';
-import { parseSpotifyTokenCookie, parseYouTubeTokenCookie, validateAndSerializeSpotifyTokens, validateAndSerializeYouTubeTokens } from '../utils/cookieParser';
+import { parseSpotifyTokenCookie, parseYouTubeTokenCookie, validateAndSerializeYouTubeTokens } from '../utils/cookieParser';
 import { z } from 'zod';
 import ejs from 'ejs';
 import path from 'path';
@@ -25,54 +24,10 @@ import { formatErrorDetails } from '../utils/errorFormatter';
 import { fetchPlaylistDetails } from '../services/playlistDetailsService';
 import { searchTracksForVideos } from '../services/videoSearch';
 import { classifyTracksForSync } from '../services/trackClassification';
+import { ensureValidSpotifyToken } from '../utils/spotifyAuth';
+import { getPlaylist } from '../utils/spotifyClient';
 
 const router = Router();
-
-// Helper functions for token refresh
-const ensureValidSpotifyToken = async (req: Request, res: Response): Promise<SpotifyWebApi> => {
-  const spotifyTokens: SpotifyTokens | null = parseSpotifyTokenCookie(req.cookies.spotify_tokens, res);
-
-  if (!spotifyTokens) {
-    throw new Error('No Spotify tokens found');
-  }
-
-  const spotifyApi = new SpotifyWebApi({
-    clientId: process.env.SPOTIFY_CLIENT_ID,
-    clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
-    redirectUri: process.env.SPOTIFY_REDIRECT_URI
-  });
-
-  spotifyApi.setAccessToken(spotifyTokens.accessToken);
-  spotifyApi.setRefreshToken(spotifyTokens.refreshToken);
-
-  try {
-    await spotifyApi.getMe();
-    return spotifyApi;
-  } catch (error: unknown) {
-    const statusCode = (error as { statusCode?: number }).statusCode;
-    if (statusCode === 401 && spotifyTokens.refreshToken) {
-      Logger.auth('Spotify', 'token expired, refreshing');
-      try {
-        const data = await spotifyApi.refreshAccessToken();
-        const { access_token } = data.body;
-
-        // Validate and update cookie with new token
-        const updatedTokens = { ...spotifyTokens, accessToken: access_token };
-        const serializedTokens = validateAndSerializeSpotifyTokens(updatedTokens);
-        res.cookie('spotify_tokens', serializedTokens, getSecureCookieOptions());
-        spotifyApi.setAccessToken(access_token);
-
-        Logger.auth('Spotify', 'token refreshed successfully');
-        return spotifyApi;
-      } catch (refreshError) {
-        Logger.error('Failed to refresh Spotify token', {}, refreshError);
-        throw new Error('SPOTIFY_AUTH_REQUIRED');
-      }
-    } else {
-      throw new Error('SPOTIFY_AUTH_REQUIRED');
-    }
-  }
-};
 
 // Helper function to get YouTube user ID from cached channel ID in tokens
 function getYouTubeUserId(youtubeTokens: YouTubeTokens): string {
@@ -207,7 +162,7 @@ router.post('/playlist/:playlistId',
 
     // Initialize APIs
     Logger.info('Initializing API clients');
-    const spotifyApi = await ensureValidSpotifyToken(req as Request, res);
+    const spotifyAccessToken = await ensureValidSpotifyToken(req as Request, res);
     const { oauth2Client, quotaUsed } = await ensureValidYouTubeToken(req as Request, res);
     totalQuotaUsed = quotaUsed; // Initialize totalQuotaUsed with initial quota
     const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
@@ -221,16 +176,15 @@ router.post('/playlist/:playlistId',
 
     // Get playlist details
     Logger.external('Spotify', 'Fetching playlist details');
-    const playlistResponse = await spotifyApi.getPlaylist(playlistId);
-    const playlist = playlistResponse.body;
-    Logger.external('Spotify', 'Playlist details fetched', { name: playlist.name, totalTracks: playlist.tracks?.total ?? 0 });
+    const playlist = await getPlaylist(spotifyAccessToken, playlistId);
+    Logger.external('Spotify', 'Playlist details fetched', { name: playlist.name, totalTracks: playlist.trackTotal ?? 0 });
 
     // Get batch size from request, default to 1 if not provided
     let batchSize = 1;
     if (req.body.batchSize) {
       if (req.body.batchSize === 'all') {
         // "all" means process all tracks (use playlist total)
-        batchSize = playlist.tracks?.total || 999;
+        batchSize = playlist.trackTotal || 999;
       } else {
         batchSize = parseInt(req.body.batchSize);
       }
@@ -246,13 +200,7 @@ router.post('/playlist/:playlistId',
     });
     Logger.external('Spotify', 'Fetching all tracks for analysis');
 
-    // Fetch all tracks via the /items endpoint. The library's getPlaylistTracks()
-    // uses the /tracks endpoint that Spotify removed in Feb 2026 (now 403); see
-    // fetchAllPlaylistItems.
-    const spotifyAccessToken = spotifyApi.getAccessToken();
-    if (!spotifyAccessToken) {
-      throw new Error('Spotify access token unavailable for fetching playlist items');
-    }
+    // Fetch all tracks via the /items endpoint (/tracks was removed in Feb 2026).
     const allItems = await fetchAllPlaylistItems(spotifyAccessToken, playlistId);
     const allTracks: unknown[] = allItems.filter((item: unknown) => {
       const typedItem = item as { track: { type?: string } | null };
@@ -260,7 +208,7 @@ router.post('/playlist/:playlistId',
     });
 
     const tracks = allTracks;
-    Logger.info('Found valid tracks to analyze', { count: tracks.length, totalPlaylistTracks: playlist.tracks?.total ?? 0 });
+    Logger.info('Found valid tracks to analyze', { count: tracks.length, totalPlaylistTracks: playlist.trackTotal ?? 0 });
 
     sendProgressUpdate(playlistId, youtubeUserId, {
       type: 'progress',
@@ -443,7 +391,7 @@ router.post('/playlist/:playlistId',
       );
 
       // Fetch updated playlist details to send as OOB swap
-      const playlistDetails = await fetchPlaylistDetails(spotifyApi, youtube, playlistId, youtubePlaylistId);
+      const playlistDetails = await fetchPlaylistDetails(spotifyAccessToken, youtube, playlistId, youtubePlaylistId);
 
       // Generate playlist details HTML using shared template
       const viewsPath = path.join(__dirname, '../../views');
@@ -466,8 +414,8 @@ router.post('/playlist/:playlistId',
           syncFeedbackHtml,
           playlistDetailsHtml,
           playlistName: playlist.name,
-          trackCount: playlist.tracks?.total ?? 0,
-          spotifyUrl: playlist.external_urls?.spotify ?? `https://open.spotify.com/playlist/${playlistId}`,
+          trackCount: playlist.trackTotal ?? 0,
+          spotifyUrl: playlist.spotifyUrl,
           youtubeUrl: youtubePlaylistUrl
         })
       );
@@ -653,7 +601,7 @@ router.post('/playlist/:playlistId',
 
     // Fetch updated playlist details to send as OOB swap using shared service
     // This eliminates code duplication with the playlistDetails route
-    const playlistDetails = await fetchPlaylistDetails(spotifyApi, youtube, playlistId, youtubePlaylistId);
+    const playlistDetails = await fetchPlaylistDetails(spotifyAccessToken, youtube, playlistId, youtubePlaylistId);
 
     Logger.info('Sending response with OOB updates including playlist details', {
       playlistId,
@@ -681,7 +629,7 @@ router.post('/playlist/:playlistId',
       buttonClass,
       playlistName: playlist.name,
       trackCount: tracks.length,
-      spotifyUrl: playlist.external_urls?.spotify ?? `https://open.spotify.com/playlist/${playlistId}`,
+      spotifyUrl: playlist.spotifyUrl,
       youtubeUrl: youtubePlaylistUrl,
       playlistDetailsHtml // Already rendered - use <%- %> to include as HTML
     });

@@ -2,19 +2,24 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { validateSpotifyConnection } from '../../src/utils/authValidation';
 import { spotifyCircuitBreaker } from '../../src/utils/circuitBreaker';
 import { SpotifyTokens } from '../../src/types/oauth';
+import { SpotifyApiError } from '../../src/utils/spotifyClient';
 
-// Mock the spotify-web-api-node library
-const mockGetMe = vi.fn();
-const mockRefreshAccessToken = vi.fn();
-
-vi.mock('spotify-web-api-node', () => ({
-  default: vi.fn().mockImplementation(() => ({
-    setAccessToken: vi.fn(),
-    setRefreshToken: vi.fn(),
-    getMe: mockGetMe,
-    refreshAccessToken: mockRefreshAccessToken,
-  })),
+// Mock the hand-written Spotify client. authValidation calls getCurrentUser to
+// probe the connection and refreshAccessToken to refresh on 401. The real
+// SpotifyApiError class is preserved so status-based branching still works.
+const { mockGetCurrentUser, mockRefreshAccessToken } = vi.hoisted(() => ({
+  mockGetCurrentUser: vi.fn(),
+  mockRefreshAccessToken: vi.fn(),
 }));
+
+vi.mock('../../src/utils/spotifyClient', async (importActual) => {
+  const actual = await importActual<typeof import('../../src/utils/spotifyClient')>();
+  return {
+    ...actual,
+    getCurrentUser: mockGetCurrentUser,
+    refreshAccessToken: mockRefreshAccessToken,
+  };
+});
 
 describe('Spotify Circuit Breaker', () => {
   let mockResponse: any;
@@ -71,10 +76,7 @@ describe('Spotify Circuit Breaker', () => {
 
   describe('Rate Limit Error Detection', () => {
     it('should open circuit on 429 rate limit error', async () => {
-      mockGetMe.mockRejectedValueOnce({
-        statusCode: 429,
-        message: 'Rate limit exceeded',
-      });
+      mockGetCurrentUser.mockRejectedValueOnce(new SpotifyApiError('Rate limit exceeded', 429));
 
       const result = await validateSpotifyConnection(mockSpotifyTokens, mockResponse);
 
@@ -86,10 +88,7 @@ describe('Spotify Circuit Breaker', () => {
     });
 
     it('should record failure on non-429 errors', async () => {
-      mockGetMe.mockRejectedValueOnce({
-        statusCode: 500,
-        message: 'Internal server error',
-      });
+      mockGetCurrentUser.mockRejectedValueOnce(new SpotifyApiError('Internal server error', 500));
 
       await validateSpotifyConnection(mockSpotifyTokens, mockResponse);
 
@@ -100,9 +99,7 @@ describe('Spotify Circuit Breaker', () => {
 
   describe('Success Recording', () => {
     it('should record success on valid connection', async () => {
-      mockGetMe.mockResolvedValueOnce({
-        body: { id: 'user123', display_name: 'Test User' },
-      });
+      mockGetCurrentUser.mockResolvedValueOnce({ id: 'user123', displayName: 'Test User' });
 
       const result = await validateSpotifyConnection(mockSpotifyTokens, mockResponse);
 

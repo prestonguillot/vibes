@@ -2,29 +2,40 @@
  * Regression tests for resilience against malformed Spotify API responses.
  *
  * Spotify's playlist endpoints can return objects with missing fields (e.g. a
- * playlist with no `tracks` paging object). Previously this crashed
- * fetchPlaylistDetails with "Cannot read properties of undefined (reading 'total')".
- * These tests pin the defensive behavior. Track fetching itself goes through the
- * /items helper (mocked here); see spotifyPlaylistItems.test.ts for that path.
+ * playlist with no track-count). Previously this crashed fetchPlaylistDetails
+ * with "Cannot read properties of undefined (reading 'total')". These tests pin
+ * the defensive behavior. Track fetching itself goes through the /items helper
+ * (mocked here); see spotifyPlaylistItems.test.ts for that path.
+ *
+ * The hand-written spotifyClient maps a missing track-count to `trackTotal: null`,
+ * so the cases that previously omitted `tracks.total` now resolve a playlist with
+ * `trackTotal: null`.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import SpotifyWebApi from 'spotify-web-api-node';
 import { fetchPlaylistDetails } from '../../src/services/playlistDetailsService';
 import { fetchAllPlaylistItems } from '../../src/utils/spotifyPlaylistItems';
+import { getPlaylist } from '../../src/utils/spotifyClient';
 
 vi.mock('../../src/utils/spotifyPlaylistItems', () => ({
   fetchAllPlaylistItems: vi.fn()
 }));
 
-const mockedFetchAllPlaylistItems = vi.mocked(fetchAllPlaylistItems);
+vi.mock('../../src/utils/spotifyClient', async (importActual) => {
+  const actual = await importActual<typeof import('../../src/utils/spotifyClient')>();
+  return { ...actual, getPlaylist: vi.fn() };
+});
 
-function makeSpotifyApiMock(playlistBody: any): SpotifyWebApi {
-  return {
-    getAccessToken: vi.fn(() => 'test-access-token'),
-    getPlaylist: vi.fn(() => Promise.resolve({ body: playlistBody }))
-  } as unknown as SpotifyWebApi;
-}
+const mockedFetchAllPlaylistItems = vi.mocked(fetchAllPlaylistItems);
+const mockedGetPlaylist = vi.mocked(getPlaylist);
+
+const makePlaylist = (name: string, trackTotal: number | null) => ({
+  id: 'playlist',
+  name,
+  ownerId: null,
+  trackTotal,
+  spotifyUrl: 'https://open.spotify.com/playlist/playlist'
+});
 
 const makeItem = (id: string, name: string) => ({
   track: {
@@ -42,14 +53,15 @@ const makeItem = (id: string, name: string) => ({
 describe('fetchPlaylistDetails resilience', () => {
   beforeEach(() => {
     mockedFetchAllPlaylistItems.mockReset();
+    mockedGetPlaylist.mockReset();
   });
 
-  it('does not crash when the playlist body has no tracks field', async () => {
-    // No `tracks` property at all - this is what used to crash.
-    const spotifyApi = makeSpotifyApiMock({ name: 'Malformed Playlist' });
+  it('does not crash when the playlist has no track count', async () => {
+    // No track count at all - this is what used to crash (maps to trackTotal: null).
+    mockedGetPlaylist.mockResolvedValue(makePlaylist('Malformed Playlist', null));
     mockedFetchAllPlaylistItems.mockResolvedValue([makeItem('t1', 'Song One'), makeItem('t2', 'Song Two')]);
 
-    const result = await fetchPlaylistDetails(spotifyApi, null, 'playlist-123');
+    const result = await fetchPlaylistDetails('test-access-token', null, 'playlist-123');
 
     expect(result.playlistName).toBe('Malformed Playlist');
     // Total falls back to the number of tracks actually fetched.
@@ -59,7 +71,7 @@ describe('fetchPlaylistDetails resilience', () => {
   });
 
   it('drops items whose track is null or undefined without crashing', async () => {
-    const spotifyApi = makeSpotifyApiMock({ name: 'Mixed Playlist', tracks: { total: 4 } });
+    mockedGetPlaylist.mockResolvedValue(makePlaylist('Mixed Playlist', 4));
     mockedFetchAllPlaylistItems.mockResolvedValue([
       makeItem('t1', 'Good One'),
       { track: null },
@@ -67,17 +79,17 @@ describe('fetchPlaylistDetails resilience', () => {
       makeItem('t2', 'Good Two')
     ]);
 
-    const result = await fetchPlaylistDetails(spotifyApi, null, 'playlist-456');
+    const result = await fetchPlaylistDetails('test-access-token', null, 'playlist-456');
 
     expect(result.tracks).toHaveLength(2);
     expect(result.tracks.map(t => t.spotify?.id)).toEqual(['t1', 't2']);
   });
 
   it('handles an empty playlist without crashing', async () => {
-    const spotifyApi = makeSpotifyApiMock({ name: 'Empty Playlist', tracks: { total: 0 } });
+    mockedGetPlaylist.mockResolvedValue(makePlaylist('Empty Playlist', 0));
     mockedFetchAllPlaylistItems.mockResolvedValue([]);
 
-    const result = await fetchPlaylistDetails(spotifyApi, null, 'playlist-789');
+    const result = await fetchPlaylistDetails('test-access-token', null, 'playlist-789');
 
     expect(result.totalTracks).toBe(0);
     expect(result.tracks).toHaveLength(0);

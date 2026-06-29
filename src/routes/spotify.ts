@@ -1,5 +1,4 @@
 import { Router, Request } from 'express';
-import SpotifyWebApi from 'spotify-web-api-node';
 import { google } from 'googleapis';
 import { Logger } from '../utils/logger';
 import { getSecureCookieOptions } from '../utils/authValidation';
@@ -8,19 +7,16 @@ import { CacheDuration, setCache } from '../utils/cache';
 import { youtubeCircuitBreaker } from '../utils/circuitBreaker';
 import { parseSpotifyTokenCookie, parseYouTubeTokenCookie, validateAndSerializeSpotifyTokens } from '../utils/cookieParser';
 import { generateCsrfToken } from '../utils/csrf';
+import {
+  getAuthorizeUrl, exchangeCodeForTokens, getCurrentUser, getUserPlaylists, getPlaylist, SpotifyApiError
+} from '../utils/spotifyClient';
+import { ensureValidSpotifyToken } from '../utils/spotifyAuth';
 import { fetchAllYoutubePlaylists, findSyncedYoutubePlaylist, syncedPlaylistTitle } from '../utils/youtubePlaylist';
 import { z } from 'zod';
 import ejs from 'ejs';
 import path from 'path';
 
 const router = Router();
-
-// Create Spotify API instance with current env vars
-const getSpotifyApi = () => new SpotifyWebApi({
-  clientId: process.env.SPOTIFY_CLIENT_ID,
-  clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
-  redirectUri: process.env.SPOTIFY_REDIRECT_URI
-});
 
 // Cookie name for the one-time OAuth state value used for CSRF protection.
 const SPOTIFY_OAUTH_STATE_COOKIE = 'spotify_oauth_state';
@@ -37,55 +33,12 @@ const getOAuthStateCookieOptions = () => ({
   path: '/'
 });
 
-// Helper function to refresh Spotify tokens if needed
-const ensureValidSpotifyToken = async (req: any, res: any) => {
-  const spotifyTokens = parseSpotifyTokenCookie(req.cookies.spotify_tokens, res);
-
-  if (!spotifyTokens) {
-    throw new Error('No Spotify tokens found');
-  }
-
-  const spotifyApi = getSpotifyApi();
-  spotifyApi.setAccessToken(spotifyTokens.accessToken);
-  spotifyApi.setRefreshToken(spotifyTokens.refreshToken);
-
-  try {
-    // Test if current token is valid by making a simple API call
-    await spotifyApi.getMe();
-    return spotifyApi;
-  } catch (error: any) {
-    // If token is expired (401), try to refresh it
-    if (error.statusCode === 401 && spotifyTokens.refreshToken) {
-      Logger.auth('Spotify', 'token expired, refreshing');
-      try {
-        const data = await spotifyApi.refreshAccessToken();
-        const { access_token } = data.body;
-
-        // Validate and update cookie with new token
-        const updatedTokens = { ...spotifyTokens, accessToken: access_token };
-        const serializedTokens = validateAndSerializeSpotifyTokens(updatedTokens);
-        res.cookie('spotify_tokens', serializedTokens, getSecureCookieOptions());
-        spotifyApi.setAccessToken(access_token);
-
-        Logger.auth('Spotify', 'token refreshed successfully');
-        return spotifyApi;
-      } catch (refreshError) {
-        Logger.error('Failed to refresh Spotify token', {}, refreshError);
-        throw new Error('SPOTIFY_AUTH_REQUIRED');
-      }
-    } else {
-      throw new Error('SPOTIFY_AUTH_REQUIRED');
-    }
-  }
-};
-
 // Spotify login
 router.get('/login', (req, res) => {
   Logger.requestStart('Spotify Login Request', {
     requestUrl: req.originalUrl
   });
-  
-  const spotifyApi = getSpotifyApi();
+
   const scopes = ['playlist-read-private', 'playlist-read-collaborative'];
 
   // Generate a random OAuth state. This serves two purposes:
@@ -96,7 +49,7 @@ router.get('/login', (req, res) => {
   const state = generateCsrfToken();
   res.cookie(SPOTIFY_OAUTH_STATE_COOKIE, state, getOAuthStateCookieOptions());
 
-  const authorizeURL = spotifyApi.createAuthorizeURL(scopes, state);
+  const authorizeURL = getAuthorizeUrl(scopes, state);
   Logger.auth('Spotify', 'redirecting to authorization', { authorizeURL });
 
   res.redirect(authorizeURL);
@@ -131,17 +84,12 @@ router.get('/callback',
   }
 
   try {
-    const spotifyApi = getSpotifyApi();
-    const data = await spotifyApi.authorizationCodeGrant(code as string);
-    const { access_token, refresh_token } = data.body;
-
-    spotifyApi.setAccessToken(access_token);
-    spotifyApi.setRefreshToken(refresh_token);
+    const tokens = await exchangeCodeForTokens(code as string);
 
     // Validate tokens before storing in cookie
     const serializedTokens = validateAndSerializeSpotifyTokens({
-      accessToken: access_token,
-      refreshToken: refresh_token
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken
     });
 
     res.cookie('spotify_tokens', serializedTokens, getSecureCookieOptions());
@@ -154,14 +102,12 @@ router.get('/callback',
     Logger.error('Error getting Spotify tokens', {}, error);
     // Redirect back to home with error indicator in query params
     let errorReason = 'failed';
-    if (error instanceof Error) {
-      const err = error as any;
-      // Check for specific error types
-      if (err.statusCode === 429) {
+    if (error instanceof SpotifyApiError) {
+      if (error.status === 429) {
         errorReason = 'rate_limited';
-      } else if (err.statusCode === 401) {
+      } else if (error.status === 401) {
         errorReason = 'auth_error';
-      } else if (err.statusCode === 503 || err.statusCode === 502) {
+      } else if (error.status === 503 || error.status === 502) {
         errorReason = 'service_unavailable';
       }
     }
@@ -188,11 +134,11 @@ router.get('/playlists',
   }
 
   try {
-    const spotifyApi = await ensureValidSpotifyToken(req, res);
+    const accessToken = await ensureValidSpotifyToken(req as Request, res);
 
     // Get current user info for ownership filtering
-    const userInfo = await spotifyApi.getMe();
-    const currentUserId = userInfo.body.id;
+    const user = await getCurrentUser(accessToken);
+    const currentUserId = user.id;
 
     // Set up YouTube API to check for existing playlists
     const oauth2Client = new google.auth.OAuth2(
@@ -206,11 +152,8 @@ router.get('/playlists',
     }
     const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
 
-    // Get Spotify playlists
-    const data = await spotifyApi.getUserPlaylists();
-    // Spotify occasionally returns null entries in the items array (deleted or
-    // unavailable playlists); drop them so later field access can't crash.
-    let spotifyPlaylists = (data.body.items || []).filter((playlist: any) => playlist != null);
+    // Get Spotify playlists (paginated, null-filtered and typed by the client)
+    let spotifyPlaylists = await getUserPlaylists(accessToken);
 
     // Filter for own playlists only if requested
     // Note: Zod transforms the string 'true'/'false' to boolean true/false
@@ -224,8 +167,8 @@ router.get('/playlists',
 
     if (ownOnly) {
       const beforeFilter = spotifyPlaylists.length;
-      spotifyPlaylists = spotifyPlaylists.filter((playlist: any) =>
-        playlist.owner?.id === currentUserId
+      spotifyPlaylists = spotifyPlaylists.filter(playlist =>
+        playlist.ownerId === currentUserId
       );
       Logger.debug('Applied ownOnly filter', {
         before: beforeFilter,
@@ -281,19 +224,19 @@ router.get('/playlists',
     // Categorize and sort playlists
     // Check if a Spotify playlist has been synced by looking for a YouTube playlist with " (from Spotify)" suffix
     const syncedPlaylists = spotifyPlaylists
-      .filter((playlist: any) => youtubePlaylistNames.has(syncedPlaylistTitle(playlist.name)))
-      .sort((a: any, b: any) => a.name.localeCompare(b.name));
+      .filter(playlist => youtubePlaylistNames.has(syncedPlaylistTitle(playlist.name)))
+      .sort((a, b) => a.name.localeCompare(b.name));
 
     const unsyncedPlaylists = spotifyPlaylists
-      .filter((playlist: any) => !youtubePlaylistNames.has(syncedPlaylistTitle(playlist.name)))
-      .sort((a: any, b: any) => a.name.localeCompare(b.name));
+      .filter(playlist => !youtubePlaylistNames.has(syncedPlaylistTitle(playlist.name)))
+      .sort((a, b) => a.name.localeCompare(b.name));
     
     // Combine with synced playlists first
     const sortedPlaylists = [...syncedPlaylists, ...unsyncedPlaylists];
 
     const viewsPath = path.join(__dirname, '../../views');
 
-    const playlistsHtml = await Promise.all(sortedPlaylists.map(async (playlist: any) => {
+    const playlistsHtml = await Promise.all(sortedPlaylists.map(async (playlist) => {
       const isSynced = youtubePlaylistNames.has(syncedPlaylistTitle(playlist.name));
       const syncIcon = isSynced ? '' : '';
       const buttonText = isSynced ? 'Update YouTube Playlist' : 'Sync to YouTube';
@@ -305,19 +248,15 @@ router.get('/playlists',
         `https://www.youtube.com/playlist?list=${youtubePlaylist.id}` : undefined;
       const youtubeTracksTotal = youtubePlaylist?.contentDetails?.itemCount || 0;
 
-      // Spotify's dev-mode /me/playlists no longer returns tracks.total (the
-      // Feb 2026 API changes strip it), so the per-playlist count is unknown in
-      // the list. Pass null and let the template omit it; the real count shows
+      // Spotify's dev-mode /me/playlists may omit the per-playlist count; the
+      // client maps that to null and the template omits it. The real count shows
       // in the details view, which fetches the items.
-      const spotifyTrackCount: number | null =
-        typeof playlist.tracks?.total === 'number' ? playlist.tracks.total : null;
-
       return await ejs.renderFile(path.join(viewsPath, 'partials/playlist-item.ejs'), {
         id: playlist.id,
         name: playlist.name,
-        tracksTotal: spotifyTrackCount,
+        tracksTotal: playlist.trackTotal,
         youtubeTracksTotal,
-        spotifyUrl: playlist.external_urls?.spotify ?? `https://open.spotify.com/playlist/${playlist.id}`,
+        spotifyUrl: playlist.spotifyUrl,
         youtubeUrl: youtubePlaylistUrl,
         isSynced,
         syncIcon,
@@ -356,7 +295,7 @@ router.get('/playlists',
     }
 
     // Check if it's a Spotify API server error (502/503)
-    const statusCode = (error as any)?.statusCode || (error as any)?.status;
+    const statusCode = error instanceof SpotifyApiError ? error.status : undefined;
     if (statusCode === 502 || statusCode === 503) {
       Logger.warn('Spotify API temporary error', { statusCode });
       return res.status(503).render('partials/error-message', {
@@ -411,12 +350,11 @@ router.get('/playlist-button/:playlistId',
   }
 
   try {
-    const spotifyApi = await ensureValidSpotifyToken(req, res);
+    const accessToken = await ensureValidSpotifyToken(req as Request, res);
     const { playlistId } = req.params;
 
     // Get this specific playlist
-    const playlistData = await spotifyApi.getPlaylist(playlistId);
-    const playlist = playlistData.body;
+    const playlist = await getPlaylist(accessToken, playlistId);
 
     // Set up YouTube API to check if this playlist has been synced
     const oauth2Client = new google.auth.OAuth2(
@@ -448,7 +386,7 @@ router.get('/playlist-button/:playlistId',
       buttonClass,
       playlistId,
       playlistName: playlist.name,
-      trackCount: playlist.tracks?.total ?? 0,
+      trackCount: playlist.trackTotal ?? 0,
       buttonText
     });
 
