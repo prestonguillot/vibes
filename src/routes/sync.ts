@@ -734,7 +734,12 @@ router.post('/playlist/:playlistId',
         details: 'Adding videos to new playlist...',
         percentage: Math.round(SEARCH_PHASE_WEIGHT * 100)
       });
-      
+
+      // A brand-new playlist isn't immediately writable - YouTube needs a moment
+      // to propagate it, otherwise the first playlistItems.insert fails. Wait
+      // before adding the first video.
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
       // Add all videos to the new playlist in correct order
       // Sort search results by Spotify position to maintain order
       const foundResults = searchResults.filter(result => result.found && result.videoId);
