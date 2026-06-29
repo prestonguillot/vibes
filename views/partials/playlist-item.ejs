@@ -1,8 +1,10 @@
-<div class="playlist-item" data-playlist-id="<%= id %>">
+<div class="playlist-item" data-playlist-id="<%= id %>"
+     data-youtube-count="<%= youtubeTracksTotal || 0 %>"
+     data-is-synced="<%= isSynced ? 'true' : 'false' %>">
   <div class="playlist-item__header">
     <div class="playlist-info">
-      <h5 class="mb-1"><%= syncIcon || '' %><%= name %></h5>
-      <p class="text-muted mb-1">
+      <h5 class="mb-1"><%= syncIcon || '' %><%= name %><span class="drift-dot" data-drift-dot title="YouTube is out of sync with Spotify - re-sync to update"></span></h5>
+      <p class="text-muted mb-1 playlist-track-summary">
         <% if (youtubeTracksTotal && youtubeTracksTotal > 0) { %>
           <%= youtubeTracksTotal %> tracks synced to YouTube<%= (tracksTotal != null) ? ` of ${tracksTotal}` : '' %>
         <% } else if (tracksTotal != null) { %>
