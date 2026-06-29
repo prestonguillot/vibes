@@ -17,6 +17,7 @@ import SpotifyWebApi from 'spotify-web-api-node';
 import { reorderPlaylistTracks } from '../utils/playlistReordering';
 import { fetchPlaylistDetails } from '../services/playlistDetailsService';
 import { fetchAllPlaylistItems } from '../utils/spotifyPlaylistItems';
+import { findSyncedYoutubePlaylist } from '../utils/youtubePlaylist';
 import { calculateMatchScore, SimplifiedTrack, SimplifiedVideo } from '../utils/trackMatching';
 const router = Router();
 
@@ -84,32 +85,10 @@ router.get('/playlist/:playlistId',
     let youtubePlaylistId: string | undefined = undefined;
     if (youtube && youtubeTokens) {
       const spotifyPlaylist = await spotifyApi.getPlaylist(playlistId);
-      const youtubePlaylistTitle = `${spotifyPlaylist.body.name} (from Spotify)`;
-      Logger.external('YouTube', 'Looking for playlist', { title: youtubePlaylistTitle });
-
-      let nextPageToken: string | undefined = undefined;
-      let youtubePlaylist: youtube_v3.Schema$Playlist | undefined = undefined;
-
-      do {
-        const youtubePlaylistsResponse: youtube_v3.Schema$PlaylistListResponse = await youtube.playlists
-          .list({
-            part: ['snippet'],
-            mine: true,
-            maxResults: 50,
-            pageToken: nextPageToken
-          })
-          .then(res => res.data);
-
-        youtubePlaylist = youtubePlaylistsResponse.items?.find(
-          (playlist: youtube_v3.Schema$Playlist) => playlist.snippet?.title === youtubePlaylistTitle
-        );
-
-        if (youtubePlaylist) break;
-        nextPageToken = youtubePlaylistsResponse.nextPageToken || undefined;
-      } while (nextPageToken);
+      const youtubePlaylist = await findSyncedYoutubePlaylist(youtube, spotifyPlaylist.body.name);
 
       if (youtubePlaylist) {
-        youtubePlaylistId = youtubePlaylist.id;
+        youtubePlaylistId = youtubePlaylist.id || undefined;
         Logger.external('YouTube', 'Found matching playlist', { playlistId: youtubePlaylistId });
       } else {
         Logger.info('No corresponding YouTube playlist found');

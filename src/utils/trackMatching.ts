@@ -130,9 +130,8 @@ export function calculateMatchScore(spotifyTrack: SimplifiedTrack, youtubeVideo:
   }
 
   // QUALITY BONUS: prefer an official music video from the artist's / a label's
-  // channel. Matching deliberately ignores view count - it is volatile (counts
-  // tick across thresholds over time), which would make matches non-deterministic
-  // and make the sync flow disagree with the details view.
+  // channel. Scoring uses only stable signals (title + channel); view count is
+  // excluded because it is volatile and would make matches non-deterministic.
   if (isOfficialVideo(youtubeVideo, spotifyTrack.artist)) {
     score += 0.3;
     components.officialVideo = 0.3;

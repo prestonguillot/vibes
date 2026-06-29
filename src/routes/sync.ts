@@ -3,6 +3,7 @@ import SpotifyWebApi from 'spotify-web-api-node';
 import { google } from 'googleapis';
 import { searchMusicVideo } from '../utils/youtubeScraper';
 import { fetchAllPlaylistItems } from '../utils/spotifyPlaylistItems';
+import { findSyncedYoutubePlaylist, syncedPlaylistTitle } from '../utils/youtubePlaylist';
 import { sendProgressUpdate, closeProgressConnections } from './progress';
 import { Logger } from '../utils/logger';
 import { getSecureCookieOptions } from '../utils/authValidation';
@@ -295,29 +296,19 @@ router.post('/playlist/:playlistId',
     };
 
     // STEP 1: Check if a YouTube playlist already exists FIRST
-    const playlistTitle = `${playlist.name} (from Spotify)`;
+    const playlistTitle = syncedPlaylistTitle(playlist.name);
     Logger.external('YouTube', 'Checking for existing playlist before video search', { title: playlistTitle });
 
     let youtubePlaylistId: string = '';
     let existingVideoIds: Set<string> = new Set();
     let existingItemsMap: Map<string, youtube_v3.Schema$PlaylistItem> = new Map();
     let isUpdateMode = false;
-    
+
     try {
-      const existingPlaylists = await youtube.playlists.list({
-        part: ['id', 'snippet'],
-        mine: true,
-        maxResults: 50
-      });
-      
+      // Paginates over all playlists, so a match beyond the first 50 is found.
+      existingPlaylist = await findSyncedYoutubePlaylist(youtube, playlist.name);
       logApiCall('playlist search', 1);
-      
-      if (existingPlaylists.data.items) {
-        existingPlaylist = existingPlaylists.data.items?.find(p =>
-          p.snippet?.title === playlistTitle
-        ) || null;
-      }
-      
+
       if (existingPlaylist) {
         youtubePlaylistId = existingPlaylist.id!;
         isUpdateMode = true;
