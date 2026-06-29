@@ -291,8 +291,6 @@ router.post('/playlist/:playlistId',
     // Calculate total progress phases: search (70%) + playlist operations (30%)
     const SEARCH_PHASE_WEIGHT = 0.7;
     const PLAYLIST_PHASE_WEIGHT = 0.3;
-    
-    // [REMOVED: reorderExistingTracks function - now using shared reorderPlaylistTracks from utils/playlistReordering.ts]
 
     // Helper function to log API calls with correct quota costs
     const logApiCall = (operation: string, quotaCost: number) => {
