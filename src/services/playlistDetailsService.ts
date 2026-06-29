@@ -162,9 +162,9 @@ export async function fetchPlaylistDetails(
       id: item.snippet?.resourceId?.videoId || '',
       title: item.snippet?.title || '',
       description: item.snippet?.description || '',
-      channelTitle: item.snippet?.channelTitle,
-      thumbnail: item.snippet?.thumbnails?.medium?.url || item.snippet?.thumbnails?.default?.url,
-      publishedAt: item.snippet?.publishedAt,
+      channelTitle: item.snippet?.channelTitle ?? undefined,
+      thumbnail: item.snippet?.thumbnails?.medium?.url ?? item.snippet?.thumbnails?.default?.url ?? undefined,
+      publishedAt: item.snippet?.publishedAt ?? undefined,
       url: `https://www.youtube.com/watch?v=${item.snippet?.resourceId?.videoId || ''}`
     }));
 

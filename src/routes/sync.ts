@@ -1,6 +1,11 @@
 import { Router, Request, Response } from 'express';
 import SpotifyWebApi from 'spotify-web-api-node';
-import { google } from 'googleapis';
+import { google, youtube_v3 } from 'googleapis';
+
+// The exact OAuth2 client instance type google.auth.OAuth2 produces (googleapis
+// bundles its own google-auth-library copy, so referencing it directly avoids a
+// duplicate-type mismatch).
+type OAuth2Client = InstanceType<typeof google.auth.OAuth2>;
 import { searchMusicVideo } from '../utils/youtubeScraper';
 import { fetchAllPlaylistItems } from '../utils/spotifyPlaylistItems';
 import { findSyncedYoutubePlaylist, syncedPlaylistTitle } from '../utils/youtubePlaylist';

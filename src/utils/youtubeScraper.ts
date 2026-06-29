@@ -270,11 +270,11 @@ export async function searchMusicVideo(artist: string, songName: string): Promis
     if (!result.matchScore) continue;
 
     // Use the actual normalized score from calculateMatchScore, not a reconstruction
-    if (result.matchScore.score > bestMatch.matchScore.score) {
+    if (result.matchScore.score > bestMatch.matchScore!.score) {
       bestMatch = result;
     }
   }
 
-  Logger.debug(`🎯 Selected best match: "${bestMatch.title}" by ${bestMatch.channel} (${(bestMatch.matchScore.score * 100).toFixed(0)}%)`);
+  Logger.debug(`🎯 Selected best match: "${bestMatch.title}" by ${bestMatch.channel} (${(bestMatch.matchScore!.score * 100).toFixed(0)}%)`);
   return bestMatch.videoId;
 }
