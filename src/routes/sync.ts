@@ -21,10 +21,10 @@ import { parseSpotifyTokenCookie, parseYouTubeTokenCookie, validateAndSerializeS
 import { z } from 'zod';
 import ejs from 'ejs';
 import path from 'path';
-import { optimalTrackMatching, SimplifiedTrack, SimplifiedVideo } from '../utils/trackMatching';
 import { formatErrorDetails } from '../utils/errorFormatter';
 import { fetchPlaylistDetails } from '../services/playlistDetailsService';
 import { searchTracksForVideos } from '../services/videoSearch';
+import { classifyTracksForSync } from '../services/trackClassification';
 
 const router = Router();
 
@@ -358,142 +358,18 @@ router.post('/playlist/:playlistId',
       // Continue with creation flow
     }
     
-    // STEP 2: Determine which tracks need video search based on mode
-    let tracksToSearch: unknown[] = [];
-    let syncedTracks: unknown[] = [];
-    let unsyncedTracks: unknown[] = [];
-    // Existing track->video matches (Spotify trackId -> YouTube videoId) captured
-    // as tracks are classified as synced, for building the reconcile desired order.
-    const existingMatchPairs: Array<{ trackId: string; videoId: string }> = [];
-
+    // STEP 2: Classify tracks - update mode matches existing videos to find which
+    // tracks still need one; create mode takes from the top. Both capped at trackLimit.
     if (isUpdateMode) {
-      // UPDATE MODE: Use track matching to identify which tracks are actually unsynced
-      const existingVideoCount = existingVideoIds.size;
-      
-      Logger.info('UPDATE MODE: Using track matching to identify unsynced tracks', {
-        totalSpotifyTracks: tracks.length,
-        existingYouTubeVideos: existingVideoCount,
-        trackLimit
-      });
-      
       sendProgressUpdate(playlistId, youtubeUserId, {
         type: 'progress',
-        message: `Analyzing playlist for updates`,
-        details: `Found ${existingVideoCount} existing videos, matching tracks to identify unsynced ones...`,
+        message: 'Analyzing playlist for updates',
+        details: `Found ${existingVideoIds.size} existing videos, matching tracks to identify unsynced ones...`,
         percentage: 5
       });
-      
-      // Get existing YouTube videos with details for matching
-      const existingVideos: SimplifiedVideo[] = [];
-      for (const item of existingItemsMap.values()) {
-        if (item.snippet?.resourceId?.videoId) {
-          const video: SimplifiedVideo = {
-            id: item.snippet.resourceId.videoId,
-            title: item.snippet!.title || 'Unknown',
-            description: item.snippet!.description || '',
-            channelTitle: item.snippet!.channelTitle || undefined
-          };
-          existingVideos.push(video);
-          Logger.debug('Existing YouTube video for matching', {
-            videoId: video.id,
-            title: video.title
-          });
-        }
-      }
-
-      Logger.info('Prepared existing videos for matching', {
-        existingVideosCount: existingVideos.length,
-        existingVideoTitles: existingVideos.map(v => v.title).slice(0, 3) // Show first 3 titles
-      });
-
-      // Build arrays of tracks for optimal matching
-      const tracksToMatch: SimplifiedTrack[] = [];
-      const trackIndexMap = new Map<string, number>(); // Track ID -> index in tracks array
-
-      Logger.info('Starting track matching analysis', {
-        totalSpotifyTracks: tracks.length,
-        existingYouTubeVideos: existingVideos.length
-      });
-
-      for (let i = 0; i < tracks.length; i++) {
-        const item = tracks[i];
-        const typedItem = item as { track: { id: string; name: string; artists: Array<{ name?: string }>; type?: string } | null };
-        if (typedItem.track && typedItem.track.type === 'track') {
-          const track = typedItem.track;
-          tracksToMatch.push({
-            id: track.id,
-            name: track.name,
-            artist: track.artists[0]?.name || 'Unknown Artist'
-          });
-          trackIndexMap.set(track.id, i);
-        }
-      }
-
-      // Use optimal matching algorithm to resolve conflicts based on match quality
-      const trackMatches = optimalTrackMatching(tracksToMatch, existingVideos);
-
-      // Match Spotify tracks to existing YouTube videos to identify unsynced tracks
-      // (unsyncedTracks and syncedTracks declared at higher scope)
-
-      for (const item of tracks) {
-        const typedItem = item as { track: { id: string; name: string; artists: Array<{ name?: string }>; type?: string } | null };
-        if (typedItem.track && typedItem.track.type === 'track') {
-          const track = typedItem.track;
-          const spotifyTrack = {
-            id: track.id,
-            name: track.name,
-            artist: track.artists[0]?.name || 'Unknown Artist'
-          };
-
-          // Check if this track was matched in the optimal matching
-          const matchingVideo = trackMatches.matches.get(track.id);
-
-          if (!matchingVideo) {
-            unsyncedTracks.push(item);
-            Logger.debug('Track identified as UNSYNCED', {
-              trackName: spotifyTrack.name,
-              artist: spotifyTrack.artist,
-              existingVideoCount: existingVideos.length
-            });
-          } else {
-            syncedTracks.push(item);
-            existingMatchPairs.push({ trackId: track.id, videoId: matchingVideo.id });
-            Logger.debug('Track identified as SYNCED', {
-              trackName: spotifyTrack.name,
-              artist: spotifyTrack.artist,
-              matchedVideoTitle: matchingVideo.title,
-              matchedVideoId: matchingVideo.id
-            });
-          }
-        }
-      }
-      
-      Logger.info('Track matching analysis complete', {
-        totalTracks: tracks.length,
-        syncedTracks: syncedTracks.length,
-        unsyncedTracks: unsyncedTracks.length,
-        existingVideos: existingVideos.length
-      });
-
-      // Ordering happens at the end via reconcile, once new videos are added, so
-      // every position exists before any moves.
-      
-      // Limit to trackLimit unsynced tracks per operation
-      tracksToSearch = unsyncedTracks.slice(0, trackLimit);
-      
-      Logger.info('UPDATE MODE: Identified unsynced tracks using matching', {
-        totalUnsyncedTracks: unsyncedTracks.length,
-        tracksToSearchThisOperation: tracksToSearch.length,
-        trackLimit
-      });
-    } else {
-      // CREATE MODE: Process up to trackLimit tracks from the beginning
-      Logger.info('CREATE MODE: Processing up to limit tracks from beginning', {
-        totalSpotifyTracks: tracks.length,
-        trackLimit
-      });
-      tracksToSearch = tracks.slice(0, trackLimit);
     }
+    const { tracksToSearch, unsyncedTracks, existingMatchPairs } =
+      classifyTracksForSync(tracks, existingItemsMap, { isUpdateMode, trackLimit });
     
     // STEP 3: Search YouTube (quota-free scraper) for a video per track, in order
     const { videoIds, searchResults } = await searchTracksForVideos(tracksToSearch, {
