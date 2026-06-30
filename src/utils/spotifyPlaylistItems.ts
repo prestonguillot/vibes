@@ -1,4 +1,3 @@
-import fetch from 'node-fetch';
 import { Logger } from './logger';
 
 interface SpotifyTrackObject {

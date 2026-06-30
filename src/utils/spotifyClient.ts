@@ -17,7 +17,6 @@
  *   (token) errors use { error, error_description }.
  */
 
-import fetch from 'node-fetch';
 import { Logger } from './logger';
 
 const ACCOUNTS_BASE = 'https://accounts.spotify.com';
