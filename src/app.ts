@@ -17,6 +17,7 @@ import { Logger } from './utils/logger';
 import { validateSpotifyConnection, validateYouTubeConnection } from './utils/authValidation';
 import { csrfCookieMiddleware, getCsrfToken } from './utils/csrf';
 import { parseSpotifyTokenCookie, parseYouTubeTokenCookie } from './utils/cookieParser';
+import { setCache, CacheDuration } from './utils/cache';
 
 export function createApp() {
   const app = express();
@@ -235,7 +236,7 @@ export function createApp() {
 
     // Disable caching to ensure error states are always shown
     // Connection status can change (connected → error), so we must not return cached responses
-    res.set('Cache-Control', 'no-cache');
+    setCache(res, CacheDuration.NO_CACHE);
 
     res.render('partials/connection-button', {
       service: 'spotify',
@@ -259,7 +260,7 @@ export function createApp() {
 
     // Disable caching to ensure error states are always shown
     // Connection status can change (connected → error), so we must not return cached responses
-    res.set('Cache-Control', 'no-cache');
+    setCache(res, CacheDuration.NO_CACHE);
 
     // Trigger playlist refresh when YouTube becomes connected
     if (youtubeResult.connected) {

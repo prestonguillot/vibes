@@ -545,9 +545,10 @@ describe('Spotify Playlists', () => {
           `youtube_tokens=${youtubeTokens}`
         ]);
 
-      // Should redirect with error query parameters for modal display
-      expect(response.status).toBe(302);
-      expect(response.headers['location']).toMatch(/^\/\?error=youtube&reason=quota_exceeded/);
+      // htmx-loaded route: use HX-Redirect (real navigation to the quota modal),
+      // not a 302 that would get swapped into the container.
+      expect(response.status).toBe(403);
+      expect(response.headers['hx-redirect']).toMatch(/^\/\?error=youtube&reason=quota_exceeded/);
     });
 
     it('should open circuit breaker when YouTube quota is exceeded during playlist fetch', async () => {
@@ -584,9 +585,9 @@ describe('Spotify Playlists', () => {
           `youtube_tokens=${youtubeTokens}`
         ]);
 
-      // Should have redirected with error
-      expect(response.status).toBe(302);
-      expect(response.headers['location']).toMatch(/^\/\?error=youtube&reason=quota_exceeded/);
+      // Should signal the client to navigate to the quota modal via HX-Redirect
+      expect(response.status).toBe(403);
+      expect(response.headers['hx-redirect']).toMatch(/^\/\?error=youtube&reason=quota_exceeded/);
 
       // Circuit breaker should now be open
       expect(youtubeCircuitBreaker.isOpen()).toBe(true);
