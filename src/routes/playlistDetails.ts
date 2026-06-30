@@ -8,7 +8,8 @@ import { parseSpotifyTokenCookie, parseYouTubeTokenCookie } from '../utils/cooki
 import { CacheDuration, setCache } from '../utils/cache';
 import { formatErrorDetails } from '../utils/errorFormatter';
 import { escapeHtml } from '../utils/htmlEscape';
-import { createYoutubeClient, YtPlaylist, YtPlaylistListResponse, YtPlaylistItem, YtPlaylistItemListResponse } from '../utils/youtubeClient';
+import { createYoutubeClient, YoutubeApiError, YtPlaylist, YtPlaylistListResponse, YtPlaylistItem, YtPlaylistItemListResponse } from '../utils/youtubeClient';
+import { YoutubeQuotaError } from '../utils/youtubeWrites';
 import { z } from 'zod';
 import ejs from 'ejs';
 import path from 'path';
@@ -123,12 +124,10 @@ router.get('/playlist/:playlistId',
     const duration = Date.now() - startTime;
     Logger.error('Error fetching playlist details', { playlistId, duration }, error);
 
-    // Check if it's a YouTube API quota exceeded error
-    const errorCode = (error as any)?.code;
-    const errorMessage = (error as Error)?.message || '';
-    const gaxiosError = error as { errors?: Array<{ reason?: string }> };
-
-    if (errorCode === 403 || (gaxiosError.errors && gaxiosError.errors.some((e) => e.reason === 'quotaExceeded'))) {
+    // Writes surface quota as YoutubeQuotaError; reads as a 403 YoutubeApiError.
+    if (error instanceof YoutubeQuotaError ||
+        (error instanceof YoutubeApiError && error.code === 403 &&
+         (error.reason === 'quotaExceeded' || error.reason === 'rateLimitExceeded'))) {
       Logger.warn('YouTube API quota exceeded - returning error partial for HTMX');
       // Return error partial for HTMX instead of redirecting
       const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/error-message.ejs'), {
