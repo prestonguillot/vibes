@@ -156,21 +156,19 @@
         </div>
     </div>
 
-    <!-- Global Bootstrap Modal for Video Selection -->
-    <div class="modal fade" id="videoSelectionModal" tabindex="-1" aria-labelledby="videoSelectionModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-            <div class="modal-content">
-                <div id="video-modal-content">
-                    <div class="modal-body text-center">
-                        <div class="spinner-border" role="status">
-                            <span class="visually-hidden">Loading...</span>
-                        </div>
-                        <p class="mt-2">Loading video options...</p>
+    <!-- Global video-selection modal (native <dialog>) -->
+    <dialog id="videoSelectionModal" class="video-modal" aria-labelledby="videoSelectionModalLabel">
+        <div class="modal-content">
+            <div id="video-modal-content">
+                <div class="modal-body text-center">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
                     </div>
+                    <p class="mt-2">Loading video options...</p>
                 </div>
             </div>
         </div>
-    </div>
+    </dialog>
 
     <!-- OAuth Connection Error Modal -->
     <div class="modal fade connection-error-modal" id="connectionErrorModal" tabindex="-1" aria-labelledby="connectionErrorLabel" aria-hidden="true">

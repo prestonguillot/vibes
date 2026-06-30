@@ -1,6 +1,6 @@
 <div class="modal-header">
   <h5 class="modal-title"><%= modalTitle %></h5>
-  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+  <button type="button" class="btn-close" data-dialog-close aria-label="Close"></button>
 </div>
 
 <div class="modal-body">
@@ -80,7 +80,7 @@
     <input type="hidden" name="currentVideoId" value="<%= currentVideoId || '' %>">
     <input type="hidden" name="playlistId" value="<%= playlistId %>">
 
-    <button type="button" class="btn btn-secondary punk-btn" data-bs-dismiss="modal">
+    <button type="button" class="btn btn-secondary punk-btn" data-dialog-close>
       Cancel
     </button>
     <button type="button" class="btn btn-primary punk-btn" id="confirm-selection-btn"
