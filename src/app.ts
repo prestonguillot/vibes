@@ -17,6 +17,7 @@ import { validateSpotifyConnection, validateYouTubeConnection } from './auth/aut
 import { csrfCookieMiddleware, getCsrfToken } from './auth/csrf';
 import { parseSpotifyTokenCookie, parseYouTubeTokenCookie } from './auth/cookieParser';
 import { enforceMinDisplayTime } from './lib/minDisplayTime';
+import debugFixtures from './debug-fixtures.json';
 import { setCache, CacheDuration } from './lib/cache';
 
 export function createApp() {
@@ -133,110 +134,7 @@ export function createApp() {
 
   // Debug/Component showcase page
   app.get('/debug/components', (_req, res) => {
-    res.render('debug-components', {
-      isDebug: true,
-      mockPlaylists: [
-        {
-          id: 'demo-synced-1',
-          name: 'My Favorite Songs',
-          tracksTotal: 50,
-          spotifyUrl: 'https://open.spotify.com/playlist/demo',
-          youtubeUrl: 'https://www.youtube.com/playlist?list=demo',
-          isSynced: true,
-          syncIcon: '✓',
-          buttonText: 'Update YouTube Playlist',
-          buttonClass: 'btn-outline-success',
-          isYouTubeConnected: true,
-          isDisabled: false,
-        },
-        {
-          id: 'demo-unsynced-1',
-          name: 'New Playlist',
-          tracksTotal: 25,
-          spotifyUrl: 'https://open.spotify.com/playlist/demo2',
-          youtubeUrl: null,
-          isSynced: false,
-          syncIcon: '',
-          buttonText: 'Sync to YouTube',
-          buttonClass: 'btn-primary',
-          isYouTubeConnected: true,
-          isDisabled: false,
-        },
-        {
-          id: 'demo-no-yt-1',
-          name: 'Chill Vibes',
-          tracksTotal: 100,
-          spotifyUrl: 'https://open.spotify.com/playlist/demo3',
-          youtubeUrl: null,
-          isSynced: false,
-          syncIcon: '',
-          buttonText: 'Connect to YouTube to Sync',
-          buttonClass: 'btn-secondary',
-          isYouTubeConnected: false,
-          isDisabled: true,
-        },
-      ],
-      mockPlaylistDetails: {
-        playlistId: 'demo-details-1',
-        playlistName: 'Workout Mix',
-        totalTracks: 3,
-        linkedCount: 2,
-        hasYoutubeConnection: true,
-        hasYoutubePlaylist: true,
-        tracks: [
-          {
-            spotify: {
-              name: 'Blinding Lights',
-              artist: 'The Weeknd',
-              album: 'After Hours',
-              id: 'sp1',
-            },
-            youtube: {
-              title: 'The Weeknd - Blinding Lights',
-              url: 'https://youtube.com/watch?v=demo1',
-              thumbnail: 'https://via.placeholder.com/120x90/FF0000/FFFFFF?text=YouTube',
-              id: 'yt1',
-            },
-            linked: true,
-          },
-          {
-            spotify: {
-              name: 'Levitating',
-              artist: 'Dua Lipa',
-              album: 'Future Nostalgia',
-              id: 'sp2',
-            },
-            youtube: null,
-            linked: false,
-          },
-          {
-            spotify: { name: 'Anti-Hero', artist: 'Taylor Swift', album: 'Midnights', id: 'sp3' },
-            youtube: null,
-            linked: false,
-          },
-        ],
-      },
-      mockConnectionButtonProps: [
-        { service: 'spotify', connected: true, loading: false, error: null },
-        { service: 'spotify', connected: false, loading: false, error: null },
-        { service: 'spotify', connected: false, loading: true, error: null },
-        { service: 'youtube', connected: true, loading: false, error: null },
-        { service: 'youtube', connected: false, loading: false, error: null },
-      ],
-      mockSyncFeedback: {
-        playlistId: 'demo-feedback-1',
-        videosFound: 12,
-        totalSearched: 15,
-        totalTracks: 15,
-        isLimited: false,
-        isUpdate: false,
-        unlinkedTracks: [
-          { name: 'Unknown Track 1', artist: 'Unknown Artist' },
-          { name: 'Unknown Track 2', artist: 'Unknown Artist' },
-          { name: 'Unknown Track 3', artist: 'Unknown Artist' },
-        ],
-      },
-    });
+    res.render('debug-components', debugFixtures);
   });
 
   // Health check
