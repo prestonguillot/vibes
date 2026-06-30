@@ -1226,11 +1226,8 @@ body {
     height: 0.8rem;
 }
 
-/* HTMX indicators with inline styles - requires !important to override */
-.htmx-indicator,
-div[style*="animation: spin"],
-div[style*="border-top-color: #3498db"],
-div[style*="border: 4px solid rgba(0, 0, 0, 0.1)"] {
+/* htmx request indicator spinner. */
+.htmx-indicator {
     border: 2px solid #000 !important;
     border-top: 2px solid #0066ff !important;
     border-right: 2px solid transparent !important;
