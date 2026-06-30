@@ -71,7 +71,8 @@
                             <h5 class="mb-0">Your Playlists</h5>
                             <button id="refresh-playlists-btn" class="btn btn-outline-primary btn-sm disabled"
                                     disabled
-                                    hx-get="/auth/spotify/playlists?ownOnly=true"
+                                    hx-get="/auth/spotify/playlists"
+                                    hx-include="#ownPlaylistsOnly"
                                     hx-target="#playlists-content"
                                     hx-headers='{"Cache-Control": "no-cache"}'
                                     hx-indicator="#loading"
@@ -102,7 +103,8 @@
                                         <div class="col-12 col-sm-auto">
                                             <div class="form-check form-switch">
                                                 <input class="form-check-input" type="checkbox" id="ownPlaylistsOnly" checked
-                                                       hx-get="/auth/spotify/playlists?ownOnly=true"
+                                                       name="ownOnly" value="true"
+                                                       hx-get="/auth/spotify/playlists"
                                                        hx-target="#playlists-content"
                                                        hx-trigger="change"
                                                        hx-swap="innerHTML">
@@ -126,7 +128,8 @@
                                     </div>
                                 </div>
                                 <div id="playlists-content"
-                                     hx-get="/auth/spotify/playlists?ownOnly=true"
+                                     hx-get="/auth/spotify/playlists"
+                                     hx-include="#ownPlaylistsOnly"
                                      hx-trigger="load">
                                     <div class="punk-alert punk-alert--loading">
                                         <div class="d-flex align-items-center justify-content-center gap-3">

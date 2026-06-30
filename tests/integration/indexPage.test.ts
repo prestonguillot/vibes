@@ -41,8 +41,11 @@ describe('Index Page', () => {
       const response = await request(app)
         .get('/');
 
-      // Should fetch playlists with ownOnly parameter
-      expect(response.text).toContain('hx-get="/auth/spotify/playlists?ownOnly=true"');
+      // Fetches the playlists endpoint; the ownOnly filter flows via hx-include of
+      // the #ownPlaylistsOnly checkbox (name="ownOnly"), not a hardcoded query param.
+      expect(response.text).toContain('hx-get="/auth/spotify/playlists"');
+      expect(response.text).toContain('hx-include="#ownPlaylistsOnly"');
+      expect(response.text).toMatch(/id="ownPlaylistsOnly"[^>]*name="ownOnly"/);
     });
 
     it('should configure YouTube status to poll regularly', async () => {
