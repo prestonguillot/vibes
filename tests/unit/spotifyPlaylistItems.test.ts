@@ -7,12 +7,11 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import fetch from 'node-fetch';
 import { fetchAllPlaylistItems } from '../../src/utils/spotifyPlaylistItems';
 
-vi.mock('node-fetch', () => ({ default: vi.fn() }));
-
-const mockedFetch = vi.mocked(fetch);
+// The client uses Node's global fetch; stub it.
+const mockedFetch = vi.fn();
+vi.stubGlobal('fetch', mockedFetch);
 
 function jsonResponse(body: any) {
   return {

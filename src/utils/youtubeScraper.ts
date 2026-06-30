@@ -1,4 +1,3 @@
-import fetch from 'node-fetch';
 import * as cheerio from 'cheerio';
 import { Logger } from './logger';
 import { calculateMatchScore } from './trackMatching';
