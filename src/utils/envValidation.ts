@@ -24,45 +24,45 @@ const envSchema: EnvSchema = {
     // Spotify API
     SPOTIFY_CLIENT_ID: {
       description: 'Spotify API client ID',
-      validate: (value) => value.length > 0
+      validate: (value) => value.length > 0,
     },
     SPOTIFY_CLIENT_SECRET: {
       description: 'Spotify API client secret',
-      validate: (value) => value.length > 0
+      validate: (value) => value.length > 0,
     },
     SPOTIFY_REDIRECT_URI: {
       description: 'Spotify OAuth redirect URI',
-      validate: (value) => value.startsWith('http')
+      validate: (value) => value.startsWith('http'),
     },
 
     // YouTube API
     YOUTUBE_CLIENT_ID: {
       description: 'YouTube API client ID',
-      validate: (value) => value.length > 0
+      validate: (value) => value.length > 0,
     },
     YOUTUBE_CLIENT_SECRET: {
       description: 'YouTube API client secret',
-      validate: (value) => value.length > 0
+      validate: (value) => value.length > 0,
     },
     YOUTUBE_REDIRECT_URI: {
       description: 'YouTube OAuth redirect URI',
-      validate: (value) => value.startsWith('http')
-    }
+      validate: (value) => value.startsWith('http'),
+    },
   },
 
   optional: {
     PORT: {
       description: 'Server port',
-      defaultValue: '3000'
+      defaultValue: '3000',
     },
     NODE_ENV: {
       description: 'Node environment (development/production)',
-      defaultValue: 'development'
+      defaultValue: 'development',
     },
     CSRF_SECRET: {
-      description: 'CSRF token signing secret (auto-generated in development)'
-    }
-  }
+      description: 'CSRF token signing secret (auto-generated in development)',
+    },
+  },
 };
 
 /**
@@ -98,7 +98,7 @@ export function validateEnvironment(): void {
       if (config.defaultValue) {
         Logger.debug(`Using default for ${key}`, {
           default: config.defaultValue,
-          description: config.description
+          description: config.description,
         });
       } else {
         warnings.push(`Optional environment variable not set: ${key} (${config.description})`);
@@ -113,27 +113,31 @@ export function validateEnvironment(): void {
     }
 
     // Warn about localhost URLs in production
-    if (process.env.SPOTIFY_REDIRECT_URI?.includes('localhost') ||
-        process.env.SPOTIFY_REDIRECT_URI?.includes('127.0.0.1')) {
+    if (
+      process.env.SPOTIFY_REDIRECT_URI?.includes('localhost') ||
+      process.env.SPOTIFY_REDIRECT_URI?.includes('127.0.0.1')
+    ) {
       warnings.push('SPOTIFY_REDIRECT_URI contains localhost - should use production domain');
     }
 
-    if (process.env.YOUTUBE_REDIRECT_URI?.includes('localhost') ||
-        process.env.YOUTUBE_REDIRECT_URI?.includes('127.0.0.1')) {
+    if (
+      process.env.YOUTUBE_REDIRECT_URI?.includes('localhost') ||
+      process.env.YOUTUBE_REDIRECT_URI?.includes('127.0.0.1')
+    ) {
       warnings.push('YOUTUBE_REDIRECT_URI contains localhost - should use production domain');
     }
   }
 
   // Log warnings
   if (warnings.length > 0) {
-    warnings.forEach(warning => Logger.warn('Environment variable warning', { warning }));
+    warnings.forEach((warning) => Logger.warn('Environment variable warning', { warning }));
   }
 
   // If there are errors, throw and prevent server startup
   if (errors.length > 0) {
     Logger.error('Environment validation failed', {
       errorCount: errors.length,
-      errors
+      errors,
     });
     throw new Error(`Environment validation failed:\n${errors.join('\n')}`);
   }
@@ -141,7 +145,6 @@ export function validateEnvironment(): void {
   Logger.info('Environment validation passed ✓', {
     requiredVars: Object.keys(envSchema.required).length,
     optionalVars: Object.keys(envSchema.optional).length,
-    warnings: warnings.length
+    warnings: warnings.length,
   });
 }
-

@@ -22,13 +22,13 @@ describe('YouTube Quota Exceeded Handling', () => {
         .get('/auth/spotify/playlists')
         .set('Cookie', [
           'spotify_tokens={"accessToken":"mock_spotify_token","refreshToken":"mock_refresh"}',
-          'youtube_tokens={"access_token":"mock_youtube_token","refresh_token":"mock_youtube_refresh"}'
+          'youtube_tokens={"access_token":"mock_youtube_token","refresh_token":"mock_youtube_refresh"}',
         ]);
 
       // Should receive response that clears YouTube cookies
       const setCookieHeaders = response.headers['set-cookie'] || [];
-      const youtubeCookieCleared = setCookieHeaders.some((cookie: string) =>
-        cookie.includes('youtube_tokens=') && cookie.includes('Max-Age=0')
+      const youtubeCookieCleared = setCookieHeaders.some(
+        (cookie: string) => cookie.includes('youtube_tokens=') && cookie.includes('Max-Age=0'),
       );
 
       // When circuit breaker is open, YouTube tokens should be cleared

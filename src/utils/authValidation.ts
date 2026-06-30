@@ -13,7 +13,7 @@ export function getSecureCookieOptions() {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production', // HTTPS only in production
     maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-    sameSite: 'strict' as const // Strict CSRF protection
+    sameSite: 'strict' as const, // Strict CSRF protection
   };
 }
 
@@ -32,7 +32,7 @@ export interface ConnectionResult {
  */
 export async function validateSpotifyConnection(
   spotifyTokens: SpotifyTokens | null,
-  res: Response
+  res: Response,
 ): Promise<ConnectionResult> {
   if (!spotifyTokens) {
     return { connected: false };
@@ -41,14 +41,14 @@ export async function validateSpotifyConnection(
   // Check circuit breaker before making API call
   if (!spotifyCircuitBreaker.canProceed()) {
     Logger.auth('Spotify', 'circuit breaker is OPEN, clearing tokens', {
-      state: spotifyCircuitBreaker.getState()
+      state: spotifyCircuitBreaker.getState(),
     });
     // Clear tokens so user sees disconnected state
     res.clearCookie('spotify_tokens');
     return {
       connected: false,
       error: 'Spotify API quota exceeded. Please try again later.',
-      errorCode: 'CIRCUIT_BREAKER_OPEN'
+      errorCode: 'CIRCUIT_BREAKER_OPEN',
     };
   }
 
@@ -71,7 +71,7 @@ export async function validateSpotifyConnection(
       return {
         connected: false,
         error: 'Spotify API quota exceeded. Please try again later.',
-        errorCode: 429
+        errorCode: 429,
       };
     } else {
       spotifyCircuitBreaker.recordFailure(error);
@@ -86,7 +86,7 @@ export async function validateSpotifyConnection(
         const updatedTokens = {
           ...spotifyTokens,
           accessToken: refreshed.accessToken,
-          refreshToken: refreshed.refreshToken ?? spotifyTokens.refreshToken
+          refreshToken: refreshed.refreshToken ?? spotifyTokens.refreshToken,
         };
         res.cookie('spotify_tokens', JSON.stringify(updatedTokens), getSecureCookieOptions());
 
@@ -98,7 +98,7 @@ export async function validateSpotifyConnection(
         return {
           connected: false,
           error: 'Spotify credentials expired. Please reconnect.',
-          errorCode: 401
+          errorCode: 401,
         };
       }
     } else {
@@ -107,7 +107,7 @@ export async function validateSpotifyConnection(
       return {
         connected: false,
         error: 'Unable to validate Spotify connection. Please try reconnecting.',
-        errorCode: statusCode
+        errorCode: statusCode,
       };
     }
   }
@@ -119,7 +119,7 @@ export async function validateSpotifyConnection(
  */
 export async function validateYouTubeConnection(
   youtubeTokens: YouTubeTokens | null,
-  res: Response
+  res: Response,
 ): Promise<ConnectionResult> {
   if (!youtubeTokens) {
     return { connected: false };
@@ -128,14 +128,14 @@ export async function validateYouTubeConnection(
   // Check circuit breaker before making API call
   if (!youtubeCircuitBreaker.canProceed()) {
     Logger.auth('YouTube', 'circuit breaker is OPEN, clearing tokens', {
-      state: youtubeCircuitBreaker.getState()
+      state: youtubeCircuitBreaker.getState(),
     });
     // Clear tokens so user sees disconnected state
     res.clearCookie('youtube_tokens');
     return {
       connected: false,
       error: 'YouTube API quota exceeded. Please try again later.',
-      errorCode: 'CIRCUIT_BREAKER_OPEN'
+      errorCode: 'CIRCUIT_BREAKER_OPEN',
     };
   }
 
@@ -160,7 +160,7 @@ export async function validateYouTubeConnection(
       return {
         connected: false,
         error: 'YouTube API quota exceeded. Please try again later.',
-        errorCode: 403
+        errorCode: 403,
       };
     } else {
       youtubeCircuitBreaker.recordFailure(error);
@@ -183,7 +183,7 @@ export async function validateYouTubeConnection(
         return {
           connected: false,
           error: 'YouTube credentials expired. Please reconnect.',
-          errorCode: 401
+          errorCode: 401,
         };
       }
     } else {
@@ -191,7 +191,7 @@ export async function validateYouTubeConnection(
       return {
         connected: false,
         error: 'Unable to validate YouTube connection. Please try reconnecting.',
-        errorCode: errorCode
+        errorCode: errorCode,
       };
     }
   }

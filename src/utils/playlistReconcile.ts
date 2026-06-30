@@ -33,7 +33,7 @@ export type ReconcileOp =
  */
 export function computeReconcileOps(
   desiredVideoIds: string[],
-  current: CurrentPlaylistItem[]
+  current: CurrentPlaylistItem[],
 ): ReconcileOp[] {
   const ops: ReconcileOp[] = [];
   const desiredSet = new Set(desiredVideoIds);
@@ -82,7 +82,7 @@ export function computeReconcileOps(
 export function buildSyncDesiredVideoIds(
   orderedSpotifyTrackIds: string[],
   existingMatches: Array<{ trackId: string; videoId: string }>,
-  newSearchResults: Array<{ spotifyTrackId: string; videoId?: string; found: boolean }>
+  newSearchResults: Array<{ spotifyTrackId: string; videoId?: string; found: boolean }>,
 ): string[] {
   const trackToVideo = new Map<string, string>();
   for (const m of existingMatches) {
@@ -134,14 +134,14 @@ const SAFETY_MIN_CURRENT = 3;
 export function assertReconcileSafe(
   ops: ReconcileOp[],
   desiredVideoIds: string[],
-  currentCount: number
+  currentCount: number,
 ): void {
   if (currentCount < SAFETY_MIN_CURRENT) return;
-  const deletes = ops.filter(op => op.kind === 'delete').length;
+  const deletes = ops.filter((op) => op.kind === 'delete').length;
   if (deletes / currentCount > MAX_DELETE_FRACTION) {
     throw new ReconcileSafetyError(
       `Refusing reconcile: would delete ${deletes} of ${currentCount} items ` +
-      `(desired=${desiredVideoIds.length}) - the desired order looks wrong, not a real removal.`
+        `(desired=${desiredVideoIds.length}) - the desired order looks wrong, not a real removal.`,
     );
   }
 }
@@ -155,7 +155,7 @@ export async function reconcilePlaylist(
   youtubePlaylistId: string,
   desiredVideoIds: string[],
   current: CurrentPlaylistItem[],
-  onProgress?: (done: number, total: number) => void | Promise<void>
+  onProgress?: (done: number, total: number) => void | Promise<void>,
 ): Promise<ReconcileResult> {
   const ops = computeReconcileOps(desiredVideoIds, current);
   assertReconcileSafe(ops, desiredVideoIds, current.length);
@@ -165,38 +165,44 @@ export async function reconcilePlaylist(
     youtubePlaylistId,
     desiredCount: desiredVideoIds.length,
     currentCount: current.length,
-    ops: ops.length
+    ops: ops.length,
   });
 
   let done = 0;
   for (const op of ops) {
     if (op.kind === 'delete') {
-      await youtubeWrite('playlistItems.delete', () => youtube.playlistItems.delete({ id: op.playlistItemId }));
+      await youtubeWrite('playlistItems.delete', () =>
+        youtube.playlistItems.delete({ id: op.playlistItemId }),
+      );
       result.deleted++;
     } else if (op.kind === 'insert') {
-      await youtubeWrite('playlistItems.insert', () => youtube.playlistItems.insert({
-        part: ['snippet'],
-        requestBody: {
-          snippet: {
-            playlistId: youtubePlaylistId,
-            position: op.position,
-            resourceId: { kind: 'youtube#video', videoId: op.videoId }
-          }
-        }
-      }));
+      await youtubeWrite('playlistItems.insert', () =>
+        youtube.playlistItems.insert({
+          part: ['snippet'],
+          requestBody: {
+            snippet: {
+              playlistId: youtubePlaylistId,
+              position: op.position,
+              resourceId: { kind: 'youtube#video', videoId: op.videoId },
+            },
+          },
+        }),
+      );
       result.inserted++;
     } else {
-      await youtubeWrite('playlistItems.update', () => youtube.playlistItems.update({
-        part: ['snippet'],
-        requestBody: {
-          id: op.playlistItemId,
-          snippet: {
-            playlistId: youtubePlaylistId,
-            position: op.position,
-            resourceId: { kind: 'youtube#video', videoId: op.videoId }
-          }
-        }
-      }));
+      await youtubeWrite('playlistItems.update', () =>
+        youtube.playlistItems.update({
+          part: ['snippet'],
+          requestBody: {
+            id: op.playlistItemId,
+            snippet: {
+              playlistId: youtubePlaylistId,
+              position: op.position,
+              resourceId: { kind: 'youtube#video', videoId: op.videoId },
+            },
+          },
+        }),
+      );
       result.moved++;
     }
     done++;

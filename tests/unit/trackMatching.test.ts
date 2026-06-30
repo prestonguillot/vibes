@@ -13,8 +13,8 @@ describe('optimalTrackMatching', () => {
         {
           id: 'spotify-1',
           name: 'Test Song',
-          artist: 'Test Artist'
-        }
+          artist: 'Test Artist',
+        },
       ];
 
       const videos = [
@@ -22,8 +22,8 @@ describe('optimalTrackMatching', () => {
           id: 'video-1',
           title: 'Test Song - Test Artist',
           description: 'Official video',
-          channelTitle: 'Test Channel'
-        }
+          channelTitle: 'Test Channel',
+        },
       ];
 
       const result = optimalTrackMatching(tracks, videos);
@@ -46,13 +46,13 @@ describe('optimalTrackMatching', () => {
         {
           id: 'spotify-1',
           name: 'Song A',
-          artist: 'Artist A'
+          artist: 'Artist A',
         },
         {
           id: 'spotify-2',
           name: 'Song B',
-          artist: 'Artist B'
-        }
+          artist: 'Artist B',
+        },
       ];
 
       const videos = [
@@ -60,14 +60,14 @@ describe('optimalTrackMatching', () => {
           id: 'video-1',
           title: 'Song A',
           description: '',
-          channelTitle: 'Artist A'
+          channelTitle: 'Artist A',
         },
         {
           id: 'video-2',
           title: 'Song B',
           description: '',
-          channelTitle: 'Artist B'
-        }
+          channelTitle: 'Artist B',
+        },
       ];
 
       const result = optimalTrackMatching(tracks, videos);
@@ -91,8 +91,8 @@ describe('optimalTrackMatching', () => {
         {
           id: 'spotify-1',
           name: 'Test Song',
-          artist: 'Test Artist'
-        }
+          artist: 'Test Artist',
+        },
       ];
 
       const videos = [
@@ -100,8 +100,8 @@ describe('optimalTrackMatching', () => {
           id: 'video-1',
           title: 'Test Song',
           description: 'Test Artist official video',
-          channelTitle: 'Test Artist'
-        }
+          channelTitle: 'Test Artist',
+        },
       ];
 
       const result = optimalTrackMatching(tracks, videos);
@@ -128,8 +128,8 @@ describe('optimalTrackMatching', () => {
         {
           id: 'track-1',
           name: 'Song',
-          artist: 'Artist'
-        }
+          artist: 'Artist',
+        },
       ];
 
       const videos = [
@@ -137,8 +137,8 @@ describe('optimalTrackMatching', () => {
           id: 'video-1',
           title: 'Song',
           description: '',
-          channelTitle: 'Artist'
-        }
+          channelTitle: 'Artist',
+        },
       ];
 
       const trackMatches = optimalTrackMatching(tracks, videos);
@@ -157,8 +157,8 @@ describe('optimalTrackMatching', () => {
         {
           id: 'track-1',
           name: 'Song',
-          artist: 'Artist'
-        }
+          artist: 'Artist',
+        },
       ];
 
       const videos = [
@@ -166,8 +166,8 @@ describe('optimalTrackMatching', () => {
           id: 'video-1',
           title: 'Song',
           description: '',
-          channelTitle: 'Artist'
-        }
+          channelTitle: 'Artist',
+        },
       ];
 
       const trackMatches = optimalTrackMatching(tracks, videos);
@@ -183,14 +183,17 @@ describe('optimalTrackMatching', () => {
 
   describe('Empty inputs', () => {
     it('should handle empty track list', () => {
-      const result = optimalTrackMatching([], [
-        {
-          id: 'video-1',
-          title: 'Song',
-          description: '',
-          channelTitle: 'Artist'
-        }
-      ]);
+      const result = optimalTrackMatching(
+        [],
+        [
+          {
+            id: 'video-1',
+            title: 'Song',
+            description: '',
+            channelTitle: 'Artist',
+          },
+        ],
+      );
 
       expect(result.matches instanceof Map).toBe(true);
       expect(result.scores instanceof Map).toBe(true);
@@ -199,13 +202,16 @@ describe('optimalTrackMatching', () => {
     });
 
     it('should handle empty video list', () => {
-      const result = optimalTrackMatching([
-        {
-          id: 'track-1',
-          name: 'Song',
-          artist: 'Artist'
-        }
-      ], []);
+      const result = optimalTrackMatching(
+        [
+          {
+            id: 'track-1',
+            name: 'Song',
+            artist: 'Artist',
+          },
+        ],
+        [],
+      );
 
       expect(result.matches instanceof Map).toBe(true);
       expect(result.scores instanceof Map).toBe(true);

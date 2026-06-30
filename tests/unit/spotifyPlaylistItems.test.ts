@@ -19,12 +19,12 @@ function jsonResponse(body: any) {
     status: 200,
     statusText: 'OK',
     json: () => Promise.resolve(body),
-    text: () => Promise.resolve(JSON.stringify(body))
+    text: () => Promise.resolve(JSON.stringify(body)),
   } as any;
 }
 
 const trackUnderItem = (id: string) => ({
-  item: { id, name: `Track ${id}`, type: 'track', artists: [{ name: 'A' }] }
+  item: { id, name: `Track ${id}`, type: 'track', artists: [{ name: 'A' }] },
 });
 
 describe('fetchAllPlaylistItems', () => {
@@ -33,10 +33,12 @@ describe('fetchAllPlaylistItems', () => {
   });
 
   it('normalizes the new `item` field to `.track`', async () => {
-    mockedFetch.mockResolvedValueOnce(jsonResponse({
-      items: [trackUnderItem('a'), trackUnderItem('b')],
-      total: 2
-    }));
+    mockedFetch.mockResolvedValueOnce(
+      jsonResponse({
+        items: [trackUnderItem('a'), trackUnderItem('b')],
+        total: 2,
+      }),
+    );
 
     const items = await fetchAllPlaylistItems('token', 'pl1');
 
@@ -46,10 +48,12 @@ describe('fetchAllPlaylistItems', () => {
   });
 
   it('falls back to the deprecated `track` field when `item` is absent', async () => {
-    mockedFetch.mockResolvedValueOnce(jsonResponse({
-      items: [{ track: { id: 'legacy', name: 'Legacy Track' } }],
-      total: 1
-    }));
+    mockedFetch.mockResolvedValueOnce(
+      jsonResponse({
+        items: [{ track: { id: 'legacy', name: 'Legacy Track' } }],
+        total: 1,
+      }),
+    );
 
     const items = await fetchAllPlaylistItems('token', 'pl1');
 
@@ -83,7 +87,7 @@ describe('fetchAllPlaylistItems', () => {
       ok: false,
       status: 403,
       statusText: 'Forbidden',
-      text: () => Promise.resolve('{"error":{"status":403}}')
+      text: () => Promise.resolve('{"error":{"status":403}}'),
     } as any);
 
     await expect(fetchAllPlaylistItems('token', 'pl1')).rejects.toMatchObject({ statusCode: 403 });

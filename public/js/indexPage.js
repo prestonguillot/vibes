@@ -23,7 +23,8 @@ document.addEventListener('DOMContentLoaded', function () {
       errorMessage = `${serviceDisplay} service is temporarily unavailable. Please try again soon.`;
     }
 
-    document.getElementById('connectionErrorLabel').textContent = `${serviceDisplay} Connection Failed`;
+    document.getElementById('connectionErrorLabel').textContent =
+      `${serviceDisplay} Connection Failed`;
     document.getElementById('connectionErrorMessage').textContent = errorMessage;
     document.getElementById('connectionErrorModal').showModal();
 

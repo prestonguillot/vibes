@@ -59,7 +59,11 @@ export interface YtResourceId {
   kind?: string;
   videoId?: string;
 }
-export interface YtThumbnail { url?: string; width?: number; height?: number }
+export interface YtThumbnail {
+  url?: string;
+  width?: number;
+  height?: number;
+}
 export interface YtPlaylistItem {
   id?: string;
   snippet?: {
@@ -104,7 +108,7 @@ async function youtubeRequest<T>(
   method: string,
   path: string,
   query: Record<string, string | number | boolean | undefined>,
-  body?: unknown
+  body?: unknown,
 ): Promise<T> {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(query)) {
@@ -115,14 +119,14 @@ async function youtubeRequest<T>(
 
   const headers: Record<string, string> = {
     Authorization: `Bearer ${accessToken}`,
-    Accept: 'application/json'
+    Accept: 'application/json',
   };
   if (body !== undefined) headers['Content-Type'] = 'application/json';
 
   const response = await fetch(url, {
     method,
     headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined
+    body: body !== undefined ? JSON.stringify(body) : undefined,
   });
 
   if (!response.ok) {
@@ -130,10 +134,15 @@ async function youtubeRequest<T>(
     let message = `YouTube API request failed: HTTP ${response.status} (${method} ${path})`;
     let reason: string | undefined;
     try {
-      const parsed = JSON.parse(text) as { error?: { message?: string; errors?: Array<{ reason?: string }> } };
-      if (parsed.error?.message) message = `YouTube API error (${response.status}): ${parsed.error.message}`;
+      const parsed = JSON.parse(text) as {
+        error?: { message?: string; errors?: Array<{ reason?: string }> };
+      };
+      if (parsed.error?.message)
+        message = `YouTube API error (${response.status}): ${parsed.error.message}`;
       reason = parsed.error?.errors?.[0]?.reason;
-    } catch { /* non-JSON body */ }
+    } catch {
+      /* non-JSON body */
+    }
     throw new YoutubeApiError(message, response.status, reason);
   }
 
@@ -149,7 +158,8 @@ const partOf = (part: string[] | undefined): string => (part ?? []).join(',');
 function requireYoutubeCreds(): { clientId: string; clientSecret: string } {
   const clientId = process.env.YOUTUBE_CLIENT_ID;
   const clientSecret = process.env.YOUTUBE_CLIENT_SECRET;
-  if (!clientId || !clientSecret) throw new Error('Missing YOUTUBE_CLIENT_ID / YOUTUBE_CLIENT_SECRET');
+  if (!clientId || !clientSecret)
+    throw new Error('Missing YOUTUBE_CLIENT_ID / YOUTUBE_CLIENT_SECRET');
   return { clientId, clientSecret };
 }
 
@@ -157,15 +167,18 @@ async function oauthTokenRequest(body: URLSearchParams): Promise<Record<string, 
   const response = await fetch(OAUTH_TOKEN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: body.toString()
+    body: body.toString(),
   });
   const text = await response.text();
   if (!response.ok) {
     let message = `YouTube OAuth request failed: HTTP ${response.status}`;
     try {
       const parsed = JSON.parse(text) as { error?: string; error_description?: string };
-      if (parsed.error_description || parsed.error) message = `YouTube OAuth request failed: ${parsed.error_description || parsed.error}`;
-    } catch { /* non-JSON */ }
+      if (parsed.error_description || parsed.error)
+        message = `YouTube OAuth request failed: ${parsed.error_description || parsed.error}`;
+    } catch {
+      /* non-JSON */
+    }
     // Surface as YoutubeApiError so callers' code-based refresh/auth handling fires.
     throw new YoutubeApiError(message, response.status);
   }
@@ -180,7 +193,7 @@ export function getYoutubeAuthUrl(scopes: string[], state?: string): string {
     redirect_uri: process.env.YOUTUBE_REDIRECT_URI ?? '',
     response_type: 'code',
     scope: scopes.join(' '),
-    access_type: 'offline'
+    access_type: 'offline',
   });
   if (state) params.set('state', state);
   return `${OAUTH_AUTH_URL}?${params.toString()}`;
@@ -189,19 +202,21 @@ export function getYoutubeAuthUrl(scopes: string[], state?: string): string {
 /** Exchanges an authorization code for tokens (includes the refresh_token). */
 export async function exchangeYoutubeCode(code: string): Promise<YouTubeOAuthTokens> {
   const { clientId, clientSecret } = requireYoutubeCreds();
-  const data = await oauthTokenRequest(new URLSearchParams({
-    client_id: clientId,
-    client_secret: clientSecret,
-    grant_type: 'authorization_code',
-    code,
-    redirect_uri: process.env.YOUTUBE_REDIRECT_URI ?? ''
-  }));
+  const data = await oauthTokenRequest(
+    new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      grant_type: 'authorization_code',
+      code,
+      redirect_uri: process.env.YOUTUBE_REDIRECT_URI ?? '',
+    }),
+  );
   return {
     access_token: String(data.access_token),
     refresh_token: data.refresh_token ? String(data.refresh_token) : undefined,
     scope: String(data.scope ?? ''),
     token_type: String(data.token_type ?? 'Bearer'),
-    expiry_date: Date.now() + Number(data.expires_in ?? 0) * 1000
+    expiry_date: Date.now() + Number(data.expires_in ?? 0) * 1000,
   };
 }
 
@@ -209,19 +224,23 @@ export async function exchangeYoutubeCode(code: string): Promise<YouTubeOAuthTok
  * Refreshes a YouTube access token. Google does NOT return a new refresh token,
  * so callers merge the result over their stored tokens (keeping refresh_token).
  */
-export async function refreshYoutubeAccessToken(refreshToken: string): Promise<YouTubeRefreshedTokens> {
+export async function refreshYoutubeAccessToken(
+  refreshToken: string,
+): Promise<YouTubeRefreshedTokens> {
   const { clientId, clientSecret } = requireYoutubeCreds();
-  const data = await oauthTokenRequest(new URLSearchParams({
-    client_id: clientId,
-    client_secret: clientSecret,
-    grant_type: 'refresh_token',
-    refresh_token: refreshToken
-  }));
+  const data = await oauthTokenRequest(
+    new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+    }),
+  );
   return {
     access_token: String(data.access_token),
     scope: String(data.scope ?? ''),
     token_type: String(data.token_type ?? 'Bearer'),
-    expiry_date: Date.now() + Number(data.expires_in ?? 0) * 1000
+    expiry_date: Date.now() + Number(data.expires_in ?? 0) * 1000,
   };
 }
 
@@ -229,16 +248,42 @@ export async function refreshYoutubeAccessToken(refreshToken: string): Promise<Y
 
 export interface YoutubeClient {
   channels: {
-    list(params: { part: string[]; mine?: boolean; maxResults?: number }): Promise<{ data: YtChannelListResponse }>;
+    list(params: {
+      part: string[];
+      mine?: boolean;
+      maxResults?: number;
+    }): Promise<{ data: YtChannelListResponse }>;
   };
   playlists: {
-    list(params: { part: string[]; mine?: boolean; maxResults?: number; pageToken?: string }): Promise<{ data: YtPlaylistListResponse }>;
-    insert(params: { part: string[]; requestBody: { snippet: { title: string; description?: string }; status?: { privacyStatus: string } } }): Promise<{ data: YtPlaylist }>;
+    list(params: {
+      part: string[];
+      mine?: boolean;
+      maxResults?: number;
+      pageToken?: string;
+    }): Promise<{ data: YtPlaylistListResponse }>;
+    insert(params: {
+      part: string[];
+      requestBody: {
+        snippet: { title: string; description?: string };
+        status?: { privacyStatus: string };
+      };
+    }): Promise<{ data: YtPlaylist }>;
   };
   playlistItems: {
-    list(params: { part: string[]; playlistId: string; maxResults?: number; pageToken?: string }): Promise<{ data: YtPlaylistItemListResponse }>;
-    insert(params: { part: string[]; requestBody: YtPlaylistItem }): Promise<{ data: YtPlaylistItem }>;
-    update(params: { part: string[]; requestBody: YtPlaylistItem }): Promise<{ data: YtPlaylistItem }>;
+    list(params: {
+      part: string[];
+      playlistId: string;
+      maxResults?: number;
+      pageToken?: string;
+    }): Promise<{ data: YtPlaylistItemListResponse }>;
+    insert(params: {
+      part: string[];
+      requestBody: YtPlaylistItem;
+    }): Promise<{ data: YtPlaylistItem }>;
+    update(params: {
+      part: string[];
+      requestBody: YtPlaylistItem;
+    }): Promise<{ data: YtPlaylistItem }>;
     delete(params: { id: string }): Promise<{ data: void }>;
   };
 }
@@ -249,35 +294,66 @@ export function createYoutubeClient(accessToken: string): YoutubeClient {
     channels: {
       list: async ({ part, mine, maxResults }) => ({
         data: await youtubeRequest<YtChannelListResponse>(accessToken, 'GET', '/channels', {
-          part: partOf(part), mine, maxResults
-        })
-      })
+          part: partOf(part),
+          mine,
+          maxResults,
+        }),
+      }),
     },
     playlists: {
       list: async ({ part, mine, maxResults, pageToken }) => ({
         data: await youtubeRequest<YtPlaylistListResponse>(accessToken, 'GET', '/playlists', {
-          part: partOf(part), mine, maxResults, pageToken
-        })
+          part: partOf(part),
+          mine,
+          maxResults,
+          pageToken,
+        }),
       }),
       insert: async ({ part, requestBody }) => ({
-        data: await youtubeRequest<YtPlaylist>(accessToken, 'POST', '/playlists', { part: partOf(part) }, requestBody)
-      })
+        data: await youtubeRequest<YtPlaylist>(
+          accessToken,
+          'POST',
+          '/playlists',
+          { part: partOf(part) },
+          requestBody,
+        ),
+      }),
     },
     playlistItems: {
       list: async ({ part, playlistId, maxResults, pageToken }) => ({
-        data: await youtubeRequest<YtPlaylistItemListResponse>(accessToken, 'GET', '/playlistItems', {
-          part: partOf(part), playlistId, maxResults, pageToken
-        })
+        data: await youtubeRequest<YtPlaylistItemListResponse>(
+          accessToken,
+          'GET',
+          '/playlistItems',
+          {
+            part: partOf(part),
+            playlistId,
+            maxResults,
+            pageToken,
+          },
+        ),
       }),
       insert: async ({ part, requestBody }) => ({
-        data: await youtubeRequest<YtPlaylistItem>(accessToken, 'POST', '/playlistItems', { part: partOf(part) }, requestBody)
+        data: await youtubeRequest<YtPlaylistItem>(
+          accessToken,
+          'POST',
+          '/playlistItems',
+          { part: partOf(part) },
+          requestBody,
+        ),
       }),
       update: async ({ part, requestBody }) => ({
-        data: await youtubeRequest<YtPlaylistItem>(accessToken, 'PUT', '/playlistItems', { part: partOf(part) }, requestBody)
+        data: await youtubeRequest<YtPlaylistItem>(
+          accessToken,
+          'PUT',
+          '/playlistItems',
+          { part: partOf(part) },
+          requestBody,
+        ),
       }),
       delete: async ({ id }) => ({
-        data: await youtubeRequest<void>(accessToken, 'DELETE', '/playlistItems', { id })
-      })
-    }
+        data: await youtubeRequest<void>(accessToken, 'DELETE', '/playlistItems', { id }),
+      }),
+    },
   };
 }

@@ -13,7 +13,7 @@ describe('Playlist Scroll Behavior', () => {
     // Read the actual playlistScroll.js file
     const scriptContent = fs.readFileSync(
       path.join(__dirname, '../../public/js/playlistScroll.js'),
-      'utf-8'
+      'utf-8',
     );
 
     // Set up the DOM
@@ -48,12 +48,12 @@ describe('Playlist Scroll Behavior', () => {
     // Mock window properties
     Object.defineProperty(window, 'pageYOffset', {
       writable: true,
-      value: 3000
+      value: 3000,
     });
 
     Object.defineProperty(window, 'innerHeight', {
       writable: true,
-      value: 800
+      value: 800,
     });
 
     // Mock scrollTo
@@ -63,7 +63,7 @@ describe('Playlist Scroll Behavior', () => {
     console.log = vi.fn();
 
     // Mock getBoundingClientRect for elements
-    Element.prototype.getBoundingClientRect = vi.fn(function(this: Element) {
+    Element.prototype.getBoundingClientRect = vi.fn(function (this: Element) {
       if (this.classList.contains('playlist-collapse-area')) {
         return {
           top: 500,
@@ -74,7 +74,7 @@ describe('Playlist Scroll Behavior', () => {
           height: 50,
           x: 0,
           y: 500,
-          toJSON: () => ({})
+          toJSON: () => ({}),
         } as DOMRect;
       }
 
@@ -88,7 +88,7 @@ describe('Playlist Scroll Behavior', () => {
           height: 50,
           x: 0,
           y: 100,
-          toJSON: () => ({})
+          toJSON: () => ({}),
         } as DOMRect;
       }
 
@@ -101,7 +101,7 @@ describe('Playlist Scroll Behavior', () => {
         height: 0,
         x: 0,
         y: 0,
-        toJSON: () => ({})
+        toJSON: () => ({}),
       } as DOMRect;
     });
 
@@ -109,7 +109,7 @@ describe('Playlist Scroll Behavior', () => {
     Object.defineProperty(document.documentElement, 'scrollHeight', {
       writable: true,
       configurable: true,
-      value: 8000
+      value: 8000,
     });
 
     // Execute the script by evaluating it
@@ -195,7 +195,7 @@ describe('Playlist Scroll Behavior', () => {
     // Mock documentElement properties
     Object.defineProperty(document.documentElement, 'scrollHeight', {
       value: 4000,
-      configurable: true
+      configurable: true,
     });
 
     window.innerHeight = 800;

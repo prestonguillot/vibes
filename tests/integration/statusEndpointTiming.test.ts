@@ -15,8 +15,7 @@ describe('Status Endpoint Timing', () => {
     it('should take at least 500ms for Spotify status check', async () => {
       const startTime = Date.now();
 
-      const response = await request(app)
-        .get('/api/status/spotify/button');
+      const response = await request(app).get('/api/status/spotify/button');
 
       const elapsed = Date.now() - startTime;
 
@@ -27,8 +26,7 @@ describe('Status Endpoint Timing', () => {
     it('should take at least 500ms for YouTube status check', async () => {
       const startTime = Date.now();
 
-      const response = await request(app)
-        .get('/api/status/youtube/button');
+      const response = await request(app).get('/api/status/youtube/button');
 
       const elapsed = Date.now() - startTime;
 
@@ -41,8 +39,7 @@ describe('Status Endpoint Timing', () => {
       // So we should see approximately 500ms (not significantly more)
       const startTime = Date.now();
 
-      const response = await request(app)
-        .get('/api/status/spotify/button');
+      const response = await request(app).get('/api/status/spotify/button');
 
       const elapsed = Date.now() - startTime;
 
@@ -65,14 +62,13 @@ describe('Status Endpoint Timing', () => {
       }
 
       // All requests should meet minimum display time
-      timings.forEach(timing => {
+      timings.forEach((timing) => {
         expect(timing).toBeGreaterThanOrEqual(500);
       });
     });
 
     it('should render connection button state after minimum display time', async () => {
-      const response = await request(app)
-        .get('/api/status/spotify/button');
+      const response = await request(app).get('/api/status/spotify/button');
 
       expect(response.status).toBe(200);
       expect(response.text).toContain('data-service="spotify"');
@@ -83,13 +79,11 @@ describe('Status Endpoint Timing', () => {
   describe('Both Endpoints Have Minimum Display Time', () => {
     it('should apply minimum display time to both Spotify and YouTube', async () => {
       const spotifyStart = Date.now();
-      const spotifyResponse = await request(app)
-        .get('/api/status/spotify/button');
+      const spotifyResponse = await request(app).get('/api/status/spotify/button');
       const spotifyElapsed = Date.now() - spotifyStart;
 
       const youtubeStart = Date.now();
-      const youtubeResponse = await request(app)
-        .get('/api/status/youtube/button');
+      const youtubeResponse = await request(app).get('/api/status/youtube/button');
       const youtubeElapsed = Date.now() - youtubeStart;
 
       expect(spotifyResponse.status).toBe(200);
@@ -102,8 +96,7 @@ describe('Status Endpoint Timing', () => {
 
   describe('Response Content After Delay', () => {
     it('should return valid Spotify button HTML after minimum display time', async () => {
-      const response = await request(app)
-        .get('/api/status/spotify/button');
+      const response = await request(app).get('/api/status/spotify/button');
 
       expect(response.status).toBe(200);
       expect(response.text).toContain('spotify');
@@ -111,8 +104,7 @@ describe('Status Endpoint Timing', () => {
     });
 
     it('should return valid YouTube button HTML after minimum display time', async () => {
-      const response = await request(app)
-        .get('/api/status/youtube/button');
+      const response = await request(app).get('/api/status/youtube/button');
 
       expect(response.status).toBe(200);
       expect(response.text).toContain('youtube');

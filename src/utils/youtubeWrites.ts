@@ -32,7 +32,11 @@ export function resetYoutubeWriteQuotaCounter(): void {
 }
 
 function isQuotaExceeded(error: unknown): boolean {
-  const err = error as { code?: number; response?: { status?: number }; errors?: Array<{ reason?: string }> };
+  const err = error as {
+    code?: number;
+    response?: { status?: number };
+    errors?: Array<{ reason?: string }>;
+  };
   const status = err?.code ?? err?.response?.status;
   if (status !== 403) return false;
   const reason = err?.errors?.[0]?.reason;
@@ -57,7 +61,10 @@ export async function youtubeWrite<T>(operation: string, write: () => Promise<T>
     const result = await write();
     youtubeCircuitBreaker.recordSuccess();
     quotaUnitsUsed += YOUTUBE_WRITE_COST;
-    Logger.external('YouTube', `write ${operation}`, { quotaCost: YOUTUBE_WRITE_COST, quotaUnitsUsed });
+    Logger.external('YouTube', `write ${operation}`, {
+      quotaCost: YOUTUBE_WRITE_COST,
+      quotaUnitsUsed,
+    });
     return result;
   } catch (error) {
     if (isQuotaExceeded(error)) {

@@ -27,8 +27,7 @@ describe('Refresh Button Integration', () => {
 
   describe('Connection Button Rendering', () => {
     it('should render Spotify connection button with data attributes when not connected', async () => {
-      const response = await request(app)
-        .get('/api/status/spotify/button');
+      const response = await request(app).get('/api/status/spotify/button');
 
       expect(response.status).toBe(200);
       expect(response.text).toContain('data-service="spotify"');
@@ -36,8 +35,7 @@ describe('Refresh Button Integration', () => {
     });
 
     it('should render YouTube connection button with data attributes when not connected', async () => {
-      const response = await request(app)
-        .get('/api/status/youtube/button');
+      const response = await request(app).get('/api/status/youtube/button');
 
       expect(response.status).toBe(200);
       expect(response.text).toContain('data-service="youtube"');
@@ -59,7 +57,10 @@ describe('Refresh Button Integration', () => {
       mockAuth.validateYouTubeConnection.mockResolvedValue({ connected: true });
       const response = await request(app)
         .get('/api/status/youtube/button')
-        .set('Cookie', 'youtube_tokens={"access_token":"mock_token","refresh_token":"mock_refresh"}');
+        .set(
+          'Cookie',
+          'youtube_tokens={"access_token":"mock_token","refresh_token":"mock_refresh"}',
+        );
 
       expect(response.status).toBe(200);
       expect(response.text).toContain('data-service="youtube"');
@@ -69,8 +70,7 @@ describe('Refresh Button Integration', () => {
 
   describe('Main Page Refresh Button', () => {
     it('should render refresh button as disabled by default', async () => {
-      const response = await request(app)
-        .get('/');
+      const response = await request(app).get('/');
 
       expect(response.status).toBe(200);
       expect(response.text).toContain('id="refresh-playlists-btn"');
@@ -79,8 +79,7 @@ describe('Refresh Button Integration', () => {
     });
 
     it('should have helpful tooltip on refresh button', async () => {
-      const response = await request(app)
-        .get('/');
+      const response = await request(app).get('/');
 
       expect(response.status).toBe(200);
       expect(response.text).toContain('id="refresh-playlists-btn"');
@@ -90,8 +89,7 @@ describe('Refresh Button Integration', () => {
 
   describe('Connection State Attributes', () => {
     it('should include data attributes in connection status containers', async () => {
-      const response = await request(app)
-        .get('/');
+      const response = await request(app).get('/');
 
       expect(response.status).toBe(200);
 
@@ -101,8 +99,7 @@ describe('Refresh Button Integration', () => {
     });
 
     it('should render data-connected attribute in all connection states', async () => {
-      const response = await request(app)
-        .get('/api/status/spotify/button');
+      const response = await request(app).get('/api/status/spotify/button');
 
       expect(response.status).toBe(200);
       expect(response.text).toContain('data-service="spotify"');
@@ -113,16 +110,14 @@ describe('Refresh Button Integration', () => {
 
   describe('JavaScript Integration', () => {
     it('should include playlistFilter.js on main page', async () => {
-      const response = await request(app)
-        .get('/');
+      const response = await request(app).get('/');
 
       expect(response.status).toBe(200);
       expect(response.text).toContain('/js/playlistFilter.js');
     });
 
     it('should have refresh button with required attributes for JS handling', async () => {
-      const response = await request(app)
-        .get('/');
+      const response = await request(app).get('/');
 
       expect(response.status).toBe(200);
 
@@ -137,14 +132,13 @@ describe('Refresh Button Integration', () => {
 
   describe('User Experience', () => {
     it('should prevent refresh without connections by default', async () => {
-      const response = await request(app)
-        .get('/');
+      const response = await request(app).get('/');
 
       expect(response.status).toBe(200);
 
       // Refresh button should be disabled
       const refreshButtonMatch = response.text.match(
-        /<button[^>]*id="refresh-playlists-btn"[^>]*>/
+        /<button[^>]*id="refresh-playlists-btn"[^>]*>/,
       );
 
       expect(refreshButtonMatch).toBeTruthy();
@@ -152,8 +146,7 @@ describe('Refresh Button Integration', () => {
     });
 
     it('should show appropriate messaging when not connected', async () => {
-      const response = await request(app)
-        .get('/');
+      const response = await request(app).get('/');
 
       expect(response.status).toBe(200);
 

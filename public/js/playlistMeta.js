@@ -55,9 +55,10 @@
     var youtubeCount = parseInt(row.getAttribute('data-youtube-count'), 10) || 0;
     var summary = row.querySelector('.playlist-track-summary');
     if (summary && typeof meta.trackCount === 'number') {
-      summary.textContent = youtubeCount > 0
-        ? youtubeCount + ' tracks synced to YouTube of ' + meta.trackCount
-        : meta.trackCount + ' tracks';
+      summary.textContent =
+        youtubeCount > 0
+          ? youtubeCount + ' tracks synced to YouTube of ' + meta.trackCount
+          : meta.trackCount + ' tracks';
     }
 
     var dot = row.querySelector('[data-drift-dot]');
@@ -83,7 +84,7 @@
       var count = parseInt(el.getAttribute('data-track-count'), 10);
       setMeta(id, {
         trackCount: isNaN(count) ? null : count,
-        needsResync: el.getAttribute('data-needs-resync') === 'true'
+        needsResync: el.getAttribute('data-needs-resync') === 'true',
       });
     }
   }
@@ -102,6 +103,6 @@
     setMeta: setMeta,
     decorateRow: decorateRow,
     decorateAll: decorateAll,
-    syncFromDetails: syncFromDetails
+    syncFromDetails: syncFromDetails,
   };
 })();

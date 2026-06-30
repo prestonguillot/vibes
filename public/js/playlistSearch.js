@@ -29,8 +29,8 @@ function levenshteinDistance(str1, str2) {
       } else {
         matrix[i][j] = Math.min(
           matrix[i - 1][j - 1] + 1, // substitution
-          matrix[i][j - 1] + 1,     // insertion
-          matrix[i - 1][j] + 1      // deletion
+          matrix[i][j - 1] + 1, // insertion
+          matrix[i - 1][j] + 1, // deletion
         );
       }
     }
@@ -46,7 +46,7 @@ function calculateSimilarity(str1, str2) {
 
   const distance = levenshteinDistance(str1, str2);
   const maxLength = Math.max(str1.length, str2.length);
-  return Math.max(0, 1 - (distance / maxLength));
+  return Math.max(0, 1 - distance / maxLength);
 }
 
 // Check if query matches text with fuzzy matching
@@ -64,12 +64,12 @@ function fuzzyMatch(text, query) {
   const queryWords = lowerQuery.split(/\s+/);
 
   // Check if all query words are present as substrings in the text
-  return queryWords.every(qWord =>
-    textWords.some(tWord => {
+  return queryWords.every((qWord) =>
+    textWords.some((tWord) => {
       const similarity = calculateSimilarity(tWord, qWord);
       // Allow matches with >70% similarity for typo tolerance
       return similarity > 0.7 || tWord.includes(qWord);
-    })
+    }),
   );
 }
 
@@ -94,7 +94,7 @@ function getPlaylistSearchText(playlistItem) {
 
   // Get all track names from the playlist details (if expanded)
   const trackElements = playlistItem.querySelectorAll('.track-name, .track-item');
-  trackElements.forEach(trackEl => {
+  trackElements.forEach((trackEl) => {
     const trackText = trackEl.textContent;
     if (trackText) {
       searchParts.push(trackText);
@@ -103,7 +103,7 @@ function getPlaylistSearchText(playlistItem) {
 
   // Get all video titles (if available)
   const videoElements = playlistItem.querySelectorAll('.video-title, [data-video-title]');
-  videoElements.forEach(videoEl => {
+  videoElements.forEach((videoEl) => {
     const videoText = videoEl.textContent || videoEl.dataset.videoTitle;
     if (videoText) {
       searchParts.push(videoText);
@@ -113,7 +113,7 @@ function getPlaylistSearchText(playlistItem) {
   return searchParts.join(' ');
 }
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
   const searchInput = document.getElementById('playlistSearch');
   let searchTimeout;
 
@@ -135,7 +135,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Only select the main playlist item containers, not other elements with data-playlist-id
     const playlistItems = playlistsContainer.querySelectorAll('.playlist-item');
-    const playlistIds = Array.from(playlistItems).map(item => item.dataset.playlistId);
+    const playlistIds = Array.from(playlistItems).map((item) => item.dataset.playlistId);
 
     if (playlistIds.length === 0) {
       spotifyTracksLoading = false;
@@ -183,7 +183,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     let visibleCount = 0;
 
-    playlistItems.forEach(item => {
+    playlistItems.forEach((item) => {
       const searchText = getPlaylistSearchText(item);
       const matches = fuzzyMatch(searchText, query);
 
@@ -214,7 +214,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   // Listen for input events with debounce
-  searchInput.addEventListener('keyup', function() {
+  searchInput.addEventListener('keyup', function () {
     clearTimeout(searchTimeout);
 
     // On first keystroke, load Spotify tracks if not already loaded
@@ -231,7 +231,7 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   // Clear search on Escape key
-  searchInput.addEventListener('keydown', function(e) {
+  searchInput.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') {
       searchInput.value = '';
       clearTimeout(searchTimeout);
@@ -240,14 +240,14 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   // Re-run search when playlists are reloaded via HTMX
-  document.body.addEventListener('htmx:afterSwap', function(event) {
+  document.body.addEventListener('htmx:afterSwap', function (event) {
     if (event.detail.target.id === 'playlists-content') {
       // Clear cached Spotify tracks so they'll be re-fetched on next search
       playlistSpotifyTracks = null;
 
       // Remove search-hidden class from all items (reset to visible)
       const playlistItems = event.detail.target.querySelectorAll('[data-playlist-id]');
-      playlistItems.forEach(item => {
+      playlistItems.forEach((item) => {
         item.classList.remove('search-hidden');
       });
 

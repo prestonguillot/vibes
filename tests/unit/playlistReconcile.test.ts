@@ -11,11 +11,11 @@ import {
   buildSyncDesiredVideoIds,
   assertReconcileSafe,
   ReconcileSafetyError,
-  CurrentPlaylistItem
+  CurrentPlaylistItem,
 } from '../../src/utils/playlistReconcile';
 
 const ci = (...videoIds: string[]): CurrentPlaylistItem[] =>
-  videoIds.map(videoId => ({ videoId, playlistItemId: `pi-${videoId}` }));
+  videoIds.map((videoId) => ({ videoId, playlistItemId: `pi-${videoId}` }));
 
 describe('computeReconcileOps', () => {
   it('returns no ops when already in the desired order', () => {
@@ -28,39 +28,39 @@ describe('computeReconcileOps', () => {
 
   it('appends a missing video at the end', () => {
     expect(computeReconcileOps(['a', 'b', 'c'], ci('a', 'b'))).toEqual([
-      { kind: 'insert', videoId: 'c', position: 2 }
+      { kind: 'insert', videoId: 'c', position: 2 },
     ]);
   });
 
   it('inserts a missing video in the middle', () => {
     expect(computeReconcileOps(['a', 'b', 'c'], ci('a', 'c'))).toEqual([
-      { kind: 'insert', videoId: 'b', position: 1 }
+      { kind: 'insert', videoId: 'b', position: 1 },
     ]);
   });
 
   it('deletes an orphan video not in the desired order', () => {
     expect(computeReconcileOps(['a', 'b'], ci('a', 'x', 'b'))).toEqual([
-      { kind: 'delete', playlistItemId: 'pi-x', videoId: 'x' }
+      { kind: 'delete', playlistItemId: 'pi-x', videoId: 'x' },
     ]);
   });
 
   it('deletes duplicate occurrences of a desired video', () => {
     expect(computeReconcileOps(['a', 'b'], ci('a', 'a', 'b'))).toEqual([
-      { kind: 'delete', playlistItemId: 'pi-a', videoId: 'a' }
+      { kind: 'delete', playlistItemId: 'pi-a', videoId: 'a' },
     ]);
   });
 
   it('moves a manually-added video from the end into its correct slot (the bug case)', () => {
     // 'NEW' was appended by the manual-add flow; desired wants it at index 1.
     expect(computeReconcileOps(['a', 'NEW', 'b'], ci('a', 'b', 'NEW'))).toEqual([
-      { kind: 'move', playlistItemId: 'pi-NEW', videoId: 'NEW', position: 1 }
+      { kind: 'move', playlistItemId: 'pi-NEW', videoId: 'NEW', position: 1 },
     ]);
   });
 
   it('replaces a video: deletes the old, inserts the new in place', () => {
     expect(computeReconcileOps(['a', 'NEW', 'c'], ci('a', 'OLD', 'c'))).toEqual([
       { kind: 'delete', playlistItemId: 'pi-OLD', videoId: 'OLD' },
-      { kind: 'insert', videoId: 'NEW', position: 1 }
+      { kind: 'insert', videoId: 'NEW', position: 1 },
     ]);
   });
 
@@ -68,21 +68,21 @@ describe('computeReconcileOps', () => {
     const ops = computeReconcileOps(['c', 'b', 'a'], ci('a', 'b', 'c'));
     expect(ops).toEqual([
       { kind: 'move', playlistItemId: 'pi-c', videoId: 'c', position: 0 },
-      { kind: 'move', playlistItemId: 'pi-b', videoId: 'b', position: 1 }
+      { kind: 'move', playlistItemId: 'pi-b', videoId: 'b', position: 1 },
     ]);
   });
 
   it('builds an empty playlist entirely from inserts', () => {
     expect(computeReconcileOps(['a', 'b'], [])).toEqual([
       { kind: 'insert', videoId: 'a', position: 0 },
-      { kind: 'insert', videoId: 'b', position: 1 }
+      { kind: 'insert', videoId: 'b', position: 1 },
     ]);
   });
 
   it('removes everything when desired is empty', () => {
     expect(computeReconcileOps([], ci('a', 'b'))).toEqual([
       { kind: 'delete', playlistItemId: 'pi-a', videoId: 'a' },
-      { kind: 'delete', playlistItemId: 'pi-b', videoId: 'b' }
+      { kind: 'delete', playlistItemId: 'pi-b', videoId: 'b' },
     ]);
   });
 
@@ -91,7 +91,7 @@ describe('computeReconcileOps', () => {
     const ops = computeReconcileOps(['a', 'b', 'c'], ci('a', 'ORPHAN', 'c', 'b'));
     expect(ops).toEqual([
       { kind: 'delete', playlistItemId: 'pi-ORPHAN', videoId: 'ORPHAN' },
-      { kind: 'move', playlistItemId: 'pi-b', videoId: 'b', position: 1 }
+      { kind: 'move', playlistItemId: 'pi-b', videoId: 'b', position: 1 },
     ]);
   });
 });
@@ -102,8 +102,12 @@ describe('buildSyncDesiredVideoIds', () => {
   it('emits videos in Spotify track order', () => {
     const result = buildSyncDesiredVideoIds(
       order,
-      [{ trackId: 't1', videoId: 'v1' }, { trackId: 't2', videoId: 'v2' }, { trackId: 't3', videoId: 'v3' }],
-      []
+      [
+        { trackId: 't1', videoId: 'v1' },
+        { trackId: 't2', videoId: 'v2' },
+        { trackId: 't3', videoId: 'v3' },
+      ],
+      [],
     );
     expect(result).toEqual(['v1', 'v2', 'v3']);
   });
@@ -112,8 +116,11 @@ describe('buildSyncDesiredVideoIds', () => {
     // t1/t3 already matched; t2 newly searched.
     const result = buildSyncDesiredVideoIds(
       order,
-      [{ trackId: 't1', videoId: 'v1' }, { trackId: 't3', videoId: 'v3' }],
-      [{ spotifyTrackId: 't2', videoId: 'v2', found: true }]
+      [
+        { trackId: 't1', videoId: 'v1' },
+        { trackId: 't3', videoId: 'v3' },
+      ],
+      [{ spotifyTrackId: 't2', videoId: 'v2', found: true }],
     );
     expect(result).toEqual(['v1', 'v2', 'v3']);
   });
@@ -122,7 +129,7 @@ describe('buildSyncDesiredVideoIds', () => {
     const result = buildSyncDesiredVideoIds(
       order,
       [{ trackId: 't1', videoId: 'v1' }],
-      [{ spotifyTrackId: 't3', videoId: 'v3', found: true }]
+      [{ spotifyTrackId: 't3', videoId: 'v3', found: true }],
       // t2 has neither -> skipped, but order of the rest is preserved
     );
     expect(result).toEqual(['v1', 'v3']);
@@ -132,7 +139,10 @@ describe('buildSyncDesiredVideoIds', () => {
     const result = buildSyncDesiredVideoIds(
       order,
       [],
-      [{ spotifyTrackId: 't1', videoId: undefined, found: false }, { spotifyTrackId: 't2', videoId: 'v2', found: true }]
+      [
+        { spotifyTrackId: 't1', videoId: undefined, found: false },
+        { spotifyTrackId: 't2', videoId: 'v2', found: true },
+      ],
     );
     expect(result).toEqual(['v2']);
   });
@@ -141,7 +151,7 @@ describe('buildSyncDesiredVideoIds', () => {
     const result = buildSyncDesiredVideoIds(
       ['t1'],
       [{ trackId: 't1', videoId: 'old' }],
-      [{ spotifyTrackId: 't1', videoId: 'new', found: true }]
+      [{ spotifyTrackId: 't1', videoId: 'new', found: true }],
     );
     expect(result).toEqual(['new']);
   });
@@ -149,8 +159,11 @@ describe('buildSyncDesiredVideoIds', () => {
   it('emits a video at most once even if two tracks map to it', () => {
     const result = buildSyncDesiredVideoIds(
       ['t1', 't2'],
-      [{ trackId: 't1', videoId: 'dup' }, { trackId: 't2', videoId: 'dup' }],
-      []
+      [
+        { trackId: 't1', videoId: 'dup' },
+        { trackId: 't2', videoId: 'dup' },
+      ],
+      [],
     );
     expect(result).toEqual(['dup']);
   });
@@ -171,19 +184,21 @@ describe('assertReconcileSafe (delete-safety rail)', () => {
     const current = items(10);
     // desired keeps only 3 of the 10 -> 7 deletes (>50%)
     const ops = computeReconcileOps(['v0', 'v1', 'v2'], current);
-    expect(() => assertReconcileSafe(ops, ['v0', 'v1', 'v2'], current.length)).toThrow(ReconcileSafetyError);
+    expect(() => assertReconcileSafe(ops, ['v0', 'v1', 'v2'], current.length)).toThrow(
+      ReconcileSafetyError,
+    );
   });
 
   it('allows a normal re-sync that deletes nothing', () => {
     const current = items(10);
-    const desired = current.map(c => c.videoId); // identical -> 0 ops
+    const desired = current.map((c) => c.videoId); // identical -> 0 ops
     const ops = computeReconcileOps(desired, current);
     expect(() => assertReconcileSafe(ops, desired, current.length)).not.toThrow();
   });
 
   it('allows removing a few tracks (under the threshold)', () => {
     const current = items(10);
-    const desired = current.slice(0, 8).map(c => c.videoId); // 2 deletes (20%)
+    const desired = current.slice(0, 8).map((c) => c.videoId); // 2 deletes (20%)
     const ops = computeReconcileOps(desired, current);
     expect(() => assertReconcileSafe(ops, desired, current.length)).not.toThrow();
   });

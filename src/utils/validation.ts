@@ -10,7 +10,7 @@ import { Logger } from './logger';
 export interface ValidatedRequest<
   TParams = Record<string, string>,
   TQuery = Record<string, unknown>,
-  TBody = Record<string, unknown>
+  TBody = Record<string, unknown>,
 > extends Omit<Request, 'params' | 'query' | 'body'> {
   params: TParams;
   query: TQuery;
@@ -36,12 +36,8 @@ export interface ValidatedRequest<
 export function validate<
   TParams extends ZodSchema = ZodSchema,
   TQuery extends ZodSchema = ZodSchema,
-  TBody extends ZodSchema = ZodSchema
->(schemas: {
-  params?: TParams;
-  query?: TQuery;
-  body?: TBody;
-}) {
+  TBody extends ZodSchema = ZodSchema,
+>(schemas: { params?: TParams; query?: TQuery; body?: TBody }) {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
       // Store the validated/transformed value back on the request. Express 5 makes
@@ -49,7 +45,12 @@ export function validate<
       // define an own data property that shadows the getter instead. This works on
       // Express 4 too. Zod transforms still apply (e.g. 'true' -> boolean true).
       const setValidated = (key: 'params' | 'query' | 'body', value: unknown) => {
-        Object.defineProperty(req, key, { value, writable: true, enumerable: true, configurable: true });
+        Object.defineProperty(req, key, {
+          value,
+          writable: true,
+          enumerable: true,
+          configurable: true,
+        });
       };
 
       if (schemas.params) {
@@ -67,13 +68,15 @@ export function validate<
       if (error instanceof ZodError) {
         Logger.warn('Request validation failed', {
           path: req.path,
-          errors: error.issues
+          errors: error.issues,
         });
 
         return res.status(400).render('partials/error-message', {
           type: 'danger',
           message: 'Invalid request data',
-          details: error.issues.map((e: ZodIssue) => `${e.path.join('.')}: ${e.message}`).join(', ')
+          details: error.issues
+            .map((e: ZodIssue) => `${e.path.join('.')}: ${e.message}`)
+            .join(', '),
         });
       }
 
@@ -102,11 +105,11 @@ export const schemas = {
   // Batch size for syncing - a positive integer (as a string) or 'all'
   batchSize: z.union([
     z.string().regex(/^[1-9]\d*$/, 'Must be a positive number'),
-    z.literal('all')
+    z.literal('all'),
   ]),
 
   // Boolean flag
-  booleanFlag: z.enum(['true', 'false']).transform(val => val === 'true'),
+  booleanFlag: z.enum(['true', 'false']).transform((val) => val === 'true'),
 
   // Track/song name (reasonable length)
   trackName: z.string().min(1).max(200),
@@ -115,5 +118,9 @@ export const schemas = {
   artistName: z.string().min(1).max(200),
 
   // Generic alphanumeric ID
-  alphanumericId: z.string().regex(/^[a-zA-Z0-9_-]+$/, 'Invalid ID format').min(1).max(100)
+  alphanumericId: z
+    .string()
+    .regex(/^[a-zA-Z0-9_-]+$/, 'Invalid ID format')
+    .min(1)
+    .max(100),
 };

@@ -8,7 +8,7 @@ import { Logger } from './logger';
  */
 export const SpotifyTokensSchema = z.object({
   accessToken: z.string().min(1, 'Access token must not be empty'),
-  refreshToken: z.string().min(1, 'Refresh token must not be empty')
+  refreshToken: z.string().min(1, 'Refresh token must not be empty'),
 });
 
 export const YouTubeTokensSchema = z.object({
@@ -17,7 +17,7 @@ export const YouTubeTokensSchema = z.object({
   scope: z.string().min(1, 'Scope must not be empty'),
   token_type: z.string().min(1, 'Token type must not be empty'),
   expiry_date: z.number().optional(),
-  channel_id: z.string().optional()
+  channel_id: z.string().optional(),
 });
 
 /**
@@ -45,7 +45,7 @@ export function validateAndSerializeYouTubeTokens(tokens: unknown): string {
  */
 export function parseSpotifyTokenCookie(
   cookieValue: string | undefined,
-  res?: Response
+  res?: Response,
 ): SpotifyTokens | null {
   if (!cookieValue) {
     return null;
@@ -58,7 +58,7 @@ export function parseSpotifyTokenCookie(
   } catch (error) {
     Logger.warn('Failed to parse Spotify token cookie - possible malicious activity', {
       error: error instanceof Error ? error.message : 'Unknown error',
-      cookiePresent: !!cookieValue
+      cookiePresent: !!cookieValue,
     });
 
     // Clear the corrupted cookie
@@ -79,7 +79,7 @@ export function parseSpotifyTokenCookie(
  */
 export function parseYouTubeTokenCookie(
   cookieValue: string | undefined,
-  res?: Response
+  res?: Response,
 ): YouTubeTokens | null {
   if (!cookieValue) {
     return null;
@@ -92,7 +92,7 @@ export function parseYouTubeTokenCookie(
   } catch (error) {
     Logger.warn('Failed to parse YouTube token cookie - possible malicious activity', {
       error: error instanceof Error ? error.message : 'Unknown error',
-      cookiePresent: !!cookieValue
+      cookiePresent: !!cookieValue,
     });
 
     // Clear the corrupted cookie

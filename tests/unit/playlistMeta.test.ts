@@ -41,19 +41,27 @@ beforeEach(() => {
 describe('playlistMeta cache', () => {
   it('records count + drift from a details view via syncFromDetails', () => {
     (window as any).playlistMeta.syncFromDetails(detailsEl('p1', 42, true));
-    expect((window as any).playlistMeta.getMeta('p1')).toEqual({ trackCount: 42, needsResync: true });
+    expect((window as any).playlistMeta.getMeta('p1')).toEqual({
+      trackCount: 42,
+      needsResync: true,
+    });
   });
 
   it('stores a null count when the details count is not a number', () => {
     (window as any).playlistMeta.syncFromDetails(detailsEl('p1', NaN, false));
-    expect((window as any).playlistMeta.getMeta('p1')).toEqual({ trackCount: null, needsResync: false });
+    expect((window as any).playlistMeta.getMeta('p1')).toEqual({
+      trackCount: null,
+      needsResync: false,
+    });
   });
 
   it('decorates a synced row as "N synced to YouTube of M"', () => {
     const row = makeRow('p1', 30);
     (window as any).playlistMeta.setMeta('p1', { trackCount: 33, needsResync: false });
     (window as any).playlistMeta.decorateRow(row);
-    expect(row.querySelector('.playlist-track-summary')!.textContent).toBe('30 tracks synced to YouTube of 33');
+    expect(row.querySelector('.playlist-track-summary')!.textContent).toBe(
+      '30 tracks synced to YouTube of 33',
+    );
   });
 
   it('decorates an unsynced row (no YouTube videos) as "M tracks"', () => {

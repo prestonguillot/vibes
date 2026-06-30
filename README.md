@@ -5,7 +5,7 @@ A web application that syncs your Spotify playlists to YouTube playlists with mu
 ## Features
 
 - 🎵 Connect to your Spotify account
-- 📺 Connect to your YouTube account  
+- 📺 Connect to your YouTube account
 - 🔄 Sync playlists from Spotify to YouTube
 - 🎬 Automatically finds official music videos (with fallbacks to concert footage/fan videos)
 - 💻 Modern web interface using HTMX
@@ -27,16 +27,19 @@ A web application that syncs your Spotify playlists to YouTube playlists with mu
 ### Installation
 
 1. Clone the repository and install dependencies:
+
 ```bash
 npm install
 ```
 
 2. Copy the environment file and fill in your API credentials:
+
 ```bash
 cp .env.example .env
 ```
 
 3. Edit `.env` with your API credentials:
+
 ```env
 # Server Configuration
 PORT=3000
@@ -56,6 +59,7 @@ YOUTUBE_REDIRECT_URI=http://127.0.0.1:3000/auth/youtube/callback
 ### Development
 
 Run the development server:
+
 ```bash
 npm run dev
 ```
@@ -65,6 +69,7 @@ The app will be available at `http://localhost:3000`
 ### Production
 
 Build and run for production:
+
 ```bash
 npm run build
 npm start
@@ -108,6 +113,7 @@ npm start
 ## Deployment
 
 This app is designed to be easily deployable to platforms like:
+
 - Vercel
 - Netlify
 - Railway

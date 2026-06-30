@@ -15,9 +15,7 @@ export function syncedPlaylistTitle(spotifyPlaylistName: string): string {
  * Fetch all of the authenticated user's YouTube playlists, paginating fully.
  * `playlists.list` costs 1 quota unit per page regardless of parts requested.
  */
-export async function fetchAllYoutubePlaylists(
-  youtube: YoutubeClient
-): Promise<YtPlaylist[]> {
+export async function fetchAllYoutubePlaylists(youtube: YoutubeClient): Promise<YtPlaylist[]> {
   const all: YtPlaylist[] = [];
   let pageToken: string | undefined = undefined;
 
@@ -27,9 +25,9 @@ export async function fetchAllYoutubePlaylists(
         part: ['id', 'snippet', 'contentDetails'],
         mine: true,
         maxResults: 50,
-        pageToken
+        pageToken,
       })
-      .then(res => res.data);
+      .then((res) => res.data);
 
     if (response.items) {
       all.push(...response.items);
@@ -46,9 +44,9 @@ export async function fetchAllYoutubePlaylists(
  */
 export async function findSyncedYoutubePlaylist(
   youtube: YoutubeClient,
-  spotifyPlaylistName: string
+  spotifyPlaylistName: string,
 ): Promise<YtPlaylist | null> {
   const expectedTitle = syncedPlaylistTitle(spotifyPlaylistName);
   const all = await fetchAllYoutubePlaylists(youtube);
-  return all.find(playlist => playlist.snippet?.title === expectedTitle) || null;
+  return all.find((playlist) => playlist.snippet?.title === expectedTitle) || null;
 }

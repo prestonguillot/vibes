@@ -31,19 +31,24 @@ export interface ClassifiedTracks {
 const toSimplifiedTrack = (t: NonNullable<SpotifyPlaylistItem['track']>): SimplifiedTrack => ({
   id: t.id,
   name: t.name,
-  artist: t.artists[0]?.name || 'Unknown Artist'
+  artist: t.artists[0]?.name || 'Unknown Artist',
 });
 
 export function classifyTracksForSync(
   tracks: unknown[],
   existingItemsMap: Map<string, YtPlaylistItem>,
-  opts: { isUpdateMode: boolean; trackLimit: number }
+  opts: { isUpdateMode: boolean; trackLimit: number },
 ): ClassifiedTracks {
   const { isUpdateMode, trackLimit } = opts;
 
   if (!isUpdateMode) {
     // CREATE MODE: process up to trackLimit tracks from the beginning.
-    return { tracksToSearch: tracks.slice(0, trackLimit), syncedTracks: [], unsyncedTracks: [], existingMatchPairs: [] };
+    return {
+      tracksToSearch: tracks.slice(0, trackLimit),
+      syncedTracks: [],
+      unsyncedTracks: [],
+      existingMatchPairs: [],
+    };
   }
 
   // UPDATE MODE: build the existing videos and match against the Spotify tracks.
@@ -55,7 +60,7 @@ export function classifyTracksForSync(
         id: videoId,
         title: item.snippet?.title || 'Unknown',
         description: item.snippet?.description || '',
-        channelTitle: item.snippet?.channelTitle || undefined
+        channelTitle: item.snippet?.channelTitle || undefined,
       });
     }
   }
@@ -88,8 +93,13 @@ export function classifyTracksForSync(
     totalTracks: tracks.length,
     syncedTracks: syncedTracks.length,
     unsyncedTracks: unsyncedTracks.length,
-    existingVideos: existingVideos.length
+    existingVideos: existingVideos.length,
   });
 
-  return { tracksToSearch: unsyncedTracks.slice(0, trackLimit), syncedTracks, unsyncedTracks, existingMatchPairs };
+  return {
+    tracksToSearch: unsyncedTracks.slice(0, trackLimit),
+    syncedTracks,
+    unsyncedTracks,
+    existingMatchPairs,
+  };
 }

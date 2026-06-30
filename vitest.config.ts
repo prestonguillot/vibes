@@ -22,16 +22,16 @@ export default defineConfig({
         '**/*.d.ts',
         'public/**',
         'views/**',
-        '.claude/**'
-      ]
+        '.claude/**',
+      ],
     },
     setupFiles: ['./tests/setup.ts'],
-    testTimeout: 10000
+    testTimeout: 10000,
   },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
-      '@tests': path.resolve(__dirname, './tests')
-    }
-  }
+      '@tests': path.resolve(__dirname, './tests'),
+    },
+  },
 });

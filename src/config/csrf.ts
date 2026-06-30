@@ -26,8 +26,8 @@ export function initializeCsrfSecret(): string {
     if (!envSecret) {
       throw new Error(
         'CSRF_SECRET environment variable must be set in production. ' +
-        'Generate a random secret and set it before deploying: ' +
-        'node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"'
+          'Generate a random secret and set it before deploying: ' +
+          "node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"",
       );
     }
     Logger.info('CSRF secret loaded from environment (production mode)');
@@ -44,8 +44,8 @@ export function initializeCsrfSecret(): string {
   const generatedSecret = crypto.randomBytes(32).toString('hex');
   Logger.warn(
     'Generated temporary CSRF secret for development. This is not persisted and will be different on each restart. ' +
-    'For persistent CSRF validation (e.g., across restarts or multiple instances), set CSRF_SECRET in .env. ' +
-    'Generate a secret with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"'
+      'For persistent CSRF validation (e.g., across restarts or multiple instances), set CSRF_SECRET in .env. ' +
+      "Generate a secret with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"",
   );
   return generatedSecret;
 }

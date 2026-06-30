@@ -46,10 +46,7 @@ function signToken(token: string): string {
  */
 function verifyToken(token: string, signature: string): boolean {
   const expectedSignature = signToken(token);
-  return crypto.timingSafeEqual(
-    Buffer.from(signature),
-    Buffer.from(expectedSignature)
-  );
+  return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature));
 }
 
 /**
@@ -70,14 +67,14 @@ export function csrfCookieMiddleware(req: Request, res: Response, next: NextFunc
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
     });
 
     // Store the unsigned token in res.locals so it's immediately available
     res.locals.csrfToken = token;
 
     Logger.debug('Generated new CSRF token', {
-      tokenPrefix: token.substring(0, 8) + '...'
+      tokenPrefix: token.substring(0, 8) + '...',
     });
   } else {
     // Extract existing token from signed cookie
@@ -105,17 +102,17 @@ export function csrfValidationMiddleware(req: Request, res: Response, next: Next
     hasHeaderToken: !!headerToken,
     hasCookieToken: !!signedToken,
     headerTokenPrefix: headerToken ? headerToken.substring(0, 8) + '...' : 'NONE',
-    cookieTokenPrefix: signedToken ? signedToken.substring(0, 8) + '...' : 'NONE'
+    cookieTokenPrefix: signedToken ? signedToken.substring(0, 8) + '...' : 'NONE',
   });
 
   if (!headerToken) {
     Logger.warn('CSRF validation failed: missing header token', {
       url: req.originalUrl,
       method: req.method,
-      headers: Object.keys(req.headers).filter(h => h.toLowerCase().includes('csrf'))
+      headers: Object.keys(req.headers).filter((h) => h.toLowerCase().includes('csrf')),
     });
     return res.status(403).json({
-      error: 'CSRF token missing in request header'
+      error: 'CSRF token missing in request header',
     });
   }
 
@@ -123,10 +120,10 @@ export function csrfValidationMiddleware(req: Request, res: Response, next: Next
     Logger.warn('CSRF validation failed: missing cookie token', {
       url: req.originalUrl,
       method: req.method,
-      cookies: Object.keys(req.cookies)
+      cookies: Object.keys(req.cookies),
     });
     return res.status(403).json({
-      error: 'CSRF token missing in cookie'
+      error: 'CSRF token missing in cookie',
     });
   }
 
@@ -137,7 +134,7 @@ export function csrfValidationMiddleware(req: Request, res: Response, next: Next
     cookieTokenPrefix: cookieToken ? cookieToken.substring(0, 8) + '...' : 'NONE',
     signaturePrefix: signature ? signature.substring(0, 8) + '...' : 'NONE',
     headerTokenPrefix: headerToken.substring(0, 8) + '...',
-    tokensMatch: headerToken === cookieToken
+    tokensMatch: headerToken === cookieToken,
   });
 
   if (!cookieToken || !signature) {
@@ -145,10 +142,10 @@ export function csrfValidationMiddleware(req: Request, res: Response, next: Next
       url: req.originalUrl,
       method: req.method,
       hasCookieToken: !!cookieToken,
-      hasSignature: !!signature
+      hasSignature: !!signature,
     });
     return res.status(403).json({
-      error: 'Invalid CSRF token format'
+      error: 'Invalid CSRF token format',
     });
   }
 
@@ -160,7 +157,7 @@ export function csrfValidationMiddleware(req: Request, res: Response, next: Next
     Logger.debug('CSRF signature verification', {
       signatureValid,
       providedSigPrefix: signature.substring(0, 8) + '...',
-      expectedSigPrefix: expectedSignature.substring(0, 8) + '...'
+      expectedSigPrefix: expectedSignature.substring(0, 8) + '...',
     });
 
     if (!signatureValid) {
@@ -169,19 +166,23 @@ export function csrfValidationMiddleware(req: Request, res: Response, next: Next
         method: req.method,
         cookieTokenPrefix: cookieToken.substring(0, 8) + '...',
         providedSigPrefix: signature.substring(0, 8) + '...',
-        expectedSigPrefix: expectedSignature.substring(0, 8) + '...'
+        expectedSigPrefix: expectedSignature.substring(0, 8) + '...',
       });
       return res.status(403).json({
-        error: 'Invalid CSRF token signature'
+        error: 'Invalid CSRF token signature',
       });
     }
   } catch (error) {
-    Logger.error('CSRF validation error', {
-      url: req.originalUrl,
-      method: req.method
-    }, error);
+    Logger.error(
+      'CSRF validation error',
+      {
+        url: req.originalUrl,
+        method: req.method,
+      },
+      error,
+    );
     return res.status(403).json({
-      error: 'CSRF token validation error'
+      error: 'CSRF token validation error',
     });
   }
 
@@ -191,17 +192,17 @@ export function csrfValidationMiddleware(req: Request, res: Response, next: Next
       url: req.originalUrl,
       method: req.method,
       headerTokenPrefix: headerToken.substring(0, 8) + '...',
-      cookieTokenPrefix: cookieToken.substring(0, 8) + '...'
+      cookieTokenPrefix: cookieToken.substring(0, 8) + '...',
     });
     return res.status(403).json({
-      error: 'CSRF token mismatch'
+      error: 'CSRF token mismatch',
     });
   }
 
   Logger.info('CSRF validation successful ✓', {
     url: req.originalUrl,
     method: req.method,
-    tokenPrefix: headerToken.substring(0, 8) + '...'
+    tokenPrefix: headerToken.substring(0, 8) + '...',
   });
 
   return next();

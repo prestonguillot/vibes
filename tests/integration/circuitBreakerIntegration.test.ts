@@ -77,7 +77,7 @@ describe('Circuit Breaker Integration', () => {
       // Simulate setting a YouTube token cookie
       const mockResponse = {
         clearCookie: vi.fn(),
-        cookie: vi.fn()
+        cookie: vi.fn(),
       };
 
       // Open circuit breaker

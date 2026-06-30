@@ -42,9 +42,10 @@ export interface SearchOptions {
  */
 export async function searchTracksForVideos(
   tracksToSearch: unknown[],
-  opts: SearchOptions
+  opts: SearchOptions,
 ): Promise<{ videoIds: string[]; searchResults: TrackSearchResult[] }> {
-  const { isUpdateMode, existingVideoCount, totalTrackCount, searchPhaseWeight, emitProgress } = opts;
+  const { isUpdateMode, existingVideoCount, totalTrackCount, searchPhaseWeight, emitProgress } =
+    opts;
   const videoIds: string[] = [];
   const searchResults: TrackSearchResult[] = [];
   let searchCount = 0;
@@ -64,7 +65,12 @@ export async function searchTracksForVideos(
     const spotifyPosition = isUpdateMode ? existingVideoCount + i : i;
 
     try {
-      Logger.debug('Searching for track', { trackNumber: searchCount + 1, totalTracks: tracksToSearch.length, artist, songName });
+      Logger.debug('Searching for track', {
+        trackNumber: searchCount + 1,
+        totalTracks: tracksToSearch.length,
+        artist,
+        songName,
+      });
 
       const searchProgress = (searchCount / tracksToSearch.length) * searchPhaseWeight;
       await emitProgress({
@@ -77,7 +83,7 @@ export async function searchTracksForVideos(
         totalTracks: tracksToSearch.length,
         currentSong: songName,
         currentArtist: artist,
-        percentage: Math.round(searchProgress * 100)
+        percentage: Math.round(searchProgress * 100),
       });
 
       const videoId = await searchMusicVideo(artist, songName);
@@ -85,26 +91,53 @@ export async function searchTracksForVideos(
 
       if (videoId) {
         videoIds.push(videoId);
-        searchResults.push({ track: songName, artist, found: true, videoId, spotifyPosition, spotifyTrackId: track.id });
+        searchResults.push({
+          track: songName,
+          artist,
+          found: true,
+          videoId,
+          spotifyPosition,
+          spotifyTrackId: track.id,
+        });
         Logger.info('Found video for track', { songName, artist, videoId, spotifyPosition });
       } else {
-        searchResults.push({ track: songName, artist, found: false, spotifyPosition, spotifyTrackId: track.id });
+        searchResults.push({
+          track: songName,
+          artist,
+          found: false,
+          spotifyPosition,
+          spotifyTrackId: track.id,
+        });
         Logger.warn('No video found for track', { songName, artist, spotifyPosition });
       }
 
       // Rate limiting: small delay between searches to be respectful.
       if (searchCount < totalTrackCount) {
         Logger.debug('Rate limiting delay', { delayMs: 100 });
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 100));
       }
     } catch (error) {
       searchCount++;
       Logger.error('Error searching for track', { artist, songName }, error);
-      await emitProgress({ type: 'error', message: 'Error searching for video', details: formatErrorDetails(error) });
-      searchResults.push({ track: songName, artist, found: false, spotifyPosition, spotifyTrackId: track.id });
+      await emitProgress({
+        type: 'error',
+        message: 'Error searching for video',
+        details: formatErrorDetails(error),
+      });
+      searchResults.push({
+        track: songName,
+        artist,
+        found: false,
+        spotifyPosition,
+        spotifyTrackId: track.id,
+      });
     }
   }
 
-  Logger.info('Scraping completed', { searchesMade: searchCount, videosFound: videoIds.length, quotaSaved: searchCount * 100 });
+  Logger.info('Scraping completed', {
+    searchesMade: searchCount,
+    videosFound: videoIds.length,
+    quotaSaved: searchCount * 100,
+  });
   return { videoIds, searchResults };
 }

@@ -14,20 +14,42 @@ import ejs from 'ejs';
 const ROOT = path.join(__dirname, '../..');
 const CSS = [
   fs.readFileSync(path.join(ROOT, 'public/vendor/bootstrap.min.css'), 'utf-8'),
-  fs.readFileSync(path.join(ROOT, 'public/css/style.css'), 'utf-8')
+  fs.readFileSync(path.join(ROOT, 'public/css/style.css'), 'utf-8'),
 ].join('\n');
 const VIDEO_MODAL_JS = fs.readFileSync(path.join(ROOT, 'public/js/videoModal.js'), 'utf-8');
-const img = (c: string) => `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'%3E%3Crect width='1' height='1' fill='%23${c}'/%3E%3C/svg%3E`;
+const img = (c: string) =>
+  `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'%3E%3Crect width='1' height='1' fill='%23${c}'/%3E%3C/svg%3E`;
 const score = { stars: 4.5, totalScore: 0.9, color: '#3bb54a', components: { coreMatch: 0.6 } };
 
 async function modalPage(): Promise<string> {
-  const content = await ejs.renderFile(path.join(ROOT, 'views/partials/video-selection-modal.ejs'), {
-    modalTitle: 'Choose a video', instructionText: 'Pick the best match', currentVideoId: '', playlistId: 'p1', trackId: 't1',
-    videos: [
-      { id: 'v1', title: 'Song (Official Video)', channelTitle: 'The Artist', description: 'desc '.repeat(8), thumbnail: img('3366cc'), matchScore: score },
-      { id: 'v2', title: 'Song (Live)', channelTitle: 'A Fan', description: 'live', thumbnail: img('cc9933'), matchScore: { stars: 3, totalScore: 0.6, color: '#e0a800', components: {} } }
-    ]
-  });
+  const content = await ejs.renderFile(
+    path.join(ROOT, 'views/partials/video-selection-modal.ejs'),
+    {
+      modalTitle: 'Choose a video',
+      instructionText: 'Pick the best match',
+      currentVideoId: '',
+      playlistId: 'p1',
+      trackId: 't1',
+      videos: [
+        {
+          id: 'v1',
+          title: 'Song (Official Video)',
+          channelTitle: 'The Artist',
+          description: 'desc '.repeat(8),
+          thumbnail: img('3366cc'),
+          matchScore: score,
+        },
+        {
+          id: 'v2',
+          title: 'Song (Live)',
+          channelTitle: 'A Fan',
+          description: 'live',
+          thumbnail: img('cc9933'),
+          matchScore: { stars: 3, totalScore: 0.6, color: '#e0a800', components: {} },
+        },
+      ],
+    },
+  );
   return `<!doctype html><html><head><meta charset="utf-8"><style>${CSS}</style></head><body>
     <dialog id="videoSelectionModal" class="video-modal"><div class="modal-content"><div id="video-modal-content">${content}</div></div></dialog>
     <script>window.Logger = { error() {}, debug() {} };</script>
@@ -40,9 +62,13 @@ const isOpen = (page: import('@playwright/test').Page) =>
 
 // Fire the htmx:afterSwap the real handler listens for, to open the dialog + wire radios.
 const swapIn = (page: import('@playwright/test').Page) =>
-  page.evaluate(() => document.dispatchEvent(new CustomEvent('htmx:afterSwap', {
-    detail: { target: document.getElementById('video-modal-content') }
-  })));
+  page.evaluate(() =>
+    document.dispatchEvent(
+      new CustomEvent('htmx:afterSwap', {
+        detail: { target: document.getElementById('video-modal-content') },
+      }),
+    ),
+  );
 
 test('opens on afterSwap and closes on a close control', async ({ page }) => {
   await page.setContent(await modalPage());
@@ -56,9 +82,13 @@ test('opens on afterSwap and closes on a close control', async ({ page }) => {
 test('opens the instant the video-options request starts (beforeRequest)', async ({ page }) => {
   await page.setContent(await modalPage());
   expect(await isOpen(page)).toBe(false);
-  await page.evaluate(() => document.dispatchEvent(new CustomEvent('htmx:beforeRequest', {
-    detail: { target: document.getElementById('video-modal-content') }
-  })));
+  await page.evaluate(() =>
+    document.dispatchEvent(
+      new CustomEvent('htmx:beforeRequest', {
+        detail: { target: document.getElementById('video-modal-content') },
+      }),
+    ),
+  );
   expect(await isOpen(page)).toBe(true);
 });
 

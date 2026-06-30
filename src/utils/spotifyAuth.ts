@@ -30,9 +30,13 @@ export async function ensureValidSpotifyToken(req: Request, res: Response): Prom
         const refreshed = await refreshAccessToken(tokens.refreshToken);
         const updated = {
           accessToken: refreshed.accessToken,
-          refreshToken: refreshed.refreshToken ?? tokens.refreshToken
+          refreshToken: refreshed.refreshToken ?? tokens.refreshToken,
         };
-        res.cookie('spotify_tokens', validateAndSerializeSpotifyTokens(updated), getSecureCookieOptions());
+        res.cookie(
+          'spotify_tokens',
+          validateAndSerializeSpotifyTokens(updated),
+          getSecureCookieOptions(),
+        );
         Logger.auth('Spotify', 'token refreshed successfully');
         return updated.accessToken;
       } catch (refreshError) {

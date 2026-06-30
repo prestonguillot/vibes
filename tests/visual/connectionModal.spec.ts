@@ -13,7 +13,7 @@ import ejs from 'ejs';
 const ROOT = path.join(__dirname, '../..');
 const CSS = [
   fs.readFileSync(path.join(ROOT, 'public/vendor/bootstrap.min.css'), 'utf-8'),
-  fs.readFileSync(path.join(ROOT, 'public/css/style.css'), 'utf-8')
+  fs.readFileSync(path.join(ROOT, 'public/css/style.css'), 'utf-8'),
 ].join('\n');
 const VIDEO_MODAL_JS = fs.readFileSync(path.join(ROOT, 'public/js/videoModal.js'), 'utf-8');
 const DISMISS_ALERT_JS = fs.readFileSync(path.join(ROOT, 'public/js/dismissAlert.js'), 'utf-8');
@@ -44,7 +44,9 @@ const isOpen = (page: import('@playwright/test').Page) =>
   page.evaluate(() => (document.getElementById('connectionErrorModal') as HTMLDialogElement).open);
 
 const open = (page: import('@playwright/test').Page) =>
-  page.evaluate(() => (document.getElementById('connectionErrorModal') as HTMLDialogElement).showModal());
+  page.evaluate(() =>
+    (document.getElementById('connectionErrorModal') as HTMLDialogElement).showModal(),
+  );
 
 test('connection modal closes on the OK control', async ({ page }) => {
   await page.setContent(modalPage());
@@ -71,7 +73,9 @@ test('connection modal layout', async ({ page }) => {
 });
 
 test('[data-alert-dismiss] removes its alert', async ({ page }) => {
-  const alert = await ejs.renderFile(path.join(ROOT, 'views/partials/video-replace-success.ejs'), { message: 'Video replaced.' });
+  const alert = await ejs.renderFile(path.join(ROOT, 'views/partials/video-replace-success.ejs'), {
+    message: 'Video replaced.',
+  });
   await page.setContent(`<!doctype html><html><head><style>${CSS}</style></head><body>
     ${alert}<script>${DISMISS_ALERT_JS}</script></body></html>`);
   await expect(page.locator('.alert')).toBeVisible();

@@ -21,7 +21,7 @@ describe('YouTube Quota Exceeded Error Detection', () => {
     it('should detect quota error with error code 403', () => {
       const error = {
         code: 403,
-        message: 'The request cannot be completed because you have exceeded your quota.'
+        message: 'The request cannot be completed because you have exceeded your quota.',
       };
 
       expect(isQuotaExceededError(error)).toBe(true);
@@ -30,7 +30,7 @@ describe('YouTube Quota Exceeded Error Detection', () => {
     it('should not detect non-403 error codes', () => {
       const error = {
         code: 500,
-        message: 'Internal server error'
+        message: 'Internal server error',
       };
 
       expect(isQuotaExceededError(error)).toBe(false);
@@ -39,7 +39,7 @@ describe('YouTube Quota Exceeded Error Detection', () => {
     it('should not detect 404 error codes', () => {
       const error = {
         code: 404,
-        message: 'Not found'
+        message: 'Not found',
       };
 
       expect(isQuotaExceededError(error)).toBe(false);
@@ -67,7 +67,7 @@ describe('YouTube Quota Exceeded Error Detection', () => {
 
     it('should detect quota error with HTML tags (the original bug)', () => {
       const error = new Error(
-        'The request cannot be completed because you have exceeded your <a href="/youtube/v3/getting-started#quota">quota</a>.'
+        'The request cannot be completed because you have exceeded your <a href="/youtube/v3/getting-started#quota">quota</a>.',
       );
 
       expect(isQuotaExceededError(error)).toBe(true);
@@ -94,7 +94,7 @@ describe('YouTube Quota Exceeded Error Detection', () => {
     it('should detect error with both code 403 AND quota in message', () => {
       const error = {
         code: 403,
-        message: 'Quota exceeded'
+        message: 'Quota exceeded',
       };
 
       expect(isQuotaExceededError(error)).toBe(true);
@@ -103,7 +103,7 @@ describe('YouTube Quota Exceeded Error Detection', () => {
     it('should detect error with code 403 but no quota in message', () => {
       const error = {
         code: 403,
-        message: 'Forbidden'
+        message: 'Forbidden',
       };
 
       expect(isQuotaExceededError(error)).toBe(true);
@@ -118,7 +118,7 @@ describe('YouTube Quota Exceeded Error Detection', () => {
     it('should not detect error with neither code 403 nor quota in message', () => {
       const error = {
         code: 500,
-        message: 'Internal server error'
+        message: 'Internal server error',
       };
 
       expect(isQuotaExceededError(error)).toBe(false);
@@ -172,9 +172,9 @@ describe('YouTube Quota Exceeded Error Detection', () => {
           {
             message: 'The request cannot be completed because you have exceeded your quota.',
             domain: 'youtube.quota',
-            reason: 'quotaExceeded'
-          }
-        ]
+            reason: 'quotaExceeded',
+          },
+        ],
       };
 
       expect(isQuotaExceededError(error)).toBe(true);
@@ -182,7 +182,7 @@ describe('YouTube Quota Exceeded Error Detection', () => {
 
     it('should detect googleapis error with HTML in message', () => {
       const error = new Error(
-        'The request cannot be completed because you have exceeded your <a href="/youtube/v3/getting-started#quota">quota</a>.'
+        'The request cannot be completed because you have exceeded your <a href="/youtube/v3/getting-started#quota">quota</a>.',
       );
 
       expect(isQuotaExceededError(error)).toBe(true);
@@ -192,14 +192,16 @@ describe('YouTube Quota Exceeded Error Detection', () => {
       // This is the format that google-api-nodejs-client might throw
       const error = {
         code: 403,
-        message: 'Quota exceeded for quota metric \'Queries\' and limit \'Queries per day\' of service \'youtube.googleapis.com\'',
+        message:
+          "Quota exceeded for quota metric 'Queries' and limit 'Queries per day' of service 'youtube.googleapis.com'",
         errors: [
           {
-            message: 'Quota exceeded for quota metric \'Queries\' and limit \'Queries per day\' of service \'youtube.googleapis.com\'',
+            message:
+              "Quota exceeded for quota metric 'Queries' and limit 'Queries per day' of service 'youtube.googleapis.com'",
             domain: 'usageLimits',
-            reason: 'quotaExceeded'
-          }
-        ]
+            reason: 'quotaExceeded',
+          },
+        ],
       };
 
       expect(isQuotaExceededError(error)).toBe(true);

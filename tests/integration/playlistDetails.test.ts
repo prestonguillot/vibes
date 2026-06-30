@@ -15,7 +15,7 @@ import { createApp } from '@/app';
 // vi.fns so the factory and the per-test overrides share the same mocks.
 const h = vi.hoisted(() => ({
   getPlaylist: vi.fn(),
-  fetchAllPlaylistItems: vi.fn()
+  fetchAllPlaylistItems: vi.fn(),
 }));
 
 vi.mock('@/utils/spotifyClient', async (importActual) => {
@@ -24,7 +24,7 @@ vi.mock('@/utils/spotifyClient', async (importActual) => {
 });
 
 vi.mock('@/utils/spotifyPlaylistItems', () => ({
-  fetchAllPlaylistItems: h.fetchAllPlaylistItems
+  fetchAllPlaylistItems: h.fetchAllPlaylistItems,
 }));
 
 // Builds a normalized playlist-item ({ track }) matching what fetchAllPlaylistItems returns.
@@ -34,7 +34,7 @@ const trackItem = (
   artist: string,
   albumName: string,
   imageUrl: string | null,
-  preview: string | null = null
+  preview: string | null = null,
 ) => ({
   track: {
     id,
@@ -42,22 +42,26 @@ const trackItem = (
     artists: [{ name: artist }],
     album: {
       name: albumName,
-      images: imageUrl ? [{ url: imageUrl, height: 640, width: 640 }] : []
+      images: imageUrl ? [{ url: imageUrl, height: 640, width: 640 }] : [],
     },
     duration_ms: 180000,
     external_urls: { spotify: `https://open.spotify.com/track/${id}` },
-    preview_url: preview
-  }
+    preview_url: preview,
+  },
 });
 
 // Sets both mocks for a playlist: metadata via getPlaylist, tracks via fetchAllPlaylistItems.
-const mockPlaylist = (name: string, items: ReturnType<typeof trackItem>[], trackTotal: number | null = null) => {
+const mockPlaylist = (
+  name: string,
+  items: ReturnType<typeof trackItem>[],
+  trackTotal: number | null = null,
+) => {
   h.getPlaylist.mockResolvedValue({
     id: 'playlist',
     name,
     ownerId: null,
     trackTotal,
-    spotifyUrl: 'https://open.spotify.com/playlist/test'
+    spotifyUrl: 'https://open.spotify.com/playlist/test',
   });
   h.fetchAllPlaylistItems.mockResolvedValue(items);
 };
@@ -67,16 +71,35 @@ const app = createApp();
 describe('Playlist Details Error Handling', () => {
   beforeEach(() => {
     // Default: a two-track "Test Playlist" so tests that don't override still resolve.
-    mockPlaylist('Test Playlist', [
-      trackItem('track1', 'Test Track 1', 'Test Artist 1', 'Test Album 1', 'https://example.com/album1-large.jpg', 'https://preview.url'),
-      trackItem('track2', 'Test Track 2', 'Test Artist 2', 'Test Album 2', 'https://example.com/album2-large.jpg', null)
-    ], 2);
+    mockPlaylist(
+      'Test Playlist',
+      [
+        trackItem(
+          'track1',
+          'Test Track 1',
+          'Test Artist 1',
+          'Test Album 1',
+          'https://example.com/album1-large.jpg',
+          'https://preview.url',
+        ),
+        trackItem(
+          'track2',
+          'Test Track 2',
+          'Test Artist 2',
+          'Test Album 2',
+          'https://example.com/album2-large.jpg',
+          null,
+        ),
+      ],
+      2,
+    );
   });
 
   describe('Authentication Requirements', () => {
     it('should require Spotify authentication', async () => {
-      const response = await request(app)
-        .get('/api/playlistDetails/playlist/1234567890123456789012');
+      const response = await request(app).get(
+        '/api/playlistDetails/playlist/1234567890123456789012',
+      );
 
       // Should return error about missing Spotify authentication
       expect(response.status).toBeGreaterThanOrEqual(400);
@@ -86,7 +109,7 @@ describe('Playlist Details Error Handling', () => {
       // Only set Spotify cookie, not YouTube - this should now work!
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-spotify-token',
-        refreshToken: 'test-spotify-refresh'
+        refreshToken: 'test-spotify-refresh',
       });
 
       const response = await request(app)
@@ -103,27 +126,25 @@ describe('Playlist Details Error Handling', () => {
     it('should reject invalid playlist IDs', async () => {
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-spotify-token',
-        refreshToken: 'test-spotify-refresh'
+        refreshToken: 'test-spotify-refresh',
       });
       const youtubeTokens = JSON.stringify({
         access_token: 'test-youtube-token',
-        refresh_token: 'test-youtube-refresh'
+        refresh_token: 'test-youtube-refresh',
       });
 
       const response = await request(app)
         .get('/api/playlistDetails/playlist/invalid-id')
-        .set('Cookie', [
-          `spotify_tokens=${spotifyTokens}`,
-          `youtube_tokens=${youtubeTokens}`
-        ]);
+        .set('Cookie', [`spotify_tokens=${spotifyTokens}`, `youtube_tokens=${youtubeTokens}`]);
 
       // Validation middleware should reject
       expect(response.status).toBe(400);
     });
 
     it('should accept valid 22-character playlist IDs (non-validation)', async () => {
-      const response = await request(app)
-        .get('/api/playlistDetails/playlist/1234567890123456789012');
+      const response = await request(app).get(
+        '/api/playlistDetails/playlist/1234567890123456789012',
+      );
 
       // Should not reject based on validation (may fail for auth or other reasons)
       // The key is it shouldn't be a 400 validation error
@@ -134,13 +155,27 @@ describe('Playlist Details Error Handling', () => {
   describe('Spotify-Only Mode', () => {
     it('should successfully render playlist details with only Spotify connected', async () => {
       mockPlaylist('Test Playlist', [
-        trackItem('track1', 'Test Track 1', 'Test Artist 1', 'Test Album 1', 'https://example.com/album1.jpg', 'https://preview.url'),
-        trackItem('track2', 'Test Track 2', 'Test Artist 2', 'Test Album 2', 'https://example.com/album2.jpg', null)
+        trackItem(
+          'track1',
+          'Test Track 1',
+          'Test Artist 1',
+          'Test Album 1',
+          'https://example.com/album1.jpg',
+          'https://preview.url',
+        ),
+        trackItem(
+          'track2',
+          'Test Track 2',
+          'Test Artist 2',
+          'Test Album 2',
+          'https://example.com/album2.jpg',
+          null,
+        ),
       ]);
 
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-spotify-token',
-        refreshToken: 'test-spotify-refresh'
+        refreshToken: 'test-spotify-refresh',
       });
 
       const response = await request(app)
@@ -164,13 +199,27 @@ describe('Playlist Details Error Handling', () => {
 
     it('should not show "linked" count when YouTube is not connected', async () => {
       mockPlaylist('Test Playlist', [
-        trackItem('track1', 'Track 1', 'Artist 1', 'Album 1', 'https://example.com/album1.jpg', null),
-        trackItem('track2', 'Track 2', 'Artist 2', 'Album 2', 'https://example.com/album2.jpg', null)
+        trackItem(
+          'track1',
+          'Track 1',
+          'Artist 1',
+          'Album 1',
+          'https://example.com/album1.jpg',
+          null,
+        ),
+        trackItem(
+          'track2',
+          'Track 2',
+          'Artist 2',
+          'Album 2',
+          'https://example.com/album2.jpg',
+          null,
+        ),
       ]);
 
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-spotify-token',
-        refreshToken: 'test-spotify-refresh'
+        refreshToken: 'test-spotify-refresh',
       });
 
       const response = await request(app)
@@ -188,13 +237,24 @@ describe('Playlist Details Error Handling', () => {
     });
 
     it('should not show YouTube video elements when YouTube is not connected', async () => {
-      mockPlaylist('Test Playlist', [
-        trackItem('track1', 'Track 1', 'Artist 1', 'Album 1', 'https://example.com/album1.jpg', null)
-      ], 1);
+      mockPlaylist(
+        'Test Playlist',
+        [
+          trackItem(
+            'track1',
+            'Track 1',
+            'Artist 1',
+            'Album 1',
+            'https://example.com/album1.jpg',
+            null,
+          ),
+        ],
+        1,
+      );
 
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-spotify-token',
-        refreshToken: 'test-spotify-refresh'
+        refreshToken: 'test-spotify-refresh',
       });
 
       const response = await request(app)
@@ -212,12 +272,19 @@ describe('Playlist Details Error Handling', () => {
 
     it('should not show link/unlink badges when YouTube is not connected', async () => {
       mockPlaylist('Test Playlist', [
-        trackItem('track1', 'Track 1', 'Artist 1', 'Album 1', 'https://example.com/album1.jpg', null)
+        trackItem(
+          'track1',
+          'Track 1',
+          'Artist 1',
+          'Album 1',
+          'https://example.com/album1.jpg',
+          null,
+        ),
       ]);
 
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-spotify-token',
-        refreshToken: 'test-spotify-refresh'
+        refreshToken: 'test-spotify-refresh',
       });
 
       const response = await request(app)
@@ -236,12 +303,19 @@ describe('Playlist Details Error Handling', () => {
 
     it('should not show edit buttons when YouTube is not connected', async () => {
       mockPlaylist('Test Playlist', [
-        trackItem('track1', 'Track 1', 'Artist 1', 'Album 1', 'https://example.com/album1.jpg', null)
+        trackItem(
+          'track1',
+          'Track 1',
+          'Artist 1',
+          'Album 1',
+          'https://example.com/album1.jpg',
+          null,
+        ),
       ]);
 
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-spotify-token',
-        refreshToken: 'test-spotify-refresh'
+        refreshToken: 'test-spotify-refresh',
       });
 
       const response = await request(app)
@@ -258,12 +332,19 @@ describe('Playlist Details Error Handling', () => {
 
     it('should not show "YouTube Only" badge when YouTube is not connected', async () => {
       mockPlaylist('Test Playlist', [
-        trackItem('track1', 'Track 1', 'Artist 1', 'Album 1', 'https://example.com/album1.jpg', null)
+        trackItem(
+          'track1',
+          'Track 1',
+          'Artist 1',
+          'Album 1',
+          'https://example.com/album1.jpg',
+          null,
+        ),
       ]);
 
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-spotify-token',
-        refreshToken: 'test-spotify-refresh'
+        refreshToken: 'test-spotify-refresh',
       });
 
       const response = await request(app)
@@ -280,12 +361,19 @@ describe('Playlist Details Error Handling', () => {
   describe('Refresh Button Functionality', () => {
     it('should include refresh button in playlist details', async () => {
       mockPlaylist('Test Playlist', [
-        trackItem('track1', 'Track 1', 'Artist 1', 'Album 1', 'https://example.com/album1.jpg', null)
+        trackItem(
+          'track1',
+          'Track 1',
+          'Artist 1',
+          'Album 1',
+          'https://example.com/album1.jpg',
+          null,
+        ),
       ]);
 
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-spotify-token',
-        refreshToken: 'test-spotify-refresh'
+        refreshToken: 'test-spotify-refresh',
       });
 
       const response = await request(app)
@@ -301,12 +389,19 @@ describe('Playlist Details Error Handling', () => {
 
     it('should use correct HTMX attributes to prevent nesting', async () => {
       mockPlaylist('Test Playlist', [
-        trackItem('track1', 'Track 1', 'Artist 1', 'Album 1', 'https://example.com/album1.jpg', null)
+        trackItem(
+          'track1',
+          'Track 1',
+          'Artist 1',
+          'Album 1',
+          'https://example.com/album1.jpg',
+          null,
+        ),
       ]);
 
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-spotify-token',
-        refreshToken: 'test-spotify-refresh'
+        refreshToken: 'test-spotify-refresh',
       });
 
       const response = await request(app)
@@ -330,12 +425,19 @@ describe('Playlist Details Error Handling', () => {
 
     it('should not include duplicate id attributes that cause nesting', async () => {
       mockPlaylist('Test Playlist', [
-        trackItem('track1', 'Track 1', 'Artist 1', 'Album 1', 'https://example.com/album1.jpg', null)
+        trackItem(
+          'track1',
+          'Track 1',
+          'Artist 1',
+          'Album 1',
+          'https://example.com/album1.jpg',
+          null,
+        ),
       ]);
 
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-spotify-token',
-        refreshToken: 'test-spotify-refresh'
+        refreshToken: 'test-spotify-refresh',
       });
 
       const response = await request(app)
@@ -354,12 +456,19 @@ describe('Playlist Details Error Handling', () => {
 
     it('should return same structure on refresh as initial load', async () => {
       mockPlaylist('Test Playlist', [
-        trackItem('track1', 'Track 1', 'Artist 1', 'Album 1', 'https://example.com/album1.jpg', null)
+        trackItem(
+          'track1',
+          'Track 1',
+          'Artist 1',
+          'Album 1',
+          'https://example.com/album1.jpg',
+          null,
+        ),
       ]);
 
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-spotify-token',
-        refreshToken: 'test-spotify-refresh'
+        refreshToken: 'test-spotify-refresh',
       });
 
       // Make initial request
@@ -397,12 +506,19 @@ describe('Playlist Details Error Handling', () => {
 
     it('should only return one refresh button per response', async () => {
       mockPlaylist('Test Playlist', [
-        trackItem('track1', 'Track 1', 'Artist 1', 'Album 1', 'https://example.com/album1.jpg', null)
+        trackItem(
+          'track1',
+          'Track 1',
+          'Artist 1',
+          'Album 1',
+          'https://example.com/album1.jpg',
+          null,
+        ),
       ]);
 
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-spotify-token',
-        refreshToken: 'test-spotify-refresh'
+        refreshToken: 'test-spotify-refresh',
       });
 
       const response = await request(app)
@@ -417,7 +533,9 @@ describe('Playlist Details Error Handling', () => {
       expect(refreshButtonMatches?.length).toBe(1);
 
       // Should only have one button with "Refresh" text in playlist header context
-      const refreshTextMatches = response.text.match(/<button[^>]*>[\s\S]*?Refresh[\s\S]*?<\/button>/g);
+      const refreshTextMatches = response.text.match(
+        /<button[^>]*>[\s\S]*?Refresh[\s\S]*?<\/button>/g,
+      );
       expect(refreshTextMatches).not.toBeNull();
       expect(refreshTextMatches?.length).toBe(1);
     });
@@ -425,13 +543,24 @@ describe('Playlist Details Error Handling', () => {
 
   describe('Album Art Display (Spotify-Only Mode)', () => {
     it('should display album art when Spotify-only mode is active', async () => {
-      mockPlaylist('Test Playlist', [
-        trackItem('track1', 'Track 1', 'Artist 1', 'Album 1', 'https://example.com/album1.jpg', null)
-      ], 1);
+      mockPlaylist(
+        'Test Playlist',
+        [
+          trackItem(
+            'track1',
+            'Track 1',
+            'Artist 1',
+            'Album 1',
+            'https://example.com/album1.jpg',
+            null,
+          ),
+        ],
+        1,
+      );
 
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-spotify-token',
-        refreshToken: 'test-spotify-refresh'
+        refreshToken: 'test-spotify-refresh',
       });
 
       const response = await request(app)
@@ -446,13 +575,24 @@ describe('Playlist Details Error Handling', () => {
     });
 
     it('should use youtube-video CSS class for album art container', async () => {
-      mockPlaylist('Test Playlist', [
-        trackItem('track1', 'Track 1', 'Artist 1', 'Album 1', 'https://example.com/album1.jpg', null)
-      ], 1);
+      mockPlaylist(
+        'Test Playlist',
+        [
+          trackItem(
+            'track1',
+            'Track 1',
+            'Artist 1',
+            'Album 1',
+            'https://example.com/album1.jpg',
+            null,
+          ),
+        ],
+        1,
+      );
 
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-spotify-token',
-        refreshToken: 'test-spotify-refresh'
+        refreshToken: 'test-spotify-refresh',
       });
 
       const response = await request(app)
@@ -469,13 +609,24 @@ describe('Playlist Details Error Handling', () => {
     });
 
     it('should not display YouTube elements when only Spotify is connected', async () => {
-      mockPlaylist('Test Playlist', [
-        trackItem('track1', 'Track 1', 'Artist 1', 'Album 1', 'https://example.com/album1.jpg', null)
-      ], 1);
+      mockPlaylist(
+        'Test Playlist',
+        [
+          trackItem(
+            'track1',
+            'Track 1',
+            'Artist 1',
+            'Album 1',
+            'https://example.com/album1.jpg',
+            null,
+          ),
+        ],
+        1,
+      );
 
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-spotify-token',
-        refreshToken: 'test-spotify-refresh'
+        refreshToken: 'test-spotify-refresh',
       });
 
       const response = await request(app)
@@ -492,13 +643,15 @@ describe('Playlist Details Error Handling', () => {
 
     it('should handle tracks without album art gracefully', async () => {
       // A track that has no album images
-      mockPlaylist('Test Playlist', [
-        trackItem('track1', 'Track Without Art', 'Artist 1', 'Album 1', null, null)
-      ], 1);
+      mockPlaylist(
+        'Test Playlist',
+        [trackItem('track1', 'Track Without Art', 'Artist 1', 'Album 1', null, null)],
+        1,
+      );
 
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-spotify-token',
-        refreshToken: 'test-spotify-refresh'
+        refreshToken: 'test-spotify-refresh',
       });
 
       const response = await request(app)
@@ -519,13 +672,24 @@ describe('Playlist Details Error Handling', () => {
     });
 
     it('should preserve full grid layout when album art is displayed', async () => {
-      mockPlaylist('Test Playlist', [
-        trackItem('track1', 'Track 1', 'Artist 1', 'Album 1', 'https://example.com/album1.jpg', null)
-      ], 1);
+      mockPlaylist(
+        'Test Playlist',
+        [
+          trackItem(
+            'track1',
+            'Track 1',
+            'Artist 1',
+            'Album 1',
+            'https://example.com/album1.jpg',
+            null,
+          ),
+        ],
+        1,
+      );
 
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-spotify-token',
-        refreshToken: 'test-spotify-refresh'
+        refreshToken: 'test-spotify-refresh',
       });
 
       const response = await request(app)

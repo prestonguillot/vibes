@@ -26,16 +26,16 @@ describe('Playlist Filtering Logic', () => {
       let filteredPlaylists = mockPlaylists;
       if (ownOnly) {
         filteredPlaylists = filteredPlaylists.filter(
-          (playlist) => playlist.owner.id === currentUserId
+          (playlist) => playlist.owner.id === currentUserId,
         );
       }
 
       expect(filteredPlaylists).toHaveLength(3);
-      expect(filteredPlaylists.every(p => p.owner.id === currentUserId)).toBe(true);
-      expect(filteredPlaylists.map(p => p.name)).toEqual([
+      expect(filteredPlaylists.every((p) => p.owner.id === currentUserId)).toBe(true);
+      expect(filteredPlaylists.map((p) => p.name)).toEqual([
         'My Playlist 1',
         'My Playlist 2',
-        'My Playlist 3'
+        'My Playlist 3',
       ]);
     });
 
@@ -46,7 +46,7 @@ describe('Playlist Filtering Logic', () => {
       let filteredPlaylists = mockPlaylists;
       if (ownOnly) {
         filteredPlaylists = filteredPlaylists.filter(
-          (playlist) => playlist.owner.id === currentUserId
+          (playlist) => playlist.owner.id === currentUserId,
         );
       }
 
@@ -61,7 +61,7 @@ describe('Playlist Filtering Logic', () => {
       let filteredPlaylists = mockPlaylists;
       if (ownOnly) {
         filteredPlaylists = filteredPlaylists.filter(
-          (playlist) => playlist.owner.id === currentUserId
+          (playlist) => playlist.owner.id === currentUserId,
         );
       }
 
@@ -82,7 +82,7 @@ describe('Playlist Filtering Logic', () => {
       expect(ownOnlyBoolean === true).toBe(true);
 
       // Incorrect comparison (the bug)
-      expect(ownOnlyBoolean === ownOnlyString as any).toBe(false);
+      expect(ownOnlyBoolean === (ownOnlyString as any)).toBe(false);
     });
 
     it('should correctly evaluate when ownOnly is boolean false (not string "false")', () => {
@@ -93,7 +93,7 @@ describe('Playlist Filtering Logic', () => {
       expect(ownOnlyBoolean === false).toBe(true);
 
       // Incorrect comparison (the bug)
-      expect(ownOnlyBoolean === ownOnlyString as any).toBe(false);
+      expect(ownOnlyBoolean === (ownOnlyString as any)).toBe(false);
     });
 
     it('should demonstrate the bug: string comparison fails after Zod transformation', () => {
@@ -126,13 +126,13 @@ describe('Playlist Filtering Logic', () => {
       let filteredPlaylists = mockPlaylists;
       if (ownOnly) {
         filteredPlaylists = filteredPlaylists.filter(
-          (playlist) => playlist.owner.id === currentUserId
+          (playlist) => playlist.owner.id === currentUserId,
         );
       }
 
       expect(ownOnly).toBe(true);
       expect(filteredPlaylists).toHaveLength(3);
-      expect(filteredPlaylists.every(p => p.owner.id === currentUserId)).toBe(true);
+      expect(filteredPlaylists.every((p) => p.owner.id === currentUserId)).toBe(true);
     });
 
     it('should not filter when ownOnly is transformed boolean false', () => {
@@ -148,7 +148,7 @@ describe('Playlist Filtering Logic', () => {
       let filteredPlaylists = mockPlaylists;
       if (ownOnly) {
         filteredPlaylists = filteredPlaylists.filter(
-          (playlist) => playlist.owner.id === currentUserId
+          (playlist) => playlist.owner.id === currentUserId,
         );
       }
 

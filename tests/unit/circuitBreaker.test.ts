@@ -8,7 +8,7 @@ describe('CircuitBreaker', () => {
     circuitBreaker = new CircuitBreaker('Test Circuit', {
       failureThreshold: 2,
       resetTimeout: 1000, // 1 second for faster tests
-      successThreshold: 2
+      successThreshold: 2,
     });
   });
 
@@ -88,7 +88,7 @@ describe('CircuitBreaker', () => {
 
     it('should transition to HALF_OPEN after timeout', async () => {
       // Wait for reset timeout
-      await new Promise(resolve => setTimeout(resolve, 1100));
+      await new Promise((resolve) => setTimeout(resolve, 1100));
 
       expect(circuitBreaker.canProceed()).toBe(true);
       const state = circuitBreaker.getState();
@@ -103,7 +103,7 @@ describe('CircuitBreaker', () => {
       circuitBreaker.recordFailure();
 
       // Wait for reset timeout to enter HALF_OPEN
-      await new Promise(resolve => setTimeout(resolve, 1100));
+      await new Promise((resolve) => setTimeout(resolve, 1100));
       circuitBreaker.canProceed(); // Trigger transition to HALF_OPEN
     });
 
@@ -177,7 +177,7 @@ describe('CircuitBreaker', () => {
       expect(circuitBreaker.canProceed()).toBe(false);
 
       // Wait for timeout
-      await new Promise(resolve => setTimeout(resolve, 1100));
+      await new Promise((resolve) => setTimeout(resolve, 1100));
 
       expect(circuitBreaker.canProceed()).toBe(true);
     });
@@ -202,12 +202,12 @@ describe('CircuitBreaker', () => {
       const customBreaker = new CircuitBreaker('Custom', {
         failureThreshold: 2,
         resetTimeout: 100,
-        successThreshold: 3
+        successThreshold: 3,
       });
 
       // Open and wait for HALF_OPEN
       customBreaker.open();
-      await new Promise(resolve => setTimeout(resolve, 150));
+      await new Promise((resolve) => setTimeout(resolve, 150));
       customBreaker.canProceed();
 
       // Should need 3 successes to close
