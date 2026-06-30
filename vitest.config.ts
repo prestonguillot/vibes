@@ -5,6 +5,10 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    // Initialize the app logger silent so its output (including the module-load
+    // "logger initialized" line and the deliberate error-path logging in tests)
+    // never interleaves with the test runner's output.
+    env: { LOG_LEVEL: 'silent' },
     // tests/live hits the real Spotify API; it is opt-in via `npm run test:spotify:live`
     // (vitest.live.config.ts) and must never run on the normal cycle.
     exclude: [...configDefaults.exclude, 'tests/live/**', 'tests/visual/**'],

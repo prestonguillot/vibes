@@ -7,7 +7,8 @@ export enum LogLevel {
     DEBUG = 0,
     INFO = 1,
     WARN = 2,
-    ERROR = 3
+    ERROR = 3,
+    SILENT = 4 // suppresses all output (LOG_LEVEL=silent, or used by the test setup)
 }
 
 // Parse log level from environment variable or use default
