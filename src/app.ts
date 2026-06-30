@@ -43,11 +43,12 @@ export function createApp() {
         // - Embed nonces in inline styles: <style nonce="...">
         // - Pass nonces to templates and dynamically generated HTML
         // This is possible but adds complexity; not justified for current risk level.
-        styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://fonts.googleapis.com"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "https://unpkg.com", "https://cdn.jsdelivr.net"],
+        // htmx + Bootstrap are now self-hosted from /vendor; only Google Fonts is external.
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", "data:", "https:", "http:"], // Allow external images (YouTube thumbnails, etc.)
         connectSrc: ["'self'"], // Allow SSE connections to same origin
-        fontSrc: ["'self'", "data:", "https://cdn.jsdelivr.net", "https://fonts.gstatic.com"], // Google Fonts
+        fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"], // Google Fonts
         frameSrc: ["'none'"]
       }
     },
