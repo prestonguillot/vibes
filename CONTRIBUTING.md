@@ -33,3 +33,12 @@ except `.env.example` are gitignored.
   credentials in `.env`. Excluded from the normal cycle and from CI.
 - `npm run test:visual` — Playwright visual-regression + behavior checks. Local-only
   (screenshot baselines are environment-specific); not run in CI.
+
+## Releases
+
+Releases are label-driven (`.github/workflows/release.yml`). When a PR merges into
+`main` carrying a `release:patch`, `release:minor`, or `release:major` label, CI tags
+the next `vX.Y.Z` and cuts a GitHub Release with auto-generated notes. A PR with no
+release label merges without cutting a release. Versioning is tag-based — `package.json`
+is not bumped. Pick the bump by impact: patch = fix/chore, minor = feature, major =
+breaking change.

@@ -1,2 +1,0 @@
-- always include my exact prompt in the git commits you create
-- keep everything in @.claude/project-conventions.md in context
