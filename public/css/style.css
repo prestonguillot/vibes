@@ -1899,3 +1899,19 @@ body.oauth-error-body {
 .batch-size-select {
     min-width: 90px;
 }
+
+/* Native <dialog> video-selection modal (replaces Bootstrap's modal JS).
+   showModal() centers it; the inner .modal-content keeps the existing card look. */
+.video-modal {
+    width: 90%;
+    max-width: 800px;
+    max-height: 85vh;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    overflow: auto;
+}
+
+.video-modal::backdrop {
+    background: rgba(0, 0, 0, 0.5);
+}
