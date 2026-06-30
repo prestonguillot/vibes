@@ -521,6 +521,10 @@ body {
 .modal-header .btn-close {
   filter: invert(1) brightness(2);
   opacity: 1 !important;
+  /* A conflicting bare .btn-close rule in the vendored Bootstrap leaves the close
+     button position:static with margin-left:0, so it bunches against the title.
+     Restate margin-left:auto to push it to the header's right edge. */
+  margin-left: auto;
 }
 
 .modal-body {
