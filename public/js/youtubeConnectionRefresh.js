@@ -31,8 +31,8 @@
         },
         // Restore checkbox states after swap completes (without animation flashing)
         onload: function() {
-          // Disable transitions to prevent blinking when restoring checkbox states
-          playlistsContent.style.transition = 'none';
+          // Suppress transitions to prevent blinking when restoring checkbox states
+          playlistsContent.classList.add('no-transition');
 
           checkboxStates.forEach((isChecked, checkboxId) => {
             const checkbox = document.getElementById(checkboxId);
@@ -44,7 +44,7 @@
           // Force reflow to apply changes immediately, then re-enable transitions
           // eslint-disable-next-line no-unused-expressions
           playlistsContent.offsetHeight;
-          playlistsContent.style.transition = '';
+          playlistsContent.classList.remove('no-transition');
 
           // Reload details for any expanded playlists to get fresh data
           // The details container might have old cached content, so we need to refresh
