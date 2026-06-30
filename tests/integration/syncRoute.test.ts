@@ -12,7 +12,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
-import { youtubeCircuitBreaker } from '@/utils/circuitBreaker';
+import { youtubeCircuitBreaker } from '@/lib/circuitBreaker';
 
 const h = vi.hoisted(() => ({
   getPlaylist: vi.fn(),
@@ -24,14 +24,14 @@ const h = vi.hoisted(() => ({
   reconcilePlaylist: vi.fn(() => Promise.resolve({ inserted: 0, deleted: 0, moved: 0 })),
 }));
 
-vi.mock('@/utils/spotifyAuth', () => ({
+vi.mock('@/spotify/auth', () => ({
   ensureValidSpotifyToken: vi.fn(async () => 'test-access-token'),
 }));
-vi.mock('@/utils/spotifyClient', () => ({ getPlaylist: h.getPlaylist }));
-vi.mock('@/utils/spotifyPlaylistItems', () => ({ fetchAllPlaylistItems: h.fetchAllPlaylistItems }));
-vi.mock('@/utils/youtubeScraper', () => ({ searchMusicVideo: h.searchMusicVideo }));
+vi.mock('@/spotify/client', () => ({ getPlaylist: h.getPlaylist }));
+vi.mock('@/spotify/playlistItems', () => ({ fetchAllPlaylistItems: h.fetchAllPlaylistItems }));
+vi.mock('@/youtube/scraper', () => ({ searchMusicVideo: h.searchMusicVideo }));
 
-vi.mock('@/utils/youtubeAuth', () => ({
+vi.mock('@/youtube/auth', () => ({
   ensureValidYouTubeToken: vi.fn(async () => ({
     client: {
       playlists: { list: h.playlistsList, insert: h.playlistsInsert },
@@ -48,8 +48,8 @@ vi.mock('@/utils/youtubeAuth', () => ({
   })),
 }));
 
-vi.mock('@/utils/playlistReconcile', async (importActual) => {
-  const actual = await importActual<typeof import('@/utils/playlistReconcile')>();
+vi.mock('@/sync/playlistReconcile', async (importActual) => {
+  const actual = await importActual<typeof import('@/sync/playlistReconcile')>();
   return { ...actual, reconcilePlaylist: h.reconcilePlaylist };
 });
 

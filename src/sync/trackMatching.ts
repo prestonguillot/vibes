@@ -1,4 +1,4 @@
-import { Logger } from './logger';
+import { Logger } from '../lib/logger';
 
 // Types for track matching
 export interface SimplifiedTrack {

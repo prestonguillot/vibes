@@ -1,15 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../../src/app';
-import { youtubeCircuitBreaker } from '../../src/utils/circuitBreaker';
+import { youtubeCircuitBreaker } from '../../src/lib/circuitBreaker';
 
 // The connection-status buttons enforce a minimum on-screen time (anti-flash). The
 // delay LOGIC is unit-tested deterministically in tests/unit/minDisplayTime.test.ts;
 // here we stub it to a no-op so these tests are fast and never measure wall-clock,
 // and assert the endpoints wire it up and render the button correctly.
 const h = vi.hoisted(() => ({ enforceMinDisplayTime: vi.fn(() => Promise.resolve()) }));
-vi.mock('../../src/utils/minDisplayTime', async (orig) => ({
-  ...(await orig<typeof import('../../src/utils/minDisplayTime')>()),
+vi.mock('../../src/lib/minDisplayTime', async (orig) => ({
+  ...(await orig<typeof import('../../src/lib/minDisplayTime')>()),
   enforceMinDisplayTime: h.enforceMinDisplayTime,
 }));
 

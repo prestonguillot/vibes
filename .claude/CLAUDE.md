@@ -41,7 +41,7 @@ The single source of truth for how to work in this repo. Auto-loaded into contex
   environment variables — never generated per instance, and never committed to source
   control.
 - The only per-instance state is **operational, not user/session data**: the YouTube
-  circuit breaker and the write-quota counter (`src/utils/youtubeWrites.ts`). These are
+  circuit breaker and the write-quota counter (`src/youtube/writes.ts`). These are
   local protection/diagnostics and are acceptable per-instance — correctness doesn't
   depend on sharing them.
 
@@ -76,11 +76,20 @@ The single source of truth for how to work in this repo. Auto-loaded into contex
 - **No dead code** — unused functions, variables, imports, or commented-out code. When
   replacing code, verify the old code is unreferenced, then delete it entirely.
 
-### Code Duplication
+### Project structure & duplication
 
-- **Eliminate duplication.** Shared logic goes in `src/utils/`; business logic used by
-  multiple routes goes in a service (e.g. `playlistDetailsService.ts`). A single source
-  of truth prevents bugs that only get fixed in one copy.
+- **`src/` is organized by domain** — put new code where it belongs:
+  - `src/routes/` — Express HTTP handlers.
+  - `src/spotify/`, `src/youtube/` — each external API's client, auth/token logic, and
+    helpers.
+  - `src/sync/` — the sync/matching domain (track matching, reconcile, video search,
+    the playlist-details service).
+  - `src/auth/` — cookies, CSRF, connection/token validation.
+  - `src/lib/` — cross-cutting helpers (logger, cache, circuit breaker, request
+    validation, env validation, html escaping).
+  - `src/types/` — shared type definitions.
+- **Eliminate duplication.** A single source of truth prevents bugs that only get fixed
+  in one copy; shared logic belongs in the domain folder above, not copy-pasted per route.
 
 ### Testing
 
@@ -94,7 +103,7 @@ The single source of truth for how to work in this repo. Auto-loaded into contex
 ### Logging
 
 - **Never call `console.*` directly.** Use the centralized Logger:
-  `src/utils/logger.ts` server-side, `public/js/logger.js` client-side (same API:
+  `src/lib/logger.ts` server-side, `public/js/logger.js` client-side (same API:
   `debug`/`info`/`warn`/`error`). This gives one log-level control point, consistent
   formatting, and emoji categorization.
 

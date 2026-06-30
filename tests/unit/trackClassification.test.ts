@@ -5,8 +5,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { YtPlaylistItem } from '../../src/utils/youtubeClient';
-import { classifyTracksForSync } from '../../src/services/trackClassification';
+import { YtPlaylistItem } from '../../src/youtube/client';
+import { classifyTracksForSync } from '../../src/sync/trackClassification';
 
 const track = (id: string, name: string) => ({
   track: { id, name, type: 'track', artists: [{ name: 'Artist' }] },

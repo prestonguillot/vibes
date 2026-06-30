@@ -13,16 +13,16 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fetchPlaylistDetails } from '../../src/services/playlistDetailsService';
-import { fetchAllPlaylistItems } from '../../src/utils/spotifyPlaylistItems';
-import { getPlaylist } from '../../src/utils/spotifyClient';
+import { fetchPlaylistDetails } from '../../src/sync/playlistDetailsService';
+import { fetchAllPlaylistItems } from '../../src/spotify/playlistItems';
+import { getPlaylist } from '../../src/spotify/client';
 
-vi.mock('../../src/utils/spotifyPlaylistItems', () => ({
+vi.mock('../../src/spotify/playlistItems', () => ({
   fetchAllPlaylistItems: vi.fn(),
 }));
 
-vi.mock('../../src/utils/spotifyClient', async (importActual) => {
-  const actual = await importActual<typeof import('../../src/utils/spotifyClient')>();
+vi.mock('../../src/spotify/client', async (importActual) => {
+  const actual = await importActual<typeof import('../../src/spotify/client')>();
   return { ...actual, getPlaylist: vi.fn() };
 });
 

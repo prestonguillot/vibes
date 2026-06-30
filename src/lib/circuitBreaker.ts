@@ -1,5 +1,8 @@
 import { Logger } from './logger';
-import { youtubeCircuitBreakerConfig, spotifyCircuitBreakerConfig } from '../config/circuitBreaker';
+import {
+  youtubeCircuitBreakerConfig,
+  spotifyCircuitBreakerConfig,
+} from '../lib/circuitBreakerConfig';
 
 /**
  * Circuit Breaker for YouTube API quota management

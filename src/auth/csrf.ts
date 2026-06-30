@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { Request, Response, NextFunction } from 'express';
-import { Logger } from './logger';
-import { getCsrfSecret } from '../config/csrf';
+import { Logger } from '../lib/logger';
+import { getCsrfSecret } from '../auth/csrfSecret';
 
 /**
  * CSRF Protection using Signed Double Submit Cookie pattern
@@ -18,7 +18,7 @@ import { getCsrfSecret } from '../config/csrf';
  * - Send custom headers cross-origin (without CORS permission)
  * - Forge the signed token (without the server secret)
  *
- * NOTE: The CSRF_SECRET is loaded at app startup from src/config/csrf.ts
+ * NOTE: The CSRF_SECRET is loaded at app startup from src/auth/csrfSecret.ts
  * to ensure all server instances use the same secret (required for multi-instance deployments)
  */
 

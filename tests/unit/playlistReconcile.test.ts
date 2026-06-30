@@ -12,7 +12,7 @@ import {
   assertReconcileSafe,
   ReconcileSafetyError,
   CurrentPlaylistItem,
-} from '../../src/utils/playlistReconcile';
+} from '../../src/sync/playlistReconcile';
 
 const ci = (...videoIds: string[]): CurrentPlaylistItem[] =>
   videoIds.map((videoId) => ({ videoId, playlistItemId: `pi-${videoId}` }));

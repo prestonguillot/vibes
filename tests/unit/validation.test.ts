@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { schemas } from '@/utils/validation';
+import { schemas } from '@/lib/validation';
 
 describe('Validation Schemas', () => {
   describe('spotifyPlaylistId', () => {

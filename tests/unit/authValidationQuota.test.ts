@@ -1,13 +1,13 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { validateYouTubeConnection } from '../../src/utils/authValidation';
-import { youtubeCircuitBreaker } from '../../src/utils/circuitBreaker';
+import { validateYouTubeConnection } from '../../src/auth/authValidation';
+import { youtubeCircuitBreaker } from '../../src/lib/circuitBreaker';
 import { YouTubeTokens } from '../../src/types/oauth';
 
 // Mock the hand-written YouTube client. createYoutubeClient returns a shared
 // client whose channels.list can be overridden per test; refresh is stubbed.
 const yt = vi.hoisted(() => ({ channelsList: vi.fn(), refresh: vi.fn() }));
-vi.mock('../../src/utils/youtubeClient', async (importActual) => {
-  const actual = await importActual<typeof import('../../src/utils/youtubeClient')>();
+vi.mock('../../src/youtube/client', async (importActual) => {
+  const actual = await importActual<typeof import('../../src/youtube/client')>();
   return {
     ...actual,
     createYoutubeClient: vi.fn(() => ({ channels: { list: yt.channelsList } })),

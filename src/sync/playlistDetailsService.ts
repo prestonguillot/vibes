@@ -4,11 +4,11 @@
  * Used by both playlistDetails routes and sync operations to eliminate code duplication
  */
 
-import { YoutubeClient, YtPlaylistItem, YtPlaylistItemListResponse } from '../utils/youtubeClient';
-import { optimalTrackMatching, ScoreBreakdown } from '../utils/trackMatching';
-import { fetchAllPlaylistItems } from '../utils/spotifyPlaylistItems';
-import { getPlaylist } from '../utils/spotifyClient';
-import { Logger } from '../utils/logger';
+import { YoutubeClient, YtPlaylistItem, YtPlaylistItemListResponse } from '../youtube/client';
+import { optimalTrackMatching, ScoreBreakdown } from '../sync/trackMatching';
+import { fetchAllPlaylistItems } from '../spotify/playlistItems';
+import { getPlaylist } from '../spotify/client';
+import { Logger } from '../lib/logger';
 
 export interface SimplifiedTrack {
   id: string;

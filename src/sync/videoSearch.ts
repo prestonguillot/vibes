@@ -4,9 +4,9 @@
  * named phases and this loop can be tested in isolation.
  */
 
-import { searchMusicVideo } from '../utils/youtubeScraper';
-import { formatErrorDetails } from '../utils/errorFormatter';
-import { Logger } from '../utils/logger';
+import { searchMusicVideo } from '../youtube/scraper';
+import { formatErrorDetails } from '../lib/errorFormatter';
+import { Logger } from '../lib/logger';
 import { ProgressUpdate } from '../types/progress';
 
 export interface TrackSearchResult {

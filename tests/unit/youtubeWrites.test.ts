@@ -1,12 +1,12 @@
 /**
- * Unit tests for the YouTube write layer (src/utils/youtubeWrites.ts):
+ * Unit tests for the YouTube write layer (src/youtube/writes.ts):
  * every write goes through the circuit breaker, quota cost is counted, and a
  * quota-exceeded (403) opens the breaker and surfaces as YoutubeQuotaError.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('../../src/utils/circuitBreaker', () => ({
+vi.mock('../../src/lib/circuitBreaker', () => ({
   youtubeCircuitBreaker: {
     canProceed: vi.fn(),
     recordSuccess: vi.fn(),
@@ -15,14 +15,14 @@ vi.mock('../../src/utils/circuitBreaker', () => ({
   },
 }));
 
-import { youtubeCircuitBreaker } from '../../src/utils/circuitBreaker';
+import { youtubeCircuitBreaker } from '../../src/lib/circuitBreaker';
 import {
   youtubeWrite,
   YoutubeQuotaError,
   YOUTUBE_WRITE_COST,
   getYoutubeWriteQuotaUsed,
   resetYoutubeWriteQuotaCounter,
-} from '../../src/utils/youtubeWrites';
+} from '../../src/youtube/writes';
 
 const breaker = vi.mocked(youtubeCircuitBreaker);
 

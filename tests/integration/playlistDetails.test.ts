@@ -18,12 +18,12 @@ const h = vi.hoisted(() => ({
   fetchAllPlaylistItems: vi.fn(),
 }));
 
-vi.mock('@/utils/spotifyClient', async (importActual) => {
-  const actual = await importActual<typeof import('@/utils/spotifyClient')>();
+vi.mock('@/spotify/client', async (importActual) => {
+  const actual = await importActual<typeof import('@/spotify/client')>();
   return { ...actual, getPlaylist: h.getPlaylist };
 });
 
-vi.mock('@/utils/spotifyPlaylistItems', () => ({
+vi.mock('@/spotify/playlistItems', () => ({
   fetchAllPlaylistItems: h.fetchAllPlaylistItems,
 }));
 

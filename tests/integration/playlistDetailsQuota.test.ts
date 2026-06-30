@@ -14,13 +14,13 @@
 import { describe, it, expect, vi } from 'vitest';
 import request from 'supertest';
 import { createApp } from '@/app';
-import { YoutubeApiError } from '@/utils/youtubeClient';
-import { YoutubeQuotaError } from '@/utils/youtubeWrites';
+import { YoutubeApiError } from '@/youtube/client';
+import { YoutubeQuotaError } from '@/youtube/writes';
 
 const h = vi.hoisted(() => ({ fetchPlaylistDetails: vi.fn() }));
 
-vi.mock('@/services/playlistDetailsService', async (importActual) => {
-  const actual = await importActual<typeof import('@/services/playlistDetailsService')>();
+vi.mock('@/sync/playlistDetailsService', async (importActual) => {
+  const actual = await importActual<typeof import('@/sync/playlistDetailsService')>();
   return { ...actual, fetchPlaylistDetails: h.fetchPlaylistDetails };
 });
 

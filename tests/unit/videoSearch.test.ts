@@ -7,9 +7,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const h = vi.hoisted(() => ({ searchMusicVideo: vi.fn() }));
-vi.mock('../../src/utils/youtubeScraper', () => ({ searchMusicVideo: h.searchMusicVideo }));
+vi.mock('../../src/youtube/scraper', () => ({ searchMusicVideo: h.searchMusicVideo }));
 
-import { searchTracksForVideos } from '../../src/services/videoSearch';
+import { searchTracksForVideos } from '../../src/sync/videoSearch';
 
 const item = (id: string, name: string, type = 'track') => ({
   track: { id, name, type, artists: [{ name: 'Artist' }] },

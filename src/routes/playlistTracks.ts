@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { Logger } from '../utils/logger';
-import { ensureValidSpotifyToken } from '../utils/spotifyAuth';
-import { fetchAllPlaylistItems } from '../utils/spotifyPlaylistItems';
-import { validate, ValidatedRequest } from '../utils/validation';
+import { Logger } from '../lib/logger';
+import { ensureValidSpotifyToken } from '../spotify/auth';
+import { fetchAllPlaylistItems } from '../spotify/playlistItems';
+import { validate, ValidatedRequest } from '../lib/validation';
 import { z } from 'zod';
 
 const router = Router();

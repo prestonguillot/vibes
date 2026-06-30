@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { validateSpotifyConnection } from '../../src/utils/authValidation';
-import { spotifyCircuitBreaker } from '../../src/utils/circuitBreaker';
+import { validateSpotifyConnection } from '../../src/auth/authValidation';
+import { spotifyCircuitBreaker } from '../../src/lib/circuitBreaker';
 import { SpotifyTokens } from '../../src/types/oauth';
-import { SpotifyApiError } from '../../src/utils/spotifyClient';
+import { SpotifyApiError } from '../../src/spotify/client';
 
 // Mock the hand-written Spotify client. authValidation calls getCurrentUser to
 // probe the connection and refreshAccessToken to refresh on 401. The real
@@ -12,8 +12,8 @@ const { mockGetCurrentUser, mockRefreshAccessToken } = vi.hoisted(() => ({
   mockRefreshAccessToken: vi.fn(),
 }));
 
-vi.mock('../../src/utils/spotifyClient', async (importActual) => {
-  const actual = await importActual<typeof import('../../src/utils/spotifyClient')>();
+vi.mock('../../src/spotify/client', async (importActual) => {
+  const actual = await importActual<typeof import('../../src/spotify/client')>();
   return {
     ...actual,
     getCurrentUser: mockGetCurrentUser,

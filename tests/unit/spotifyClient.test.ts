@@ -19,7 +19,7 @@ import {
   getUserPlaylists,
   getPlaylist,
   SpotifyApiError,
-} from '../../src/utils/spotifyClient';
+} from '../../src/spotify/client';
 
 // The client uses Node's global fetch; stub it (see beforeEach).
 const mockFetch = vi.fn();

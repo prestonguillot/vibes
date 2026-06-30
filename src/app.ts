@@ -12,12 +12,12 @@ import { youtubeRouter } from './routes/youtube';
 import { syncRouter } from './routes/sync';
 import { playlistDetailsRouter } from './routes/playlistDetails';
 import playlistTracksRouter from './routes/playlistTracks';
-import { Logger } from './utils/logger';
-import { validateSpotifyConnection, validateYouTubeConnection } from './utils/authValidation';
-import { csrfCookieMiddleware, getCsrfToken } from './utils/csrf';
-import { parseSpotifyTokenCookie, parseYouTubeTokenCookie } from './utils/cookieParser';
-import { enforceMinDisplayTime } from './utils/minDisplayTime';
-import { setCache, CacheDuration } from './utils/cache';
+import { Logger } from './lib/logger';
+import { validateSpotifyConnection, validateYouTubeConnection } from './auth/authValidation';
+import { csrfCookieMiddleware, getCsrfToken } from './auth/csrf';
+import { parseSpotifyTokenCookie, parseYouTubeTokenCookie } from './auth/cookieParser';
+import { enforceMinDisplayTime } from './lib/minDisplayTime';
+import { setCache, CacheDuration } from './lib/cache';
 
 export function createApp() {
   const app = express();

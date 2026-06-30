@@ -12,10 +12,10 @@ import {
   refreshYoutubeAccessToken,
   YoutubeApiError,
   YoutubeClient,
-} from './youtubeClient';
-import { parseYouTubeTokenCookie, validateAndSerializeYouTubeTokens } from './cookieParser';
-import { getSecureCookieOptions } from './authValidation';
-import { Logger } from './logger';
+} from './client';
+import { parseYouTubeTokenCookie, validateAndSerializeYouTubeTokens } from '../auth/cookieParser';
+import { getSecureCookieOptions } from '../auth/authValidation';
+import { Logger } from '../lib/logger';
 
 export interface ValidYouTube {
   client: YoutubeClient;

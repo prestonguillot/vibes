@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { enforceMinDisplayTime, MIN_DISPLAY_TIME_MS } from '@/utils/minDisplayTime';
+import { enforceMinDisplayTime, MIN_DISPLAY_TIME_MS } from '@/lib/minDisplayTime';
 
 // Fake timers make this deterministic - no wall-clock measurement, no real waiting.
 describe('enforceMinDisplayTime', () => {

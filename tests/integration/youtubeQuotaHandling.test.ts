@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../../src/app';
-import { youtubeCircuitBreaker } from '../../src/utils/circuitBreaker';
+import { youtubeCircuitBreaker } from '../../src/lib/circuitBreaker';
 
 describe('YouTube Quota Exceeded Handling', () => {
   let app: any;

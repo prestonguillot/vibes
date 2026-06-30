@@ -9,9 +9,9 @@
  * Pure (no API calls - existing items are already fetched), so it's unit-testable.
  */
 
-import { YtPlaylistItem } from '../utils/youtubeClient';
-import { optimalTrackMatching, SimplifiedTrack, SimplifiedVideo } from '../utils/trackMatching';
-import { Logger } from '../utils/logger';
+import { YtPlaylistItem } from '../youtube/client';
+import { optimalTrackMatching, SimplifiedTrack, SimplifiedVideo } from '../sync/trackMatching';
+import { Logger } from '../lib/logger';
 
 interface SpotifyPlaylistItem {
   track: { id: string; name: string; artists: Array<{ name?: string }>; type?: string } | null;

@@ -9,10 +9,10 @@
  */
 
 import { Request, Response } from 'express';
-import { getCurrentUser, refreshAccessToken, SpotifyApiError } from './spotifyClient';
-import { parseSpotifyTokenCookie, validateAndSerializeSpotifyTokens } from './cookieParser';
-import { getSecureCookieOptions } from './authValidation';
-import { Logger } from './logger';
+import { getCurrentUser, refreshAccessToken, SpotifyApiError } from './client';
+import { parseSpotifyTokenCookie, validateAndSerializeSpotifyTokens } from '../auth/cookieParser';
+import { getSecureCookieOptions } from '../auth/authValidation';
+import { Logger } from '../lib/logger';
 
 export async function ensureValidSpotifyToken(req: Request, res: Response): Promise<string> {
   const tokens = parseSpotifyTokenCookie(req.cookies.spotify_tokens, res);

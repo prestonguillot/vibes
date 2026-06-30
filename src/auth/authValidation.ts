@@ -1,9 +1,9 @@
 import { Response } from 'express';
-import { createYoutubeClient, refreshYoutubeAccessToken } from './youtubeClient';
-import { Logger } from './logger';
+import { createYoutubeClient, refreshYoutubeAccessToken } from '../youtube/client';
+import { Logger } from '../lib/logger';
 import { SpotifyTokens, YouTubeTokens } from '../types/oauth';
-import { youtubeCircuitBreaker, spotifyCircuitBreaker } from './circuitBreaker';
-import { getCurrentUser, refreshAccessToken, SpotifyApiError } from './spotifyClient';
+import { youtubeCircuitBreaker, spotifyCircuitBreaker } from '../lib/circuitBreaker';
+import { getCurrentUser, refreshAccessToken, SpotifyApiError } from '../spotify/client';
 
 /**
  * Cookie configuration for authentication tokens

@@ -1,6 +1,6 @@
-import { YoutubeClient } from './youtubeClient';
-import { Logger } from './logger';
-import { youtubeWrite } from './youtubeWrites';
+import { YoutubeClient } from '../youtube/client';
+import { Logger } from '../lib/logger';
+import { youtubeWrite } from '../youtube/writes';
 
 /**
  * Reconciles a YouTube playlist to an explicit desired order of video IDs.
