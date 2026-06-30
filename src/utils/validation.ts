@@ -44,21 +44,22 @@ export function validate<
 }) {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      // Validate and transform params
+      // Store the validated/transformed value back on the request. Express 5 makes
+      // req.query (and req.params) read-only getters, so a plain assignment throws -
+      // define an own data property that shadows the getter instead. This works on
+      // Express 4 too. Zod transforms still apply (e.g. 'true' -> boolean true).
+      const setValidated = (key: 'params' | 'query' | 'body', value: unknown) => {
+        Object.defineProperty(req, key, { value, writable: true, enumerable: true, configurable: true });
+      };
+
       if (schemas.params) {
-        req.params = schemas.params.parse(req.params) as any;
+        setValidated('params', schemas.params.parse(req.params));
       }
-
-      // Validate and transform query
-      // Note: Zod transformations (like booleanFlag) convert the data type
-      // For example, string 'true' becomes boolean true
       if (schemas.query) {
-        req.query = schemas.query.parse(req.query) as any;
+        setValidated('query', schemas.query.parse(req.query));
       }
-
-      // Validate and transform body
       if (schemas.body) {
-        req.body = schemas.body.parse(req.body);
+        setValidated('body', schemas.body.parse(req.body));
       }
 
       next();

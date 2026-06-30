@@ -82,10 +82,12 @@ export function createApp() {
       hasAuth: hasSpotifyToken || hasYoutubeToken
     });
 
-    if (Object.keys(req.query).length > 0) {
+    // Express 5 leaves req.body undefined when no body parser matched (e.g. GET),
+    // and guard req.query defensively too.
+    if (req.query && Object.keys(req.query).length > 0) {
       Logger.debug('Request query parameters', { query: req.query });
     }
-    if (Object.keys(req.body).length > 0) {
+    if (req.body && Object.keys(req.body).length > 0) {
       Logger.debug('Request body', { body: req.body });
     }
 
