@@ -10,14 +10,14 @@ const hasErrors = spotifyError || youtubeError;
     <% if (spotifyError) { %>
       <div class="alert alert-warning alert-dismissible fade show" role="alert">
         <strong>Spotify Connection Error:</strong> <%= spotifyError %>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <button type="button" class="btn-close" data-alert-dismiss aria-label="Close"></button>
       </div>
     <% } %>
 
     <% if (youtubeError) { %>
       <div class="alert alert-danger alert-dismissible fade show" role="alert">
         <strong>YouTube Connection Error:</strong> <%= youtubeError %>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <button type="button" class="btn-close" data-alert-dismiss aria-label="Close"></button>
       </div>
     <% } %>
   </div>
