@@ -1,10 +1,15 @@
 /**
  * Video Selection Modal Handler
- * Opens the native <dialog> when video selection content is loaded via HTMX,
- * and closes it on success / Cancel / Escape (no Bootstrap JS).
+ * Opens the native <dialog> the moment a video-selection request starts (showing a
+ * loading state), wires radio -> confirm, and closes on success / Cancel / Escape.
  */
 
 function initializeVideoModal() {
+    // The loading-state markup #video-modal-content starts with, shown while the
+    // video-options request is in flight.
+    const initialModalContent = document.getElementById('video-modal-content');
+    const loadingMarkup = initialModalContent ? initialModalContent.innerHTML : '';
+
     // Close the dialog when a [data-dialog-close] control (Cancel / X) is clicked.
     document.addEventListener('click', function(event) {
         const closer = event.target.closest('[data-dialog-close]');
@@ -49,6 +54,16 @@ function initializeVideoModal() {
 
     // Listen for HTMX beforeRequest to disable button and show loading state
     document.addEventListener('htmx:beforeRequest', function(event) {
+        // Open the dialog as soon as the video-options request starts - showing the
+        // loading state - so it launches instantly rather than after the fetch returns.
+        if (event.detail.target && event.detail.target.id === 'video-modal-content') {
+            event.detail.target.innerHTML = loadingMarkup;
+            const modalEl = document.getElementById('videoSelectionModal');
+            if (modalEl && typeof modalEl.showModal === 'function' && !modalEl.open) {
+                modalEl.showModal();
+            }
+        }
+
         const target = event.detail.elt;
         if (target && target.id === 'confirm-selection-btn') {
             // Disable the button to prevent duplicate submissions
