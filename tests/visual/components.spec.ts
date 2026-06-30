@@ -82,3 +82,37 @@ test('error-message', async ({ page }) => {
   }));
   await expect(page.locator('.harness')).toHaveScreenshot('error-message.png');
 });
+
+const playlistItem = (over = {}) => ({
+  id: 'p1', name: 'My Playlist', tracksTotal: 33, youtubeTracksTotal: 30, spotifyUrl: '#', youtubeUrl: '#',
+  isSynced: true, syncIcon: '', buttonText: 'Update YouTube Playlist', buttonClass: 'btn-outline-success',
+  isYouTubeConnected: true, isDisabled: false, ...over
+});
+
+test('playlist-item: synced', async ({ page }) => {
+  await page.setContent(await pageFor('playlist-item.ejs', playlistItem()));
+  await expect(page.locator('.harness')).toHaveScreenshot('playlist-item-synced.png');
+});
+
+test('playlist-item: unsynced', async ({ page }) => {
+  await page.setContent(await pageFor('playlist-item.ejs', playlistItem({
+    id: 'p2', name: 'Unsynced Playlist', tracksTotal: null, youtubeTracksTotal: 0, youtubeUrl: undefined,
+    isSynced: false, buttonText: 'Sync to YouTube', buttonClass: 'btn-primary'
+  })));
+  await expect(page.locator('.harness')).toHaveScreenshot('playlist-item-unsynced.png');
+});
+
+test('video-selection-modal', async ({ page }) => {
+  const body = await ejs.renderFile(path.join(ROOT, 'views/partials/video-selection-modal.ejs'), {
+    modalTitle: 'Choose a video', instructionText: 'Pick the best match for <strong>Song Title</strong>',
+    currentVideoId: '', playlistId: 'p1', trackId: 't1',
+    videos: [
+      { id: 'v1', title: 'Song Title (Official Video)', channelTitle: 'The Artist', description: 'Official music video. '.repeat(12), thumbnail: img('3366cc'), matchScore: score },
+      { id: 'v2', title: 'Song Title (Live)', channelTitle: 'A Fan', description: 'Live performance from a concert.', thumbnail: img('cc9933'), matchScore: { stars: 3, totalScore: 0.62, color: '#e0a800', components: { coreMatch: 0.6 } } }
+    ]
+  });
+  await page.setContent(`<!doctype html><html><head><meta charset="utf-8"><style>${CSS}
+    body{margin:0;padding:16px;background:#fff}.harness{max-width:640px}</style></head>
+    <body><div class="harness"><div class="modal-content">${body}</div></div></body></html>`);
+  await expect(page.locator('.harness')).toHaveScreenshot('video-selection-modal.png');
+});

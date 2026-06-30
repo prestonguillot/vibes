@@ -109,6 +109,9 @@ body {
 
 .playlist-info {
   flex: 1;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  margin-right: 20px;
 }
 
 .playlist-links {
@@ -149,8 +152,8 @@ body {
 
 .playlist-progress {
   background: #e3f2fd;
-  border: 1px solid #2196f3;
-  border-top: none;
+  border: 2px solid #2196f3;
+  border-radius: 0;
   padding: 20px 15px;
   margin: 12px 0 0 0;
   font-family: 'Courier Prime', monospace;
@@ -1096,12 +1099,6 @@ body {
     border-color: #ff0040;
 }
 
-.playlist-info {
-    word-wrap: break-word !important;
-    overflow-wrap: break-word !important;
-    margin-right: 20px !important;
-}
-
 .playlist-info h5 {
     margin-bottom: 8px;
     font-weight: 700;
@@ -1256,14 +1253,6 @@ body {
 @keyframes spinner-border {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
-}
-
-/* === PROGRESS ANIMATIONS === */
-.playlist-progress {
-    font-family: 'Courier Prime', monospace;
-    border: 2px solid #2196f3 !important;
-    border-radius: 0 !important;
-    background: #e3f2fd !important;
 }
 
 /* === RESPONSIVE DESIGN === */
@@ -1826,6 +1815,8 @@ body.oauth-error-body {
     flex-direction: column;
     align-items: flex-end;
     gap: 4px;
+    margin-left: auto;
+    flex-shrink: 0;
 }
 
 .tooltip-title {
@@ -1846,11 +1837,6 @@ body.oauth-error-body {
     font-size: 0.8rem;
 }
 
-/* Modal-specific match score badge styling */
-.match-score-badge--modal {
-    margin-left: auto;
-    flex-shrink: 0;
-}
 
 
 
