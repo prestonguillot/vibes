@@ -209,8 +209,11 @@ router.get('/playlists',
             youtubeCircuitBreaker.open();
             // Clear YouTube tokens
             res.clearCookie('youtube_tokens');
-            // Redirect with error - same behavior as OAuth callback failure
-            return res.redirect('/?error=youtube&reason=quota_exceeded');
+            // This list is loaded via htmx, so a 302 would be swapped into the
+            // container. Use HX-Redirect to trigger a real navigation to the home
+            // page (which shows the quota modal), matching the OAuth-failure UX.
+            res.set('HX-Redirect', '/?error=youtube&reason=quota_exceeded');
+            return res.status(403).send('');
           } else {
             Logger.warn('Could not fetch YouTube playlists for sorting', {}, error);
             // Record failure but don't necessarily open circuit (might be transient)
@@ -331,8 +334,8 @@ router.get('/playlist-button/:playlistId',
     playlistId: req.params.playlistId
   });
 
-  const spotifyTokens = req.cookies.spotify_tokens ? JSON.parse(req.cookies.spotify_tokens) : null;
-  const youtubeTokens = req.cookies.youtube_tokens ? JSON.parse(req.cookies.youtube_tokens) : null;
+  const spotifyTokens = parseSpotifyTokenCookie(req.cookies.spotify_tokens, res);
+  const youtubeTokens = parseYouTubeTokenCookie(req.cookies.youtube_tokens, res);
 
   if (!spotifyTokens) {
     const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/sync-button-disabled.ejs'), {

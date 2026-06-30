@@ -40,3 +40,14 @@ a `CSRF_SECRET`. Never commit a real `.env` — all `.env*` files except
 - `npm run test:run` — the full suite (runs in CI).
 - `npm run test:spotify:live` — opt-in live Spotify connectivity check; needs real
   credentials in `.env` and is excluded from the normal cycle.
+
+## Deployment note: sticky sessions required
+
+The sync-progress SSE stream (`src/routes/progress.ts`) keeps its open connections
+in an in-memory map on the serving instance. A sync is two separate requests — the
+`GET` that opens the SSE stream and the `POST /api/sync/...` that pushes progress
+into it — so **both must reach the same instance**. Behind a load balancer this
+requires **sticky sessions**. The server is otherwise stateless and multi-instance
+safe (auth is cookie-based, the CSRF secret comes from a shared env var); only live
+progress depends on stickiness. For true multi-instance fan-out, move progress to a
+shared transport (e.g. Redis pub/sub).
