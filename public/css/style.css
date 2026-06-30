@@ -388,7 +388,7 @@ body {
 }
 
 .youtube-video {
-  display: contents !important;
+  display: contents;
 }
 
 .youtube-video .d-flex {
@@ -397,11 +397,11 @@ body {
 
 /* Placeholder uses contents like regular videos but needs grid positioning */
 .youtube-video--placeholder {
-  display: contents !important;
+  display: contents;
 }
 
 .youtube-video--placeholder .d-flex {
-  display: contents !important;
+  display: contents;
 }
 
 .youtube-video__thumbnail {
@@ -482,9 +482,9 @@ body {
 /* Video Selection Modal Styles - PUNK ZINE AESTHETIC */
 .modal-content {
   background: #fff;
-  border: 4px solid #000 !important;
-  border-radius: 0 !important;
-  box-shadow: 8px 8px 0px rgba(0, 0, 0, 0.8) !important;
+  border: 4px solid #000;
+  border-radius: 0;
+  box-shadow: 8px 8px 0px rgba(0, 0, 0, 0.8);
   font-family: 'Courier Prime', monospace;
   background-image:
     radial-gradient(circle at 10% 20%, rgba(0, 0, 0, 0.05) 1px, transparent 1px),
@@ -495,24 +495,24 @@ body {
 }
 
 .modal-header {
-  background: #000 !important;
-  color: #fff !important;
-  border-bottom: 4px solid #ff0040 !important;
-  border-radius: 0 !important;
-  padding: 16px 20px !important;
+  background: #000;
+  color: #fff;
+  border-bottom: 4px solid #ff0040;
+  border-radius: 0;
+  padding: 16px 20px;
 }
 
 .modal-header .modal-title {
-  font-family: 'Fredoka One', cursive !important;
-  font-size: 1.5rem !important;
+  font-family: 'Fredoka One', cursive;
+  font-size: 1.5rem;
   text-transform: uppercase;
   letter-spacing: 1px;
-  color: #fff !important;
+  color: #fff;
 }
 
 .modal-header .btn-close {
   filter: invert(1) brightness(2);
-  opacity: 1 !important;
+  opacity: 1;
   /* A conflicting bare .btn-close rule in the vendored Bootstrap leaves the close
      button position:static with margin-left:0, so it bunches against the title.
      Restate margin-left:auto to push it to the header's right edge. */
@@ -540,7 +540,7 @@ body {
   padding-left: 16px;
   border: 3px solid #000 !important;
   border-left: 6px solid #0066ff !important;
-  border-radius: 0 !important;
+  border-radius: 0;
   margin-bottom: 12px;
   cursor: pointer;
   transition: all 0.2s;
@@ -587,7 +587,7 @@ body {
   width: 120px;
   height: 90px;
   object-fit: cover;
-  border-radius: 0 !important;
+  border-radius: 0;
   border: 2px solid #000;
   box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.3);
   flex-shrink: 0;
@@ -610,10 +610,10 @@ body {
   display: flex;
   justify-content: space-between;
   margin-top: 16px;
-  padding: 16px 20px !important;
-  border-top: 3px solid #000 !important;
-  background: #f8f8f8 !important;
-  border-radius: 0 !important;
+  padding: 16px 20px;
+  border-top: 3px solid #000;
+  background: #f8f8f8;
+  border-radius: 0;
   gap: 12px;
 }
 
@@ -680,7 +680,7 @@ body {
 
 .badge.bg-success {
   background-color: #00ff00 !important;
-  color: #000 !important;
+  color: #000;
 }
 
 /* === BUTTONS === */
@@ -708,10 +708,10 @@ body {
 }
 
 .btn-success.connect-btn:disabled {
-  background-color: #00ff00 !important;
-  border-color: #000 !important;
-  color: #000 !important;
-  opacity: 1 !important;
+  background-color: #00ff00;
+  border-color: #000;
+  color: #000;
+  opacity: 1;
 }
 
 .btn-danger.connect-btn {
@@ -721,10 +721,10 @@ body {
 }
 
 .btn-danger.connect-btn:disabled {
-  background-color: #ff0040 !important;
-  border-color: #000 !important;
-  color: #fff !important;
-  opacity: 1 !important;
+  background-color: #ff0040;
+  border-color: #000;
+  color: #fff;
+  opacity: 1;
 }
 
 /* === AUTH EXPIRED RECONNECT BUTTONS === */
@@ -768,20 +768,20 @@ body {
 /* === CONNECTION BUTTON STATES === */
 /* Dim non-connected button states for visual distinction */
 .connect-btn:not([disabled]):not(.connected) {
-  opacity: 0.85 !important;
+  opacity: 0.85;
 }
 
 .connect-btn:not([disabled]):not(.connected).btn-danger {
-  background-color: rgba(255, 0, 64, 0.85) !important;
+  background-color: rgba(255, 0, 64, 0.85);
 }
 
 .connect-btn:not([disabled]):not(.connected).btn-success {
-  background-color: rgba(0, 255, 0, 0.85) !important;
+  background-color: rgba(0, 255, 0, 0.85);
 }
 
 /* Loading states (disabled but not connected) */
 .connect-btn.disabled:not(.connected) {
-  opacity: 0.8 !important;
+  opacity: 0.8;
 }
 
 .connect-btn.disabled:not(.connected).btn-danger {
@@ -789,20 +789,20 @@ body {
 }
 
 .connect-btn.disabled:not(.connected).btn-success {
-  background-color: rgba(0, 255, 0, 0.8) !important;
+  background-color: rgba(0, 255, 0, 0.8);
 }
 
 /* Connected state - full brightness */
 .connect-btn.connected {
-  opacity: 1 !important;
+  opacity: 1;
 }
 
 .connect-btn.connected.btn-success {
-  background-color: #00ff00 !important;
+  background-color: #00ff00;
 }
 
 .connect-btn.connected.btn-danger {
-  background-color: #ff0040 !important;
+  background-color: #ff0040;
 }
 
 /* === SHARED SYNC/UPDATE BUTTON STYLING === */
@@ -817,16 +817,16 @@ body {
   white-space: nowrap;
 
   /* Typography */
-  font-family: 'Courier Prime', monospace !important;
-  font-weight: 700 !important;
+  font-family: 'Courier Prime', monospace;
+  font-weight: 700;
   font-size: 0.9rem;
-  text-transform: uppercase !important;
-  letter-spacing: 1px !important;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 
   /* Borders & Styling */
   border: 2px solid #000;
-  border-radius: 0 !important;
-  box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.3) !important;
+  border-radius: 0;
+  box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.3);
 }
 
 .punk-btn:hover,
@@ -847,17 +847,17 @@ body {
 .punk-btn.disabled,
 .sync-btn:disabled,
 .sync-btn.disabled {
-  opacity: 0.6 !important;
-  transform: none !important;
-  box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.3) !important;
+  opacity: 0.6;
+  transform: none;
+  box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.3);
 }
 
 /* Color variants for punk button */
 .btn-primary.punk-btn,
 .btn-primary.sync-btn {
-  background-color: #ff0040 !important;
-  border-color: #000 !important;
-  color: #fff !important;
+  background-color: #ff0040;
+  border-color: #000;
+  color: #fff;
 }
 
 .btn-primary.punk-btn:hover,
@@ -880,16 +880,16 @@ body {
 .btn-primary.punk-btn.disabled,
 .btn-primary.sync-btn:disabled,
 .btn-primary.sync-btn.disabled {
-  background-color: #ff0040 !important;
-  border-color: #000 !important;
-  color: #fff !important;
+  background-color: #ff0040;
+  border-color: #000;
+  color: #fff;
 }
 
 .btn-secondary.punk-btn,
 .btn-secondary.sync-btn {
-  background-color: #6c757d !important;
-  border-color: #000 !important;
-  color: #fff !important;
+  background-color: #6c757d;
+  border-color: #000;
+  color: #fff;
 }
 
 .btn-secondary.punk-btn:hover,
@@ -912,16 +912,16 @@ body {
 .btn-secondary.punk-btn.disabled,
 .btn-secondary.sync-btn:disabled,
 .btn-secondary.sync-btn.disabled {
-  background-color: #6c757d !important;
-  border-color: #000 !important;
-  color: #fff !important;
+  background-color: #6c757d;
+  border-color: #000;
+  color: #fff;
 }
 
 /* Color variant for outline-success (green update buttons) */
 .btn-outline-success.sync-btn {
-  background-color: #00ff00 !important;
-  border-color: #000 !important;
-  color: #000 !important;
+  background-color: #00ff00;
+  border-color: #000;
+  color: #000;
 }
 
 .btn-outline-success.sync-btn:hover {
@@ -946,16 +946,16 @@ body {
 
 /* Standard Bootstrap secondary button styling */
 .btn-secondary {
-  background-color: #6c757d !important;
+  background-color: #6c757d;
   border-color: #000 !important;
-  color: #fff !important;
-  box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.3) !important;
-  font-family: 'Courier Prime', monospace !important;
-  font-weight: 700 !important;
-  border: 2px solid #000 !important;
-  border-radius: 0 !important;
-  text-transform: uppercase !important;
-  letter-spacing: 1px !important;
+  color: #fff;
+  box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.3);
+  font-family: 'Courier Prime', monospace;
+  font-weight: 700;
+  border: 2px solid #000;
+  border-radius: 0;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
 .btn-secondary:hover {
@@ -1086,9 +1086,9 @@ body {
   max-width: 100%;
   box-sizing: border-box;
   overflow: hidden;
-  border: 2px solid #000 !important;
-  border-radius: 0 !important;
-  background: #f8f8f8 !important;
+  border: 2px solid #000;
+  border-radius: 0;
+  background: #f8f8f8;
   font-family: 'Courier Prime', monospace;
   margin-top: 15px;
   padding: 2rem;
