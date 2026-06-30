@@ -7,7 +7,12 @@
  */
 
 import { Request, Response } from 'express';
-import { createYoutubeClient, refreshYoutubeAccessToken, YoutubeApiError, YoutubeClient } from './youtubeClient';
+import {
+  createYoutubeClient,
+  refreshYoutubeAccessToken,
+  YoutubeApiError,
+  YoutubeClient,
+} from './youtubeClient';
 import { parseYouTubeTokenCookie, validateAndSerializeYouTubeTokens } from './cookieParser';
 import { getSecureCookieOptions } from './authValidation';
 import { Logger } from './logger';
@@ -35,9 +40,17 @@ export async function ensureValidYouTubeToken(req: Request, res: Response): Prom
       try {
         const refreshed = await refreshYoutubeAccessToken(tokens.refresh_token);
         const updated = { ...tokens, ...refreshed };
-        res.cookie('youtube_tokens', validateAndSerializeYouTubeTokens(updated), getSecureCookieOptions());
+        res.cookie(
+          'youtube_tokens',
+          validateAndSerializeYouTubeTokens(updated),
+          getSecureCookieOptions(),
+        );
         Logger.auth('YouTube', 'token refreshed successfully');
-        return { client: createYoutubeClient(refreshed.access_token), accessToken: refreshed.access_token, quotaUsed: 1 };
+        return {
+          client: createYoutubeClient(refreshed.access_token),
+          accessToken: refreshed.access_token,
+          quotaUsed: 1,
+        };
       } catch (refreshError) {
         Logger.error('Failed to refresh YouTube token', {}, refreshError);
         throw new Error('YOUTUBE_AUTH_REQUIRED', { cause: refreshError });

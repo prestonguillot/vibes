@@ -62,7 +62,7 @@ export async function fetchPlaylistDetails(
   accessToken: string,
   youtube: YoutubeClient | null,
   playlistId: string,
-  youtubePlaylistId?: string
+  youtubePlaylistId?: string,
 ): Promise<PlaylistDetails> {
   // Get Spotify playlist metadata and all of its items (the /items endpoint;
   // /tracks was removed in Feb 2026).
@@ -106,7 +106,7 @@ export async function fetchPlaylistDetails(
         albumArt: largestImage,
         duration_ms: typedItem.track.duration_ms,
         external_urls: typedItem.track.external_urls,
-        preview_url: typedItem.track.preview_url || null
+        preview_url: typedItem.track.preview_url || null,
       };
     });
 
@@ -118,7 +118,7 @@ export async function fetchPlaylistDetails(
       playlistId,
       totalTracks: totalTracksInPlaylist,
       availableTracks: spotifyTracks.length,
-      unavailableTracks: nullTracksCount
+      unavailableTracks: nullTracksCount,
     });
   }
 
@@ -140,9 +140,9 @@ export async function fetchPlaylistDetails(
           part: ['id', 'snippet'],
           playlistId: youtubePlaylistId,
           maxResults: 50,
-          pageToken: nextPageToken
+          pageToken: nextPageToken,
         })
-        .then(res => res.data);
+        .then((res) => res.data);
 
       if (response.items) {
         allPlaylistItems.push(...response.items);
@@ -159,9 +159,12 @@ export async function fetchPlaylistDetails(
       title: item.snippet?.title || '',
       description: item.snippet?.description || '',
       channelTitle: item.snippet?.channelTitle ?? undefined,
-      thumbnail: item.snippet?.thumbnails?.medium?.url ?? item.snippet?.thumbnails?.default?.url ?? undefined,
+      thumbnail:
+        item.snippet?.thumbnails?.medium?.url ??
+        item.snippet?.thumbnails?.default?.url ??
+        undefined,
       publishedAt: item.snippet?.publishedAt ?? undefined,
-      url: `https://www.youtube.com/watch?v=${item.snippet?.resourceId?.videoId || ''}`
+      url: `https://www.youtube.com/watch?v=${item.snippet?.resourceId?.videoId || ''}`,
     }));
 
     hasYoutubePlaylist = allPlaylistItems.length > 0;
@@ -186,18 +189,19 @@ export async function fetchPlaylistDetails(
             title: matchedVideo.title,
             description: matchedVideo.description,
             thumbnail: `https://img.youtube.com/vi/${matchedVideo.id}/default.jpg`,
-            url: `https://www.youtube.com/watch?v=${matchedVideo.id}`
+            url: `https://www.youtube.com/watch?v=${matchedVideo.id}`,
           }
         : null,
       linked: !!matchedVideo,
-      matchScore
+      matchScore,
     };
   });
 
   // Add orphaned YouTube videos (not matched to any Spotify track)
-  const matchedVideoIds = trackMatches.size > 0 ? Array.from(trackMatches.values()).map(v => v.id) : [];
+  const matchedVideoIds =
+    trackMatches.size > 0 ? Array.from(trackMatches.values()).map((v) => v.id) : [];
   const orphanedVideos = youtubeVideos
-    .filter(v => !matchedVideoIds.includes(v.id))
+    .filter((v) => !matchedVideoIds.includes(v.id))
     .map((video: SimplifiedVideo): MergedTrack => ({
       spotify: null,
       youtube: {
@@ -205,9 +209,9 @@ export async function fetchPlaylistDetails(
         title: video.title,
         description: video.description,
         thumbnail: `https://img.youtube.com/vi/${video.id}/default.jpg`,
-        url: `https://www.youtube.com/watch?v=${video.id}`
+        url: `https://www.youtube.com/watch?v=${video.id}`,
       },
-      linked: false
+      linked: false,
     }));
 
   const allTracks = [...mergedTracks, ...orphanedVideos];
@@ -219,9 +223,9 @@ export async function fetchPlaylistDetails(
   let needsResync = false;
   if (hasYoutubePlaylist) {
     const desiredVideoIds = spotifyTracks
-      .map(track => trackMatches.get(track.id)?.id)
+      .map((track) => trackMatches.get(track.id)?.id)
       .filter((id): id is string => !!id);
-    const actualVideoIds = youtubeVideos.map(video => video.id);
+    const actualVideoIds = youtubeVideos.map((video) => video.id);
     const orderOrSetDiffers = desiredVideoIds.join(' ') !== actualVideoIds.join(' ');
     needsResync = orderOrSetDiffers || linkedCount < spotifyTracks.length;
   }
@@ -232,7 +236,7 @@ export async function fetchPlaylistDetails(
     matchedTracks: linkedCount,
     orphanedYoutubeVideos: orphanedVideos.length,
     totalTracks: allTracks.length,
-    needsResync
+    needsResync,
   });
 
   return {
@@ -242,6 +246,6 @@ export async function fetchPlaylistDetails(
     linkedCount,
     totalTracks: spotifyTracks.length,
     hasYoutubePlaylist,
-    needsResync
+    needsResync,
   };
 }

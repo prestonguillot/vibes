@@ -14,10 +14,10 @@ export default defineConfig({
   snapshotPathTemplate: '{testDir}/__snapshots__/{testFileName}/{arg}{ext}',
   fullyParallel: true,
   use: {
-    viewport: { width: 1000, height: 900 }
+    viewport: { width: 1000, height: 900 },
   },
   expect: {
     // Allow a tiny tolerance for sub-pixel AA noise; real layout/colour changes far exceed this.
-    toHaveScreenshot: { maxDiffPixelRatio: 0.01 }
-  }
+    toHaveScreenshot: { maxDiffPixelRatio: 0.01 },
+  },
 });

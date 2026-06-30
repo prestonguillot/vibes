@@ -21,7 +21,7 @@ import {
   getCurrentUser,
   getUserPlaylists,
   getPlaylist,
-  SpotifyPlaylistSummary
+  SpotifyPlaylistSummary,
 } from '../../src/utils/spotifyClient';
 import { fetchAllPlaylistItems } from '../../src/utils/spotifyPlaylistItems';
 
@@ -33,7 +33,9 @@ const hasCreds = !!(
 
 if (!hasCreds) {
   // eslint-disable-next-line no-console
-  console.warn('\n[spotify.live] skipped - set SPOTIFY_CLIENT_ID/SECRET and SPOTIFY_TEST_REFRESH_TOKEN in .env to run.\n');
+  console.warn(
+    '\n[spotify.live] skipped - set SPOTIFY_CLIENT_ID/SECRET and SPOTIFY_TEST_REFRESH_TOKEN in .env to run.\n',
+  );
 }
 
 describe.skipIf(!hasCreds)('Spotify live API (mock-validation harness)', () => {
@@ -82,7 +84,7 @@ describe.skipIf(!hasCreds)('Spotify live API (mock-validation harness)', () => {
     expect(Array.isArray(items)).toBe(true);
     // fetchAllPlaylistItems normalizes raw.item ?? raw.track. If Spotify moved the
     // field again, every track would come back null and this would fail.
-    const withTracks = items.filter(i => i.track != null);
+    const withTracks = items.filter((i) => i.track != null);
     if (items.length > 0) {
       expect(withTracks.length).toBeGreaterThan(0);
       const track = withTracks[0].track!;

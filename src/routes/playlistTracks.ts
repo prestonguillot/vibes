@@ -16,18 +16,20 @@ const router = Router();
  * Uses the /items endpoint (via fetchAllPlaylistItems); the old getPlaylistTracks
  * /tracks endpoint was removed by Spotify in Feb 2026.
  */
-router.get('/api/playlistTracks',
+router.get(
+  '/api/playlistTracks',
   validate({
     query: z.object({
-      playlistIds: z.string()
-        .transform(val => val.split(',').filter(id => id.trim().length > 0))
-        .refine(ids => ids.length > 0, 'At least one playlistId is required')
-        .refine(ids => ids.length <= 100, 'Maximum 100 playlists per request')
-    })
+      playlistIds: z
+        .string()
+        .transform((val) => val.split(',').filter((id) => id.trim().length > 0))
+        .refine((ids) => ids.length > 0, 'At least one playlistId is required')
+        .refine((ids) => ids.length <= 100, 'Maximum 100 playlists per request'),
+    }),
   }),
   async (req: any, res) => {
     Logger.requestStart('Get Playlist Tracks Request', {
-      playlistCount: req.query.playlistIds?.length || 0
+      playlistCount: req.query.playlistIds?.length || 0,
     });
 
     try {
@@ -49,16 +51,16 @@ router.get('/api/playlistTracks',
           try {
             const items = await fetchAllPlaylistItems(accessToken, playlistId);
             const tracks = items
-              .map(item => item.track)
+              .map((item) => item.track)
               .filter((track): track is NonNullable<typeof track> => !!track?.name)
-              .map(track => `${track.artists?.[0]?.name || 'Unknown Artist'} • ${track.name}`);
+              .map((track) => `${track.artists?.[0]?.name || 'Unknown Artist'} • ${track.name}`);
             return { playlistId, tracks };
           } catch (error) {
             Logger.warn('Error fetching tracks for playlist', { playlistId }, error);
             // Return empty array instead of failing the whole request
             return { playlistId, tracks: [] };
           }
-        })
+        }),
       );
 
       tracksFetched.forEach(({ playlistId, tracks }) => {
@@ -67,7 +69,7 @@ router.get('/api/playlistTracks',
 
       Logger.info('Playlist tracks fetched successfully', {
         playlistsRequested: playlistIds.length,
-        playlistsFetched: Object.keys(result).length
+        playlistsFetched: Object.keys(result).length,
       });
 
       return res.status(200).json(result);
@@ -75,7 +77,7 @@ router.get('/api/playlistTracks',
       Logger.error('Error fetching playlist tracks', {}, error);
       return res.status(500).json({ error: 'Failed to fetch playlist tracks' });
     }
-  }
+  },
 );
 
 export default router;

@@ -52,7 +52,7 @@ interface SpotifyItemsResponse {
  */
 export async function fetchAllPlaylistItems(
   accessToken: string,
-  playlistId: string
+  playlistId: string,
 ): Promise<SpotifyPlaylistItem[]> {
   const all: SpotifyPlaylistItem[] = [];
   const limit = 50;
@@ -61,13 +61,13 @@ export async function fetchAllPlaylistItems(
   while (true) {
     const url = `https://api.spotify.com/v1/playlists/${encodeURIComponent(playlistId)}/items?limit=${limit}&offset=${offset}`;
     const response = await fetch(url, {
-      headers: { Authorization: `Bearer ${accessToken}` }
+      headers: { Authorization: `Bearer ${accessToken}` },
     });
 
     if (!response.ok) {
       const bodyText = await response.text().catch(() => '');
       const error = new Error(
-        `Spotify playlist items request failed: HTTP ${response.status} ${response.statusText}`
+        `Spotify playlist items request failed: HTTP ${response.status} ${response.statusText}`,
       ) as Error & { statusCode?: number; body?: string };
       // Mirror spotify-web-api-node's error shape so existing handlers that read
       // statusCode continue to work.
@@ -81,8 +81,8 @@ export async function fetchAllPlaylistItems(
     // Normalize the Feb 2026 schema: track/episode data is under `item` now;
     // `track` is deprecated and empty. Expose it as `.track` so callers (and
     // reorderPlaylistTracks) keep working with the historical shape.
-    const items: SpotifyPlaylistItem[] = rawItems.map(raw => ({
-      track: raw.item ?? raw.track ?? null
+    const items: SpotifyPlaylistItem[] = rawItems.map((raw) => ({
+      track: raw.item ?? raw.track ?? null,
     }));
     all.push(...items);
     offset += limit;
@@ -95,7 +95,7 @@ export async function fetchAllPlaylistItems(
 
   Logger.debug('Fetched Spotify playlist items via /items endpoint', {
     playlistId,
-    count: all.length
+    count: all.length,
   });
 
   return all;

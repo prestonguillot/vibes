@@ -13,7 +13,7 @@ describe('Playlist Data Handling', () => {
         { track: null }, // Deleted track
         { track: { id: 'track2', name: 'Song 2', artists: [{ name: 'Artist 2' }] } },
         { track: null }, // Unavailable track
-        { track: { id: 'track3', name: 'Song 3', artists: [{ name: 'Artist 3' }] } }
+        { track: { id: 'track3', name: 'Song 3', artists: [{ name: 'Artist 3' }] } },
       ];
 
       // Filter out null tracks (this is what the fix does)
@@ -22,7 +22,7 @@ describe('Playlist Data Handling', () => {
         .map((item) => ({
           id: item.track!.id,
           name: item.track!.name,
-          artist: item.track!.artists[0]?.name || 'Unknown'
+          artist: item.track!.artists[0]?.name || 'Unknown',
         }));
 
       expect(validTracks.length).toBe(3);
@@ -36,7 +36,7 @@ describe('Playlist Data Handling', () => {
         { track: { id: 'track1', name: 'Song 1', artists: [] } },
         { track: null },
         { track: null },
-        { track: { id: 'track2', name: 'Song 2', artists: [] } }
+        { track: { id: 'track2', name: 'Song 2', artists: [] } },
       ];
 
       const totalTracks = playlistItems.length;
@@ -49,11 +49,7 @@ describe('Playlist Data Handling', () => {
     });
 
     it('should handle playlist with all tracks null', () => {
-      const playlistItems = [
-        { track: null },
-        { track: null },
-        { track: null }
-      ];
+      const playlistItems = [{ track: null }, { track: null }, { track: null }];
 
       const validTracks = playlistItems.filter((item) => item.track !== null);
 
@@ -64,7 +60,7 @@ describe('Playlist Data Handling', () => {
       const playlistItems = [
         { track: { id: 'track1', name: 'Song 1', artists: [{ name: 'Artist 1' }] } },
         { track: { id: 'track2', name: 'Song 2', artists: [{ name: 'Artist 2' }] } },
-        { track: { id: 'track3', name: 'Song 3', artists: [{ name: 'Artist 3' }] } }
+        { track: { id: 'track3', name: 'Song 3', artists: [{ name: 'Artist 3' }] } },
       ];
 
       const validTracks = playlistItems.filter((item) => item.track !== null);
@@ -82,9 +78,25 @@ describe('Playlist Data Handling', () => {
 
     it('should not crash when accessing properties after filtering', () => {
       const playlistItems = [
-        { track: { id: 'track1', name: 'Song 1', artists: [{ name: 'Artist 1' }], album: { name: 'Album 1' }, duration_ms: 180000 } },
+        {
+          track: {
+            id: 'track1',
+            name: 'Song 1',
+            artists: [{ name: 'Artist 1' }],
+            album: { name: 'Album 1' },
+            duration_ms: 180000,
+          },
+        },
         { track: null },
-        { track: { id: 'track2', name: 'Song 2', artists: [{ name: 'Artist 2' }], album: { name: 'Album 2' }, duration_ms: 200000 } }
+        {
+          track: {
+            id: 'track2',
+            name: 'Song 2',
+            artists: [{ name: 'Artist 2' }],
+            album: { name: 'Album 2' },
+            duration_ms: 200000,
+          },
+        },
       ];
 
       // This should not throw
@@ -95,7 +107,7 @@ describe('Playlist Data Handling', () => {
           name: item.track!.name,
           artist: item.track!.artists[0]?.name || 'Unknown Artist',
           album: item.track!.album?.name || 'Unknown Album',
-          duration_ms: item.track!.duration_ms
+          duration_ms: item.track!.duration_ms,
         }));
 
       expect(validTracks.length).toBe(2);
@@ -112,7 +124,7 @@ describe('Playlist Data Handling', () => {
       const track = {
         id: 'track1',
         name: 'Song 1',
-        artists: [] // No artists
+        artists: [], // No artists
       };
 
       const artist = track.artists[0]?.name || 'Unknown Artist';
@@ -125,7 +137,7 @@ describe('Playlist Data Handling', () => {
         id: 'track1',
         name: 'Song 1',
         artists: [{ name: 'Artist 1' }],
-        album: undefined
+        album: undefined,
       };
 
       const album = track.album?.name || 'Unknown Album';
@@ -134,16 +146,14 @@ describe('Playlist Data Handling', () => {
     });
 
     it('should handle tracks with empty artist array', () => {
-      const playlistItems = [
-        { track: { id: 'track1', name: 'Song 1', artists: [] } }
-      ];
+      const playlistItems = [{ track: { id: 'track1', name: 'Song 1', artists: [] } }];
 
       const validTracks = playlistItems
         .filter((item) => item.track !== null)
         .map((item) => ({
           id: item.track!.id,
           name: item.track!.name,
-          artist: item.track!.artists[0]?.name || 'Unknown Artist'
+          artist: item.track!.artists[0]?.name || 'Unknown Artist',
         }));
 
       expect(validTracks.length).toBe(1);
@@ -154,11 +164,7 @@ describe('Playlist Data Handling', () => {
       const track = {
         id: 'track1',
         name: 'Collaboration Song',
-        artists: [
-          { name: 'Artist 1' },
-          { name: 'Artist 2' },
-          { name: 'Artist 3' }
-        ]
+        artists: [{ name: 'Artist 1' }, { name: 'Artist 2' }, { name: 'Artist 3' }],
       };
 
       // Code only uses first artist
@@ -180,12 +186,12 @@ describe('Playlist Data Handling', () => {
 
       const items: PlaylistItem[] = [
         { track: { id: 'track1', name: 'Song 1', artists: [{ name: 'Artist 1' }] } },
-        { track: null }
+        { track: null },
       ];
 
       // TypeScript should know track is not null after filter
-      const validItems = items.filter((item): item is { track: NonNullable<PlaylistItem['track']> } =>
-        item.track !== null
+      const validItems = items.filter(
+        (item): item is { track: NonNullable<PlaylistItem['track']> } => item.track !== null,
       );
 
       // This should not require ! operator due to type guard

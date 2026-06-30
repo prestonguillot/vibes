@@ -13,16 +13,16 @@ describe('General Pagination Logic (BUG-006)', () => {
         items: [
           { id: 'pl1', snippet: { title: 'Playlist 1' } },
           { id: 'pl2', snippet: { title: targetPlaylistName } },
-          { id: 'pl3', snippet: { title: 'Playlist 3' } }
+          { id: 'pl3', snippet: { title: 'Playlist 3' } },
         ],
-        nextPageToken: undefined
+        nextPageToken: undefined,
       };
 
       let targetPlaylist;
       const pages = [page1];
 
       for (const page of pages) {
-        targetPlaylist = page.items.find(pl => pl.snippet.title === targetPlaylistName);
+        targetPlaylist = page.items.find((pl) => pl.snippet.title === targetPlaylistName);
         if (targetPlaylist) break;
         if (!page.nextPageToken) break;
       }
@@ -38,35 +38,35 @@ describe('General Pagination Logic (BUG-006)', () => {
       const page1 = {
         items: Array.from({ length: 50 }, (_, i) => ({
           id: `pl${i}`,
-          snippet: { title: `Playlist ${i}` }
+          snippet: { title: `Playlist ${i}` },
         })),
-        nextPageToken: 'token2'
+        nextPageToken: 'token2',
       };
 
       const page2 = {
         items: Array.from({ length: 50 }, (_, i) => ({
           id: `pl${i + 50}`,
-          snippet: { title: `Playlist ${i + 50}` }
+          snippet: { title: `Playlist ${i + 50}` },
         })),
-        nextPageToken: 'token3'
+        nextPageToken: 'token3',
       };
 
       const page3 = {
         items: [
           ...Array.from({ length: 49 }, (_, i) => ({
             id: `pl${i + 100}`,
-            snippet: { title: `Playlist ${i + 100}` }
+            snippet: { title: `Playlist ${i + 100}` },
           })),
-          { id: 'pl149', snippet: { title: targetPlaylistName } }
+          { id: 'pl149', snippet: { title: targetPlaylistName } },
         ],
-        nextPageToken: undefined
+        nextPageToken: undefined,
       };
 
       let targetPlaylist;
       const pages = [page1, page2, page3];
 
       for (const page of pages) {
-        targetPlaylist = page.items.find(pl => pl.snippet.title === targetPlaylistName);
+        targetPlaylist = page.items.find((pl) => pl.snippet.title === targetPlaylistName);
         if (targetPlaylist) break;
         if (!page.nextPageToken) break;
       }
@@ -82,16 +82,14 @@ describe('General Pagination Logic (BUG-006)', () => {
       const page1 = {
         items: [
           { id: 'pl1', snippet: { title: 'Playlist 1' } },
-          { id: 'pl2', snippet: { title: targetPlaylistName } }
+          { id: 'pl2', snippet: { title: targetPlaylistName } },
         ],
-        nextPageToken: 'token2'
+        nextPageToken: 'token2',
       };
 
       const page2 = {
-        items: [
-          { id: 'pl3', snippet: { title: 'Playlist 3' } }
-        ],
-        nextPageToken: undefined
+        items: [{ id: 'pl3', snippet: { title: 'Playlist 3' } }],
+        nextPageToken: undefined,
       };
 
       let targetPlaylist;
@@ -99,7 +97,7 @@ describe('General Pagination Logic (BUG-006)', () => {
 
       for (const page of pages) {
         pagesChecked++;
-        targetPlaylist = page.items.find(pl => pl.snippet.title === targetPlaylistName);
+        targetPlaylist = page.items.find((pl) => pl.snippet.title === targetPlaylistName);
         if (targetPlaylist) break;
         if (!page.nextPageToken) break;
       }
@@ -114,23 +112,21 @@ describe('General Pagination Logic (BUG-006)', () => {
       const page1 = {
         items: [
           { id: 'pl1', snippet: { title: 'Playlist 1' } },
-          { id: 'pl2', snippet: { title: 'Playlist 2' } }
+          { id: 'pl2', snippet: { title: 'Playlist 2' } },
         ],
-        nextPageToken: 'token2'
+        nextPageToken: 'token2',
       };
 
       const page2 = {
-        items: [
-          { id: 'pl3', snippet: { title: 'Playlist 3' } }
-        ],
-        nextPageToken: undefined
+        items: [{ id: 'pl3', snippet: { title: 'Playlist 3' } }],
+        nextPageToken: undefined,
       };
 
       let targetPlaylist;
       const pages = [page1, page2];
 
       for (const page of pages) {
-        targetPlaylist = page.items.find(pl => pl.snippet.title === targetPlaylistName);
+        targetPlaylist = page.items.find((pl) => pl.snippet.title === targetPlaylistName);
         if (targetPlaylist) break;
         if (!page.nextPageToken) break;
       }
@@ -146,10 +142,10 @@ describe('General Pagination Logic (BUG-006)', () => {
           id: `item${i}`,
           snippet: {
             resourceId: { videoId: `video${i}` },
-            title: `Video ${i}`
-          }
+            title: `Video ${i}`,
+          },
         })),
-        nextPageToken: undefined
+        nextPageToken: undefined,
       };
 
       const allItems: any[] = [];
@@ -171,10 +167,10 @@ describe('General Pagination Logic (BUG-006)', () => {
           id: `item${i}`,
           snippet: {
             resourceId: { videoId: `video${i}` },
-            title: `Video ${i}`
-          }
+            title: `Video ${i}`,
+          },
         })),
-        nextPageToken: 'token2'
+        nextPageToken: 'token2',
       };
 
       const page2 = {
@@ -182,10 +178,10 @@ describe('General Pagination Logic (BUG-006)', () => {
           id: `item${i + 50}`,
           snippet: {
             resourceId: { videoId: `video${i + 50}` },
-            title: `Video ${i + 50}`
-          }
+            title: `Video ${i + 50}`,
+          },
         })),
-        nextPageToken: 'token3'
+        nextPageToken: 'token3',
       };
 
       const page3 = {
@@ -193,10 +189,10 @@ describe('General Pagination Logic (BUG-006)', () => {
           id: `item${i + 100}`,
           snippet: {
             resourceId: { videoId: `video${i + 100}` },
-            title: `Video ${i + 100}`
-          }
+            title: `Video ${i + 100}`,
+          },
         })),
-        nextPageToken: undefined
+        nextPageToken: undefined,
       };
 
       const allItems: any[] = [];
@@ -218,10 +214,10 @@ describe('General Pagination Logic (BUG-006)', () => {
           id: `item${i}`,
           snippet: {
             resourceId: { videoId: `video${i}` },
-            title: `Video ${i}`
-          }
+            title: `Video ${i}`,
+          },
         })),
-        nextPageToken: undefined // No more pages
+        nextPageToken: undefined, // No more pages
       };
 
       const allItems: any[] = [];
@@ -241,10 +237,10 @@ describe('General Pagination Logic (BUG-006)', () => {
           id: `item${i}`,
           snippet: {
             resourceId: { videoId: `video${i}` },
-            title: `Video ${i}`
-          }
+            title: `Video ${i}`,
+          },
         })),
-        nextPageToken: 'token2'
+        nextPageToken: 'token2',
       };
 
       const page2 = {
@@ -253,11 +249,11 @@ describe('General Pagination Logic (BUG-006)', () => {
             id: 'item50',
             snippet: {
               resourceId: { videoId: 'video50' },
-              title: 'Video 50'
-            }
-          }
+              title: 'Video 50',
+            },
+          },
         ],
-        nextPageToken: undefined
+        nextPageToken: undefined,
       };
 
       const allItems: any[] = [];
@@ -275,7 +271,7 @@ describe('General Pagination Logic (BUG-006)', () => {
     it('should handle empty playlist', () => {
       const page1 = {
         items: [],
-        nextPageToken: undefined
+        nextPageToken: undefined,
       };
 
       const allItems: any[] = [];
@@ -298,11 +294,11 @@ describe('General Pagination Logic (BUG-006)', () => {
               resourceId: { videoId: 'abc123' },
               title: 'Song Title',
               description: 'Description',
-              thumbnails: { medium: { url: 'https://example.com/thumb.jpg' } }
-            }
-          }
+              thumbnails: { medium: { url: 'https://example.com/thumb.jpg' } },
+            },
+          },
         ],
-        nextPageToken: 'token2'
+        nextPageToken: 'token2',
       };
 
       const page2 = {
@@ -313,11 +309,11 @@ describe('General Pagination Logic (BUG-006)', () => {
               resourceId: { videoId: 'def456' },
               title: 'Another Song',
               description: 'Another Description',
-              thumbnails: { medium: { url: 'https://example.com/thumb2.jpg' } }
-            }
-          }
+              thumbnails: { medium: { url: 'https://example.com/thumb2.jpg' } },
+            },
+          },
         ],
-        nextPageToken: undefined
+        nextPageToken: undefined,
       };
 
       const allItems: any[] = [];
@@ -341,107 +337,101 @@ describe('General Pagination Logic (BUG-006)', () => {
       const spotifyPlaylists = [
         { name: 'Playlist A' },
         { name: 'Playlist B' },
-        { name: 'Playlist C' }
+        { name: 'Playlist C' },
       ];
 
       // Simulate YouTube playlists spread across pages
       const page1 = {
         items: [
           { id: 'yt1', snippet: { title: 'Playlist A (from Spotify)' } },
-          { id: 'yt2', snippet: { title: 'Unrelated Playlist' } }
+          { id: 'yt2', snippet: { title: 'Unrelated Playlist' } },
         ],
-        nextPageToken: 'token2'
+        nextPageToken: 'token2',
       };
 
       const page2 = {
         items: [
           { id: 'yt3', snippet: { title: 'Another Unrelated' } },
-          { id: 'yt4', snippet: { title: 'Playlist C (from Spotify)' } }
+          { id: 'yt4', snippet: { title: 'Playlist C (from Spotify)' } },
         ],
-        nextPageToken: undefined
+        nextPageToken: undefined,
       };
 
       const youtubePlaylistNames = new Set<string>();
       const pages = [page1, page2];
 
       for (const page of pages) {
-        page.items.forEach(playlist => {
+        page.items.forEach((playlist) => {
           youtubePlaylistNames.add(playlist.snippet.title);
         });
         if (!page.nextPageToken) break;
       }
 
-      const syncedPlaylists = spotifyPlaylists.filter(
-        pl => youtubePlaylistNames.has(`${pl.name} (from Spotify)`)
+      const syncedPlaylists = spotifyPlaylists.filter((pl) =>
+        youtubePlaylistNames.has(`${pl.name} (from Spotify)`),
       );
 
       const unsyncedPlaylists = spotifyPlaylists.filter(
-        pl => !youtubePlaylistNames.has(`${pl.name} (from Spotify)`)
+        (pl) => !youtubePlaylistNames.has(`${pl.name} (from Spotify)`),
       );
 
       expect(syncedPlaylists.length).toBe(2); // A and C
       expect(unsyncedPlaylists.length).toBe(1); // B
-      expect(syncedPlaylists.map(p => p.name)).toEqual(['Playlist A', 'Playlist C']);
-      expect(unsyncedPlaylists.map(p => p.name)).toEqual(['Playlist B']);
+      expect(syncedPlaylists.map((p) => p.name)).toEqual(['Playlist A', 'Playlist C']);
+      expect(unsyncedPlaylists.map((p) => p.name)).toEqual(['Playlist B']);
     });
 
     it('should handle case where all playlists are unsynced', () => {
-      const spotifyPlaylists = [
-        { name: 'Playlist A' },
-        { name: 'Playlist B' }
-      ];
+      const spotifyPlaylists = [{ name: 'Playlist A' }, { name: 'Playlist B' }];
 
       const page1 = {
         items: [
           { id: 'yt1', snippet: { title: 'Unrelated Playlist 1' } },
-          { id: 'yt2', snippet: { title: 'Unrelated Playlist 2' } }
+          { id: 'yt2', snippet: { title: 'Unrelated Playlist 2' } },
         ],
-        nextPageToken: undefined
+        nextPageToken: undefined,
       };
 
       const youtubePlaylistNames = new Set<string>();
       const pages = [page1];
 
       for (const page of pages) {
-        page.items.forEach(playlist => {
+        page.items.forEach((playlist) => {
           youtubePlaylistNames.add(playlist.snippet.title);
         });
         if (!page.nextPageToken) break;
       }
 
-      const syncedPlaylists = spotifyPlaylists.filter(
-        pl => youtubePlaylistNames.has(`${pl.name} (from Spotify)`)
+      const syncedPlaylists = spotifyPlaylists.filter((pl) =>
+        youtubePlaylistNames.has(`${pl.name} (from Spotify)`),
       );
 
       expect(syncedPlaylists.length).toBe(0);
     });
 
     it('should handle case where all playlists are synced', () => {
-      const spotifyPlaylists = [
-        { name: 'Playlist A' },
-        { name: 'Playlist B' }
-      ];
+      const spotifyPlaylists = [{ name: 'Playlist A' }, { name: 'Playlist B' }];
 
       const page1 = {
         items: [
           { id: 'yt1', snippet: { title: 'Playlist A (from Spotify)' } },
-          { id: 'yt2', snippet: { title: 'Playlist B (from Spotify)' } }
+          { id: 'yt2', snippet: { title: 'Playlist B (from Spotify)' } },
         ],
-        nextPageToken: undefined
+        nextPageToken: undefined,
       };
 
       const youtubePlaylistNames = new Set<string>();
       const pages = [page1];
 
       for (const page of pages) {
-        page.items.forEach(playlist => {
+        page.items.forEach((playlist) => {
           youtubePlaylistNames.add(playlist.snippet.title);
         });
         if (!page.nextPageToken) break;
       }
 
-      const syncedPlaylists = spotifyPlaylists.filter(
-        pl => youtubePlaylistNames.has(`${pl.name} (from Spotify)`)
+      const syncedPlaylists = spotifyPlaylists.filter((pl) =>
+        youtubePlaylistNames.has(`${pl.name} (from Spotify)`),
       );
 
       expect(syncedPlaylists.length).toBe(2);
@@ -452,7 +442,7 @@ describe('General Pagination Logic (BUG-006)', () => {
     it('should handle undefined items array', () => {
       const page1 = {
         items: undefined,
-        nextPageToken: undefined
+        nextPageToken: undefined,
       };
 
       const allItems: any[] = [];
@@ -471,7 +461,7 @@ describe('General Pagination Logic (BUG-006)', () => {
     it('should handle nextPageToken that is null vs undefined', () => {
       const page1 = {
         items: [{ id: 'item1' }],
-        nextPageToken: null
+        nextPageToken: null,
       };
 
       let shouldContinue = !!page1.nextPageToken;
@@ -479,7 +469,7 @@ describe('General Pagination Logic (BUG-006)', () => {
 
       const page2 = {
         items: [{ id: 'item2' }],
-        nextPageToken: undefined
+        nextPageToken: undefined,
       };
 
       shouldContinue = !!page2.nextPageToken;
@@ -487,7 +477,7 @@ describe('General Pagination Logic (BUG-006)', () => {
 
       const page3 = {
         items: [{ id: 'item3' }],
-        nextPageToken: 'token'
+        nextPageToken: 'token',
       };
 
       shouldContinue = !!page3.nextPageToken;
@@ -499,9 +489,9 @@ describe('General Pagination Logic (BUG-006)', () => {
       const pages = Array.from({ length: 10 }, (_, pageIndex) => ({
         items: Array.from({ length: 50 }, (_, itemIndex) => ({
           id: `item${pageIndex * 50 + itemIndex}`,
-          snippet: { title: `Video ${pageIndex * 50 + itemIndex}` }
+          snippet: { title: `Video ${pageIndex * 50 + itemIndex}` },
         })),
-        nextPageToken: pageIndex < 9 ? `token${pageIndex + 2}` : undefined
+        nextPageToken: pageIndex < 9 ? `token${pageIndex + 2}` : undefined,
       }));
 
       const allItems: any[] = [];

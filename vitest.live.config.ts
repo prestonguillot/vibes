@@ -12,12 +12,12 @@ export default defineConfig({
     environment: 'node',
     include: ['tests/live/**/*.test.ts'],
     setupFiles: ['./tests/live/setup.ts'],
-    testTimeout: 30000
+    testTimeout: 30000,
   },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
-      '@tests': path.resolve(__dirname, './tests')
-    }
-  }
+      '@tests': path.resolve(__dirname, './tests'),
+    },
+  },
 });

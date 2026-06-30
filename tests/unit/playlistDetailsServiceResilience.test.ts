@@ -18,7 +18,7 @@ import { fetchAllPlaylistItems } from '../../src/utils/spotifyPlaylistItems';
 import { getPlaylist } from '../../src/utils/spotifyClient';
 
 vi.mock('../../src/utils/spotifyPlaylistItems', () => ({
-  fetchAllPlaylistItems: vi.fn()
+  fetchAllPlaylistItems: vi.fn(),
 }));
 
 vi.mock('../../src/utils/spotifyClient', async (importActual) => {
@@ -34,7 +34,7 @@ const makePlaylist = (name: string, trackTotal: number | null) => ({
   name,
   ownerId: null,
   trackTotal,
-  spotifyUrl: 'https://open.spotify.com/playlist/playlist'
+  spotifyUrl: 'https://open.spotify.com/playlist/playlist',
 });
 
 const makeItem = (id: string, name: string) => ({
@@ -46,8 +46,8 @@ const makeItem = (id: string, name: string) => ({
     album: { name: 'Some Album', images: [{ url: 'http://img/x.jpg' }] },
     duration_ms: 200000,
     external_urls: { spotify: `https://open.spotify.com/track/${id}` },
-    preview_url: null
-  }
+    preview_url: null,
+  },
 });
 
 describe('fetchPlaylistDetails resilience', () => {
@@ -59,7 +59,10 @@ describe('fetchPlaylistDetails resilience', () => {
   it('does not crash when the playlist has no track count', async () => {
     // No track count at all - this is what used to crash (maps to trackTotal: null).
     mockedGetPlaylist.mockResolvedValue(makePlaylist('Malformed Playlist', null));
-    mockedFetchAllPlaylistItems.mockResolvedValue([makeItem('t1', 'Song One'), makeItem('t2', 'Song Two')]);
+    mockedFetchAllPlaylistItems.mockResolvedValue([
+      makeItem('t1', 'Song One'),
+      makeItem('t2', 'Song Two'),
+    ]);
 
     const result = await fetchPlaylistDetails('test-access-token', null, 'playlist-123');
 
@@ -76,13 +79,13 @@ describe('fetchPlaylistDetails resilience', () => {
       makeItem('t1', 'Good One'),
       { track: null },
       { track: undefined } as any,
-      makeItem('t2', 'Good Two')
+      makeItem('t2', 'Good Two'),
     ]);
 
     const result = await fetchPlaylistDetails('test-access-token', null, 'playlist-456');
 
     expect(result.tracks).toHaveLength(2);
-    expect(result.tracks.map(t => t.spotify?.id)).toEqual(['t1', 't2']);
+    expect(result.tracks.map((t) => t.spotify?.id)).toEqual(['t1', 't2']);
   });
 
   it('handles an empty playlist without crashing', async () => {

@@ -8,7 +8,7 @@ describe('Error Template Escaping', () => {
     const html = await ejs.renderFile(templatePath, {
       type: 'danger',
       message: '<script>alert("XSS")</script>',
-      details: undefined
+      details: undefined,
     });
 
     // Should contain escaped script tags, not actual script
@@ -21,7 +21,7 @@ describe('Error Template Escaping', () => {
     const html = await ejs.renderFile(templatePath, {
       type: 'danger',
       message: 'An error occurred',
-      details: '<img src=x onerror="alert(\'XSS\')">'
+      details: '<img src=x onerror="alert(\'XSS\')">',
     });
 
     // Should contain escaped img tag, not actual img
@@ -34,7 +34,7 @@ describe('Error Template Escaping', () => {
     const html = await ejs.renderFile(templatePath, {
       type: 'warning',
       message: 'Error with & < > " \' characters',
-      details: undefined
+      details: undefined,
     });
 
     // Should contain escaped special characters

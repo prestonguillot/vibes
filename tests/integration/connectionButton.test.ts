@@ -6,7 +6,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import { createApp } from '@/app';
 
-
 // Mock connection validation so these tests are deterministic and offline - the
 // real validators hit the live Spotify/YouTube APIs (the source of CI flakiness).
 const mockAuth = vi.hoisted(() => ({
@@ -30,9 +29,7 @@ describe('Connection Button Endpoints', () => {
   describe('BUG-002: Loading parameter handling', () => {
     describe('GET /api/status/spotify/button', () => {
       it('should return 200 and render connection button', async () => {
-        const response = await request(app)
-          .get('/api/status/spotify/button')
-          .expect(200);
+        const response = await request(app).get('/api/status/spotify/button').expect(200);
 
         // Should contain connection button HTML
         expect(response.text).toBeDefined();
@@ -41,8 +38,7 @@ describe('Connection Button Endpoints', () => {
 
       it('should not crash with missing loading parameter', async () => {
         // This test ensures BUG-002 is fixed - the endpoint should pass loading parameter
-        const response = await request(app)
-          .get('/api/status/spotify/button');
+        const response = await request(app).get('/api/status/spotify/button');
 
         // Should succeed without ReferenceError
         expect(response.status).toBe(200);
@@ -53,9 +49,7 @@ describe('Connection Button Endpoints', () => {
       });
 
       it('should render for unauthenticated users', async () => {
-        const response = await request(app)
-          .get('/api/status/spotify/button')
-          .expect(200);
+        const response = await request(app).get('/api/status/spotify/button').expect(200);
 
         // Should render successfully even without auth
         expect(response.text).toBeDefined();
@@ -64,9 +58,7 @@ describe('Connection Button Endpoints', () => {
 
     describe('GET /api/status/youtube/button', () => {
       it('should return 200 and render connection button', async () => {
-        const response = await request(app)
-          .get('/api/status/youtube/button')
-          .expect(200);
+        const response = await request(app).get('/api/status/youtube/button').expect(200);
 
         // Should contain connection button HTML
         expect(response.text).toBeDefined();
@@ -75,8 +67,7 @@ describe('Connection Button Endpoints', () => {
 
       it('should not crash with missing loading parameter', async () => {
         // This test ensures BUG-002 is fixed - the endpoint should pass loading parameter
-        const response = await request(app)
-          .get('/api/status/youtube/button');
+        const response = await request(app).get('/api/status/youtube/button');
 
         // Should succeed without ReferenceError
         expect(response.status).toBe(200);
@@ -87,9 +78,7 @@ describe('Connection Button Endpoints', () => {
       });
 
       it('should render for unauthenticated users', async () => {
-        const response = await request(app)
-          .get('/api/status/youtube/button')
-          .expect(200);
+        const response = await request(app).get('/api/status/youtube/button').expect(200);
 
         // Should render successfully even without auth
         expect(response.text).toBeDefined();
@@ -100,14 +89,12 @@ describe('Connection Button Endpoints', () => {
       it('should apply rate limiting to status endpoints', async () => {
         // Status endpoints use statusLimiter (30 req/min)
         // First request should succeed
-        const response1 = await request(app)
-          .get('/api/status/spotify/button');
+        const response1 = await request(app).get('/api/status/spotify/button');
 
         expect(response1.status).toBe(200);
 
         // Subsequent requests should also succeed (we're not hitting the limit)
-        const response2 = await request(app)
-          .get('/api/status/spotify/button');
+        const response2 = await request(app).get('/api/status/spotify/button');
 
         expect(response2.status).toBe(200);
       });
@@ -115,16 +102,14 @@ describe('Connection Button Endpoints', () => {
 
     describe('Content validation', () => {
       it('should return HTML content for Spotify button', async () => {
-        const response = await request(app)
-          .get('/api/status/spotify/button');
+        const response = await request(app).get('/api/status/spotify/button');
 
         // Should be HTML
         expect(response.headers['content-type']).toMatch(/html/);
       });
 
       it('should return HTML content for YouTube button', async () => {
-        const response = await request(app)
-          .get('/api/status/youtube/button');
+        const response = await request(app).get('/api/status/youtube/button');
 
         // Should be HTML
         expect(response.headers['content-type']).toMatch(/html/);
@@ -134,8 +119,7 @@ describe('Connection Button Endpoints', () => {
 
   describe('Error handling', () => {
     it('should handle invalid HTTP methods gracefully', async () => {
-      const response = await request(app)
-        .post('/api/status/spotify/button');
+      const response = await request(app).post('/api/status/spotify/button');
 
       // Should return 404 (route not found for POST)
       expect(response.status).toBe(404);
@@ -152,7 +136,7 @@ describe('Connection Button Endpoints', () => {
           refresh_token: 'mock_youtube_refresh_token',
           scope: 'https://www.googleapis.com/auth/youtube',
           token_type: 'Bearer',
-          expiry_date: Date.now() + 3600000 // 1 hour from now
+          expiry_date: Date.now() + 3600000, // 1 hour from now
         });
 
         const response = await request(app)
@@ -164,8 +148,7 @@ describe('Connection Button Endpoints', () => {
       });
 
       it('should NOT send HX-Trigger header when YouTube is not connected', async () => {
-        const response = await request(app)
-          .get('/api/status/youtube/button');
+        const response = await request(app).get('/api/status/youtube/button');
 
         // Should NOT send HX-Trigger header when not connected
         expect(response.headers['hx-trigger']).toBeUndefined();
@@ -175,7 +158,7 @@ describe('Connection Button Endpoints', () => {
         // Mock valid Spotify tokens
         const mockSpotifyTokens = JSON.stringify({
           accessToken: 'mock_spotify_access_token',
-          refreshToken: 'mock_spotify_refresh_token'
+          refreshToken: 'mock_spotify_refresh_token',
         });
 
         const response = await request(app)

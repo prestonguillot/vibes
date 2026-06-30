@@ -12,17 +12,14 @@ const app = createApp();
 describe('Index Page', () => {
   describe('GET /', () => {
     it('should return 200 and render index page', async () => {
-      const response = await request(app)
-        .get('/')
-        .expect(200);
+      const response = await request(app).get('/').expect(200);
 
       expect(response.text).toBeDefined();
       expect(response.text).toContain('<title>Spotify to YouTube Playlist Sync</title>');
     });
 
     it('should include HTMX script', async () => {
-      const response = await request(app)
-        .get('/');
+      const response = await request(app).get('/');
 
       expect(response.text).toContain('/vendor/htmx.min.js');
     });
@@ -30,16 +27,14 @@ describe('Index Page', () => {
 
   describe('HTMX Event Configuration', () => {
     it('should include YouTube connection refresh script', async () => {
-      const response = await request(app)
-        .get('/');
+      const response = await request(app).get('/');
 
       // Should include the YouTube connection refresh handler script
       expect(response.text).toContain('src="/js/youtubeConnectionRefresh.js"');
     });
 
     it('should configure playlists section to fetch from correct endpoint', async () => {
-      const response = await request(app)
-        .get('/');
+      const response = await request(app).get('/');
 
       // Fetches the playlists endpoint; the ownOnly filter flows via hx-include of
       // the #ownPlaylistsOnly checkbox (name="ownOnly"), not a hardcoded query param.
@@ -49,8 +44,7 @@ describe('Index Page', () => {
     });
 
     it('should configure YouTube status to poll regularly', async () => {
-      const response = await request(app)
-        .get('/');
+      const response = await request(app).get('/');
 
       // YouTube status should poll every 5 minutes
       expect(response.text).toContain('id="youtube-status"');
@@ -59,8 +53,7 @@ describe('Index Page', () => {
     });
 
     it('should configure Spotify status to poll regularly', async () => {
-      const response = await request(app)
-        .get('/');
+      const response = await request(app).get('/');
 
       // Spotify status should poll every 5 minutes
       expect(response.text).toContain('id="spotify-status"');
@@ -71,8 +64,7 @@ describe('Index Page', () => {
 
   describe('Security Headers', () => {
     it('should include CSRF token in page', async () => {
-      const response = await request(app)
-        .get('/');
+      const response = await request(app).get('/');
 
       // Should include CSRF token in hx-headers on body
       expect(response.text).toContain('hx-headers');
@@ -82,15 +74,13 @@ describe('Index Page', () => {
 
   describe('Playlist Controls Layout', () => {
     it('should include playlist section heading', async () => {
-      const response = await request(app)
-        .get('/');
+      const response = await request(app).get('/');
 
       expect(response.text).toContain('Your Spotify Playlists');
     });
 
     it('should include tracks per sync dropdown with all options', async () => {
-      const response = await request(app)
-        .get('/');
+      const response = await request(app).get('/');
 
       // Should have the dropdown
       expect(response.text).toContain('id="syncBatchSize"');
@@ -105,8 +95,7 @@ describe('Index Page', () => {
     });
 
     it('should include "Show only playlists I created" toggle checked by default', async () => {
-      const response = await request(app)
-        .get('/');
+      const response = await request(app).get('/');
 
       // Should have the toggle
       expect(response.text).toContain('id="ownPlaylistsOnly"');
@@ -117,8 +106,7 @@ describe('Index Page', () => {
     });
 
     it('should configure toggle to filter playlists via HTMX', async () => {
-      const response = await request(app)
-        .get('/');
+      const response = await request(app).get('/');
 
       // Verify toggle has correct HTMX attributes
       const toggleMatch = response.text.match(/id="ownPlaylistsOnly"[^>]*>/);
@@ -132,8 +120,7 @@ describe('Index Page', () => {
     });
 
     it('should have heading and controls in separate structure for better spacing', async () => {
-      const response = await request(app)
-        .get('/');
+      const response = await request(app).get('/');
 
       // Should have proper spacing class on heading
       expect(response.text).toMatch(/<h4[^>]*class="[^"]*mb-3[^"]*">Your Spotify Playlists<\/h4>/);
@@ -145,8 +132,7 @@ describe('Index Page', () => {
     });
 
     it('should have responsive grid layout for controls', async () => {
-      const response = await request(app)
-        .get('/');
+      const response = await request(app).get('/');
 
       // Controls should use responsive grid with Bootstrap breakpoints
       expect(response.text).toContain('col-12 col-sm-auto');

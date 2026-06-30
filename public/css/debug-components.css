@@ -1,39 +1,39 @@
 /* Styles for the /debug/components showcase page only. */
 .component-section {
-    margin-bottom: 60px;
-    padding: 30px;
-    background: #f0f0f0;
-    border: 2px dashed #ccc;
-    border-radius: 4px;
+  margin-bottom: 60px;
+  padding: 30px;
+  background: #f0f0f0;
+  border: 2px dashed #ccc;
+  border-radius: 4px;
 }
 
 .component-title {
-    font-family: 'Fredoka One', cursive;
-    font-size: 1.8rem;
-    margin-bottom: 20px;
-    color: #000;
-    border-bottom: 3px solid #000;
-    padding-bottom: 10px;
+  font-family: 'Fredoka One', cursive;
+  font-size: 1.8rem;
+  margin-bottom: 20px;
+  color: #000;
+  border-bottom: 3px solid #000;
+  padding-bottom: 10px;
 }
 
 .component-description {
-    font-size: 0.9rem;
-    color: #666;
-    margin-bottom: 20px;
-    font-style: italic;
+  font-size: 0.9rem;
+  color: #666;
+  margin-bottom: 20px;
+  font-style: italic;
 }
 
 .component-demo {
-    background: #fff;
-    padding: 20px;
-    margin-bottom: 15px;
-    border: 1px solid #ddd;
+  background: #fff;
+  padding: 20px;
+  margin-bottom: 15px;
+  border: 1px solid #ddd;
 }
 
 .demo-label {
-    font-size: 0.8rem;
-    color: #999;
-    margin-bottom: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
+  font-size: 0.8rem;
+  color: #999;
+  margin-bottom: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
 }

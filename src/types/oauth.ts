@@ -22,4 +22,3 @@ export interface YouTubeTokens {
   expiry_date?: number;
   channel_id?: string; // YouTube channel ID (cached at auth time to avoid API calls)
 }
-

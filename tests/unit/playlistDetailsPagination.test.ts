@@ -14,16 +14,16 @@ describe('Playlist Details Pagination Logic (BUG-004)', () => {
         items: [
           { id: 'pl1', snippet: { title: 'Other Playlist' } },
           { id: 'pl2', snippet: { title: targetName } },
-          { id: 'pl3', snippet: { title: 'Another Playlist' } }
+          { id: 'pl3', snippet: { title: 'Another Playlist' } },
         ],
-        nextPageToken: undefined
+        nextPageToken: undefined,
       };
 
       let targetPlaylist;
       const pages = [page1];
 
       for (const page of pages) {
-        targetPlaylist = page.items.find(pl => pl.snippet.title === targetName);
+        targetPlaylist = page.items.find((pl) => pl.snippet.title === targetName);
         if (targetPlaylist) break;
         if (!page.nextPageToken) break;
       }
@@ -40,33 +40,33 @@ describe('Playlist Details Pagination Logic (BUG-004)', () => {
       const page1 = {
         items: Array.from({ length: 50 }, (_, i) => ({
           id: `pl${i}`,
-          snippet: { title: `Playlist ${i}` }
+          snippet: { title: `Playlist ${i}` },
         })),
-        nextPageToken: 'token2'
+        nextPageToken: 'token2',
       };
 
       const page2 = {
         items: Array.from({ length: 50 }, (_, i) => ({
           id: `pl${i + 50}`,
-          snippet: { title: `Playlist ${i + 50}` }
+          snippet: { title: `Playlist ${i + 50}` },
         })),
-        nextPageToken: 'token3'
+        nextPageToken: 'token3',
       };
 
       const page3 = {
         items: [
           { id: 'pl100', snippet: { title: 'Playlist 100' } },
           { id: 'pl101', snippet: { title: targetName } },
-          { id: 'pl102', snippet: { title: 'Playlist 102' } }
+          { id: 'pl102', snippet: { title: 'Playlist 102' } },
         ],
-        nextPageToken: undefined
+        nextPageToken: undefined,
       };
 
       let targetPlaylist;
       const pages = [page1, page2, page3];
 
       for (const page of pages) {
-        targetPlaylist = page.items.find(pl => pl.snippet.title === targetName);
+        targetPlaylist = page.items.find((pl) => pl.snippet.title === targetName);
         if (targetPlaylist) break;
         if (!page.nextPageToken) break;
       }
@@ -81,16 +81,16 @@ describe('Playlist Details Pagination Logic (BUG-004)', () => {
       const page1 = {
         items: [
           { id: 'pl1', snippet: { title: 'Playlist 1' } },
-          { id: 'pl2', snippet: { title: 'Playlist 2' } }
+          { id: 'pl2', snippet: { title: 'Playlist 2' } },
         ],
-        nextPageToken: undefined
+        nextPageToken: undefined,
       };
 
       let targetPlaylist;
       const pages = [page1];
 
       for (const page of pages) {
-        targetPlaylist = page.items.find(pl => pl.snippet.title === targetName);
+        targetPlaylist = page.items.find((pl) => pl.snippet.title === targetName);
         if (targetPlaylist) break;
         if (!page.nextPageToken) break;
       }
@@ -105,16 +105,14 @@ describe('Playlist Details Pagination Logic (BUG-004)', () => {
       const page1 = {
         items: [
           { id: 'pl1', snippet: { title: 'Playlist 1' } },
-          { id: 'pl2', snippet: { title: targetName } }
+          { id: 'pl2', snippet: { title: targetName } },
         ],
-        nextPageToken: 'token2'
+        nextPageToken: 'token2',
       };
 
       const page2 = {
-        items: [
-          { id: 'pl3', snippet: { title: 'Playlist 3' } }
-        ],
-        nextPageToken: undefined
+        items: [{ id: 'pl3', snippet: { title: 'Playlist 3' } }],
+        nextPageToken: undefined,
       };
 
       let targetPlaylist;
@@ -122,7 +120,7 @@ describe('Playlist Details Pagination Logic (BUG-004)', () => {
 
       for (const page of pages) {
         pagesChecked++;
-        targetPlaylist = page.items.find(pl => pl.snippet.title === targetName);
+        targetPlaylist = page.items.find((pl) => pl.snippet.title === targetName);
         if (targetPlaylist) break;
         if (!page.nextPageToken) break;
       }
@@ -140,9 +138,9 @@ describe('Playlist Details Pagination Logic (BUG-004)', () => {
         items: [
           { id: 'item1', snippet: { resourceId: { videoId: 'video1' } } },
           { id: 'item2', snippet: { resourceId: { videoId: targetVideoId } } },
-          { id: 'item3', snippet: { resourceId: { videoId: 'video3' } } }
+          { id: 'item3', snippet: { resourceId: { videoId: 'video3' } } },
         ],
-        nextPageToken: undefined
+        nextPageToken: undefined,
       };
 
       let targetItem;
@@ -151,7 +149,7 @@ describe('Playlist Details Pagination Logic (BUG-004)', () => {
 
       for (const page of pages) {
         itemsFetched += page.items.length;
-        targetItem = page.items.find(item => item.snippet?.resourceId?.videoId === targetVideoId);
+        targetItem = page.items.find((item) => item.snippet?.resourceId?.videoId === targetVideoId);
         if (targetItem) break;
         if (!page.nextPageToken) break;
       }
@@ -168,20 +166,20 @@ describe('Playlist Details Pagination Logic (BUG-004)', () => {
       const page1 = {
         items: Array.from({ length: 50 }, (_, i) => ({
           id: `item${i}`,
-          snippet: { resourceId: { videoId: `video${i}` } }
+          snippet: { resourceId: { videoId: `video${i}` } },
         })),
-        nextPageToken: 'token2'
+        nextPageToken: 'token2',
       };
 
       const page2 = {
         items: [
           ...Array.from({ length: 25 }, (_, i) => ({
             id: `item${i + 50}`,
-            snippet: { resourceId: { videoId: `video${i + 50}` } }
+            snippet: { resourceId: { videoId: `video${i + 50}` } },
           })),
-          { id: 'item75', snippet: { resourceId: { videoId: targetVideoId } } }
+          { id: 'item75', snippet: { resourceId: { videoId: targetVideoId } } },
         ],
-        nextPageToken: undefined
+        nextPageToken: undefined,
       };
 
       let targetItem;
@@ -190,7 +188,7 @@ describe('Playlist Details Pagination Logic (BUG-004)', () => {
 
       for (const page of pages) {
         itemsFetched += page.items.length;
-        targetItem = page.items.find(item => item.snippet?.resourceId?.videoId === targetVideoId);
+        targetItem = page.items.find((item) => item.snippet?.resourceId?.videoId === targetVideoId);
         if (targetItem) break;
         if (!page.nextPageToken) break;
       }
@@ -206,9 +204,9 @@ describe('Playlist Details Pagination Logic (BUG-004)', () => {
       const page1 = {
         items: Array.from({ length: 50 }, (_, i) => ({
           id: `item${i}`,
-          snippet: { resourceId: { videoId: `video${i}` } }
+          snippet: { resourceId: { videoId: `video${i}` } },
         })),
-        nextPageToken: 'token2'
+        nextPageToken: 'token2',
       };
 
       let targetItem;
@@ -217,7 +215,7 @@ describe('Playlist Details Pagination Logic (BUG-004)', () => {
 
       for (const page of pages) {
         itemsFetched += page.items.length;
-        targetItem = page.items.find(item => item.snippet?.resourceId?.videoId === targetVideoId);
+        targetItem = page.items.find((item) => item.snippet?.resourceId?.videoId === targetVideoId);
         if (targetItem) break;
         if (!page.nextPageToken) break;
       }
@@ -233,16 +231,14 @@ describe('Playlist Details Pagination Logic (BUG-004)', () => {
       const page1 = {
         items: Array.from({ length: 50 }, (_, i) => ({
           id: `item${i}`,
-          snippet: { resourceId: { videoId: `video${i}` } }
+          snippet: { resourceId: { videoId: `video${i}` } },
         })),
-        nextPageToken: 'token2'
+        nextPageToken: 'token2',
       };
 
       const page2 = {
-        items: [
-          { id: 'item50', snippet: { resourceId: { videoId: targetVideoId } } }
-        ],
-        nextPageToken: undefined
+        items: [{ id: 'item50', snippet: { resourceId: { videoId: targetVideoId } } }],
+        nextPageToken: undefined,
       };
 
       let targetItem;
@@ -251,7 +247,7 @@ describe('Playlist Details Pagination Logic (BUG-004)', () => {
 
       for (const page of pages) {
         itemsFetched += page.items.length;
-        targetItem = page.items.find(item => item.snippet?.resourceId?.videoId === targetVideoId);
+        targetItem = page.items.find((item) => item.snippet?.resourceId?.videoId === targetVideoId);
         if (targetItem) break;
         if (!page.nextPageToken) break;
       }
@@ -267,17 +263,17 @@ describe('Playlist Details Pagination Logic (BUG-004)', () => {
       const page1 = {
         items: Array.from({ length: 50 }, (_, i) => ({
           id: `item${i}`,
-          snippet: { resourceId: { videoId: `video${i}` } }
+          snippet: { resourceId: { videoId: `video${i}` } },
         })),
-        nextPageToken: 'token2'
+        nextPageToken: 'token2',
       };
 
       const page2 = {
         items: Array.from({ length: 30 }, (_, i) => ({
           id: `item${i + 50}`,
-          snippet: { resourceId: { videoId: `video${i + 50}` } }
+          snippet: { resourceId: { videoId: `video${i + 50}` } },
         })),
-        nextPageToken: undefined
+        nextPageToken: undefined,
       };
 
       let targetItem;
@@ -286,7 +282,7 @@ describe('Playlist Details Pagination Logic (BUG-004)', () => {
 
       for (const page of pages) {
         itemsFetched += page.items.length;
-        targetItem = page.items.find(item => item.snippet?.resourceId?.videoId === targetVideoId);
+        targetItem = page.items.find((item) => item.snippet?.resourceId?.videoId === targetVideoId);
         if (targetItem) break;
         if (!page.nextPageToken) break;
       }
@@ -302,16 +298,14 @@ describe('Playlist Details Pagination Logic (BUG-004)', () => {
       const page1 = {
         items: [
           { id: 'item1', snippet: { resourceId: { videoId: 'video1' } } },
-          { id: 'item2', snippet: { resourceId: { videoId: targetVideoId } } }
+          { id: 'item2', snippet: { resourceId: { videoId: targetVideoId } } },
         ],
-        nextPageToken: 'token2'
+        nextPageToken: 'token2',
       };
 
       const page2 = {
-        items: [
-          { id: 'item3', snippet: { resourceId: { videoId: 'video3' } } }
-        ],
-        nextPageToken: undefined
+        items: [{ id: 'item3', snippet: { resourceId: { videoId: 'video3' } } }],
+        nextPageToken: undefined,
       };
 
       let targetItem;
@@ -319,7 +313,7 @@ describe('Playlist Details Pagination Logic (BUG-004)', () => {
 
       for (const page of pages) {
         pagesChecked++;
-        targetItem = page.items.find(item => item.snippet?.resourceId?.videoId === targetVideoId);
+        targetItem = page.items.find((item) => item.snippet?.resourceId?.videoId === targetVideoId);
         if (targetItem) break;
         if (!page.nextPageToken) break;
       }
@@ -334,25 +328,25 @@ describe('Playlist Details Pagination Logic (BUG-004)', () => {
       const page1 = {
         items: Array.from({ length: 50 }, (_, i) => ({
           id: `item${i}`,
-          snippet: { resourceId: { videoId: `video${i}` } }
+          snippet: { resourceId: { videoId: `video${i}` } },
         })),
-        nextPageToken: 'token2'
+        nextPageToken: 'token2',
       };
 
       const page2 = {
         items: Array.from({ length: 50 }, (_, i) => ({
           id: `item${i + 50}`,
-          snippet: { resourceId: { videoId: `video${i + 50}` } }
+          snippet: { resourceId: { videoId: `video${i + 50}` } },
         })),
-        nextPageToken: 'token3'
+        nextPageToken: 'token3',
       };
 
       const page3 = {
         items: Array.from({ length: 26 }, (_, i) => ({
           id: `item${i + 100}`,
-          snippet: { resourceId: { videoId: `video${i + 100}` } }
+          snippet: { resourceId: { videoId: `video${i + 100}` } },
         })),
-        nextPageToken: undefined
+        nextPageToken: undefined,
       };
 
       let targetItem;
@@ -361,7 +355,7 @@ describe('Playlist Details Pagination Logic (BUG-004)', () => {
 
       for (const page of pages) {
         itemsFetched += page.items.length;
-        targetItem = page.items.find(item => item.snippet?.resourceId?.videoId === targetVideoId);
+        targetItem = page.items.find((item) => item.snippet?.resourceId?.videoId === targetVideoId);
         if (targetItem) break;
         if (!page.nextPageToken) break;
       }
@@ -377,7 +371,7 @@ describe('Playlist Details Pagination Logic (BUG-004)', () => {
 
       const page1 = {
         items: [],
-        nextPageToken: undefined
+        nextPageToken: undefined,
       };
 
       let targetItem;
@@ -386,7 +380,7 @@ describe('Playlist Details Pagination Logic (BUG-004)', () => {
 
       for (const page of pages) {
         itemsFetched += page.items.length;
-        targetItem = page.items.find(item => item.snippet?.resourceId?.videoId === targetVideoId);
+        targetItem = page.items.find((item) => item.snippet?.resourceId?.videoId === targetVideoId);
         if (targetItem) break;
         if (!page.nextPageToken) break;
       }
@@ -401,16 +395,16 @@ describe('Playlist Details Pagination Logic (BUG-004)', () => {
       const page1 = {
         items: [
           { id: 'item1', snippet: { resourceId: undefined } }, // Missing resourceId
-          { id: 'item2', snippet: { resourceId: { videoId: targetVideoId } } }
+          { id: 'item2', snippet: { resourceId: { videoId: targetVideoId } } },
         ],
-        nextPageToken: undefined
+        nextPageToken: undefined,
       };
 
       let targetItem;
       const pages = [page1];
 
       for (const page of pages) {
-        targetItem = page.items.find(item => item.snippet?.resourceId?.videoId === targetVideoId);
+        targetItem = page.items.find((item) => item.snippet?.resourceId?.videoId === targetVideoId);
         if (targetItem) break;
         if (!page.nextPageToken) break;
       }

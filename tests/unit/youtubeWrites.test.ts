@@ -11,8 +11,8 @@ vi.mock('../../src/utils/circuitBreaker', () => ({
     canProceed: vi.fn(),
     recordSuccess: vi.fn(),
     recordFailure: vi.fn(),
-    open: vi.fn()
-  }
+    open: vi.fn(),
+  },
 }));
 
 import { youtubeCircuitBreaker } from '../../src/utils/circuitBreaker';
@@ -21,7 +21,7 @@ import {
   YoutubeQuotaError,
   YOUTUBE_WRITE_COST,
   getYoutubeWriteQuotaUsed,
-  resetYoutubeWriteQuotaCounter
+  resetYoutubeWriteQuotaCounter,
 } from '../../src/utils/youtubeWrites';
 
 const breaker = vi.mocked(youtubeCircuitBreaker);
@@ -47,7 +47,9 @@ describe('youtubeWrite', () => {
     breaker.canProceed.mockReturnValue(false);
     const write = vi.fn(() => Promise.resolve('result'));
 
-    await expect(youtubeWrite('playlistItems.insert', write)).rejects.toBeInstanceOf(YoutubeQuotaError);
+    await expect(youtubeWrite('playlistItems.insert', write)).rejects.toBeInstanceOf(
+      YoutubeQuotaError,
+    );
     expect(write).not.toHaveBeenCalled();
     expect(getYoutubeWriteQuotaUsed()).toBe(0);
   });
@@ -63,7 +65,9 @@ describe('youtubeWrite', () => {
 
   it('treats a bare 403 (no reason) as quota too', async () => {
     const write = vi.fn(() => Promise.reject({ code: 403 }));
-    await expect(youtubeWrite('playlistItems.delete', write)).rejects.toBeInstanceOf(YoutubeQuotaError);
+    await expect(youtubeWrite('playlistItems.delete', write)).rejects.toBeInstanceOf(
+      YoutubeQuotaError,
+    );
     expect(breaker.open).toHaveBeenCalledOnce();
   });
 

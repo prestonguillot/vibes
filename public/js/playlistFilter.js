@@ -6,7 +6,7 @@
  * send it via the element's own value or hx-include - no JS URL rewriting needed.
  */
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
   const refreshBtn = document.getElementById('refresh-playlists-btn');
 
   /**
@@ -34,8 +34,11 @@ document.addEventListener('DOMContentLoaded', function() {
   checkConnectionStatus();
 
   // Re-check whenever the status areas are updated via HTMX
-  document.body.addEventListener('htmx:afterSwap', function(event) {
-    if (event.detail.target.id === 'spotify-status' || event.detail.target.id === 'youtube-status') {
+  document.body.addEventListener('htmx:afterSwap', function (event) {
+    if (
+      event.detail.target.id === 'spotify-status' ||
+      event.detail.target.id === 'youtube-status'
+    ) {
       checkConnectionStatus();
     }
   });

@@ -11,10 +11,10 @@ describe('Validation Schemas', () => {
       const validIds = [
         '37i9dQZF1DXcBWIGoYBM5M',
         '3cEYpjA9oz9GiPac4AsH4n',
-        '5ABHKGoOzxkaa28ttQV9sE'
+        '5ABHKGoOzxkaa28ttQV9sE',
       ];
 
-      validIds.forEach(id => {
+      validIds.forEach((id) => {
         expect(() => schemas.spotifyPlaylistId.parse(id)).not.toThrow();
       });
     });
@@ -26,10 +26,10 @@ describe('Validation Schemas', () => {
         '12345', // too short
         'contains spaces here',
         'contains-dashes-here',
-        'contains_underscores_here'
+        'contains_underscores_here',
       ];
 
-      invalidIds.forEach(id => {
+      invalidIds.forEach((id) => {
         expect(() => schemas.spotifyPlaylistId.parse(id)).toThrow();
       });
     });
@@ -41,10 +41,10 @@ describe('Validation Schemas', () => {
         'PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf',
         'PLFgquLnL59alCl_2TQvOiD5Vgm1hCaGSI',
         'PL9tY0BWXOZFuFEG_GtOBZ8-8wbkH-NVAr',
-        'PL1234567890_-' // 13+ chars with dashes and underscores
+        'PL1234567890_-', // 13+ chars with dashes and underscores
       ];
 
-      validIds.forEach(id => {
+      validIds.forEach((id) => {
         expect(() => schemas.youtubePlaylistId.parse(id)).not.toThrow();
       });
     });
@@ -55,10 +55,10 @@ describe('Validation Schemas', () => {
         'too-short', // less than 13 chars
         '12345', // less than 13 chars
         'contains spaces here', // spaces not allowed
-        'special!chars' // special chars not allowed
+        'special!chars', // special chars not allowed
       ];
 
-      invalidIds.forEach(id => {
+      invalidIds.forEach((id) => {
         expect(() => schemas.youtubePlaylistId.parse(id)).toThrow();
       });
     });
@@ -70,10 +70,10 @@ describe('Validation Schemas', () => {
         'dQw4w9WgXcQ',
         'jNQXAC9IVRw',
         '9bZkp7q19f0',
-        '12345678_-0' // exactly 11 chars with underscores and dashes
+        '12345678_-0', // exactly 11 chars with underscores and dashes
       ];
 
-      validIds.forEach(id => {
+      validIds.forEach((id) => {
         expect(() => schemas.youtubeVideoId.parse(id)).not.toThrow();
       });
     });
@@ -84,10 +84,10 @@ describe('Validation Schemas', () => {
         'short', // less than 11 chars
         'toolongvidid', // more than 11 chars
         'has spaces!', // spaces not allowed (and wrong length)
-        'special!chr' // special chars not allowed
+        'special!chr', // special chars not allowed
       ];
 
-      invalidIds.forEach(id => {
+      invalidIds.forEach((id) => {
         expect(() => schemas.youtubeVideoId.parse(id)).toThrow();
       });
     });
@@ -97,7 +97,7 @@ describe('Validation Schemas', () => {
     it('should accept any positive integer', () => {
       const validSizes = ['1', '10', '25', '50', '100', '999', '1000'];
 
-      validSizes.forEach(size => {
+      validSizes.forEach((size) => {
         expect(() => schemas.batchSize.parse(size)).not.toThrow();
       });
     });
@@ -109,17 +109,17 @@ describe('Validation Schemas', () => {
 
     it('should reject invalid batch sizes', () => {
       const invalidSizes = [
-        '0',           // zero not allowed
-        '-1',          // negative not allowed
-        '-50',         // negative not allowed
-        'invalid',     // non-numeric (except 'all')
-        '',            // empty string
-        '12.5',        // decimals not allowed
-        '1a',          // alphanumeric not allowed
-        'a1'           // alphanumeric not allowed
+        '0', // zero not allowed
+        '-1', // negative not allowed
+        '-50', // negative not allowed
+        'invalid', // non-numeric (except 'all')
+        '', // empty string
+        '12.5', // decimals not allowed
+        '1a', // alphanumeric not allowed
+        'a1', // alphanumeric not allowed
       ];
 
-      invalidSizes.forEach(size => {
+      invalidSizes.forEach((size) => {
         expect(() => schemas.batchSize.parse(size)).toThrow();
       });
     });
@@ -135,7 +135,7 @@ describe('Validation Schemas', () => {
       // These are the current preset options in the UI
       const presetOptions = ['10', '25', '50', '100', 'all'];
 
-      presetOptions.forEach(option => {
+      presetOptions.forEach((option) => {
         expect(() => schemas.batchSize.parse(option)).not.toThrow();
       });
     });
@@ -147,10 +147,10 @@ describe('Validation Schemas', () => {
         'a',
         'Never Gonna Give You Up',
         'Song with (parentheses) and "quotes"',
-        'a'.repeat(200) // max length
+        'a'.repeat(200), // max length
       ];
 
-      validNames.forEach(name => {
+      validNames.forEach((name) => {
         expect(() => schemas.trackName.parse(name)).not.toThrow();
       });
     });
@@ -158,10 +158,10 @@ describe('Validation Schemas', () => {
     it('should reject invalid track names', () => {
       const invalidNames = [
         '',
-        'a'.repeat(201) // too long
+        'a'.repeat(201), // too long
       ];
 
-      invalidNames.forEach(name => {
+      invalidNames.forEach((name) => {
         expect(() => schemas.trackName.parse(name)).toThrow();
       });
     });
@@ -172,10 +172,10 @@ describe('Validation Schemas', () => {
       const validNames = [
         'Rick Astley',
         'The Beatles',
-        'a'.repeat(200) // max length
+        'a'.repeat(200), // max length
       ];
 
-      validNames.forEach(name => {
+      validNames.forEach((name) => {
         expect(() => schemas.artistName.parse(name)).not.toThrow();
       });
     });
@@ -183,10 +183,10 @@ describe('Validation Schemas', () => {
     it('should reject invalid artist names', () => {
       const invalidNames = [
         '',
-        'a'.repeat(201) // too long
+        'a'.repeat(201), // too long
       ];
 
-      invalidNames.forEach(name => {
+      invalidNames.forEach((name) => {
         expect(() => schemas.artistName.parse(name)).toThrow();
       });
     });
@@ -208,7 +208,7 @@ describe('Validation Schemas', () => {
     it('should reject invalid boolean strings', () => {
       const invalidValues = ['1', '0', 'yes', 'no', 'TRUE', 'FALSE', '', 'null'];
 
-      invalidValues.forEach(value => {
+      invalidValues.forEach((value) => {
         expect(() => schemas.booleanFlag.parse(value)).toThrow();
       });
     });

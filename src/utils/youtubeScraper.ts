@@ -92,17 +92,20 @@ interface YouTubeScrapedVideoData {
  * @returns Array of search results with video IDs, titles, durations, views, and channels
  * @throws Error if scraping fails or is blocked by YouTube
  */
-export async function scrapeYouTubeSearch(query: string, maxResults: number = 3): Promise<SearchResult[]> {
+export async function scrapeYouTubeSearch(
+  query: string,
+  maxResults: number = 3,
+): Promise<SearchResult[]> {
   const startTime = Date.now();
   Logger.debug(`🕷️ Scraping YouTube search for: "${query}"`);
-  
+
   try {
     // Construct YouTube search URL
     const searchQuery = encodeURIComponent(query);
     const url = `https://www.youtube.com/results?search_query=${searchQuery}`;
-    
+
     Logger.debug(`📡 Fetching: ${url}`);
-    
+
     // Fetch the search results page.
     // - The SOCS consent cookie stops YouTube from bouncing the request into its
     //   cookie-consent redirect flow, which otherwise loops until fetch throws
@@ -117,14 +120,16 @@ export async function scrapeYouTubeSearch(query: string, maxResults: number = 3)
       response = await fetch(url, {
         signal: controller.signal,
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'User-Agent':
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
           'Accept-Language': 'en-US,en;q=0.5',
           'Accept-Encoding': 'gzip, deflate, br',
-          'Connection': 'keep-alive',
+          Connection: 'keep-alive',
           'Upgrade-Insecure-Requests': '1',
-          'Cookie': 'SOCS=CAISNQgDEitib3FfaWRlbnRpdHlmcm9udGVuZHVpc2VydmVyXzIwMjQwMTA5LjA1X3AwGgJlbiACGgYIgL3vrwY',
-        }
+          Cookie:
+            'SOCS=CAISNQgDEitib3FfaWRlbnRpdHlmcm9udGVuZHVpc2VydmVyXzIwMjQwMTA5LjA1X3AwGgJlbiACGgYIgL3vrwY',
+        },
       });
     } finally {
       clearTimeout(timeoutId);
@@ -133,17 +138,17 @@ export async function scrapeYouTubeSearch(query: string, maxResults: number = 3)
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
-    
+
     const html = await response.text();
     Logger.debug(`📄 Received HTML page (${html.length} chars)`);
-    
+
     // Parse HTML with Cheerio
     const $ = cheerio.load(html);
     const results: SearchResult[] = [];
-    
+
     // Look for video data in script tags (YouTube embeds data in JSON)
     let videoData: YouTubeScrapedVideoData[] = [];
-    
+
     $('script').each((_i, elem) => {
       const scriptContent = $(elem).html();
       if (scriptContent && scriptContent.includes('var ytInitialData')) {
@@ -152,8 +157,10 @@ export async function scrapeYouTubeSearch(query: string, maxResults: number = 3)
           const match = scriptContent.match(/var ytInitialData = ({.*?});/);
           if (match && match[1]) {
             const data = JSON.parse(match[1]);
-            const contents = data?.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer?.contents;
-            
+            const contents =
+              data?.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer
+                ?.contents;
+
             if (contents && contents[0]?.itemSectionRenderer?.contents) {
               videoData = contents[0].itemSectionRenderer.contents;
             }
@@ -163,9 +170,9 @@ export async function scrapeYouTubeSearch(query: string, maxResults: number = 3)
         }
       }
     });
-    
+
     Logger.debug(`🔍 Found ${videoData.length} potential video items`);
-    
+
     // Extract video information
     for (const item of videoData) {
       if (item.videoRenderer && results.length < maxResults) {
@@ -182,27 +189,31 @@ export async function scrapeYouTubeSearch(query: string, maxResults: number = 3)
         } else if (video.ownerText?.runs?.[0]?.text) {
           channel = video.ownerText.runs[0].text;
         }
-        
+
         if (videoId) {
           results.push({
             videoId,
             title,
             duration,
             views,
-            channel
+            channel,
           });
-          
+
           Logger.debug(`✅ Found video: ${title} (${videoId}) by ${channel}`);
         }
       }
     }
-    
-    Logger.debug(`🕷️ Scraping completed in ${Date.now() - startTime}ms, found ${results.length} videos`);
+
+    Logger.debug(
+      `🕷️ Scraping completed in ${Date.now() - startTime}ms, found ${results.length} videos`,
+    );
     return results;
-    
   } catch (error) {
     Logger.error('YouTube scraping failed', {}, error);
-    throw new Error(`Failed to scrape YouTube search: ${error instanceof Error ? error.message : 'Unknown error'}`, { cause: error });
+    throw new Error(
+      `Failed to scrape YouTube search: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      { cause: error },
+    );
   }
 }
 
@@ -214,14 +225,14 @@ export async function scrapeYouTubeSearch(query: string, maxResults: number = 3)
 export async function searchAndScoreVideos(
   artist: string,
   songName: string,
-  maxResults: number = 5
+  maxResults: number = 5,
 ): Promise<Array<SearchResult>> {
   const queries = [
     `"${artist}" "${songName}" official music video`,
     `"${artist}" "${songName}" official video`,
     `"${artist}" "${songName}" music video`,
     `${artist} ${songName} official`,
-    `${artist} ${songName}`
+    `${artist} ${songName}`,
   ];
 
   const scoredResults: Array<SearchResult> = [];
@@ -237,7 +248,7 @@ export async function searchAndScoreVideos(
           const spotifyTrack = {
             id: '',
             name: songName,
-            artist: artist
+            artist: artist,
           };
 
           const youtubeVideo = {
@@ -245,17 +256,19 @@ export async function searchAndScoreVideos(
             title: result.title,
             description: '',
             channelTitle: result.channel,
-            viewCount: parseViewCount(result.views)
+            viewCount: parseViewCount(result.views),
           };
 
           const { score, breakdown } = calculateMatchScore(spotifyTrack, youtubeVideo);
 
-          Logger.debug(`📊 Video "${result.title}" by ${result.channel} scored ${(score * 100).toFixed(0)}%`);
+          Logger.debug(
+            `📊 Video "${result.title}" by ${result.channel} scored ${(score * 100).toFixed(0)}%`,
+          );
 
           if (score >= 0.4) {
             scoredResults.push({
               ...result,
-              matchScore: { score, breakdown }
+              matchScore: { score, breakdown },
             });
           }
         }
@@ -272,7 +285,7 @@ export async function searchAndScoreVideos(
     }
 
     // Add a small delay between searches to be respectful
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
   }
 
   Logger.debug(`❌ No suitable videos found for ${artist} - ${songName}`);
@@ -305,6 +318,8 @@ export async function searchMusicVideo(artist: string, songName: string): Promis
     }
   }
 
-  Logger.debug(`🎯 Selected best match: "${bestMatch.title}" by ${bestMatch.channel} (${(bestMatch.matchScore!.score * 100).toFixed(0)}%)`);
+  Logger.debug(
+    `🎯 Selected best match: "${bestMatch.title}" by ${bestMatch.channel} (${(bestMatch.matchScore!.score * 100).toFixed(0)}%)`,
+  );
   return bestMatch.videoId;
 }

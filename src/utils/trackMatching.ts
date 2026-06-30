@@ -44,11 +44,26 @@ function isOfficialVideo(youtubeVideo: SimplifiedVideo, spotifyArtist: string): 
  */
 function isKnownLabel(channel: string): boolean {
   const knownLabels = [
-    'vevo', 'universal', 'sony', 'warner', 'republic', 'geffen', 'atlantic',
-    'island', 'capitol', 'elektra', 'mercy', 'roadrunner', 'nuclear blast',
-    'metal blade', 'earache', 'century media', 'prosthetic', 'relapse'
+    'vevo',
+    'universal',
+    'sony',
+    'warner',
+    'republic',
+    'geffen',
+    'atlantic',
+    'island',
+    'capitol',
+    'elektra',
+    'mercy',
+    'roadrunner',
+    'nuclear blast',
+    'metal blade',
+    'earache',
+    'century media',
+    'prosthetic',
+    'relapse',
   ];
-  return knownLabels.some(label => channel.includes(label));
+  return knownLabels.some((label) => channel.includes(label));
 }
 
 /**
@@ -72,7 +87,10 @@ export interface ScoreBreakdown {
  * Calculate how well a Spotify track matches a YouTube video, prioritizing official videos
  * @returns { score: number, breakdown: ScoreBreakdown }
  */
-export function calculateMatchScore(spotifyTrack: SimplifiedTrack, youtubeVideo: SimplifiedVideo): { score: number; breakdown: ScoreBreakdown } {
+export function calculateMatchScore(
+  spotifyTrack: SimplifiedTrack,
+  youtubeVideo: SimplifiedVideo,
+): { score: number; breakdown: ScoreBreakdown } {
   // Extract core titles by removing metadata
   const coreTrackName = extractCoreTitle(spotifyTrack.name);
   const coreArtistName = normalizeText(spotifyTrack.artist);
@@ -87,7 +105,10 @@ export function calculateMatchScore(spotifyTrack: SimplifiedTrack, youtubeVideo:
     components.coreMatch = 0.6;
 
     // Bonus if artist is also mentioned
-    if (coreVideoTitle.includes(coreArtistName) || youtubeVideo.title.toLowerCase().includes(coreArtistName)) {
+    if (
+      coreVideoTitle.includes(coreArtistName) ||
+      youtubeVideo.title.toLowerCase().includes(coreArtistName)
+    ) {
       score += 0.15;
       components.artistBonus = 0.15;
     }
@@ -100,21 +121,27 @@ export function calculateMatchScore(spotifyTrack: SimplifiedTrack, youtubeVideo:
       components.fuzzySimilarity = fuzzySimilarityScore;
 
       // Bonus if artist matches
-      if (coreVideoTitle.includes(coreArtistName) || youtubeVideo.title.toLowerCase().includes(coreArtistName)) {
+      if (
+        coreVideoTitle.includes(coreArtistName) ||
+        youtubeVideo.title.toLowerCase().includes(coreArtistName)
+      ) {
         score += 0.15;
         components.artistBonus = 0.15;
       }
     } else {
       // Strategy 3: Word-by-word core matching
-      const trackCoreWords = coreTrackName.split(' ').filter(w => w.length > 2);
-      const videoCoreWords = coreVideoTitle.split(' ').filter(w => w.length > 2);
+      const trackCoreWords = coreTrackName.split(' ').filter((w) => w.length > 2);
+      const videoCoreWords = coreVideoTitle.split(' ').filter((w) => w.length > 2);
 
       if (trackCoreWords.length > 0) {
-        const coreWordMatches = trackCoreWords.filter(word =>
-          videoCoreWords.some(vw =>
-            vw === word || vw.includes(word) || word.includes(vw) ||
-            calculateStringSimilarity(word, vw) > 0.85
-          )
+        const coreWordMatches = trackCoreWords.filter((word) =>
+          videoCoreWords.some(
+            (vw) =>
+              vw === word ||
+              vw.includes(word) ||
+              word.includes(vw) ||
+              calculateStringSimilarity(word, vw) > 0.85,
+          ),
         ).length;
 
         const coreMatchRatio = coreWordMatches / trackCoreWords.length;
@@ -162,8 +189,8 @@ export function calculateMatchScore(spotifyTrack: SimplifiedTrack, youtubeVideo:
       totalScore: finalScore,
       stars,
       color,
-      components
-    }
+      components,
+    },
   };
 }
 
@@ -187,20 +214,20 @@ function scoreToColor(score: number): string {
     // Orange to Yellow: 0.0 -> 1.0
     const t = (score - 0.4) / 0.2;
     const r = 255;
-    const g = Math.round(136 + (119 * t)); // 136 to 255
+    const g = Math.round(136 + 119 * t); // 136 to 255
     const b = 0;
     return `rgb(${r}, ${g}, ${b})`;
   } else if (score < 0.8) {
     // Yellow to Yellow-Green: 0.0 -> 1.0
     const t = (score - 0.6) / 0.2;
-    const r = Math.round(255 - (167 * t)); // 255 to 88
+    const r = Math.round(255 - 167 * t); // 255 to 88
     const g = 255;
     const b = 0;
     return `rgb(${r}, ${g}, ${b})`;
   } else {
     // Yellow-Green to Green: 0.0 -> 1.0
     const t = (score - 0.8) / 0.2;
-    const r = Math.round(88 - (88 * t)); // 88 to 0
+    const r = Math.round(88 - 88 * t); // 88 to 0
     const g = 255;
     const b = 0;
     return `rgb(${r}, ${g}, ${b})`;
@@ -212,8 +239,18 @@ function extractCoreTitle(title: string): string {
 
   // FIRST: Remove metadata in parentheses/brackets BEFORE normalization
   // This ensures we catch patterns like (Official Video), (Official Audio), etc.
-  coreTitle = coreTitle.replace(/\s*\(\s*(official|remaster|live|acoustic|demo|radio|edit|mix|version|instrumental|audio|video)\s*\).*$/i, '').trim();
-  coreTitle = coreTitle.replace(/\s*\[\s*(official|remaster|live|acoustic|demo|radio|edit|mix|version|instrumental|audio|video)\s*\].*$/i, '').trim();
+  coreTitle = coreTitle
+    .replace(
+      /\s*\(\s*(official|remaster|live|acoustic|demo|radio|edit|mix|version|instrumental|audio|video)\s*\).*$/i,
+      '',
+    )
+    .trim();
+  coreTitle = coreTitle
+    .replace(
+      /\s*\[\s*(official|remaster|live|acoustic|demo|radio|edit|mix|version|instrumental|audio|video)\s*\].*$/i,
+      '',
+    )
+    .trim();
 
   // Remove other metadata patterns before normalization
   const metadataPatterns = [
@@ -270,7 +307,9 @@ function calculateStringSimilarity(str1: string, str2: string): number {
 }
 
 function calculateLevenshteinDistance(str1: string, str2: string): number {
-  const matrix = Array(str2.length + 1).fill(null).map(() => Array(str1.length + 1).fill(null));
+  const matrix = Array(str2.length + 1)
+    .fill(null)
+    .map(() => Array(str1.length + 1).fill(null));
 
   for (let i = 0; i <= str1.length; i++) matrix[0]![i] = i;
   for (let j = 0; j <= str2.length; j++) matrix[j]![0] = j;
@@ -281,7 +320,7 @@ function calculateLevenshteinDistance(str1: string, str2: string): number {
       matrix[j]![i] = Math.min(
         matrix[j]![i - 1] + 1, // deletion
         matrix[j - 1]![i] + 1, // insertion
-        matrix[j - 1]![i - 1] + indicator // substitution
+        matrix[j - 1]![i - 1] + indicator, // substitution
       );
     }
   }
@@ -316,7 +355,7 @@ export interface MatchingResult {
  */
 export function optimalTrackMatching(
   tracks: SimplifiedTrack[],
-  videos: SimplifiedVideo[]
+  videos: SimplifiedVideo[],
 ): MatchingResult {
   const minScore = 0.4; // Minimum similarity threshold
 
@@ -366,7 +405,7 @@ export function optimalTrackMatching(
     totalVideos: videos.length,
     candidatesEvaluated: candidates.length,
     successfulMatches: matches.size,
-    unmatchedTracks: tracks.length - matches.size
+    unmatchedTracks: tracks.length - matches.size,
   });
 
   return { matches, scores };

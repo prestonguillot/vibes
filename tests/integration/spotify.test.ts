@@ -14,7 +14,7 @@ const createMockYouTubeToken = (overrides?: Partial<any>) =>
     refresh_token: 'test-youtube-refresh',
     scope: 'https://www.googleapis.com/auth/youtube',
     token_type: 'Bearer',
-    ...overrides
+    ...overrides,
   });
 
 // Mock the hand-written Spotify client. The real SpotifyApiError class is kept so
@@ -27,16 +27,16 @@ vi.mock('@/utils/spotifyClient', async (importActual) => {
     ...actual,
     getAuthorizeUrl: vi.fn(() => 'https://accounts.spotify.com/authorize?client_id=test'),
     exchangeCodeForTokens: vi.fn(() =>
-      Promise.reject(new actual.SpotifyApiError('Invalid client', 400))
+      Promise.reject(new actual.SpotifyApiError('Invalid client', 400)),
     ),
     getCurrentUser: vi.fn(async () => ({ id: 'test-user', displayName: null })),
-    getUserPlaylists: vi.fn(async () => [])
+    getUserPlaylists: vi.fn(async () => []),
   };
 });
 
 // The /playlists route resolves a valid access token via ensureValidSpotifyToken.
 vi.mock('@/utils/spotifyAuth', () => ({
-  ensureValidSpotifyToken: vi.fn(async () => 'test-access-token')
+  ensureValidSpotifyToken: vi.fn(async () => 'test-access-token'),
 }));
 
 const mockedGetCurrentUser = vi.mocked(getCurrentUser);
@@ -49,13 +49,13 @@ const playlistSummary = (id: string, name: string, trackTotal: number, ownerId =
   name,
   ownerId,
   trackTotal,
-  spotifyUrl: `https://open.spotify.com/playlist/${id}`
+  spotifyUrl: `https://open.spotify.com/playlist/${id}`,
 });
 
 // Mock the YouTube client. createYoutubeClient returns a shared client object so
 // per-test overrides of `ytClient.client.playlists.list` take effect.
 const ytClient = vi.hoisted(() => ({
-  client: { playlists: { list: vi.fn(() => Promise.resolve({ data: { items: [] } })) } }
+  client: { playlists: { list: vi.fn(() => Promise.resolve({ data: { items: [] } })) } },
 }));
 vi.mock('@/utils/youtubeClient', async (importActual) => {
   const actual = await importActual<typeof import('@/utils/youtubeClient')>();
@@ -67,17 +67,13 @@ const app = createApp();
 describe('Spotify Playlists', () => {
   describe('GET /auth/spotify/playlists', () => {
     it('should return 401 when not authenticated', async () => {
-      const response = await request(app)
-        .get('/auth/spotify/playlists')
-        .expect(401);
+      const response = await request(app).get('/auth/spotify/playlists').expect(401);
 
       expect(response.text).toContain('Please connect to Spotify first');
     });
 
     it('should accept ownOnly=true parameter', async () => {
-      const response = await request(app)
-        .get('/auth/spotify/playlists')
-        .query({ ownOnly: 'true' });
+      const response = await request(app).get('/auth/spotify/playlists').query({ ownOnly: 'true' });
 
       // Should return 401 (no auth), but parameter should be validated successfully
       expect(response.status).toBe(401);
@@ -105,8 +101,7 @@ describe('Spotify Playlists', () => {
     });
 
     it('should handle missing ownOnly parameter (optional)', async () => {
-      const response = await request(app)
-        .get('/auth/spotify/playlists');
+      const response = await request(app).get('/auth/spotify/playlists');
 
       // Should return 401 (no auth), but parameter validation should pass
       expect(response.status).toBe(401);
@@ -115,9 +110,7 @@ describe('Spotify Playlists', () => {
 
   describe('GET /auth/spotify/login', () => {
     it('should redirect to Spotify authorization', async () => {
-      const response = await request(app)
-        .get('/auth/spotify/login')
-        .expect(302);
+      const response = await request(app).get('/auth/spotify/login').expect(302);
 
       expect(response.headers.location).toContain('accounts.spotify.com');
       expect(response.headers.location).toContain('authorize');
@@ -126,8 +119,7 @@ describe('Spotify Playlists', () => {
 
   describe('GET /auth/spotify/callback', () => {
     it('should reject requests without code parameter', async () => {
-      const response = await request(app)
-        .get('/auth/spotify/callback');
+      const response = await request(app).get('/auth/spotify/callback');
 
       // Validation middleware returns 400 with error template
       expect(response.status).toBe(400);
@@ -172,13 +164,13 @@ describe('Spotify Playlists', () => {
 
   describe('GET /auth/spotify/login - OAuth state', () => {
     it('should set a non-empty spotify_oauth_state cookie', async () => {
-      const response = await request(app)
-        .get('/auth/spotify/login')
-        .expect(302);
+      const response = await request(app).get('/auth/spotify/login').expect(302);
 
       const setCookie = response.headers['set-cookie'];
       expect(setCookie).toBeDefined();
-      const stateCookie = ([] as string[]).concat(setCookie).find(c => c.startsWith('spotify_oauth_state='));
+      const stateCookie = ([] as string[])
+        .concat(setCookie)
+        .find((c) => c.startsWith('spotify_oauth_state='));
       expect(stateCookie).toBeDefined();
       // Cookie must carry an actual value and use SameSite=Lax so it survives
       // the cross-site redirect back from Spotify.
@@ -192,13 +184,13 @@ describe('Spotify Playlists', () => {
       // Mock Spotify API to return playlists
       mockedGetCurrentUser.mockResolvedValue({ id: 'test-user', displayName: null });
       mockedGetUserPlaylists.mockResolvedValue([
-        playlistSummary('1234567890123456789012', 'Test Playlist', 10)
+        playlistSummary('1234567890123456789012', 'Test Playlist', 10),
       ]);
 
       // Set Spotify cookie but NOT YouTube cookie
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-access-token',
-        refreshToken: 'test-refresh-token'
+        refreshToken: 'test-refresh-token',
       });
 
       const response = await request(app)
@@ -217,22 +209,19 @@ describe('Spotify Playlists', () => {
       // Mock Spotify API
       mockedGetCurrentUser.mockResolvedValue({ id: 'test-user', displayName: null });
       mockedGetUserPlaylists.mockResolvedValue([
-        playlistSummary('1234567890123456789012', 'Test Playlist', 10)
+        playlistSummary('1234567890123456789012', 'Test Playlist', 10),
       ]);
 
       // Set both Spotify AND YouTube cookies
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-spotify-token',
-        refreshToken: 'test-spotify-refresh'
+        refreshToken: 'test-spotify-refresh',
       });
       const youtubeTokens = createMockYouTubeToken();
 
       const response = await request(app)
         .get('/auth/spotify/playlists')
-        .set('Cookie', [
-          `spotify_tokens=${spotifyTokens}`,
-          `youtube_tokens=${youtubeTokens}`
-        ])
+        .set('Cookie', [`spotify_tokens=${spotifyTokens}`, `youtube_tokens=${youtubeTokens}`])
         .expect(200);
 
       // Should render playlists with enabled sync button
@@ -245,22 +234,19 @@ describe('Spotify Playlists', () => {
       // Mock Spotify API
       mockedGetCurrentUser.mockResolvedValue({ id: 'test-user', displayName: null });
       mockedGetUserPlaylists.mockResolvedValue([
-        playlistSummary('1234567890123456789012', 'Synced Playlist', 10)
+        playlistSummary('1234567890123456789012', 'Synced Playlist', 10),
       ]);
 
       // Set both cookies
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-spotify-token',
-        refreshToken: 'test-spotify-refresh'
+        refreshToken: 'test-spotify-refresh',
       });
       const youtubeTokens = createMockYouTubeToken();
 
       const response = await request(app)
         .get('/auth/spotify/playlists')
-        .set('Cookie', [
-          `spotify_tokens=${spotifyTokens}`,
-          `youtube_tokens=${youtubeTokens}`
-        ])
+        .set('Cookie', [`spotify_tokens=${spotifyTokens}`, `youtube_tokens=${youtubeTokens}`])
         .expect(200);
 
       // For unsynced playlists, should show "Sync to YouTube"
@@ -274,13 +260,13 @@ describe('Spotify Playlists', () => {
       mockedGetCurrentUser.mockResolvedValue({ id: 'test-user', displayName: null });
       mockedGetUserPlaylists.mockResolvedValue([
         playlistSummary('1234567890123456789012', 'Test Playlist 1', 10),
-        playlistSummary('2234567890123456789012', 'Test Playlist 2', 5)
+        playlistSummary('2234567890123456789012', 'Test Playlist 2', 5),
       ]);
 
       // Set only Spotify cookie (no YouTube)
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-access-token',
-        refreshToken: 'test-refresh-token'
+        refreshToken: 'test-refresh-token',
       });
 
       const response = await request(app)
@@ -300,22 +286,19 @@ describe('Spotify Playlists', () => {
       // Mock Spotify API
       mockedGetCurrentUser.mockResolvedValue({ id: 'test-user', displayName: null });
       mockedGetUserPlaylists.mockResolvedValue([
-        playlistSummary('1234567890123456789012', 'Unsynced Playlist', 10)
+        playlistSummary('1234567890123456789012', 'Unsynced Playlist', 10),
       ]);
 
       // Set both Spotify and YouTube cookies
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-spotify-token',
-        refreshToken: 'test-spotify-refresh'
+        refreshToken: 'test-spotify-refresh',
       });
       const youtubeTokens = createMockYouTubeToken();
 
       const response = await request(app)
         .get('/auth/spotify/playlists')
-        .set('Cookie', [
-          `spotify_tokens=${spotifyTokens}`,
-          `youtube_tokens=${youtubeTokens}`
-        ])
+        .set('Cookie', [`spotify_tokens=${spotifyTokens}`, `youtube_tokens=${youtubeTokens}`])
         .expect(200);
 
       // Should show "none synced yet" since YouTube is connected but no playlists match
@@ -330,7 +313,7 @@ describe('Spotify Playlists', () => {
       mockedGetCurrentUser.mockResolvedValue({ id: 'test-user', displayName: null });
       mockedGetUserPlaylists.mockResolvedValue([
         playlistSummary('1234567890123456789012', 'Synced Playlist', 10),
-        playlistSummary('2234567890123456789012', 'Unsynced Playlist', 5)
+        playlistSummary('2234567890123456789012', 'Unsynced Playlist', 5),
       ]);
 
       // Mock YouTube API to return a synced playlist
@@ -341,27 +324,24 @@ describe('Spotify Playlists', () => {
               {
                 id: 'yt_playlist_id',
                 snippet: {
-                  title: 'Synced Playlist (from Spotify)' // This matches "Synced Playlist" + " (from Spotify)"
-                }
-              }
-            ]
-          }
-        })
+                  title: 'Synced Playlist (from Spotify)', // This matches "Synced Playlist" + " (from Spotify)"
+                },
+              },
+            ],
+          },
+        }),
       ) as any;
 
       // Set both cookies
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-spotify-token',
-        refreshToken: 'test-spotify-refresh'
+        refreshToken: 'test-spotify-refresh',
       });
       const youtubeTokens = createMockYouTubeToken();
 
       const response = await request(app)
         .get('/auth/spotify/playlists')
-        .set('Cookie', [
-          `spotify_tokens=${spotifyTokens}`,
-          `youtube_tokens=${youtubeTokens}`
-        ])
+        .set('Cookie', [`spotify_tokens=${spotifyTokens}`, `youtube_tokens=${youtubeTokens}`])
         .expect(200);
 
       // Should show synced and unsynced counts since at least one is synced
@@ -374,13 +354,13 @@ describe('Spotify Playlists', () => {
       // Mock Spotify API
       mockedGetCurrentUser.mockResolvedValue({ id: 'test-user', displayName: null });
       mockedGetUserPlaylists.mockResolvedValue([
-        playlistSummary('1234567890123456789012', 'My Playlist', 10)
+        playlistSummary('1234567890123456789012', 'My Playlist', 10),
       ]);
 
       // Set only Spotify cookie
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-access-token',
-        refreshToken: 'test-refresh-token'
+        refreshToken: 'test-refresh-token',
       });
 
       const response = await request(app)
@@ -399,13 +379,13 @@ describe('Spotify Playlists', () => {
       // Mock Spotify API
       mockedGetCurrentUser.mockResolvedValue({ id: 'test-user', displayName: null });
       mockedGetUserPlaylists.mockResolvedValue([
-        playlistSummary('1234567890123456789012', 'Test Playlist', 10)
+        playlistSummary('1234567890123456789012', 'Test Playlist', 10),
       ]);
 
       // Set only Spotify cookie (no YouTube)
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-access-token',
-        refreshToken: 'test-refresh-token'
+        refreshToken: 'test-refresh-token',
       });
 
       const response = await request(app)
@@ -424,22 +404,19 @@ describe('Spotify Playlists', () => {
       // Mock Spotify API
       mockedGetCurrentUser.mockResolvedValue({ id: 'test-user', displayName: null });
       mockedGetUserPlaylists.mockResolvedValue([
-        playlistSummary('1234567890123456789012', 'Unsynced Playlist', 10)
+        playlistSummary('1234567890123456789012', 'Unsynced Playlist', 10),
       ]);
 
       // Set both Spotify and YouTube cookies
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-spotify-token',
-        refreshToken: 'test-spotify-refresh'
+        refreshToken: 'test-spotify-refresh',
       });
       const youtubeTokens = createMockYouTubeToken();
 
       const response = await request(app)
         .get('/auth/spotify/playlists')
-        .set('Cookie', [
-          `spotify_tokens=${spotifyTokens}`,
-          `youtube_tokens=${youtubeTokens}`
-        ])
+        .set('Cookie', [`spotify_tokens=${spotifyTokens}`, `youtube_tokens=${youtubeTokens}`])
         .expect(200);
 
       // Should show expand functionality even for unsynced playlist
@@ -453,7 +430,7 @@ describe('Spotify Playlists', () => {
       // Mock Spotify API
       mockedGetCurrentUser.mockResolvedValue({ id: 'test-user', displayName: null });
       mockedGetUserPlaylists.mockResolvedValue([
-        playlistSummary('1234567890123456789012', 'Synced Playlist', 10)
+        playlistSummary('1234567890123456789012', 'Synced Playlist', 10),
       ]);
 
       // Mock YouTube API to return a synced playlist
@@ -464,27 +441,24 @@ describe('Spotify Playlists', () => {
               {
                 id: 'yt_playlist_id',
                 snippet: {
-                  title: 'Synced Playlist (from Spotify)'
-                }
-              }
-            ]
-          }
-        })
+                  title: 'Synced Playlist (from Spotify)',
+                },
+              },
+            ],
+          },
+        }),
       ) as any;
 
       // Set both cookies
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-spotify-token',
-        refreshToken: 'test-spotify-refresh'
+        refreshToken: 'test-spotify-refresh',
       });
       const youtubeTokens = createMockYouTubeToken();
 
       const response = await request(app)
         .get('/auth/spotify/playlists')
-        .set('Cookie', [
-          `spotify_tokens=${spotifyTokens}`,
-          `youtube_tokens=${youtubeTokens}`
-        ])
+        .set('Cookie', [`spotify_tokens=${spotifyTokens}`, `youtube_tokens=${youtubeTokens}`])
         .expect(200);
 
       // Should show expand functionality for synced playlist
@@ -500,7 +474,7 @@ describe('Spotify Playlists', () => {
       // Mock Spotify API to return playlists
       mockedGetCurrentUser.mockResolvedValue({ id: 'test-user', displayName: null });
       mockedGetUserPlaylists.mockResolvedValue([
-        playlistSummary('1234567890123456789012', 'Test Playlist', 10)
+        playlistSummary('1234567890123456789012', 'Test Playlist', 10),
       ]);
 
       // Mock YouTube API to fail with 403 quota exceeded
@@ -508,23 +482,20 @@ describe('Spotify Playlists', () => {
         Promise.reject({
           code: 403,
           message: 'The request cannot be completed because you have exceeded your quota.',
-          errors: [{ reason: 'quotaExceeded' }]
-        })
+          errors: [{ reason: 'quotaExceeded' }],
+        }),
       ) as any;
 
       // Set both Spotify and YouTube tokens
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-spotify-token',
-        refreshToken: 'test-spotify-refresh'
+        refreshToken: 'test-spotify-refresh',
       });
       const youtubeTokens = createMockYouTubeToken();
 
       const response = await request(app)
         .get('/auth/spotify/playlists')
-        .set('Cookie', [
-          `spotify_tokens=${spotifyTokens}`,
-          `youtube_tokens=${youtubeTokens}`
-        ]);
+        .set('Cookie', [`spotify_tokens=${spotifyTokens}`, `youtube_tokens=${youtubeTokens}`]);
 
       // htmx-loaded route: use HX-Redirect (real navigation to the quota modal),
       // not a 302 that would get swapped into the container.
@@ -536,15 +507,15 @@ describe('Spotify Playlists', () => {
       // Mock Spotify API
       mockedGetCurrentUser.mockResolvedValue({ id: 'test-user', displayName: null });
       mockedGetUserPlaylists.mockResolvedValue([
-        playlistSummary('1234567890123456789012', 'Test Playlist', 10)
+        playlistSummary('1234567890123456789012', 'Test Playlist', 10),
       ]);
 
       // Mock YouTube API to fail with 403
       ytClient.client.playlists.list = vi.fn(() =>
         Promise.reject({
           code: 403,
-          message: 'Quota exceeded'
-        })
+          message: 'Quota exceeded',
+        }),
       ) as any;
 
       // Import circuit breaker to check its state
@@ -553,16 +524,13 @@ describe('Spotify Playlists', () => {
 
       const spotifyTokens = JSON.stringify({
         accessToken: 'test-spotify-token',
-        refreshToken: 'test-spotify-refresh'
+        refreshToken: 'test-spotify-refresh',
       });
       const youtubeTokens = createMockYouTubeToken();
 
       const response = await request(app)
         .get('/auth/spotify/playlists')
-        .set('Cookie', [
-          `spotify_tokens=${spotifyTokens}`,
-          `youtube_tokens=${youtubeTokens}`
-        ]);
+        .set('Cookie', [`spotify_tokens=${spotifyTokens}`, `youtube_tokens=${youtubeTokens}`]);
 
       // Should signal the client to navigate to the quota modal via HX-Redirect
       expect(response.status).toBe(403);

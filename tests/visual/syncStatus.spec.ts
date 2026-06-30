@@ -34,10 +34,15 @@ const fireSseClose = (page: import('@playwright/test').Page, type: string) =>
   }, type);
 
 const order = (page: import('@playwright/test').Page) =>
-  page.evaluate(() => Array.from(document.querySelectorAll('#playlists-content .playlist-item'))
-    .map((el) => (el as HTMLElement).dataset.playlistId));
+  page.evaluate(() =>
+    Array.from(document.querySelectorAll('#playlists-content .playlist-item')).map(
+      (el) => (el as HTMLElement).dataset.playlistId,
+    ),
+  );
 
-test('success close: flips to success and moves the playlist into alphabetical place', async ({ page }) => {
+test('success close: flips to success and moves the playlist into alphabetical place', async ({
+  page,
+}) => {
   await page.setContent(pageFor('<div data-sync-success="true">Synced!</div>'));
   expect(await order(page)).toEqual(['zebra', 'apple']);
   await fireSseClose(page, 'message');

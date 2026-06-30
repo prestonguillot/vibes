@@ -10,10 +10,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import fs from 'fs';
 import path from 'path';
 
-const source = fs.readFileSync(
-  path.join(__dirname, '../../public/js/youtubeCache.js'),
-  'utf-8'
-);
+const source = fs.readFileSync(path.join(__dirname, '../../public/js/youtubeCache.js'), 'utf-8');
 
 function loadModule() {
   // Execute the IIFE against the happy-dom globals (document, localStorage, window).
@@ -63,8 +60,10 @@ describe('youtubeCache.js', () => {
 
   it('stores the id the server returns in X-YT-Playlist-Id', () => {
     const detail = {
-      xhr: { getResponseHeader: (h: string) => (h === 'X-YT-Playlist-Id' ? 'yt-from-server' : null) },
-      requestConfig: { path: detailsPath('sp2') }
+      xhr: {
+        getResponseHeader: (h: string) => (h === 'X-YT-Playlist-Id' ? 'yt-from-server' : null),
+      },
+      requestConfig: { path: detailsPath('sp2') },
     };
     document.body.dispatchEvent(new CustomEvent('htmx:afterRequest', { detail }));
     expect(window.youtubeCache.getCachedId('sp2')).toBe('yt-from-server');
@@ -74,7 +73,7 @@ describe('youtubeCache.js', () => {
     window.youtubeCache.setCachedId('sp3', 'stale');
     const detail = {
       xhr: { getResponseHeader: (h: string) => (h === 'X-YT-Playlist-Id' ? '' : null) },
-      requestConfig: { path: detailsPath('sp3') }
+      requestConfig: { path: detailsPath('sp3') },
     };
     document.body.dispatchEvent(new CustomEvent('htmx:afterRequest', { detail }));
     expect(window.youtubeCache.getCachedId('sp3')).toBeUndefined();
@@ -84,7 +83,7 @@ describe('youtubeCache.js', () => {
     window.youtubeCache.setCachedId('sp4', 'keep');
     const detail = {
       xhr: { getResponseHeader: () => null },
-      requestConfig: { path: detailsPath('sp4') }
+      requestConfig: { path: detailsPath('sp4') },
     };
     document.body.dispatchEvent(new CustomEvent('htmx:afterRequest', { detail }));
     expect(window.youtubeCache.getCachedId('sp4')).toBe('keep');

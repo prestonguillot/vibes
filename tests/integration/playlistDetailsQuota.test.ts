@@ -31,7 +31,7 @@ const youtubeCookie = `youtube_tokens=${JSON.stringify({
   access_token: 'yt-token',
   refresh_token: 'yt-refresh',
   scope: 'https://www.googleapis.com/auth/youtube',
-  token_type: 'Bearer'
+  token_type: 'Bearer',
 })}`;
 const playlistId = '1234567890123456789012';
 
@@ -48,28 +48,36 @@ describe('Playlist Details - YouTube quota handling', () => {
   // and a mockReset() here trips vitest's error tracker on the rejecting mock.
 
   it('returns the 403 quota partial on a read 403 quotaExceeded YoutubeApiError', async () => {
-    h.fetchPlaylistDetails.mockImplementation(() => Promise.reject(new YoutubeApiError('quota', 403, 'quotaExceeded')));
+    h.fetchPlaylistDetails.mockImplementation(() =>
+      Promise.reject(new YoutubeApiError('quota', 403, 'quotaExceeded')),
+    );
     const res = await getDetails();
     expect(res.status).toBe(403);
     expect(res.text).toContain('YouTube Quota Exceeded');
   });
 
   it('returns the 403 quota partial on a rateLimitExceeded YoutubeApiError', async () => {
-    h.fetchPlaylistDetails.mockImplementation(() => Promise.reject(new YoutubeApiError('rate', 403, 'rateLimitExceeded')));
+    h.fetchPlaylistDetails.mockImplementation(() =>
+      Promise.reject(new YoutubeApiError('rate', 403, 'rateLimitExceeded')),
+    );
     const res = await getDetails();
     expect(res.status).toBe(403);
     expect(res.text).toContain('YouTube Quota Exceeded');
   });
 
   it('returns the 403 quota partial when a write surfaces a YoutubeQuotaError', async () => {
-    h.fetchPlaylistDetails.mockImplementation(() => Promise.reject(new YoutubeQuotaError('quota exceeded')));
+    h.fetchPlaylistDetails.mockImplementation(() =>
+      Promise.reject(new YoutubeQuotaError('quota exceeded')),
+    );
     const res = await getDetails();
     expect(res.status).toBe(403);
     expect(res.text).toContain('YouTube Quota Exceeded');
   });
 
   it('treats a non-quota 403 as the generic error, not the quota message', async () => {
-    h.fetchPlaylistDetails.mockImplementation(() => Promise.reject(new YoutubeApiError('forbidden', 403, 'forbidden')));
+    h.fetchPlaylistDetails.mockImplementation(() =>
+      Promise.reject(new YoutubeApiError('forbidden', 403, 'forbidden')),
+    );
     const res = await getDetails();
     expect(res.status).toBe(500);
     expect(res.text).toContain('Error loading playlist details');

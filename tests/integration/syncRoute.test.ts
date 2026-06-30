@@ -21,10 +21,12 @@ const h = vi.hoisted(() => ({
   playlistsList: vi.fn(),
   playlistsInsert: vi.fn(),
   playlistItemsList: vi.fn(),
-  reconcilePlaylist: vi.fn(() => Promise.resolve({ inserted: 0, deleted: 0, moved: 0 }))
+  reconcilePlaylist: vi.fn(() => Promise.resolve({ inserted: 0, deleted: 0, moved: 0 })),
 }));
 
-vi.mock('@/utils/spotifyAuth', () => ({ ensureValidSpotifyToken: vi.fn(async () => 'test-access-token') }));
+vi.mock('@/utils/spotifyAuth', () => ({
+  ensureValidSpotifyToken: vi.fn(async () => 'test-access-token'),
+}));
 vi.mock('@/utils/spotifyClient', () => ({ getPlaylist: h.getPlaylist }));
 vi.mock('@/utils/spotifyPlaylistItems', () => ({ fetchAllPlaylistItems: h.fetchAllPlaylistItems }));
 vi.mock('@/utils/youtubeScraper', () => ({ searchMusicVideo: h.searchMusicVideo }));
@@ -33,12 +35,17 @@ vi.mock('@/utils/youtubeAuth', () => ({
   ensureValidYouTubeToken: vi.fn(async () => ({
     client: {
       playlists: { list: h.playlistsList, insert: h.playlistsInsert },
-      playlistItems: { list: h.playlistItemsList, insert: vi.fn(), update: vi.fn(), delete: vi.fn() },
-      channels: { list: vi.fn(() => Promise.resolve({ data: { items: [{ id: 'chan' }] } })) }
+      playlistItems: {
+        list: h.playlistItemsList,
+        insert: vi.fn(),
+        update: vi.fn(),
+        delete: vi.fn(),
+      },
+      channels: { list: vi.fn(() => Promise.resolve({ data: { items: [{ id: 'chan' }] } })) },
     },
     accessToken: 'yt-access-token',
-    quotaUsed: 1
-  }))
+    quotaUsed: 1,
+  })),
 }));
 
 vi.mock('@/utils/playlistReconcile', async (importActual) => {
@@ -52,12 +59,20 @@ const app = createApp();
 
 const spotifyCookie = JSON.stringify({ accessToken: 'a', refreshToken: 'b' });
 const youtubeCookie = JSON.stringify({
-  access_token: 'a', refresh_token: 'b', scope: 's', token_type: 'Bearer', channel_id: 'chan'
+  access_token: 'a',
+  refresh_token: 'b',
+  scope: 's',
+  token_type: 'Bearer',
+  channel_id: 'chan',
 });
 
-const track = (id: string, name: string) => ({ track: { id, name, type: 'track', artists: [{ name: 'Artist' }] } });
-const ytItem = (pi: string, videoId: string, title: string) =>
-  ({ id: pi, snippet: { title, resourceId: { videoId } } });
+const track = (id: string, name: string) => ({
+  track: { id, name, type: 'track', artists: [{ name: 'Artist' }] },
+});
+const ytItem = (pi: string, videoId: string, title: string) => ({
+  id: pi,
+  snippet: { title, resourceId: { videoId } },
+});
 const SYNCED_TITLE = 'My Playlist (from Spotify)';
 
 // Drive the SSE stream route (GET, no CSRF - SameSite=strict cookies protect it).
@@ -75,15 +90,25 @@ describe('GET /api/sync/playlist/:id/stream', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     youtubeCircuitBreaker.close(); // isolate the quota test, which opens the breaker
-    h.getPlaylist.mockResolvedValue({ id: 'p', name: 'My Playlist', ownerId: 'me', trackTotal: 2, spotifyUrl: 'u' });
+    h.getPlaylist.mockResolvedValue({
+      id: 'p',
+      name: 'My Playlist',
+      ownerId: 'me',
+      trackTotal: 2,
+      spotifyUrl: 'u',
+    });
     h.reconcilePlaylist.mockResolvedValue({ inserted: 0, deleted: 0, moved: 0 });
     h.searchMusicVideo.mockResolvedValue(null);
   });
 
   it('re-sync unchanged: reconciles to the existing order, zero deletes', async () => {
     h.fetchAllPlaylistItems.mockResolvedValue([track('t1', 'Song One'), track('t2', 'Song Two')]);
-    h.playlistsList.mockResolvedValue({ data: { items: [{ id: 'YT_PL', snippet: { title: SYNCED_TITLE } }] } });
-    h.playlistItemsList.mockResolvedValue({ data: { items: [ytItem('pi1', 'v1', 'Song One'), ytItem('pi2', 'v2', 'Song Two')] } });
+    h.playlistsList.mockResolvedValue({
+      data: { items: [{ id: 'YT_PL', snippet: { title: SYNCED_TITLE } }] },
+    });
+    h.playlistItemsList.mockResolvedValue({
+      data: { items: [ytItem('pi1', 'v1', 'Song One'), ytItem('pi2', 'v2', 'Song Two')] },
+    });
 
     const res = await stream();
 
@@ -93,11 +118,27 @@ describe('GET /api/sync/playlist/:id/stream', () => {
   });
 
   it('update with a new track: desired order keeps existing and appends the new video', async () => {
-    h.getPlaylist.mockResolvedValue({ id: 'p', name: 'My Playlist', ownerId: 'me', trackTotal: 3, spotifyUrl: 'u' });
-    h.fetchAllPlaylistItems.mockResolvedValue([track('t1', 'Song One'), track('t2', 'Song Two'), track('t3', 'Song Three')]);
-    h.playlistsList.mockResolvedValue({ data: { items: [{ id: 'YT_PL', snippet: { title: SYNCED_TITLE } }] } });
-    h.playlistItemsList.mockResolvedValue({ data: { items: [ytItem('pi1', 'v1', 'Song One'), ytItem('pi2', 'v2', 'Song Two')] } });
-    h.searchMusicVideo.mockImplementation((_artist: string, song: string) => Promise.resolve(song === 'Song Three' ? 'v3' : null));
+    h.getPlaylist.mockResolvedValue({
+      id: 'p',
+      name: 'My Playlist',
+      ownerId: 'me',
+      trackTotal: 3,
+      spotifyUrl: 'u',
+    });
+    h.fetchAllPlaylistItems.mockResolvedValue([
+      track('t1', 'Song One'),
+      track('t2', 'Song Two'),
+      track('t3', 'Song Three'),
+    ]);
+    h.playlistsList.mockResolvedValue({
+      data: { items: [{ id: 'YT_PL', snippet: { title: SYNCED_TITLE } }] },
+    });
+    h.playlistItemsList.mockResolvedValue({
+      data: { items: [ytItem('pi1', 'v1', 'Song One'), ytItem('pi2', 'v2', 'Song Two')] },
+    });
+    h.searchMusicVideo.mockImplementation((_artist: string, song: string) =>
+      Promise.resolve(song === 'Song Three' ? 'v3' : null),
+    );
 
     const res = await stream();
 
@@ -108,10 +149,13 @@ describe('GET /api/sync/playlist/:id/stream', () => {
   it('create: no existing playlist, builds desired order from found videos', async () => {
     h.fetchAllPlaylistItems.mockResolvedValue([track('t1', 'Song One'), track('t2', 'Song Two')]);
     h.playlistsList.mockResolvedValue({ data: { items: [] } }); // none synced yet
-    h.playlistsInsert.mockResolvedValue({ data: { id: 'NEW_PL', snippet: { title: SYNCED_TITLE } } });
+    h.playlistsInsert.mockResolvedValue({
+      data: { id: 'NEW_PL', snippet: { title: SYNCED_TITLE } },
+    });
     h.playlistItemsList.mockResolvedValue({ data: { items: [] } });
     h.searchMusicVideo.mockImplementation((_artist: string, song: string) =>
-      Promise.resolve(song === 'Song One' ? 'v1' : song === 'Song Two' ? 'v2' : null));
+      Promise.resolve(song === 'Song One' ? 'v1' : song === 'Song Two' ? 'v2' : null),
+    );
 
     const res = await stream();
 
@@ -138,7 +182,9 @@ describe('GET /api/sync/playlist/:id/stream', () => {
     h.playlistsList.mockResolvedValue({ data: { items: [] } }); // create mode
     h.searchMusicVideo.mockResolvedValue('v1');
     // A real 403 from the write -> youtubeWrite converts it to YoutubeQuotaError.
-    h.playlistsInsert.mockRejectedValue(Object.assign(new Error('403'), { code: 403, errors: [{ reason: 'quotaExceeded' }] }));
+    h.playlistsInsert.mockRejectedValue(
+      Object.assign(new Error('403'), { code: 403, errors: [{ reason: 'quotaExceeded' }] }),
+    );
 
     const res = await stream();
 
@@ -147,7 +193,9 @@ describe('GET /api/sync/playlist/:id/stream', () => {
   });
 
   it('missing auth: 401 before the stream opens', async () => {
-    const res = await request(app).get('/api/sync/playlist/1234567890123456789012/stream?batchSize=all');
+    const res = await request(app).get(
+      '/api/sync/playlist/1234567890123456789012/stream?batchSize=all',
+    );
     expect(res.status).toBe(401);
   });
 });

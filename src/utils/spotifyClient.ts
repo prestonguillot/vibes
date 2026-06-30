@@ -75,7 +75,9 @@ interface RawTokenResponse {
   refresh_token?: string;
 }
 
-interface RawCountObject { total?: number }
+interface RawCountObject {
+  total?: number;
+}
 interface RawPlaylistObject {
   id: string;
   name: string;
@@ -119,7 +121,7 @@ function toPlaylistSummary(p: RawPlaylistObject): SpotifyPlaylistSummary {
     name: p.name,
     ownerId: p.owner?.id ?? null,
     trackTotal: readTrackTotal(p),
-    spotifyUrl: p.external_urls?.spotify ?? `https://open.spotify.com/playlist/${p.id}`
+    spotifyUrl: p.external_urls?.spotify ?? `https://open.spotify.com/playlist/${p.id}`,
   };
 }
 
@@ -132,7 +134,7 @@ export function getAuthorizeUrl(scopes: string[], state: string, showDialog = fa
     response_type: 'code',
     redirect_uri: requireEnv('SPOTIFY_REDIRECT_URI'),
     state,
-    scope: scopes.join(' ')
+    scope: scopes.join(' '),
   });
   if (showDialog) params.set('show_dialog', 'true');
   return `${ACCOUNTS_BASE}/authorize?${params.toString()}`;
@@ -143,9 +145,9 @@ async function tokenRequest(body: URLSearchParams): Promise<SpotifyTokenSet> {
     method: 'POST',
     headers: {
       Authorization: basicAuthHeader(),
-      'Content-Type': 'application/x-www-form-urlencoded'
+      'Content-Type': 'application/x-www-form-urlencoded',
     },
-    body: body.toString()
+    body: body.toString(),
   });
 
   const text = await response.text();
@@ -157,7 +159,9 @@ async function tokenRequest(body: URLSearchParams): Promise<SpotifyTokenSet> {
       if (parsed.error_description || parsed.error) {
         message = `Spotify token request failed: ${parsed.error_description || parsed.error}`;
       }
-    } catch { /* non-JSON body */ }
+    } catch {
+      /* non-JSON body */
+    }
     throw new SpotifyApiError(message, response.status, text);
   }
 
@@ -167,17 +171,19 @@ async function tokenRequest(body: URLSearchParams): Promise<SpotifyTokenSet> {
     refreshToken: data.refresh_token, // may be undefined on refresh
     expiresIn: data.expires_in,
     scope: data.scope ?? '',
-    tokenType: data.token_type
+    tokenType: data.token_type,
   };
 }
 
 /** Exchanges an authorization code for an access + refresh token. */
 export function exchangeCodeForTokens(code: string): Promise<SpotifyTokenSet> {
-  return tokenRequest(new URLSearchParams({
-    grant_type: 'authorization_code',
-    code,
-    redirect_uri: requireEnv('SPOTIFY_REDIRECT_URI')
-  }));
+  return tokenRequest(
+    new URLSearchParams({
+      grant_type: 'authorization_code',
+      code,
+      redirect_uri: requireEnv('SPOTIFY_REDIRECT_URI'),
+    }),
+  );
 }
 
 /**
@@ -185,17 +191,19 @@ export function exchangeCodeForTokens(code: string): Promise<SpotifyTokenSet> {
  * fall back to the token they already hold when `refreshToken` is undefined.
  */
 export function refreshAccessToken(refreshToken: string): Promise<SpotifyTokenSet> {
-  return tokenRequest(new URLSearchParams({
-    grant_type: 'refresh_token',
-    refresh_token: refreshToken
-  }));
+  return tokenRequest(
+    new URLSearchParams({
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+    }),
+  );
 }
 
 // --- Web API endpoints ---
 
 async function apiGet<T>(path: string, accessToken: string): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
-    headers: { Authorization: `Bearer ${accessToken}` }
+    headers: { Authorization: `Bearer ${accessToken}` },
   });
 
   if (!response.ok) {
@@ -203,8 +211,11 @@ async function apiGet<T>(path: string, accessToken: string): Promise<T> {
     let message = `Spotify API request failed: HTTP ${response.status} (${path})`;
     try {
       const parsed = JSON.parse(text) as { error?: { message?: string } };
-      if (parsed.error?.message) message = `Spotify API error (${response.status}): ${parsed.error.message}`;
-    } catch { /* non-JSON body */ }
+      if (parsed.error?.message)
+        message = `Spotify API error (${response.status}): ${parsed.error.message}`;
+    } catch {
+      /* non-JSON body */
+    }
     throw new SpotifyApiError(message, response.status, text);
   }
 
@@ -224,7 +235,10 @@ export async function getUserPlaylists(accessToken: string): Promise<SpotifyPlay
   let offset = 0;
 
   while (true) {
-    const page = await apiGet<RawPlaylistsPage>(`/me/playlists?limit=${limit}&offset=${offset}`, accessToken);
+    const page = await apiGet<RawPlaylistsPage>(
+      `/me/playlists?limit=${limit}&offset=${offset}`,
+      accessToken,
+    );
     // Spotify can return null entries for deleted/unavailable playlists.
     const items = (page.items ?? []).filter((p): p is RawPlaylistObject => p != null);
     all.push(...items.map(toPlaylistSummary));
@@ -238,13 +252,19 @@ export async function getUserPlaylists(accessToken: string): Promise<SpotifyPlay
 }
 
 /** GET /v1/playlists/{id} - a single playlist's metadata. */
-export async function getPlaylist(accessToken: string, playlistId: string): Promise<SpotifyPlaylist> {
-  const raw = await apiGet<RawPlaylistObject>(`/playlists/${encodeURIComponent(playlistId)}`, accessToken);
+export async function getPlaylist(
+  accessToken: string,
+  playlistId: string,
+): Promise<SpotifyPlaylist> {
+  const raw = await apiGet<RawPlaylistObject>(
+    `/playlists/${encodeURIComponent(playlistId)}`,
+    accessToken,
+  );
   return {
     id: raw.id,
     name: raw.name,
     ownerId: raw.owner?.id ?? null,
     trackTotal: readTrackTotal(raw),
-    spotifyUrl: raw.external_urls?.spotify ?? `https://open.spotify.com/playlist/${raw.id}`
+    spotifyUrl: raw.external_urls?.spotify ?? `https://open.spotify.com/playlist/${raw.id}`,
   };
 }

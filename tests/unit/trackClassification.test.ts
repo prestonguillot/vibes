@@ -8,7 +8,9 @@ import { describe, it, expect } from 'vitest';
 import { YtPlaylistItem } from '../../src/utils/youtubeClient';
 import { classifyTracksForSync } from '../../src/services/trackClassification';
 
-const track = (id: string, name: string) => ({ track: { id, name, type: 'track', artists: [{ name: 'Artist' }] } });
+const track = (id: string, name: string) => ({
+  track: { id, name, type: 'track', artists: [{ name: 'Artist' }] },
+});
 
 const existingItems = (...pairs: Array<[string, string]>): Map<string, YtPlaylistItem> => {
   const map = new Map<string, YtPlaylistItem>();
@@ -37,7 +39,7 @@ describe('classifyTracksForSync', () => {
     expect(result.unsyncedTracks).toEqual([]);
     expect(result.existingMatchPairs).toEqual([
       { trackId: 't1', videoId: 'v1' },
-      { trackId: 't2', videoId: 'v2' }
+      { trackId: 't2', videoId: 'v2' },
     ]);
   });
 

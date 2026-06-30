@@ -12,10 +12,7 @@ const app = createApp();
 describe('Health Check', () => {
   describe('GET /health', () => {
     it('should return 200 OK with status and timestamp', async () => {
-      const response = await request(app)
-        .get('/health')
-        .expect(200)
-        .expect('Content-Type', /json/);
+      const response = await request(app).get('/health').expect(200).expect('Content-Type', /json/);
 
       expect(response.body).toHaveProperty('status', 'ok');
       expect(response.body).toHaveProperty('timestamp');
@@ -27,10 +24,7 @@ describe('Health Check', () => {
 describe('Main Page', () => {
   describe('GET /', () => {
     it('should return 200 OK with HTML', async () => {
-      const response = await request(app)
-        .get('/')
-        .expect(200)
-        .expect('Content-Type', /html/);
+      const response = await request(app).get('/').expect(200).expect('Content-Type', /html/);
 
       // Should render index page with basic structure
       expect(response.text).toContain('<!DOCTYPE html>');
@@ -43,7 +37,7 @@ describe('Main Page', () => {
 
       expect(response.headers['set-cookie']).toBeDefined();
       const csrfCookie = response.headers['set-cookie']?.find((cookie: string) =>
-        cookie.startsWith('csrf_token=')
+        cookie.startsWith('csrf_token='),
       );
       expect(csrfCookie).toBeDefined();
     });
@@ -53,9 +47,7 @@ describe('Main Page', () => {
 describe('404 Handler', () => {
   describe('GET /nonexistent', () => {
     it('should return 404 with error message', async () => {
-      const response = await request(app)
-        .get('/nonexistent')
-        .expect(404);
+      const response = await request(app).get('/nonexistent').expect(404);
 
       // Should render error message partial
       expect(response.text).toContain('Page not found');
@@ -64,9 +56,7 @@ describe('404 Handler', () => {
 
   describe('POST /nonexistent', () => {
     it('should return 404 for POST to nonexistent route', async () => {
-      const response = await request(app)
-        .post('/nonexistent')
-        .expect(404);
+      const response = await request(app).post('/nonexistent').expect(404);
 
       expect(response.text).toContain('Page not found');
     });

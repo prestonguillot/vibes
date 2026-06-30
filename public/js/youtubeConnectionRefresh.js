@@ -4,17 +4,17 @@
  * Preserves expand/collapse checkbox states during refresh
  */
 
-(function() {
+(function () {
   'use strict';
 
   // Listen for the youtubeConnected event from the status endpoint
-  document.body.addEventListener('youtubeConnected', function() {
+  document.body.addEventListener('youtubeConnected', function () {
     const playlistsContent = document.getElementById('playlists-content');
 
     if (playlistsContent && window.htmx) {
       // Save checkbox states before refresh
       const checkboxStates = new Map();
-      document.querySelectorAll('.playlist-expand-toggle').forEach(checkbox => {
+      document.querySelectorAll('.playlist-expand-toggle').forEach((checkbox) => {
         checkboxStates.set(checkbox.id, checkbox.checked);
       });
 
@@ -27,10 +27,10 @@
         target: '#playlists-content',
         swap: 'innerHTML',
         headers: {
-          'Cache-Control': 'no-cache'
+          'Cache-Control': 'no-cache',
         },
         // Restore checkbox states after swap completes (without animation flashing)
-        onload: function() {
+        onload: function () {
           // Suppress transitions to prevent blinking when restoring checkbox states
           playlistsContent.classList.add('no-transition');
 
@@ -49,19 +49,19 @@
           // Reload details for any expanded playlists to get fresh data
           // The details container might have old cached content, so we need to refresh
           if (window.htmx) {
-            document.querySelectorAll('.playlist-expand-toggle:checked').forEach(checkbox => {
+            document.querySelectorAll('.playlist-expand-toggle:checked').forEach((checkbox) => {
               const playlistId = checkbox.id.replace('expand-', '');
               const detailsContainer = document.getElementById(`details-${playlistId}`);
               if (detailsContainer) {
                 // Trigger HTMX to reload the details
                 window.htmx.ajax('GET', `/api/playlistDetails/playlist/${playlistId}`, {
                   target: `#details-${playlistId}`,
-                  swap: 'innerHTML'
+                  swap: 'innerHTML',
                 });
               }
             });
           }
-        }
+        },
       });
     }
   });

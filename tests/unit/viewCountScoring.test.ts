@@ -46,7 +46,10 @@ describe('calculateMatchScore view-count nudge', () => {
   });
 
   it('caps the bonus at 0.1 for enormous view counts', () => {
-    const { breakdown } = calculateMatchScore(track, { ...baseVideo, viewCount: 1_000_000_000_000 });
+    const { breakdown } = calculateMatchScore(track, {
+      ...baseVideo,
+      viewCount: 1_000_000_000_000,
+    });
     expect(breakdown.components.viewCountBonus).toBe(0.1);
   });
 
@@ -59,7 +62,13 @@ describe('calculateMatchScore view-count nudge', () => {
   it('does not let views rescue a weak text match above the link threshold', () => {
     const poor = calculateMatchScore(
       { id: 't', name: 'Completely Different Title', artist: 'X' },
-      { id: 'v', title: 'Unrelated Video', description: '', channelTitle: 'C', viewCount: 1_000_000_000 }
+      {
+        id: 'v',
+        title: 'Unrelated Video',
+        description: '',
+        channelTitle: 'C',
+        viewCount: 1_000_000_000,
+      },
     );
     expect(poor.score).toBeLessThan(0.4);
   });

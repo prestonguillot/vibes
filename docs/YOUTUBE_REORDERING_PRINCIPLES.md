@@ -20,16 +20,16 @@ The YouTube Data API v3 provides the `playlistItems.update` method with a `posit
 await youtube.playlistItems.update({
   part: ['snippet'],
   requestBody: {
-    id: playlistItemId,  // The existing playlist item ID
+    id: playlistItemId, // The existing playlist item ID
     snippet: {
       playlistId: youtubePlaylistId,
-      position: targetPosition,  // The new position (0-indexed)
+      position: targetPosition, // The new position (0-indexed)
       resourceId: {
         kind: 'youtube#video',
-        videoId: videoId
-      }
-    }
-  }
+        videoId: videoId,
+      },
+    },
+  },
 });
 ```
 
@@ -47,16 +47,17 @@ await youtube.playlistItems.insert({
       // Videos always go to the end
       resourceId: {
         kind: 'youtube#video',
-        videoId: videoId
-      }
-    }
-  }
+        videoId: videoId,
+      },
+    },
+  },
 });
 ```
 
 ## How YouTube's Position Update Works
 
 When you update a video's position:
+
 1. YouTube removes the video from its current position
 2. YouTube inserts it at the target position
 3. Other videos shift to accommodate the change
@@ -65,6 +66,7 @@ When you update a video's position:
 ## Algorithm Considerations
 
 When reordering multiple items:
+
 - Process items in a consistent order
 - Account for position shifts as items move
 - The algorithm simulates these shifts to calculate correct target positions

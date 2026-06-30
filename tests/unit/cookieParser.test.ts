@@ -7,7 +7,7 @@ describe('Cookie Parser Utilities', () => {
 
   beforeEach(() => {
     mockRes = {
-      clearCookie: vi.fn()
+      clearCookie: vi.fn(),
     };
   });
 
@@ -15,7 +15,7 @@ describe('Cookie Parser Utilities', () => {
     it('should parse valid Spotify token cookie', () => {
       const validTokens = {
         accessToken: 'valid_access_token_123',
-        refreshToken: 'valid_refresh_token_456'
+        refreshToken: 'valid_refresh_token_456',
       };
       const cookieValue = JSON.stringify(validTokens);
 
@@ -56,7 +56,7 @@ describe('Cookie Parser Utilities', () => {
     it('should return null and clear cookie for empty tokens', () => {
       const emptyTokens = JSON.stringify({
         accessToken: '',
-        refreshToken: 'token'
+        refreshToken: 'token',
       });
 
       const result = parseSpotifyTokenCookie(emptyTokens, mockRes as Response);
@@ -68,7 +68,7 @@ describe('Cookie Parser Utilities', () => {
     it('should work without Response object provided', () => {
       const validTokens = {
         accessToken: 'valid_access_token_123',
-        refreshToken: 'valid_refresh_token_456'
+        refreshToken: 'valid_refresh_token_456',
       };
       const cookieValue = JSON.stringify(validTokens);
 
@@ -82,14 +82,14 @@ describe('Cookie Parser Utilities', () => {
       const tokensWithExtra = JSON.stringify({
         accessToken: 'token_123',
         refreshToken: 'token_456',
-        extraProperty: 'ignored'
+        extraProperty: 'ignored',
       });
 
       const result = parseSpotifyTokenCookie(tokensWithExtra, mockRes as Response);
 
       expect(result).toEqual({
         accessToken: 'token_123',
-        refreshToken: 'token_456'
+        refreshToken: 'token_456',
       });
       expect(mockRes.clearCookie).not.toHaveBeenCalled();
     });
@@ -97,7 +97,7 @@ describe('Cookie Parser Utilities', () => {
     it('should handle tokens with special characters safely', () => {
       const specialCharTokens = {
         accessToken: 'token_with_!@#$%^&*()_+-=[]{}|;:",.<>?/~`',
-        refreshToken: 'another_token_with_special_chars'
+        refreshToken: 'another_token_with_special_chars',
       };
       const cookieValue = JSON.stringify(specialCharTokens);
 
@@ -114,7 +114,7 @@ describe('Cookie Parser Utilities', () => {
         access_token: 'ya29.a0AfH6SMBx...',
         scope: 'https://www.googleapis.com/auth/youtube',
         token_type: 'Bearer',
-        expiry_date: Date.now() + 3600000
+        expiry_date: Date.now() + 3600000,
       };
       const cookieValue = JSON.stringify(validTokens);
 
@@ -128,7 +128,7 @@ describe('Cookie Parser Utilities', () => {
       const validTokens = {
         access_token: 'ya29.a0AfH6SMBx...',
         scope: 'https://www.googleapis.com/auth/youtube',
-        token_type: 'Bearer'
+        token_type: 'Bearer',
       };
       const cookieValue = JSON.stringify(validTokens);
 
@@ -170,7 +170,7 @@ describe('Cookie Parser Utilities', () => {
       const emptyToken = JSON.stringify({
         access_token: '',
         scope: 'https://www.googleapis.com/auth/youtube',
-        token_type: 'Bearer'
+        token_type: 'Bearer',
       });
 
       const result = parseYouTubeTokenCookie(emptyToken, mockRes as Response);
@@ -192,7 +192,7 @@ describe('Cookie Parser Utilities', () => {
       const validTokens = {
         access_token: 'ya29.a0AfH6SMBx...',
         scope: 'https://www.googleapis.com/auth/youtube',
-        token_type: 'Bearer'
+        token_type: 'Bearer',
       };
       const cookieValue = JSON.stringify(validTokens);
 
@@ -207,7 +207,7 @@ describe('Cookie Parser Utilities', () => {
         refresh_token: '1//refresh_token_here',
         scope: 'https://www.googleapis.com/auth/youtube',
         token_type: 'Bearer',
-        expiry_date: 1234567890
+        expiry_date: 1234567890,
       };
       const cookieValue = JSON.stringify(fullTokens);
 

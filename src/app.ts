@@ -22,41 +22,43 @@ export function createApp() {
   const app = express();
 
   // Security headers with Helmet
-  app.use(helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        // NOTE: 'unsafe-inline' for styles and scripts is necessary for this HTMX/Bootstrap architecture.
-        // ARCHITECTURAL TRADEOFF: We allow 'unsafe-inline' to enable:
-        // 1. HTMX inline script initialization (required for HTMX to work on initial page load)
-        // 2. Bootstrap inline styles for certain components
-        // 3. Dynamic HTML swapping via HTMX (safe because HTML comes from server, not user input)
-        //
-        // MITIGATION: No user-supplied data is embedded into inline scripts or styles. All dynamic
-        // content (playlists, videos, etc.) is inserted via HTMX swap operations which target DOM
-        // elements, not inline script/style content.
-        //
-        // FUTURE IMPROVEMENT: To remove 'unsafe-inline', we would need to:
-        // - Generate random CSP nonces on each request
-        // - Embed nonces in all inline scripts: <script nonce="...">
-        // - Embed nonces in inline styles: <style nonce="...">
-        // - Pass nonces to templates and dynamically generated HTML
-        // This is possible but adds complexity; not justified for current risk level.
-        // htmx + Bootstrap are now self-hosted from /vendor; only Google Fonts is external.
-        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-        scriptSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", "data:", "https:", "http:"], // Allow external images (YouTube thumbnails, etc.)
-        connectSrc: ["'self'"], // Allow SSE connections to same origin
-        fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"], // Google Fonts
-        frameSrc: ["'none'"]
-      }
-    },
-    hsts: {
-      maxAge: 31536000, // 1 year
-      includeSubDomains: true,
-      preload: true
-    }
-  }));
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          // NOTE: 'unsafe-inline' for styles and scripts is necessary for this HTMX/Bootstrap architecture.
+          // ARCHITECTURAL TRADEOFF: We allow 'unsafe-inline' to enable:
+          // 1. HTMX inline script initialization (required for HTMX to work on initial page load)
+          // 2. Bootstrap inline styles for certain components
+          // 3. Dynamic HTML swapping via HTMX (safe because HTML comes from server, not user input)
+          //
+          // MITIGATION: No user-supplied data is embedded into inline scripts or styles. All dynamic
+          // content (playlists, videos, etc.) is inserted via HTMX swap operations which target DOM
+          // elements, not inline script/style content.
+          //
+          // FUTURE IMPROVEMENT: To remove 'unsafe-inline', we would need to:
+          // - Generate random CSP nonces on each request
+          // - Embed nonces in all inline scripts: <script nonce="...">
+          // - Embed nonces in inline styles: <style nonce="...">
+          // - Pass nonces to templates and dynamically generated HTML
+          // This is possible but adds complexity; not justified for current risk level.
+          // htmx + Bootstrap are now self-hosted from /vendor; only Google Fonts is external.
+          styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+          scriptSrc: ["'self'", "'unsafe-inline'"],
+          imgSrc: ["'self'", 'data:', 'https:', 'http:'], // Allow external images (YouTube thumbnails, etc.)
+          connectSrc: ["'self'"], // Allow SSE connections to same origin
+          fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com'], // Google Fonts
+          frameSrc: ["'none'"],
+        },
+      },
+      hsts: {
+        maxAge: 31536000, // 1 year
+        includeSubDomains: true,
+        preload: true,
+      },
+    }),
+  );
 
   // Middleware
   app.use(express.json({ limit: '10kb' })); // Limit request body size to prevent DoS
@@ -67,9 +69,13 @@ export function createApp() {
   // Request logging middleware
   app.use((req, res, next) => {
     // Skip logging for static assets and favicon to reduce noise
-    if (req.originalUrl.includes('.css') || req.originalUrl.includes('.js') ||
-        req.originalUrl.includes('.png') || req.originalUrl.includes('.ico') ||
-        req.originalUrl.includes('/favicon')) {
+    if (
+      req.originalUrl.includes('.css') ||
+      req.originalUrl.includes('.js') ||
+      req.originalUrl.includes('.png') ||
+      req.originalUrl.includes('.ico') ||
+      req.originalUrl.includes('/favicon')
+    ) {
       return next();
     }
 
@@ -79,7 +85,7 @@ export function createApp() {
     Logger.requestStart(`${req.method} ${req.originalUrl}`, {
       fullUrl: `${req.protocol}://${req.get('host')}${req.originalUrl}`,
       userAgent: req.get('User-Agent')?.slice(0, 100) || 'none',
-      hasAuth: hasSpotifyToken || hasYoutubeToken
+      hasAuth: hasSpotifyToken || hasYoutubeToken,
     });
 
     // Express 5 leaves req.body undefined when no body parser matched (e.g. GET),
@@ -95,7 +101,7 @@ export function createApp() {
     res.on('finish', () => {
       Logger.debug('Response sent', {
         statusCode: res.statusCode,
-        statusMessage: res.statusMessage
+        statusMessage: res.statusMessage,
       });
     });
 
@@ -140,7 +146,7 @@ export function createApp() {
           buttonText: 'Update YouTube Playlist',
           buttonClass: 'btn-outline-success',
           isYouTubeConnected: true,
-          isDisabled: false
+          isDisabled: false,
         },
         {
           id: 'demo-unsynced-1',
@@ -153,7 +159,7 @@ export function createApp() {
           buttonText: 'Sync to YouTube',
           buttonClass: 'btn-primary',
           isYouTubeConnected: true,
-          isDisabled: false
+          isDisabled: false,
         },
         {
           id: 'demo-no-yt-1',
@@ -166,8 +172,8 @@ export function createApp() {
           buttonText: 'Connect to YouTube to Sync',
           buttonClass: 'btn-secondary',
           isYouTubeConnected: false,
-          isDisabled: true
-        }
+          isDisabled: true,
+        },
       ],
       mockPlaylistDetails: {
         playlistId: 'demo-details-1',
@@ -178,28 +184,43 @@ export function createApp() {
         hasYoutubePlaylist: true,
         tracks: [
           {
-            spotify: { name: 'Blinding Lights', artist: 'The Weeknd', album: 'After Hours', id: 'sp1' },
-            youtube: { title: 'The Weeknd - Blinding Lights', url: 'https://youtube.com/watch?v=demo1', thumbnail: 'https://via.placeholder.com/120x90/FF0000/FFFFFF?text=YouTube', id: 'yt1' },
-            linked: true
+            spotify: {
+              name: 'Blinding Lights',
+              artist: 'The Weeknd',
+              album: 'After Hours',
+              id: 'sp1',
+            },
+            youtube: {
+              title: 'The Weeknd - Blinding Lights',
+              url: 'https://youtube.com/watch?v=demo1',
+              thumbnail: 'https://via.placeholder.com/120x90/FF0000/FFFFFF?text=YouTube',
+              id: 'yt1',
+            },
+            linked: true,
           },
           {
-            spotify: { name: 'Levitating', artist: 'Dua Lipa', album: 'Future Nostalgia', id: 'sp2' },
+            spotify: {
+              name: 'Levitating',
+              artist: 'Dua Lipa',
+              album: 'Future Nostalgia',
+              id: 'sp2',
+            },
             youtube: null,
-            linked: false
+            linked: false,
           },
           {
             spotify: { name: 'Anti-Hero', artist: 'Taylor Swift', album: 'Midnights', id: 'sp3' },
             youtube: null,
-            linked: false
-          }
-        ]
+            linked: false,
+          },
+        ],
       },
       mockConnectionButtonProps: [
         { service: 'spotify', connected: true, loading: false, error: null },
         { service: 'spotify', connected: false, loading: false, error: null },
         { service: 'spotify', connected: false, loading: true, error: null },
         { service: 'youtube', connected: true, loading: false, error: null },
-        { service: 'youtube', connected: false, loading: false, error: null }
+        { service: 'youtube', connected: false, loading: false, error: null },
       ],
       mockSyncFeedback: {
         playlistId: 'demo-feedback-1',
@@ -211,9 +232,9 @@ export function createApp() {
         unlinkedTracks: [
           { name: 'Unknown Track 1', artist: 'Unknown Artist' },
           { name: 'Unknown Track 2', artist: 'Unknown Artist' },
-          { name: 'Unknown Track 3', artist: 'Unknown Artist' }
-        ]
-      }
+          { name: 'Unknown Track 3', artist: 'Unknown Artist' },
+        ],
+      },
     });
   });
 
@@ -232,7 +253,7 @@ export function createApp() {
     const elapsed = Date.now() - startTime;
     const minDisplayTime = 500;
     if (elapsed < minDisplayTime) {
-      await new Promise(resolve => setTimeout(resolve, minDisplayTime - elapsed));
+      await new Promise((resolve) => setTimeout(resolve, minDisplayTime - elapsed));
     }
 
     // Disable caching to ensure error states are always shown
@@ -243,7 +264,7 @@ export function createApp() {
       service: 'spotify',
       connected: spotifyResult.connected,
       error: spotifyResult.error,
-      loading: false
+      loading: false,
     });
   });
 
@@ -256,7 +277,7 @@ export function createApp() {
     const elapsed = Date.now() - startTime;
     const minDisplayTime = 500;
     if (elapsed < minDisplayTime) {
-      await new Promise(resolve => setTimeout(resolve, minDisplayTime - elapsed));
+      await new Promise((resolve) => setTimeout(resolve, minDisplayTime - elapsed));
     }
 
     // Disable caching to ensure error states are always shown
@@ -272,7 +293,7 @@ export function createApp() {
       service: 'youtube',
       connected: youtubeResult.connected,
       error: youtubeResult.error,
-      loading: false
+      loading: false,
     });
   });
 
@@ -281,7 +302,7 @@ export function createApp() {
     res.status(404).render('partials/error-message', {
       type: 'warning',
       message: 'Page not found',
-      details: `Cannot ${req.method} ${req.originalUrl}`
+      details: `Cannot ${req.method} ${req.originalUrl}`,
     });
   });
 
@@ -290,12 +311,13 @@ export function createApp() {
     Logger.error('Unhandled error', { url: req.originalUrl, method: req.method }, err);
 
     // Don't expose error details in production
-    const errorDetails = process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong';
+    const errorDetails =
+      process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong';
 
     res.status(err.status || 500).render('partials/error-message', {
       type: 'danger',
       message: 'Internal server error',
-      details: errorDetails
+      details: errorDetails,
     });
   });
 
