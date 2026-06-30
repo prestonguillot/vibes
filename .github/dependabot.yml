@@ -1,0 +1,22 @@
+version: 2
+
+# Two ecosystems to scan: the npm dependencies in package.json and the GitHub
+# Actions pinned in .github/workflows/*.yml. Dependabot PRs are NOT auto-labeled
+# release:* - a dependency bump doesn't automatically warrant cutting a release;
+# add a release label manually before merging if you want one to ship.
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
