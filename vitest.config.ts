@@ -11,7 +11,13 @@ export default defineConfig({
     env: { LOG_LEVEL: 'silent' },
     // tests/live hits the real Spotify API; it is opt-in via `npm run test:spotify:live`
     // (vitest.live.config.ts) and must never run on the normal cycle.
-    exclude: [...configDefaults.exclude, 'tests/live/**', 'tests/visual/**'],
+    // tests/visual* are Playwright specs (toHaveScreenshot + Argos) - never run by vitest.
+    exclude: [
+      ...configDefaults.exclude,
+      'tests/live/**',
+      'tests/visual/**',
+      'tests/visual-argos/**',
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
