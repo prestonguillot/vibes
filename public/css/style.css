@@ -169,26 +169,6 @@ body {
 
 /* .sync-btn consolidated definition is at line ~582 */
 
-.playlist-progress {
-  background: #e3f2fd;
-  border: 2px solid #2196f3;
-  border-radius: 0;
-  padding: 20px 15px;
-  margin: 12px 0 0 0;
-  font-family: 'Courier Prime', monospace;
-  font-size: 0.9rem;
-  color: #1976d2;
-  min-height: 80px;
-  display: block;
-}
-
-.playlist-sync-result {
-  margin: 0;
-  padding: 8px 15px;
-  font-family: 'Courier Prime', monospace;
-  font-size: 0.9rem;
-}
-
 .playlist-expand-toggle {
   display: none;
 }
@@ -499,21 +479,6 @@ body {
   flex-shrink: 0;
 }
 
-.youtube-video__content {
-  display: flex;
-  align-items: center;
-}
-
-.youtube-video__info {
-  flex-grow: 1;
-  min-width: 0;
-}
-
-.youtube-video__link {
-  text-decoration: none;
-  font-size: 0.875rem;
-}
-
 /* Video Selection Modal Styles - PUNK ZINE AESTHETIC */
 .modal-content {
   background: #fff;
@@ -618,12 +583,6 @@ body {
   display: block;
 }
 
-.video-option__content {
-  display: flex;
-  align-items: start;
-  gap: 12px;
-}
-
 .video-option__thumbnail {
   width: 120px;
   height: 90px;
@@ -632,23 +591,6 @@ body {
   border: 2px solid #000;
   box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.3);
   flex-shrink: 0;
-}
-
-.video-option__info {
-  flex-grow: 1;
-  min-width: 0;
-}
-
-.video-option__title {
-  margin-bottom: 4px;
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-.video-option__channel {
-  color: #6c757d;
-  font-size: 0.875rem;
-  margin-bottom: 4px;
 }
 
 .video-option__description {
@@ -786,11 +728,6 @@ body {
 }
 
 /* === AUTH EXPIRED RECONNECT BUTTONS === */
-.auth-expired-container {
-  margin: 0;
-  padding: 0;
-}
-
 .btn-spotify-reconnect,
 .btn-youtube-reconnect {
   font-family: 'Courier Prime', monospace;
@@ -1144,16 +1081,6 @@ body {
 
 /* .sync-btn definition consolidated at line ~580 */
 
-.expand-btn {
-  height: 38px;
-  font-weight: 700;
-  font-family: 'Courier Prime', monospace;
-  border: 2px solid #000;
-  border-radius: 0;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
 .playlist-details-container {
   width: 100%;
   max-width: 100%;
@@ -1184,22 +1111,6 @@ body {
   display: inline-block;
   margin: 0;
   vertical-align: middle;
-}
-
-/* === PLAYLIST LAYOUT AND POSITIONING === */
-.playlist-button-group {
-  position: absolute;
-  top: 8px;
-  right: 10px;
-  z-index: 10;
-  display: flex;
-  gap: 1rem;
-}
-
-.playlist-container {
-  position: relative;
-  min-height: 60px;
-  padding-right: 200px;
 }
 
 /* === SYNC FEEDBACK STYLES === */
@@ -1319,16 +1230,6 @@ body {
   .playlist-item {
     padding: 8px 15px 5px 15px;
   }
-
-  .playlist-container {
-    padding-right: 0;
-  }
-
-  .playlist-button-group {
-    position: static;
-    margin-top: 10px;
-    justify-content: flex-start;
-  }
 }
 
 /* Tablet devices (768px to 1024px) */
@@ -1426,11 +1327,6 @@ select:focus {
 }
 
 /* === UTILITY CLASSES === */
-
-/* Select input auto-width */
-.form-select-auto {
-  width: auto;
-}
 
 /* Loading indicator hidden by default */
 .loading-indicator {
@@ -1574,13 +1470,6 @@ body.oauth-error-body {
   background-color: #d4edda;
   border-color: #28a745;
   color: #155724;
-}
-
-/* Warning state - yellow */
-.sync-status-warning {
-  background-color: #fff3cd;
-  border-color: #ffc107;
-  color: #856404;
 }
 
 /* Error state - red */
