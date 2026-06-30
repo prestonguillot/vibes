@@ -1,7 +1,19 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../../src/app';
 import { youtubeCircuitBreaker } from '../../src/utils/circuitBreaker';
+
+// Mock connection validation so these tests are deterministic and offline - the
+// real validators hit the live Spotify/YouTube APIs (the source of CI flakiness).
+const mockAuth = vi.hoisted(() => ({
+  validateSpotifyConnection: vi.fn(),
+  validateYouTubeConnection: vi.fn(),
+}));
+vi.mock('../../src/utils/authValidation', async (orig) => ({
+  ...(await orig<typeof import('../../src/utils/authValidation')>()),
+  validateSpotifyConnection: mockAuth.validateSpotifyConnection,
+  validateYouTubeConnection: mockAuth.validateYouTubeConnection,
+}));
 
 describe('Refresh Button Integration', () => {
   let app: any;
@@ -9,6 +21,8 @@ describe('Refresh Button Integration', () => {
   beforeEach(() => {
     app = createApp();
     youtubeCircuitBreaker.close();
+    mockAuth.validateSpotifyConnection.mockResolvedValue({ connected: false });
+    mockAuth.validateYouTubeConnection.mockResolvedValue({ connected: false });
   });
 
   describe('Connection Button Rendering', () => {
@@ -31,28 +45,25 @@ describe('Refresh Button Integration', () => {
     });
 
     it('should render connected Spotify button with data-connected="true"', async () => {
-      // Mock Spotify tokens
+      mockAuth.validateSpotifyConnection.mockResolvedValue({ connected: true });
       const response = await request(app)
         .get('/api/status/spotify/button')
         .set('Cookie', 'spotify_tokens={"accessToken":"mock_token","refreshToken":"mock_refresh"}');
 
       expect(response.status).toBe(200);
       expect(response.text).toContain('data-service="spotify"');
-      // Note: Will likely still be false since token validation will fail in test
-      // This tests that the attribute is present
-      expect(response.text).toMatch(/data-connected="(true|false)"/);
+      expect(response.text).toContain('data-connected="true"');
     });
 
     it('should render connected YouTube button with data-connected="true"', async () => {
+      mockAuth.validateYouTubeConnection.mockResolvedValue({ connected: true });
       const response = await request(app)
         .get('/api/status/youtube/button')
         .set('Cookie', 'youtube_tokens={"access_token":"mock_token","refresh_token":"mock_refresh"}');
 
       expect(response.status).toBe(200);
       expect(response.text).toContain('data-service="youtube"');
-      // Note: Will likely still be false since token validation will fail in test
-      // This tests that the attribute is present
-      expect(response.text).toMatch(/data-connected="(true|false)"/);
+      expect(response.text).toContain('data-connected="true"');
     });
   });
 

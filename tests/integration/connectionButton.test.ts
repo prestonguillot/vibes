@@ -22,9 +22,26 @@ vi.mock('googleapis', () => ({
   },
 }));
 
+// Mock connection validation so these tests are deterministic and offline - the
+// real validators hit the live Spotify/YouTube APIs (the source of CI flakiness).
+const mockAuth = vi.hoisted(() => ({
+  validateSpotifyConnection: vi.fn(),
+  validateYouTubeConnection: vi.fn(),
+}));
+vi.mock('@/utils/authValidation', async (orig) => ({
+  ...(await orig<typeof import('@/utils/authValidation')>()),
+  validateSpotifyConnection: mockAuth.validateSpotifyConnection,
+  validateYouTubeConnection: mockAuth.validateYouTubeConnection,
+}));
+
 const app = createApp();
 
 describe('Connection Button Endpoints', () => {
+  beforeEach(() => {
+    mockAuth.validateSpotifyConnection.mockResolvedValue({ connected: false });
+    mockAuth.validateYouTubeConnection.mockResolvedValue({ connected: false });
+  });
+
   describe('BUG-002: Loading parameter handling', () => {
     describe('GET /api/status/spotify/button', () => {
       it('should return 200 and render connection button', async () => {
@@ -143,6 +160,7 @@ describe('Connection Button Endpoints', () => {
   describe('HTMX Event Triggers', () => {
     describe('YouTube connection events', () => {
       it('should send HX-Trigger header when YouTube is connected', async () => {
+        mockAuth.validateYouTubeConnection.mockResolvedValue({ connected: true });
         // Mock valid YouTube tokens (must include all required fields for Zod validation)
         const mockYouTubeTokens = JSON.stringify({
           access_token: 'mock_youtube_access_token',
