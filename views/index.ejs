@@ -14,6 +14,7 @@
     <link href="/vendor/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/css/style.css">
     <script src="/vendor/htmx.min.js"></script>
+    <script src="/vendor/sse.js"></script>
 </head>
 <body<% if (csrfToken) { %> hx-headers='{"X-CSRF-Token": "<%= csrfToken %>"}'<% } %>>
     <div class="container mt-5">

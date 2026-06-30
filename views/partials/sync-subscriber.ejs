@@ -1,0 +1,19 @@
+<%
+// Returned by POST /api/sync/playlist/:id. Subscribes to the sync stream via the
+// htmx SSE extension: progress frames swap into .sync-status-content, and the
+// terminal `close` event closes the connection (no reconnect / re-run).
+%>
+<div id="sync-status-<%= id %>" class="sync-status-box sync-status-working"
+     hx-ext="sse"
+     sse-connect="/api/sync/playlist/<%= id %>/stream?batchSize=<%= encodeURIComponent(batchSize) %>"
+     sse-close="close">
+  <div class="sync-status-content" sse-swap="message">
+    <div class="sync-status-loading">
+      <div class="spinner-border spinner-border-sm text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+      <span>Starting sync...</span>
+    </div>
+  </div>
+  <button type="button" class="sync-status-close" aria-label="Close"></button>
+</div>

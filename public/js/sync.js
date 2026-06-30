@@ -1,95 +1,50 @@
 /**
- * Sync Status Box Manager
- * Single component with multiple states: working, success, warning, error
+ * Sync status box behaviour. Progress and the final result stream in declaratively
+ * via the htmx SSE extension (see sync-subscriber.ejs); this only handles the
+ * dismiss control and moving a newly-synced playlist into place once its stream
+ * closes successfully.
  */
 
-// Track SSE connections for cleanup
-const sseConnections = new Map();
-const statusBoxTimers = new Map();
-
-// Helper function to set status box state
-function setStatusBoxState(playlistId, state, content = '') {
-  const statusBox = document.getElementById(`sync-status-${playlistId}`);
-  if (!statusBox) return;
-
-  // Cancel any pending timers
-  if (statusBoxTimers.has(playlistId)) {
-    clearTimeout(statusBoxTimers.get(playlistId));
-    statusBoxTimers.delete(playlistId);
-  }
-
-  // Remove fade-out class if present
-  statusBox.classList.remove('fade-out');
-
-  // Update state
-  statusBox.className = `sync-status-box sync-status-${state}`;
-  statusBox.setAttribute('data-state', state);
-
-  // Update content if provided
-  if (content) {
-    statusBox.querySelector('.sync-status-content').innerHTML = content;
-  }
-
-  // Setup close button handler for dismissible states
-  if (['success', 'warning', 'error'].includes(state)) {
-    const closeBtn = statusBox.querySelector('.sync-status-close');
-    if (closeBtn) {
-      closeBtn.onclick = () => hideStatusBox(playlistId);
-    }
-  }
-
-  // Auto-fade for success only (not warning or error)
-  if (state === 'success') {
-    const timer = setTimeout(() => {
-      hideStatusBox(playlistId);
-    }, 5000);
-    statusBoxTimers.set(playlistId, timer);
-  }
-}
-
-// Helper function to hide status box
-function hideStatusBox(playlistId) {
-  const statusBox = document.getElementById(`sync-status-${playlistId}`);
-  if (!statusBox) return;
-
-  // Cancel any pending timer
-  if (statusBoxTimers.has(playlistId)) {
-    clearTimeout(statusBoxTimers.get(playlistId));
-    statusBoxTimers.delete(playlistId);
-  }
-
-  statusBox.classList.add('fade-out');
+// Dismiss a status box via its close control.
+document.addEventListener('click', function (event) {
+  const closeBtn = event.target.closest('.sync-status-close');
+  if (!closeBtn) return;
+  const box = closeBtn.closest('.sync-status-box');
+  if (!box) return;
+  box.classList.add('fade-out');
   setTimeout(() => {
-    statusBox.classList.remove('fade-out');
-    statusBox.classList.add('hidden');
+    box.classList.remove('fade-out');
+    box.classList.add('hidden');
   }, 300);
-}
-
-// Show progress and start SSE when sync begins
-document.body.addEventListener('htmx:beforeRequest', (event) => {
-  const path = event.detail.requestConfig.path;
-  if (!path || !path.includes('/sync/playlist/')) return;
-
-  const playlistId = path.split('/').pop();
-
-  // Show status box in working state
-  const statusBox = document.getElementById(`sync-status-${playlistId}`);
-  if (statusBox) {
-    statusBox.classList.remove('hidden');
-    setStatusBoxState(playlistId, 'working', `
-      <div style="display: flex; align-items: center; gap: 12px;">
-        <div class="spinner-border spinner-border-sm text-primary" role="status">
-          <span class="visually-hidden">Loading...</span>
-        </div>
-        <span>Starting sync...</span>
-      </div>
-    `);
-  }
-
-  startSSE(playlistId);
 });
 
-// Move a newly synced playlist to the correct position among synced playlists
+// When a sync stream closes (server "close" frame), reflect the outcome. Only the
+// success case moves the playlist into the synced section and auto-fades; the
+// nodeReplaced/nodeMissing closes (element removed) are ignored.
+document.body.addEventListener('htmx:sseClose', function (event) {
+  if (!event.detail || event.detail.type !== 'message') return;
+  const box = event.target.closest('.sync-status-box');
+  if (!box) return;
+
+  const playlistId = box.id.replace('sync-status-', '');
+  const succeeded = !!box.querySelector('[data-sync-success]');
+
+  box.classList.remove('sync-status-working');
+  box.classList.add(succeeded ? 'sync-status-success' : 'sync-status-error');
+
+  if (succeeded) {
+    movePlaylistToSyncedSection(playlistId);
+    setTimeout(() => {
+      box.classList.add('fade-out');
+      setTimeout(() => {
+        box.classList.remove('fade-out');
+        box.classList.add('hidden');
+      }, 300);
+    }, 5000);
+  }
+});
+
+// Move a newly synced playlist to its alphabetical position among synced playlists.
 function movePlaylistToSyncedSection(playlistId) {
   const playlistItem = document.querySelector(`[data-playlist-id="${playlistId}"]`);
   if (!playlistItem) return;
@@ -97,155 +52,29 @@ function movePlaylistToSyncedSection(playlistId) {
   const playlistsContainer = document.getElementById('playlists-content');
   if (!playlistsContainer) return;
 
-  // Get the playlist name to use for alphabetical sorting
   const nameElement = playlistItem.querySelector('h5');
   if (!nameElement) return;
-
   const playlistName = nameElement.textContent.trim();
 
-  // Find all playlist items in the container
   const allPlaylistItems = Array.from(playlistsContainer.querySelectorAll('[data-playlist-id]'));
 
-  // Find where this playlist should be inserted (alphabetical order, case-insensitive)
   let insertBeforeItem = null;
   for (let i = 0; i < allPlaylistItems.length; i++) {
     const otherItem = allPlaylistItems[i];
     if (otherItem === playlistItem) continue;
-
-    // Check if the other item comes after this one alphabetically
     const otherNameElement = otherItem.querySelector('h5');
     if (!otherNameElement) continue;
-
-    const otherName = otherNameElement.textContent.trim();
-
-    // If we find an item that comes after this one alphabetically, insert before it
-    if (otherName.localeCompare(playlistName) > 0) {
+    if (otherNameElement.textContent.trim().localeCompare(playlistName) > 0) {
       insertBeforeItem = otherItem;
       break;
     }
   }
 
-  // Move the playlist item to its correct position
   if (insertBeforeItem) {
     insertBeforeItem.parentNode.insertBefore(playlistItem, insertBeforeItem);
   } else {
-    // If no item found after, move to the end
     playlistsContainer.appendChild(playlistItem);
   }
 
-  // Scroll to the top of the playlist item with a smooth animation
   playlistItem.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-// Handle sync completion - update status box to success
-document.body.addEventListener('htmx:afterRequest', (event) => {
-  const path = event.detail.requestConfig?.path;
-  if (!path || !path.includes('/sync/playlist/')) return;
-
-  const playlistId = path.split('/').pop();
-
-  closeSSE(playlistId);
-
-  // Find the sync feedback content that HTMX placed in sync-result
-  const syncResultDiv = document.getElementById(`sync-result-${playlistId}`);
-  if (syncResultDiv) {
-    const feedbackContent = syncResultDiv.innerHTML;
-
-    // Update status box to success with the feedback content
-    setStatusBoxState(playlistId, 'success', feedbackContent);
-
-    // Clear the sync-result div since content is now in status box
-    syncResultDiv.innerHTML = '';
-  }
-
-  // Move the playlist to its correct position among synced playlists
-  movePlaylistToSyncedSection(playlistId);
-});
-
-// Handle HTMX errors specifically for sync operations
-document.body.addEventListener('htmx:sendError', (event) => {
-  const path = event.detail?.requestConfig?.path;
-  if (!path || !path.includes('/sync/playlist/')) return;
-
-  Logger.error('HTMX send error for sync request', { detail: event.detail });
-
-  const playlistId = path.split('/').pop();
-
-  closeSSE(playlistId);
-
-  // Show error state (does not auto-fade)
-  // If there's feedback content from the server, use it; otherwise show generic error
-  const syncResultDiv = document.getElementById(`sync-result-${playlistId}`);
-  let errorContent = '<strong>Sync failed</strong><br>Please try again';
-
-  if (syncResultDiv) {
-    const feedbackContent = syncResultDiv.innerHTML;
-    if (feedbackContent) {
-      errorContent = feedbackContent;
-    }
-    syncResultDiv.innerHTML = '';
-  }
-
-  setStatusBoxState(playlistId, 'error', errorContent);
-});
-
-// Start SSE connection for a playlist
-function startSSE(playlistId) {
-  // Close any existing connection first
-  closeSSE(playlistId);
-
-  const eventSource = new EventSource(`/api/progress/playlist/${playlistId}`);
-  sseConnections.set(playlistId, eventSource);
-
-  eventSource.onmessage = (event) => {
-    const statusBox = document.getElementById(`sync-status-${playlistId}`);
-    if (!statusBox) return;
-
-    // Check if this is a control message (JSON) or HTML content
-    // Control messages like {"type":"connected"} should be ignored
-    if (event.data.startsWith('{') || event.data.startsWith('[')) {
-      // This is JSON - ignore it (it's a control message)
-      return;
-    }
-
-    // Server sends progress HTML - update the content while keeping working state
-    const contentDiv = statusBox.querySelector('.sync-status-content');
-    if (contentDiv) {
-      contentDiv.innerHTML = event.data;
-    }
-  };
-
-  // Listen for the "close" event from server (graceful shutdown)
-  eventSource.addEventListener('close', () => {
-    Logger.info('SSE connection closed gracefully', { playlistId });
-    closeSSE(playlistId);
-  });
-
-  eventSource.onerror = (error) => {
-    // Only clean up this specific connection, don't interfere with anything else
-    Logger.warn('SSE connection error', { playlistId }, error);
-    const conn = sseConnections.get(playlistId);
-    if (conn === eventSource) {
-      eventSource.close();
-      sseConnections.delete(playlistId);
-    }
-  };
-}
-
-// Close SSE connection for a playlist
-function closeSSE(playlistId) {
-  const eventSource = sseConnections.get(playlistId);
-  if (eventSource) {
-    try {
-      // Check if connection is still open before closing
-      if (eventSource.readyState !== EventSource.CLOSED) {
-        eventSource.close();
-      }
-    } catch (error) {
-      Logger.warn('Error closing SSE connection', { playlistId }, error);
-    } finally {
-      // Always remove from map, regardless of close success
-      sseConnections.delete(playlistId);
-    }
-  }
 }
