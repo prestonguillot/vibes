@@ -1,0 +1,35 @@
+<%
+// Match-score badge: star rating + hover tooltip with the scoring breakdown.
+// Locals: score (the matchScore object), modifier (optional extra badge classes).
+const badgeModifier = locals.modifier || '';
+const components = score.components || {};
+const componentLabels = [
+  ['coreMatch', 'Title Match'],
+  ['fuzzySimilarity', 'Fuzzy Match'],
+  ['wordMatching', 'Word Match'],
+  ['artistBonus', 'Artist Bonus'],
+  ['officialVideo', 'Official Video'],
+  ['livePerformance', 'Live Performance'],
+  ['viewCount', 'High View Count']
+];
+%>
+<div class="match-score-badge <%= badgeModifier %>"
+     data-stars="<%= score.stars %>"
+     data-score="<%= (score.totalScore * 100).toFixed(0) %>"
+     data-color="<%= score.color %>">
+  <div class="match-score-stars" style="--star-color: <%= score.color %>;">
+    <% for (let i = 0; i < 5; i++) { %>
+      <span class="star <%= i < Math.floor(score.stars) ? 'star--filled' : i < score.stars ? 'star--half' : '' %>">★</span>
+    <% } %>
+  </div>
+  <div class="match-score-tooltip">
+    <div class="tooltip-title">Match Score: <%= (score.totalScore * 100).toFixed(0) %>%</div>
+    <div class="tooltip-components">
+      <% componentLabels.forEach(([key, label]) => { %>
+        <% if (components[key]) { %>
+          <div><%= label %>: +<%= (components[key] * 100).toFixed(0) %>%</div>
+        <% } %>
+      <% }) %>
+    </div>
+  </div>
+</div>
