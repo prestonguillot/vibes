@@ -44,6 +44,16 @@ except `.env.example` are gitignored.
 - `npm run test:visual` — Playwright visual-regression + behavior checks. Local-only
   (screenshot baselines are environment-specific); not run in CI.
 
+## Vendored frontend libs
+
+The frontend libraries are self-hosted in `public/vendor/` (htmx, Bootstrap CSS, the
+htmx SSE extension) rather than loaded from a CDN. They're pinned as devDependencies
+(`htmx.org`, `bootstrap`, `htmx-ext-sse`), so Dependabot proposes version bumps like any
+other dependency. After bumping one, run `npm run vendor` to copy the new dist files from
+`node_modules/` into `public/vendor/`, and commit the result. CI runs `npm run vendor`
+and fails if `public/vendor` would change — so a bump can't merge without the vendored
+files being refreshed to match.
+
 ## Releases
 
 Releases are label-driven (`.github/workflows/release.yml`). When a PR merges into

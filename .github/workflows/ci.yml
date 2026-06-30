@@ -36,6 +36,14 @@ jobs:
       - name: Format check
         run: npm run format:check
 
+      # Re-vendor the self-hosted frontend libs (htmx, Bootstrap, htmx-ext-sse) from
+      # node_modules and fail if the committed files in public/vendor are stale. This
+      # forces a Dependabot bump of those packages to be followed by `npm run vendor`.
+      - name: Vendored assets up to date
+        run: |
+          npm run vendor
+          git diff --exit-code public/vendor
+
       # Unit + mocked-integration suite. Excludes the live Spotify/YouTube tests
       # (tests/live, opt-in via test:spotify:live) and the visual-regression tests
       # (tests/visual, local-only) - neither runs here.
