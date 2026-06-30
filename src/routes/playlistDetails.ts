@@ -118,7 +118,7 @@ router.get('/playlist/:playlistId',
     // Always revalidate: the rendered details must reflect the current playlist
     // state on every load (a refresh sends Cache-Control: no-cache to bust it).
     setCache(res, CacheDuration.NO_CACHE);
-    res.send(playlistDetailsHtml);
+    return res.send(playlistDetailsHtml);
 
   } catch (error) {
     const duration = Date.now() - startTime;
@@ -145,7 +145,7 @@ router.get('/playlist/:playlistId',
       message: 'Unable to fetch playlist information. Please try again.',
       details: formatErrorDetails(error)
     });
-    res.status(500).send(html);
+    return res.status(500).send(html);
   }
 });
 
@@ -543,7 +543,7 @@ router.post('/replace/:trackId',
       message: successMessage
     });
 
-    res.send(html);
+    return res.send(html);
 
   } catch (error) {
     Logger.error('Error replacing video', { trackId, currentVideoId, newVideoId }, error);
@@ -554,7 +554,7 @@ router.post('/replace/:trackId',
       message: 'Unable to update the playlist. Please try again.',
       details: formatErrorDetails(error)
     });
-    res.status(500).send(html);
+    return res.status(500).send(html);
   }
 });
 

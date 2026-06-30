@@ -379,7 +379,7 @@ router.get('/playlist-button/:playlistId',
       buttonText
     });
 
-    res.send(buttonHtml);
+    return res.send(buttonHtml);
   } catch (error) {
     Logger.error('Error fetching playlist button', {}, error);
 
@@ -393,7 +393,7 @@ router.get('/playlist-button/:playlistId',
     const html = await ejs.renderFile(path.join(__dirname, '../../views/partials/sync-button-disabled.ejs'), {
       message: 'Error'
     });
-    res.status(500).send(html);
+    return res.status(500).send(html);
   }
 });
 

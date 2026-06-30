@@ -52,8 +52,8 @@ export function computeReconcileOps(
 
   // Pass 2: place each desired video at its index.
   for (let i = 0; i < desiredVideoIds.length; i++) {
-    const want = desiredVideoIds[i];
-    if (working[i] && working[i].videoId === want) continue; // already in place
+    const want = desiredVideoIds[i]!;
+    if (working[i]?.videoId === want) continue; // already in place
 
     const j = working.findIndex((w, idx) => idx >= i && w.videoId === want);
     if (j === -1) {
@@ -62,7 +62,7 @@ export function computeReconcileOps(
       // keeps positions correct for the rest of the plan.
       working.splice(i, 0, { videoId: want, playlistItemId: '' });
     } else {
-      const [item] = working.splice(j, 1);
+      const item = working.splice(j, 1)[0]!;
       ops.push({ kind: 'move', playlistItemId: item.playlistItemId, videoId: want, position: i });
       working.splice(i, 0, item);
     }

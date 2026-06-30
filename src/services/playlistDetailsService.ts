@@ -96,7 +96,7 @@ export async function fetchPlaylistDetails(
 
       // Get the largest album art image (Spotify returns multiple sizes)
       const albumImages = typedItem.track.album?.images || [];
-      const largestImage = albumImages.length > 0 ? albumImages[0].url : undefined;
+      const largestImage = albumImages[0]?.url;
 
       return {
         id: typedItem.track.id,
