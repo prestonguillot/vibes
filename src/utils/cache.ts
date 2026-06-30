@@ -11,6 +11,8 @@
  * - Static: Long cache (1 hour+) for rarely changing content
  */
 
+import { Response } from 'express';
+
 export const CacheDuration = {
   /**
    * No caching - used for SSE streams and real-time data
@@ -48,7 +50,7 @@ export const CacheDuration = {
  * @param res Express response object
  * @param duration Cache duration in seconds, or 'no-cache'
  */
-export function setCache(res: any, duration: number | 'no-cache'): void {
+export function setCache(res: Response, duration: number | 'no-cache'): void {
   if (duration === 'no-cache') {
     res.set('Cache-Control', 'no-cache');
   } else {

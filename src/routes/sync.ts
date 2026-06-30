@@ -379,7 +379,7 @@ async function runSync(deps: SyncDeps): Promise<void> {
         }),
     );
     logApiCall('reconcile new playlist', reconcileResult.inserted * 50);
-    Logger.info('CREATE mode reconcile complete', reconcileResult);
+    Logger.info('CREATE mode reconcile complete', { ...reconcileResult });
   } else {
     // UPDATE MODE: reconcile existing matches + this batch's new searches into order.
     Logger.info('UPDATE MODE: Adding videos for next unsynced tracks', {
@@ -423,7 +423,7 @@ async function runSync(deps: SyncDeps): Promise<void> {
       'reconcile update',
       (reconcileResult.inserted + reconcileResult.moved + reconcileResult.deleted) * 50,
     );
-    Logger.info('UPDATE mode reconcile complete', reconcileResult);
+    Logger.info('UPDATE mode reconcile complete', { ...reconcileResult });
   }
 
   Logger.requestEnd('Sync Request Completed', Date.now() - startTime);

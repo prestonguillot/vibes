@@ -16,6 +16,7 @@ import { Logger } from './utils/logger';
 import { validateSpotifyConnection, validateYouTubeConnection } from './utils/authValidation';
 import { csrfCookieMiddleware, getCsrfToken } from './utils/csrf';
 import { parseSpotifyTokenCookie, parseYouTubeTokenCookie } from './utils/cookieParser';
+import { enforceMinDisplayTime } from './utils/minDisplayTime';
 import { setCache, CacheDuration } from './utils/cache';
 
 export function createApp() {
@@ -249,12 +250,7 @@ export function createApp() {
     const spotifyTokens = parseSpotifyTokenCookie(req.cookies.spotify_tokens, res);
     const spotifyResult = await validateSpotifyConnection(spotifyTokens, res);
 
-    // Ensure minimum display time of 500ms to prevent flash
-    const elapsed = Date.now() - startTime;
-    const minDisplayTime = 500;
-    if (elapsed < minDisplayTime) {
-      await new Promise((resolve) => setTimeout(resolve, minDisplayTime - elapsed));
-    }
+    await enforceMinDisplayTime(startTime);
 
     // Disable caching to ensure error states are always shown
     // Connection status can change (connected → error), so we must not return cached responses
@@ -273,12 +269,7 @@ export function createApp() {
     const youtubeTokens = parseYouTubeTokenCookie(req.cookies.youtube_tokens, res);
     const youtubeResult = await validateYouTubeConnection(youtubeTokens, res);
 
-    // Ensure minimum display time of 500ms to prevent flash
-    const elapsed = Date.now() - startTime;
-    const minDisplayTime = 500;
-    if (elapsed < minDisplayTime) {
-      await new Promise((resolve) => setTimeout(resolve, minDisplayTime - elapsed));
-    }
+    await enforceMinDisplayTime(startTime);
 
     // Disable caching to ensure error states are always shown
     // Connection status can change (connected → error), so we must not return cached responses
@@ -307,19 +298,26 @@ export function createApp() {
   });
 
   // Global error handler - must be last
-  app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
-    Logger.error('Unhandled error', { url: req.originalUrl, method: req.method }, err);
+  app.use(
+    (err: unknown, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+      Logger.error('Unhandled error', { url: req.originalUrl, method: req.method }, err);
 
-    // Don't expose error details in production
-    const errorDetails =
-      process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong';
+      // Don't expose error details in production
+      const message = err instanceof Error ? err.message : 'Something went wrong';
+      const errorDetails =
+        process.env.NODE_ENV === 'development' ? message : 'Something went wrong';
+      const status =
+        typeof err === 'object' && err !== null && 'status' in err && typeof err.status === 'number'
+          ? err.status
+          : 500;
 
-    res.status(err.status || 500).render('partials/error-message', {
-      type: 'danger',
-      message: 'Internal server error',
-      details: errorDetails,
-    });
-  });
+      res.status(status).render('partials/error-message', {
+        type: 'danger',
+        message: 'Internal server error',
+        details: errorDetails,
+      });
+    },
+  );
 
   return app;
 }

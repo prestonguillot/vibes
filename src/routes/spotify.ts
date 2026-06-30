@@ -1,5 +1,5 @@
 import { Router, Request } from 'express';
-import { createYoutubeClient } from '../utils/youtubeClient';
+import { createYoutubeClient, YoutubeApiError, YtPlaylist } from '../utils/youtubeClient';
 import { Logger } from '../utils/logger';
 import { getSecureCookieOptions } from '../utils/authValidation';
 import { validate, schemas, ValidatedRequest } from '../utils/validation';
@@ -190,7 +190,7 @@ router.get(
 
       // Get ALL YouTube playlists to check which Spotify playlists have been synced (with pagination)
       const youtubePlaylistNames = new Set<string>();
-      const youtubePlaylistsMap = new Map<string, any>();
+      const youtubePlaylistsMap = new Map<string, YtPlaylist>();
 
       if (youtubeTokens) {
         // Check circuit breaker before making API calls
@@ -212,8 +212,8 @@ router.get(
 
             // Success - record it
             youtubeCircuitBreaker.recordSuccess();
-          } catch (error: any) {
-            const errorCode = error?.code;
+          } catch (error: unknown) {
+            const errorCode = error instanceof YoutubeApiError ? error.code : undefined;
             if (errorCode === 403) {
               Logger.warn('YouTube API quota exceeded when fetching playlists, clearing tokens', {
                 errorCode,
