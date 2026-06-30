@@ -1,9 +1,21 @@
 /**
  * Video Selection Modal Handler
- * Opens the Bootstrap modal when video selection content is loaded via HTMX
+ * Opens the native <dialog> when video selection content is loaded via HTMX,
+ * and closes it on success / Cancel / Escape (no Bootstrap JS).
  */
 
 function initializeVideoModal() {
+    // Close the dialog when a [data-dialog-close] control (Cancel / X) is clicked.
+    document.addEventListener('click', function(event) {
+        const closer = event.target.closest('[data-dialog-close]');
+        if (closer) {
+            const dialog = closer.closest('dialog');
+            if (dialog && dialog.open) {
+                dialog.close();
+            }
+        }
+    });
+
     // Listen for HTMX afterSwap events on the document
     document.addEventListener('htmx:afterSwap', function(event) {
         // Check if the swap target was the video modal content
@@ -12,15 +24,10 @@ function initializeVideoModal() {
             const modalEl = document.getElementById('videoSelectionModal');
 
             if (modalEl) {
-                // Check if Bootstrap is available
-                if (typeof bootstrap === 'undefined') {
-                    Logger.error('Bootstrap is not defined - cannot open modal');
-                    return;
+                // Open the native <dialog>
+                if (typeof modalEl.showModal === 'function' && !modalEl.open) {
+                    modalEl.showModal();
                 }
-
-                // Create and show the modal
-                const modal = new bootstrap.Modal(modalEl);
-                modal.show();
 
                 // Set up radio button listeners for video selection
                 const radioButtons = document.querySelectorAll('.video-option-radio');
@@ -72,13 +79,10 @@ function initializeVideoModal() {
         if (target && target.id === 'confirm-selection-btn') {
             // Check if request was successful
             if (event.detail.successful) {
-                // Close the modal
+                // Close the native <dialog>
                 const modalEl = document.getElementById('videoSelectionModal');
-                if (modalEl) {
-                    const modal = bootstrap.Modal.getInstance(modalEl);
-                    if (modal) {
-                        modal.hide();
-                    }
+                if (modalEl && modalEl.open) {
+                    modalEl.close();
                 }
 
                 // Refresh the playlist details after a short delay
