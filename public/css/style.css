@@ -1911,3 +1911,8 @@ body.oauth-error-body {
 .drift-dot.is-visible {
     display: inline-block;
 }
+
+/* Keep the "tracks per sync" select from collapsing too narrow. */
+.batch-size-select {
+    min-width: 90px;
+}
