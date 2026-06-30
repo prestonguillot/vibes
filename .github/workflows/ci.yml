@@ -33,6 +33,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Format check
+        run: npm run format:check
+
       # Unit + mocked-integration suite. Excludes the live Spotify/YouTube tests
       # (tests/live, opt-in via test:spotify:live) and the visual-regression tests
       # (tests/visual, local-only) - neither runs here.

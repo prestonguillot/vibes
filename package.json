@@ -15,7 +15,9 @@
     "test:spotify:live": "vitest run --config vitest.live.config.ts",
     "test:visual": "playwright test",
     "test:visual:update": "playwright test --update-snapshots",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "keywords": [
     "spotify",
@@ -47,6 +49,7 @@
     "eslint": "^10.6.0",
     "eslint-config-prettier": "^10.1.8",
     "happy-dom": "^20.10.6",
+    "prettier": "^3.9.4",
     "supertest": "^7.2.2",
     "tsx": "^4.22.4",
     "typescript": "^5.1.6",
