@@ -9,7 +9,7 @@
  * Pure (no API calls - existing items are already fetched), so it's unit-testable.
  */
 
-import { youtube_v3 } from 'googleapis';
+import { YtPlaylistItem } from '../utils/youtubeClient';
 import { optimalTrackMatching, SimplifiedTrack, SimplifiedVideo } from '../utils/trackMatching';
 import { Logger } from '../utils/logger';
 
@@ -36,7 +36,7 @@ const toSimplifiedTrack = (t: NonNullable<SpotifyPlaylistItem['track']>): Simpli
 
 export function classifyTracksForSync(
   tracks: unknown[],
-  existingItemsMap: Map<string, youtube_v3.Schema$PlaylistItem>,
+  existingItemsMap: Map<string, YtPlaylistItem>,
   opts: { isUpdateMode: boolean; trackLimit: number }
 ): ClassifiedTracks {
   const { isUpdateMode, trackLimit } = opts;

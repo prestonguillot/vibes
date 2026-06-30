@@ -4,7 +4,7 @@
  * Used by both playlistDetails routes and sync operations to eliminate code duplication
  */
 
-import { youtube_v3 } from 'googleapis';
+import { YoutubeClient, YtPlaylistItem, YtPlaylistItemListResponse } from '../utils/youtubeClient';
 import { optimalTrackMatching, ScoreBreakdown } from '../utils/trackMatching';
 import { fetchAllPlaylistItems } from '../utils/spotifyPlaylistItems';
 import { getPlaylist } from '../utils/spotifyClient';
@@ -60,7 +60,7 @@ export interface PlaylistDetails {
  */
 export async function fetchPlaylistDetails(
   accessToken: string,
-  youtube: youtube_v3.Youtube | null,
+  youtube: YoutubeClient | null,
   playlistId: string,
   youtubePlaylistId?: string
 ): Promise<PlaylistDetails> {
@@ -131,11 +131,11 @@ export async function fetchPlaylistDetails(
   if (youtube && youtubePlaylistId) {
     Logger.external('YouTube', 'Fetching playlist videos', { youtubePlaylistId });
 
-    const allPlaylistItems: youtube_v3.Schema$PlaylistItem[] = [];
+    const allPlaylistItems: YtPlaylistItem[] = [];
     let nextPageToken: string | undefined = undefined;
 
     do {
-      const response: youtube_v3.Schema$PlaylistItemListResponse = await youtube.playlistItems
+      const response: YtPlaylistItemListResponse = await youtube.playlistItems
         .list({
           part: ['id', 'snippet'],
           playlistId: youtubePlaylistId,
@@ -154,7 +154,7 @@ export async function fetchPlaylistDetails(
     // Build video objects from the playlist-item snippets. Matching uses only
     // title + channelTitle, both available on the snippet, so no videos.list
     // call is needed.
-    youtubeVideos = allPlaylistItems.map((item: youtube_v3.Schema$PlaylistItem): SimplifiedVideo => ({
+    youtubeVideos = allPlaylistItems.map((item: YtPlaylistItem): SimplifiedVideo => ({
       id: item.snippet?.resourceId?.videoId || '',
       title: item.snippet?.title || '',
       description: item.snippet?.description || '',

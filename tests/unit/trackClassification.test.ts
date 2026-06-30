@@ -5,13 +5,13 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { youtube_v3 } from 'googleapis';
+import { YtPlaylistItem } from '../../src/utils/youtubeClient';
 import { classifyTracksForSync } from '../../src/services/trackClassification';
 
 const track = (id: string, name: string) => ({ track: { id, name, type: 'track', artists: [{ name: 'Artist' }] } });
 
-const existingItems = (...pairs: Array<[string, string]>): Map<string, youtube_v3.Schema$PlaylistItem> => {
-  const map = new Map<string, youtube_v3.Schema$PlaylistItem>();
+const existingItems = (...pairs: Array<[string, string]>): Map<string, YtPlaylistItem> => {
+  const map = new Map<string, YtPlaylistItem>();
   for (const [videoId, title] of pairs) {
     map.set(videoId, { id: `pi-${videoId}`, snippet: { title, resourceId: { videoId } } });
   }

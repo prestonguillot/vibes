@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import { google } from 'googleapis';
 import { scrapeYouTubeSearch } from '../utils/youtubeScraper';
 import { Logger } from '../utils/logger';
 import { validate, schemas, ValidatedRequest } from '../utils/validation';
@@ -9,7 +8,7 @@ import { parseSpotifyTokenCookie, parseYouTubeTokenCookie } from '../utils/cooki
 import { CacheDuration, setCache } from '../utils/cache';
 import { formatErrorDetails } from '../utils/errorFormatter';
 import { escapeHtml } from '../utils/htmlEscape';
-import { youtube_v3 } from 'googleapis';
+import { createYoutubeClient, YtPlaylist, YtPlaylistListResponse, YtPlaylistItem, YtPlaylistItemListResponse } from '../utils/youtubeClient';
 import { z } from 'zod';
 import ejs from 'ejs';
 import path from 'path';
@@ -21,15 +20,6 @@ import { findSyncedYoutubePlaylist } from '../utils/youtubePlaylist';
 import { youtubeWrite } from '../utils/youtubeWrites';
 import { calculateMatchScore, SimplifiedTrack, SimplifiedVideo } from '../utils/trackMatching';
 const router = Router();
-
-// Helper function to get YouTube OAuth2 client
-function getOAuth2Client() {
-  return new google.auth.OAuth2(
-    process.env.YOUTUBE_CLIENT_ID,
-    process.env.YOUTUBE_CLIENT_SECRET,
-    process.env.YOUTUBE_REDIRECT_URI
-  );
-}
 
 // Get detailed playlist information (Spotify tracks + YouTube videos)
 router.get('/playlist/:playlistId',
@@ -64,11 +54,7 @@ router.get('/playlist/:playlistId',
     const accessToken = spotifyTokens.accessToken;
 
     // Initialize YouTube API (optional - only if user is connected)
-    const youtube = youtubeTokens ? (() => {
-      const oauth2Client = getOAuth2Client();
-      oauth2Client.setCredentials(youtubeTokens);
-      return google.youtube({ version: 'v3', auth: oauth2Client });
-    })() : null;
+    const youtube = youtubeTokens ? createYoutubeClient(youtubeTokens.access_token) : null;
 
     // Resolve the YouTube playlist id. The client may send the id it has cached
     // (X-YT-Playlist-Id); trusting it skips listing all of the user's playlists
@@ -319,9 +305,7 @@ router.post('/replace/:trackId',
     }
 
     // Initialize YouTube API
-    const oauth2Client = getOAuth2Client();
-    oauth2Client.setCredentials(youtubeTokens);
-    const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
+    const youtube = createYoutubeClient(youtubeTokens.access_token);
 
     // We need to find the YouTube playlist that corresponds to this Spotify playlist
     // First, get the Spotify playlist name to construct the YouTube playlist name
@@ -331,18 +315,18 @@ router.post('/replace/:trackId',
     Logger.external('YouTube', 'Looking for playlist', { name: expectedYouTubePlaylistName });
 
     // Get all user's YouTube playlists to find the matching one (with pagination)
-    let targetPlaylist: youtube_v3.Schema$Playlist | undefined = undefined;
+    let targetPlaylist: YtPlaylist | undefined = undefined;
     let nextPageToken: string | undefined = undefined;
 
     do {
-      const playlistsResponse: youtube_v3.Schema$PlaylistListResponse = await youtube.playlists.list({
+      const playlistsResponse: YtPlaylistListResponse = await youtube.playlists.list({
         part: ['snippet'],
         mine: true,
         maxResults: 50,
         pageToken: nextPageToken
       }).then(res => res.data);
 
-      targetPlaylist = playlistsResponse.items?.find((playlist: youtube_v3.Schema$Playlist) =>
+      targetPlaylist = playlistsResponse.items?.find((playlist: YtPlaylist) =>
         playlist.snippet?.title === expectedYouTubePlaylistName
       );
 
@@ -391,12 +375,12 @@ router.post('/replace/:trackId',
       Logger.info('Replacing existing video', { currentVideoId, newVideoId, playlistTitle: targetPlaylist.snippet?.title });
 
       // Get ALL playlist items to find the current video (with pagination)
-      let playlistItemToReplace: youtube_v3.Schema$PlaylistItem | undefined = undefined;
+      let playlistItemToReplace: YtPlaylistItem | undefined = undefined;
       let nextPageToken: string | undefined = undefined;
       let itemsFetched = 0;
 
       do {
-        const playlistItemsResponse: youtube_v3.Schema$PlaylistItemListResponse = await youtube.playlistItems.list({
+        const playlistItemsResponse: YtPlaylistItemListResponse = await youtube.playlistItems.list({
           part: ['snippet', 'contentDetails'],
           playlistId: targetPlaylist.id!,
           maxResults: 50,
@@ -406,7 +390,7 @@ router.post('/replace/:trackId',
         itemsFetched += playlistItemsResponse.items?.length || 0;
 
         // Look for the current video in this page
-        playlistItemToReplace = playlistItemsResponse.items?.find((item: youtube_v3.Schema$PlaylistItem) =>
+        playlistItemToReplace = playlistItemsResponse.items?.find((item: YtPlaylistItem) =>
           item.snippet?.resourceId?.videoId === currentVideoId
         );
 
@@ -488,11 +472,11 @@ router.post('/replace/:trackId',
 
       // Build list of synced tracks (tracks that have YouTube videos)
       // For simplicity, we'll fetch YouTube playlist again and match with Spotify
-      const allPlaylistItems: youtube_v3.Schema$PlaylistItem[] = [];
+      const allPlaylistItems: YtPlaylistItem[] = [];
       let pageToken: string | undefined = undefined;
 
       do {
-        const response: youtube_v3.Schema$PlaylistItemListResponse = await youtube.playlistItems.list({
+        const response: YtPlaylistItemListResponse = await youtube.playlistItems.list({
           part: ['snippet'],
           playlistId: targetPlaylist.id!,
           maxResults: 50,
