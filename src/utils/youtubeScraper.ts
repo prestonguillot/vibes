@@ -23,7 +23,7 @@ export function parseViewCount(views: string | undefined): number {
   if (!views) return 0;
   const match = views.replace(/,/g, '').match(/([\d.]+)\s*([KMB])?/i);
   if (!match) return 0;
-  const num = parseFloat(match[1]);
+  const num = parseFloat(match[1] ?? '');
   if (isNaN(num)) return 0;
   const unit = (match[2] || '').toUpperCase();
   const multiplier = unit === 'B' ? 1e9 : unit === 'M' ? 1e6 : unit === 'K' ? 1e3 : 1;
@@ -150,7 +150,7 @@ export async function scrapeYouTubeSearch(query: string, maxResults: number = 3)
         try {
           // Extract the JSON data from the script tag
           const match = scriptContent.match(/var ytInitialData = ({.*?});/);
-          if (match) {
+          if (match && match[1]) {
             const data = JSON.parse(match[1]);
             const contents = data?.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer?.contents;
             
@@ -291,7 +291,7 @@ export async function searchMusicVideo(artist: string, songName: string): Promis
   }
 
   // Find the best match (highest normalized score from the algorithm)
-  let bestMatch = results[0];
+  let bestMatch = results[0]!;
   if (!bestMatch.matchScore) {
     return null;
   }

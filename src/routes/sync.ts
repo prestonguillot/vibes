@@ -510,6 +510,7 @@ router.get('/playlist/:playlistId/stream',
         res.end();
       }
     }
+    return;
   }
 );
 

@@ -204,7 +204,7 @@ export function csrfValidationMiddleware(req: Request, res: Response, next: Next
     tokenPrefix: headerToken.substring(0, 8) + '...'
   });
 
-  next();
+  return next();
 }
 
 /**
