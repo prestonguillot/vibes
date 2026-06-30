@@ -563,7 +563,7 @@ body {
 }
 
 .video-option:hover {
-  border-color: #0066ff !important;
+  border-color: #0066ff;
   background-color: #f0f0f0;
   box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.5);
   transform: translateY(-1px);
@@ -832,14 +832,14 @@ body {
 .punk-btn:hover,
 .sync-btn:hover {
   transform: translateY(-1px) !important;
-  box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.5) !important;
+  box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.5);
 }
 
 .punk-btn:active,
 .punk-btn.active,
 .sync-btn:active,
 .sync-btn.active {
-  box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.3) !important;
+  box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.3);
   transform: none !important;
 }
 
@@ -862,8 +862,8 @@ body {
 
 .btn-primary.punk-btn:hover,
 .btn-primary.sync-btn:hover {
-  background-color: #cc0033 !important;
-  color: #fff !important;
+  background-color: #cc0033;
+  color: #fff;
   border-color: #000 !important;
 }
 
@@ -871,9 +871,9 @@ body {
 .btn-primary.punk-btn.active,
 .btn-primary.sync-btn:active,
 .btn-primary.sync-btn.active {
-  background-color: #ff0040 !important;
-  border-color: #000 !important;
-  color: #fff !important;
+  background-color: #ff0040;
+  border-color: #000;
+  color: #fff;
 }
 
 .btn-primary.punk-btn:disabled,
@@ -894,7 +894,7 @@ body {
 
 .btn-secondary.punk-btn:hover,
 .btn-secondary.sync-btn:hover {
-  background-color: #5a6268 !important;
+  background-color: #5a6268;
   border-color: #000 !important;
   color: #fff !important;
 }
@@ -903,9 +903,9 @@ body {
 .btn-secondary.punk-btn.active,
 .btn-secondary.sync-btn:active,
 .btn-secondary.sync-btn.active {
-  background-color: #6c757d !important;
-  border-color: #000 !important;
-  color: #fff !important;
+  background-color: #6c757d;
+  border-color: #000;
+  color: #fff;
 }
 
 .btn-secondary.punk-btn:disabled,
@@ -925,29 +925,29 @@ body {
 }
 
 .btn-outline-success.sync-btn:hover {
-  background-color: #00cc00 !important;
+  background-color: #00cc00;
   color: #000 !important;
-  border-color: #000 !important;
+  border-color: #000;
 }
 
 .btn-outline-success.sync-btn:active,
 .btn-outline-success.sync-btn.active {
-  background-color: #00ff00 !important;
-  border-color: #000 !important;
-  color: #000 !important;
+  background-color: #00ff00;
+  border-color: #000;
+  color: #000;
 }
 
 .btn-outline-success.sync-btn:disabled,
 .btn-outline-success.sync-btn.disabled {
   background-color: #00ff00 !important;
   border-color: #000 !important;
-  color: #000 !important;
+  color: #000;
 }
 
 /* Standard Bootstrap secondary button styling */
 .btn-secondary {
   background-color: #6c757d;
-  border-color: #000 !important;
+  border-color: #000;
   color: #fff;
   box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.3);
   font-family: 'Courier Prime', monospace;
@@ -959,8 +959,8 @@ body {
 }
 
 .btn-secondary:hover {
-  background-color: #5a6268 !important;
-  border-color: #000 !important;
+  background-color: #5a6268;
+  border-color: #000;
   color: #fff !important;
 }
 
@@ -996,7 +996,7 @@ body {
 
 .btn-outline-primary {
   background-color: #0066ff;
-  border: 2px solid #000 !important;
+  border: 2px solid #000;
   color: #fff;
   box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.3);
   font-family: 'Courier Prime', monospace;
@@ -1008,7 +1008,7 @@ body {
 
 .btn-outline-primary:hover {
   background-color: #0052cc;
-  border: 2px solid #000 !important;
+  border: 2px solid #000;
   color: #fff;
   transform: translateY(-1px);
   box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.5);
@@ -1016,34 +1016,34 @@ body {
 
 .btn-outline-primary:active,
 .btn-outline-primary.active {
-  background-color: #0066ff !important;
-  border: 2px solid #000 !important;
-  color: #fff !important;
-  box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.3) !important;
+  background-color: #0066ff;
+  border: 2px solid #000;
+  color: #fff;
+  box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.3);
 }
 
 /* Small variant - ensure border visibility */
 .btn-outline-primary.btn-sm {
-  border: 2px solid #fff !important;
-  padding: 4px 8px !important;
-  font-size: 0.875rem !important;
-  box-shadow: 3px 3px 0px rgba(255, 255, 255, 0.3) !important;
-  font-family: 'Courier Prime', monospace !important;
+  border: 2px solid #fff;
+  padding: 4px 8px;
+  font-size: 0.875rem;
+  box-shadow: 3px 3px 0px rgba(255, 255, 255, 0.3);
+  font-family: 'Courier Prime', monospace;
   font-weight: 700 !important;
   text-transform: uppercase !important;
-  letter-spacing: 1px !important;
-  border-radius: 0 !important;
+  letter-spacing: 1px;
+  border-radius: 0;
 }
 
 /* Disabled state for small primary buttons on dark backgrounds */
 .btn-outline-primary.btn-sm:disabled,
 .btn-outline-primary.btn-sm.disabled {
-  background-color: #333 !important;
-  border-color: #666 !important;
+  background-color: #333;
+  border-color: #666;
   color: #888 !important;
   box-shadow: none !important;
-  opacity: 0.6 !important;
-  cursor: not-allowed !important;
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* === PLAYLIST ITEMS === */
@@ -1171,14 +1171,14 @@ body {
   border-right: 2px solid transparent !important;
   border-bottom: 2px solid transparent !important;
   border-left: 2px solid transparent !important;
-  border-radius: 50% !important;
+  border-radius: 50%;
   animation: spinner-border 1s linear infinite !important;
-  background: transparent !important;
+  background: transparent;
   background-image: none !important;
-  width: 1.5rem !important;
-  height: 1.5rem !important;
+  width: 1.5rem;
+  height: 1.5rem;
   display: inline-block !important;
-  box-shadow: none !important;
+  box-shadow: none;
 }
 
 /* Color variants for specific contexts */
@@ -1352,11 +1352,11 @@ select:focus {
 .btn-primary.punk-btn.processing-state,
 .btn-primary.sync-btn.processing-state {
   background-color: #ff0040 !important; /* Same red as normal, but dimmed */
-  border-color: #000 !important;
+  border-color: #000;
   color: #fff !important;
-  opacity: 0.6 !important; /* Show it's disabled/processing */
-  box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.3) !important; /* Keep punk shadow but no glow */
-  cursor: not-allowed !important;
+  opacity: 0.6; /* Show it's disabled/processing */
+  box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.3); /* Keep punk shadow but no glow */
+  cursor: not-allowed;
 }
 
 /* Ensure spinner is visible on red background */
@@ -1537,7 +1537,7 @@ body.oauth-error-body {
 
 /* Applied to suppress transitions during programmatic DOM updates. */
 .no-transition {
-  transition: none !important;
+  transition: none;
 }
 
 /* Reset margin and padding */
@@ -1562,7 +1562,7 @@ body.oauth-error-body {
 }
 
 .search-input {
-  padding-left: 40px !important;
+  padding-left: 40px;
   border: 2px solid #000;
   border-radius: 0;
   font-family: 'Courier Prime', monospace;
