@@ -11,8 +11,6 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('node-fetch', () => ({ default: vi.fn() }));
-import fetch from 'node-fetch';
 import {
   getAuthorizeUrl,
   exchangeCodeForTokens,
@@ -23,7 +21,8 @@ import {
   SpotifyApiError
 } from '../../src/utils/spotifyClient';
 
-const mockFetch = vi.mocked(fetch);
+// The client uses Node's global fetch; stub it (see beforeEach).
+const mockFetch = vi.fn();
 
 // Minimal node-fetch Response stand-ins.
 const okJson = (data: unknown) =>
@@ -36,6 +35,7 @@ const EXPECTED_BASIC = `Basic ${Buffer.from('cid:secret').toString('base64')}`;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubGlobal('fetch', mockFetch);
   process.env.SPOTIFY_CLIENT_ID = 'cid';
   process.env.SPOTIFY_CLIENT_SECRET = 'secret';
   process.env.SPOTIFY_REDIRECT_URI = 'http://127.0.0.1:3000/auth/spotify/callback';
