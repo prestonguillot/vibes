@@ -1,11 +1,8 @@
 /**
- * Integration tests for Playlist Details routes
+ * Integration tests for Playlist Details routes.
  *
- * Note: Full error handling testing for YouTube API quota exceeded errors
- * is challenging due to the complex mocking requirements with require() statements.
- * The error handling code in playlistDetails.ts:487-512 has been implemented
- * to detect quota exceeded errors (code 403 or message containing "quota")
- * and return user-friendly messages instead of raw API errors with HTML tags.
+ * YouTube quota-exceeded handling has its own focused coverage in
+ * playlistDetailsQuota.test.ts.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -75,21 +72,6 @@ describe('Playlist Details Error Handling', () => {
       trackItem('track2', 'Test Track 2', 'Test Artist 2', 'Test Album 2', 'https://example.com/album2-large.jpg', null)
     ], 2);
   });
-
-  /**
-   * YouTube API Quota Error Handling Verification
-   *
-   * The code in playlistDetails.ts:487-512 has been updated to:
-   * 1. Check for error code 403 OR message containing "quota"
-   * 2. Return user-friendly error message with 429 status
-   * 3. Prevent raw YouTube API error messages (with HTML tags) from being shown
-   *
-   * Manual verification of this fix requires:
-   * - Trigger actual YouTube API quota exceeded error
-   * - Verify that the error page shows "YouTube API Quota Exceeded" title
-   * - Verify NO raw HTML tags like <a href="/youtube/v3/getting-started#quota"> appear
-   * - Verify helpful message about quota reset at midnight Pacific Time
-   */
 
   describe('Authentication Requirements', () => {
     it('should require Spotify authentication', async () => {
