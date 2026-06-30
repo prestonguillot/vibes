@@ -1,17 +1,19 @@
 name: CI
 
-# Build and test on every push to master and on every PR targeting master.
+# Build and run the test suite on every push and PR to main, and on demand.
 # Branch protection requires this check to pass before a PR can merge.
 on:
   push:
-    branches: [master]
+    branches: [main, master]
   pull_request:
-    branches: [master]
+    branches: [main, master]
+  workflow_dispatch: # allow manual trigger via the Actions UI
 
 jobs:
   build-and-test:
     name: Build & Test
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -28,5 +30,8 @@ jobs:
       - name: Type-check & build
         run: npm run build
 
+      # Unit + mocked-integration suite. Excludes the live Spotify/YouTube tests
+      # (tests/live, opt-in via test:spotify:live) and the visual-regression tests
+      # (tests/visual, local-only) - neither runs here.
       - name: Run tests
         run: npm run test:run

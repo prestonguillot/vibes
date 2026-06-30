@@ -2,9 +2,10 @@
 
 ## Workflow: branch → PR → CI → merge
 
-`master` is protected. Don't commit to it directly — work on a branch and open a
-pull request. CI (`.github/workflows/ci.yml`) runs `npm run build` (tsc) and
-`npm run test:run` on every push and PR; a PR should be green before it merges.
+`main` is protected on GitHub — you can't push to it directly. Work on a branch and
+open a pull request. CI (`.github/workflows/ci.yml`) runs `npm run build` (tsc) and
+`npm run test:run` on every push and PR; that check must be green before a PR can
+merge. Merges are rebase-only and the branch is auto-deleted on merge.
 
 ```sh
 git switch -c my-change
@@ -13,41 +14,22 @@ git push -u origin my-change
 gh pr create
 ```
 
-### Enable the local guard (once per clone)
-
-This repo is private, so GitHub's server-side branch protection isn't available on
-the free plan. A tracked git hook enforces the same flow locally — enable it once:
-
-```sh
-git config core.hooksPath .githooks
-```
-
-After that, `git push` to `master` is rejected with a reminder to use a PR. In a
-genuine emergency an admin can bypass with `git push --no-verify`.
-
-> When the repo's git history has been scrubbed of secrets and it's made public,
-> this local hook can be replaced by real server-side branch protection. See the
-> "scrub .env from history" task.
+Branch protection is enforced server-side by GitHub (required PR + required status
+check, no force-pushes, no direct pushes — admins included). There is no local git
+hook to install.
 
 ## Before you start
 
-Copy `.env.example` to `.env` and fill in your own Spotify/YouTube credentials and
-a `CSRF_SECRET`. Never commit a real `.env` — all `.env*` files except
-`.env.example` are gitignored.
+Copy `.env.example` to `.env` and fill in your own Spotify/YouTube credentials. In
+production, also set a `CSRF_SECRET` (`openssl rand -base64 36`); in development the
+app generates one if it's unset. Never commit a real `.env` — all `.env*` files
+except `.env.example` are gitignored.
 
 ## Tests
 
-- `npm run test:run` — the full suite (runs in CI).
+- `npm run test:run` — the unit + mocked-integration suite. This is what CI runs; no
+  test here talks to a real Spotify/YouTube API.
 - `npm run test:spotify:live` — opt-in live Spotify connectivity check; needs real
-  credentials in `.env` and is excluded from the normal cycle.
-
-## Deployment note: sticky sessions required
-
-The sync-progress SSE stream (`src/routes/progress.ts`) keeps its open connections
-in an in-memory map on the serving instance. A sync is two separate requests — the
-`GET` that opens the SSE stream and the `POST /api/sync/...` that pushes progress
-into it — so **both must reach the same instance**. Behind a load balancer this
-requires **sticky sessions**. The server is otherwise stateless and multi-instance
-safe (auth is cookie-based, the CSRF secret comes from a shared env var); only live
-progress depends on stickiness. For true multi-instance fan-out, move progress to a
-shared transport (e.g. Redis pub/sub).
+  credentials in `.env`. Excluded from the normal cycle and from CI.
+- `npm run test:visual` — Playwright visual-regression + behavior checks. Local-only
+  (screenshot baselines are environment-specific); not run in CI.
