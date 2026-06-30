@@ -61,10 +61,6 @@ const envSchema: EnvSchema = {
     },
     CSRF_SECRET: {
       description: 'CSRF token signing secret (auto-generated in development)'
-    },
-    ENABLE_RATE_LIMITING: {
-      description: 'Enable rate limiting for sync operations (true/false)',
-      defaultValue: 'false'
     }
   }
 };
