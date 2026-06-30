@@ -164,7 +164,7 @@ document.addEventListener('DOMContentLoaded', function() {
         indicator.remove();
       }
     } catch (error) {
-      console.error('Error loading Spotify tracks:', error);
+      Logger.error('Error loading Spotify tracks', {}, error);
       spotifyTracksLoading = false;
       // Continue with search anyway, just without Spotify track data
     }
@@ -201,14 +201,14 @@ document.addEventListener('DOMContentLoaded', function() {
       if (!noResultsMessage) {
         noResultsMessage = document.createElement('div');
         noResultsMessage.className = 'no-search-results alert alert-info mt-3';
-        noResultsMessage.textContent = `No playlists found matching "${query}"`;
         playlistsContainer.appendChild(noResultsMessage);
       }
-      noResultsMessage.style.display = 'block';
+      noResultsMessage.textContent = `No playlists found matching "${query}"`;
+      noResultsMessage.classList.remove('hidden');
     } else {
       const noResultsMessage = playlistsContainer.querySelector('.no-search-results');
       if (noResultsMessage) {
-        noResultsMessage.style.display = 'none';
+        noResultsMessage.classList.add('hidden');
       }
     }
   }
