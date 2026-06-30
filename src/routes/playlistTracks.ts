@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { Logger } from '../utils/logger';
 import { ensureValidSpotifyToken } from '../utils/spotifyAuth';
 import { fetchAllPlaylistItems } from '../utils/spotifyPlaylistItems';
-import { validate, schemas } from '../utils/validation';
+import { validate } from '../utils/validation';
 import { z } from 'zod';
 
 const router = Router();

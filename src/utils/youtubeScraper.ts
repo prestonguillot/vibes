@@ -144,7 +144,7 @@ export async function scrapeYouTubeSearch(query: string, maxResults: number = 3)
     // Look for video data in script tags (YouTube embeds data in JSON)
     let videoData: YouTubeScrapedVideoData[] = [];
     
-    $('script').each((i, elem) => {
+    $('script').each((_i, elem) => {
       const scriptContent = $(elem).html();
       if (scriptContent && scriptContent.includes('var ytInitialData')) {
         try {
