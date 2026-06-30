@@ -26,7 +26,7 @@ export default tseslint.config(
     rules: {
       // Enforce the conventions that were previously only prose:
       'no-console': 'error', // use the centralized Logger
-      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-floating-promises': 'error', // tsc can't catch these
       '@typescript-eslint/no-misused-promises': 'error',
       // Mirror tsconfig's noUnusedParameters: `_`-prefixed = intentionally unused.

@@ -6,6 +6,7 @@ import { describe, it, expect, vi } from 'vitest';
 import request from 'supertest';
 import { createApp } from '@/app';
 import { getCurrentUser, getUserPlaylists } from '@/utils/spotifyClient';
+import { YoutubeApiError } from '@/utils/youtubeClient';
 
 // Helper to create valid YouTube token cookies (with all required Zod fields)
 const createMockYouTubeToken = (overrides?: Partial<any>) =>
@@ -479,12 +480,14 @@ describe('Spotify Playlists', () => {
 
       // Mock YouTube API to fail with 403 quota exceeded
       ytClient.client.playlists.list = vi.fn(() =>
-        Promise.reject({
-          code: 403,
-          message: 'The request cannot be completed because you have exceeded your quota.',
-          errors: [{ reason: 'quotaExceeded' }],
-        }),
-      ) as any;
+        Promise.reject(
+          new YoutubeApiError(
+            'The request cannot be completed because you have exceeded your quota.',
+            403,
+            'quotaExceeded',
+          ),
+        ),
+      );
 
       // Set both Spotify and YouTube tokens
       const spotifyTokens = JSON.stringify({
@@ -512,11 +515,8 @@ describe('Spotify Playlists', () => {
 
       // Mock YouTube API to fail with 403
       ytClient.client.playlists.list = vi.fn(() =>
-        Promise.reject({
-          code: 403,
-          message: 'Quota exceeded',
-        }),
-      ) as any;
+        Promise.reject(new YoutubeApiError('Quota exceeded', 403, 'quotaExceeded')),
+      );
 
       // Import circuit breaker to check its state
       const { youtubeCircuitBreaker } = await import('../../src/utils/circuitBreaker');

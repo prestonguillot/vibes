@@ -601,11 +601,11 @@ router.post(
         const { optimalTrackMatching } = await import('../utils/trackMatching');
 
         const tracksToMatch = spotifyTracks
-          .filter((item: any) => item.track && item.track.type === 'track')
-          .map((item: any) => ({
-            id: item.track.id,
-            name: item.track.name,
-            artist: item.track.artists[0]?.name || 'Unknown Artist',
+          .filter((item) => item.track && item.track.type === 'track')
+          .map((item) => ({
+            id: item.track!.id!,
+            name: item.track!.name!,
+            artist: item.track!.artists?.[0]?.name || 'Unknown Artist',
           }));
 
         const existingVideos = allPlaylistItems

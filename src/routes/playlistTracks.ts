@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { Logger } from '../utils/logger';
 import { ensureValidSpotifyToken } from '../utils/spotifyAuth';
 import { fetchAllPlaylistItems } from '../utils/spotifyPlaylistItems';
-import { validate } from '../utils/validation';
+import { validate, ValidatedRequest } from '../utils/validation';
 import { z } from 'zod';
 
 const router = Router();
@@ -27,7 +27,7 @@ router.get(
         .refine((ids) => ids.length <= 100, 'Maximum 100 playlists per request'),
     }),
   }),
-  async (req: any, res) => {
+  async (req: ValidatedRequest<Record<string, string>, { playlistIds: string[] }>, res) => {
     Logger.requestStart('Get Playlist Tracks Request', {
       playlistCount: req.query.playlistIds?.length || 0,
     });

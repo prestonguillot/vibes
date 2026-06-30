@@ -67,8 +67,8 @@ const SENSITIVE_KEYS = [
 ];
 
 // Helper function to sanitize context by removing sensitive data
-function sanitizeContext(context: Record<string, any>): Record<string, any> {
-  const sanitized: Record<string, any> = {};
+function sanitizeContext(context: Record<string, unknown>): Record<string, unknown> {
+  const sanitized: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(context)) {
     const lowerKey = key.toLowerCase();
@@ -82,7 +82,7 @@ function sanitizeContext(context: Record<string, any>): Record<string, any> {
       sanitized[key] = '[REDACTED]';
     } else if (value && typeof value === 'object') {
       // Recursively sanitize nested objects
-      sanitized[key] = sanitizeContext(value);
+      sanitized[key] = sanitizeContext(value as Record<string, unknown>);
     } else {
       sanitized[key] = value;
     }
@@ -92,7 +92,7 @@ function sanitizeContext(context: Record<string, any>): Record<string, any> {
 }
 
 // Helper function to format context
-function formatContext(context: Record<string, any> = {}): string {
+function formatContext(context: Record<string, unknown> = {}): string {
   if (Object.keys(context).length === 0) return '';
   const sanitized = sanitizeContext(context);
   return ` | ${JSON.stringify(sanitized)}`;
@@ -129,7 +129,7 @@ const EMOJIS = {
 // Helper function to get appropriate emoji based on message content and context
 function getContextualEmoji(
   message: string,
-  context: Record<string, any> = {},
+  context: Record<string, unknown> = {},
   level: LogLevel,
 ): string {
   const msg = message.toLowerCase();
@@ -179,8 +179,8 @@ function getContextualEmoji(
 function log(
   level: LogLevel,
   message: string,
-  context: Record<string, any> = {},
-  error?: Error | any,
+  context: Record<string, unknown> = {},
+  error?: unknown,
 ): void {
   if (level < currentLogLevel) return;
 
@@ -217,29 +217,29 @@ export const Logger = {
   },
 
   // Debug logging (detailed information for debugging)
-  debug: (message: string, context: Record<string, any> = {}) => {
+  debug: (message: string, context: Record<string, unknown> = {}) => {
     log(LogLevel.DEBUG, message, context);
   },
 
   // Info logging (general information)
-  info: (message: string, context: Record<string, any> = {}) => {
+  info: (message: string, context: Record<string, unknown> = {}) => {
     log(LogLevel.INFO, message, context);
   },
 
   // Warning logging (something unexpected but not critical)
-  warn: (message: string, context: Record<string, any> = {}, error?: Error | any) => {
+  warn: (message: string, context: Record<string, unknown> = {}, error?: unknown) => {
     log(LogLevel.WARN, message, context, error);
   },
 
   // Error logging (critical errors)
-  error: (message: string, context: Record<string, any> = {}, error?: Error | any) => {
+  error: (message: string, context: Record<string, unknown> = {}, error?: unknown) => {
     log(LogLevel.ERROR, message, context, error);
   },
 
   // Specialized logging methods for common patterns
 
   // HTTP request logging
-  httpRequest: (method: string, path: string, context: Record<string, any> = {}) => {
+  httpRequest: (method: string, path: string, context: Record<string, unknown> = {}) => {
     log(LogLevel.INFO, `HTTP Request: ${method} ${path}`, context);
   },
 
@@ -249,7 +249,7 @@ export const Logger = {
     path: string,
     status: number,
     duration?: number,
-    context: Record<string, any> = {},
+    context: Record<string, unknown> = {},
   ) => {
     const level = status >= 400 ? LogLevel.ERROR : LogLevel.INFO;
     const durationStr = duration ? ` (${duration}ms)` : '';
@@ -257,36 +257,36 @@ export const Logger = {
   },
 
   // API operation logging
-  apiOperation: (operation: string, context: Record<string, any> = {}) => {
+  apiOperation: (operation: string, context: Record<string, unknown> = {}) => {
     log(LogLevel.INFO, `API Operation: ${operation}`, context);
   },
 
   // Authentication logging
-  auth: (service: string, status: string, context: Record<string, any> = {}) => {
+  auth: (service: string, status: string, context: Record<string, unknown> = {}) => {
     log(LogLevel.INFO, `Auth: ${service} - ${status}`, context);
   },
 
   // Database/external service logging
-  external: (service: string, operation: string, context: Record<string, any> = {}) => {
+  external: (service: string, operation: string, context: Record<string, unknown> = {}) => {
     log(LogLevel.DEBUG, `External: ${service} - ${operation}`, context);
   },
 
   // Performance logging
-  performance: (operation: string, duration: number, context: Record<string, any> = {}) => {
+  performance: (operation: string, duration: number, context: Record<string, unknown> = {}) => {
     log(LogLevel.INFO, `Performance: ${operation} completed in ${duration}ms`, context);
   },
 
   // Session logging
-  session: (action: string, sessionId: string, context: Record<string, any> = {}) => {
+  session: (action: string, sessionId: string, context: Record<string, unknown> = {}) => {
     log(LogLevel.DEBUG, `Session: ${action}`, { sessionId, ...context });
   },
 
   // Request block logging (for major operations)
-  requestStart: (operation: string, context: Record<string, any> = {}) => {
+  requestStart: (operation: string, context: Record<string, unknown> = {}) => {
     log(LogLevel.INFO, `=== ${operation.toUpperCase()} START ===`, context);
   },
 
-  requestEnd: (operation: string, duration: number, context: Record<string, any> = {}) => {
+  requestEnd: (operation: string, duration: number, context: Record<string, unknown> = {}) => {
     log(LogLevel.INFO, `=== ${operation.toUpperCase()} END (${duration}ms) ===`, context);
   },
 };

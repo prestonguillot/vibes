@@ -95,13 +95,13 @@ class CircuitBreaker {
   /**
    * Record a failed request
    */
-  recordFailure(error?: any): void {
+  recordFailure(error?: unknown): void {
     this.failureCount++;
 
     if (this.state === CircuitState.HALF_OPEN) {
       Logger.warn(`Circuit breaker opening after failure in HALF_OPEN state`, {
         name: this.name,
-        error: error?.message || 'Unknown error',
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       this.open();
     } else if (
