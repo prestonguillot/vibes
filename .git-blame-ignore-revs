@@ -1,0 +1,6 @@
+# Bulk reformats with no semantic change. GitHub's blame view honors this file
+# automatically; locally, run:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# style: initial Prettier reformat (commit 4 of 4)
+423054d6ce51195d849f78bdcf68e5d05fcbbb84

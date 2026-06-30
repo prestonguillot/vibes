@@ -3,9 +3,19 @@
 ## Workflow: branch → PR → CI → merge
 
 `main` is protected on GitHub — you can't push to it directly. Work on a branch and
-open a pull request. CI (`.github/workflows/ci.yml`) runs `npm run build` (tsc) and
-`npm run test:run` on every push and PR; that check must be green before a PR can
-merge. Merges are rebase-only and the branch is auto-deleted on merge.
+open a pull request. CI (`.github/workflows/ci.yml`) runs `npm run build` (tsc),
+`npm run lint` (ESLint), `npm run format:check` (Prettier), and `npm run test:run` on
+every push and PR; that check must be green before a PR can merge. Merges are rebase-only
+and the branch is auto-deleted on merge.
+
+## Lint & format
+
+- `npm run lint` — ESLint (type-aware via typescript-eslint). Enforces the conventions
+  (no `console.*`, no floating/misused promises, etc.).
+- `npm run format` — apply Prettier; `npm run format:check` is what CI runs.
+- The `.git-blame-ignore-revs` file lists bulk-reformat commits. To skip them in local
+  blame: `git config blame.ignoreRevsFile .git-blame-ignore-revs` (GitHub does this
+  automatically).
 
 ```sh
 git switch -c my-change
