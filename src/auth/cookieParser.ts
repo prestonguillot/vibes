@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { z } from 'zod';
 import { SpotifyTokens, YouTubeTokens } from '../types/oauth';
-import { Logger } from './logger';
+import { Logger } from '../lib/logger';
 
 /**
  * Zod schemas for validating OAuth tokens

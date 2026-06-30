@@ -4,26 +4,26 @@ import {
   YtPlaylistItem,
   YtPlaylistItemListResponse,
   YoutubeApiError,
-} from '../utils/youtubeClient';
-import { ensureValidYouTubeToken } from '../utils/youtubeAuth';
-import { fetchAllPlaylistItems } from '../utils/spotifyPlaylistItems';
-import { findSyncedYoutubePlaylist, syncedPlaylistTitle } from '../utils/youtubePlaylist';
-import { youtubeWrite, YoutubeQuotaError } from '../utils/youtubeWrites';
-import { reconcilePlaylist, buildSyncDesiredVideoIds } from '../utils/playlistReconcile';
-import { Logger } from '../utils/logger';
-import { validate, schemas, ValidatedRequest } from '../utils/validation';
-import { csrfValidationMiddleware } from '../utils/csrf';
+} from '../youtube/client';
+import { ensureValidYouTubeToken } from '../youtube/auth';
+import { fetchAllPlaylistItems } from '../spotify/playlistItems';
+import { findSyncedYoutubePlaylist, syncedPlaylistTitle } from '../youtube/playlist';
+import { youtubeWrite, YoutubeQuotaError } from '../youtube/writes';
+import { reconcilePlaylist, buildSyncDesiredVideoIds } from '../sync/playlistReconcile';
+import { Logger } from '../lib/logger';
+import { validate, schemas, ValidatedRequest } from '../lib/validation';
+import { csrfValidationMiddleware } from '../auth/csrf';
 import { SpotifyTokens, YouTubeTokens } from '../types/oauth';
-import { parseSpotifyTokenCookie, parseYouTubeTokenCookie } from '../utils/cookieParser';
+import { parseSpotifyTokenCookie, parseYouTubeTokenCookie } from '../auth/cookieParser';
 import { z } from 'zod';
 import ejs from 'ejs';
 import path from 'path';
-import { formatErrorDetails } from '../utils/errorFormatter';
-import { fetchPlaylistDetails } from '../services/playlistDetailsService';
-import { searchTracksForVideos } from '../services/videoSearch';
-import { classifyTracksForSync } from '../services/trackClassification';
-import { ensureValidSpotifyToken } from '../utils/spotifyAuth';
-import { getPlaylist } from '../utils/spotifyClient';
+import { formatErrorDetails } from '../lib/errorFormatter';
+import { fetchPlaylistDetails } from '../sync/playlistDetailsService';
+import { searchTracksForVideos } from '../sync/videoSearch';
+import { classifyTracksForSync } from '../sync/trackClassification';
+import { ensureValidSpotifyToken } from '../spotify/auth';
+import { getPlaylist } from '../spotify/client';
 import { ProgressUpdate } from '../types/progress';
 
 const router = Router();

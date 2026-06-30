@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fetchAllPlaylistItems } from '../../src/utils/spotifyPlaylistItems';
+import { fetchAllPlaylistItems } from '../../src/spotify/playlistItems';
 
 // The client uses Node's global fetch; stub it.
 const mockedFetch = vi.fn();

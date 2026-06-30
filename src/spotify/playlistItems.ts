@@ -1,4 +1,4 @@
-import { Logger } from './logger';
+import { Logger } from '../lib/logger';
 
 interface SpotifyTrackObject {
   id?: string;

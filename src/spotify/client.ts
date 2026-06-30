@@ -17,7 +17,7 @@
  *   (token) errors use { error, error_description }.
  */
 
-import { Logger } from './logger';
+import { Logger } from '../lib/logger';
 
 const ACCOUNTS_BASE = 'https://accounts.spotify.com';
 const API_BASE = 'https://api.spotify.com/v1';

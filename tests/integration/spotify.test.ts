@@ -5,8 +5,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import request from 'supertest';
 import { createApp } from '@/app';
-import { getCurrentUser, getUserPlaylists } from '@/utils/spotifyClient';
-import { YoutubeApiError } from '@/utils/youtubeClient';
+import { getCurrentUser, getUserPlaylists } from '@/spotify/client';
+import { YoutubeApiError } from '@/youtube/client';
 
 // Helper to create valid YouTube token cookies (with all required Zod fields)
 const createMockYouTubeToken = (overrides?: Partial<any>) =>
@@ -22,8 +22,8 @@ const createMockYouTubeToken = (overrides?: Partial<any>) =>
 // the route's status-based error branching works; the code-exchange default
 // rejects (as the old authorizationCodeGrant mock did) so the callback redirects
 // home with an error.
-vi.mock('@/utils/spotifyClient', async (importActual) => {
-  const actual = await importActual<typeof import('@/utils/spotifyClient')>();
+vi.mock('@/spotify/client', async (importActual) => {
+  const actual = await importActual<typeof import('@/spotify/client')>();
   return {
     ...actual,
     getAuthorizeUrl: vi.fn(() => 'https://accounts.spotify.com/authorize?client_id=test'),
@@ -36,7 +36,7 @@ vi.mock('@/utils/spotifyClient', async (importActual) => {
 });
 
 // The /playlists route resolves a valid access token via ensureValidSpotifyToken.
-vi.mock('@/utils/spotifyAuth', () => ({
+vi.mock('@/spotify/auth', () => ({
   ensureValidSpotifyToken: vi.fn(async () => 'test-access-token'),
 }));
 
@@ -58,8 +58,8 @@ const playlistSummary = (id: string, name: string, trackTotal: number, ownerId =
 const ytClient = vi.hoisted(() => ({
   client: { playlists: { list: vi.fn(() => Promise.resolve({ data: { items: [] } })) } },
 }));
-vi.mock('@/utils/youtubeClient', async (importActual) => {
-  const actual = await importActual<typeof import('@/utils/youtubeClient')>();
+vi.mock('@/youtube/client', async (importActual) => {
+  const actual = await importActual<typeof import('@/youtube/client')>();
   return { ...actual, createYoutubeClient: vi.fn(() => ytClient.client) };
 });
 
@@ -519,7 +519,7 @@ describe('Spotify Playlists', () => {
       );
 
       // Import circuit breaker to check its state
-      const { youtubeCircuitBreaker } = await import('../../src/utils/circuitBreaker');
+      const { youtubeCircuitBreaker } = await import('../../src/lib/circuitBreaker');
       youtubeCircuitBreaker.close(); // Start fresh
 
       const spotifyTokens = JSON.stringify({

@@ -1,6 +1,6 @@
 import * as cheerio from 'cheerio';
-import { Logger } from './logger';
-import { calculateMatchScore } from './trackMatching';
+import { Logger } from '../lib/logger';
+import { calculateMatchScore } from '../sync/trackMatching';
 
 interface SearchResult {
   videoId: string;

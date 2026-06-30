@@ -1,16 +1,16 @@
 import { Router, Request } from 'express';
-import { createYoutubeClient, YoutubeApiError, YtPlaylist } from '../utils/youtubeClient';
-import { Logger } from '../utils/logger';
-import { getSecureCookieOptions } from '../utils/authValidation';
-import { validate, schemas, ValidatedRequest } from '../utils/validation';
-import { CacheDuration, setCache } from '../utils/cache';
-import { youtubeCircuitBreaker } from '../utils/circuitBreaker';
+import { createYoutubeClient, YoutubeApiError, YtPlaylist } from '../youtube/client';
+import { Logger } from '../lib/logger';
+import { getSecureCookieOptions } from '../auth/authValidation';
+import { validate, schemas, ValidatedRequest } from '../lib/validation';
+import { CacheDuration, setCache } from '../lib/cache';
+import { youtubeCircuitBreaker } from '../lib/circuitBreaker';
 import {
   parseSpotifyTokenCookie,
   parseYouTubeTokenCookie,
   validateAndSerializeSpotifyTokens,
-} from '../utils/cookieParser';
-import { generateCsrfToken } from '../utils/csrf';
+} from '../auth/cookieParser';
+import { generateCsrfToken } from '../auth/csrf';
 import {
   getAuthorizeUrl,
   exchangeCodeForTokens,
@@ -18,13 +18,13 @@ import {
   getUserPlaylists,
   getPlaylist,
   SpotifyApiError,
-} from '../utils/spotifyClient';
-import { ensureValidSpotifyToken } from '../utils/spotifyAuth';
+} from '../spotify/client';
+import { ensureValidSpotifyToken } from '../spotify/auth';
 import {
   fetchAllYoutubePlaylists,
   findSyncedYoutubePlaylist,
   syncedPlaylistTitle,
-} from '../utils/youtubePlaylist';
+} from '../youtube/playlist';
 import { z } from 'zod';
 import ejs from 'ejs';
 import path from 'path';

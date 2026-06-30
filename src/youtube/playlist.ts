@@ -1,4 +1,4 @@
-import { YoutubeClient, YtPlaylist, YtPlaylistListResponse } from './youtubeClient';
+import { YoutubeClient, YtPlaylist, YtPlaylistListResponse } from './client';
 
 /**
  * Centralized YouTube playlist read helpers. Every route resolves the user's

@@ -38,7 +38,7 @@ export default tseslint.config(
   },
   {
     // logger.ts IS the centralized console wrapper - the one place console is allowed.
-    files: ['src/utils/logger.ts'],
+    files: ['src/lib/logger.ts'],
     rules: { 'no-console': 'off' },
   },
   eslintConfigPrettier,

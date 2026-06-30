@@ -1,13 +1,13 @@
 import { Router } from 'express';
-import { scrapeYouTubeSearch } from '../utils/youtubeScraper';
-import { Logger } from '../utils/logger';
-import { validate, schemas, ValidatedRequest } from '../utils/validation';
-import { csrfValidationMiddleware } from '../utils/csrf';
+import { scrapeYouTubeSearch } from '../youtube/scraper';
+import { Logger } from '../lib/logger';
+import { validate, schemas, ValidatedRequest } from '../lib/validation';
+import { csrfValidationMiddleware } from '../auth/csrf';
 import { SpotifyTokens, YouTubeTokens } from '../types/oauth';
-import { parseSpotifyTokenCookie, parseYouTubeTokenCookie } from '../utils/cookieParser';
-import { CacheDuration, setCache } from '../utils/cache';
-import { formatErrorDetails } from '../utils/errorFormatter';
-import { escapeHtml } from '../utils/htmlEscape';
+import { parseSpotifyTokenCookie, parseYouTubeTokenCookie } from '../auth/cookieParser';
+import { CacheDuration, setCache } from '../lib/cache';
+import { formatErrorDetails } from '../lib/errorFormatter';
+import { escapeHtml } from '../lib/htmlEscape';
 import {
   createYoutubeClient,
   YoutubeApiError,
@@ -15,18 +15,18 @@ import {
   YtPlaylistListResponse,
   YtPlaylistItem,
   YtPlaylistItemListResponse,
-} from '../utils/youtubeClient';
-import { YoutubeQuotaError } from '../utils/youtubeWrites';
+} from '../youtube/client';
+import { YoutubeQuotaError } from '../youtube/writes';
 import { z } from 'zod';
 import ejs from 'ejs';
 import path from 'path';
-import { reconcilePlaylist } from '../utils/playlistReconcile';
-import { fetchPlaylistDetails } from '../services/playlistDetailsService';
-import { fetchAllPlaylistItems } from '../utils/spotifyPlaylistItems';
-import { getPlaylist } from '../utils/spotifyClient';
-import { findSyncedYoutubePlaylist } from '../utils/youtubePlaylist';
-import { youtubeWrite } from '../utils/youtubeWrites';
-import { calculateMatchScore, SimplifiedTrack, SimplifiedVideo } from '../utils/trackMatching';
+import { reconcilePlaylist } from '../sync/playlistReconcile';
+import { fetchPlaylistDetails } from '../sync/playlistDetailsService';
+import { fetchAllPlaylistItems } from '../spotify/playlistItems';
+import { getPlaylist } from '../spotify/client';
+import { findSyncedYoutubePlaylist } from '../youtube/playlist';
+import { youtubeWrite } from '../youtube/writes';
+import { calculateMatchScore, SimplifiedTrack, SimplifiedVideo } from '../sync/trackMatching';
 const router = Router();
 
 // Get detailed playlist information (Spotify tracks + YouTube videos)
@@ -598,7 +598,7 @@ router.post(
         // Spotify tracks, then override the linked track with the user's explicit
         // pick (which may not content-match). Reconcile then makes YouTube match
         // this order, so the manual pick lands at its track's position.
-        const { optimalTrackMatching } = await import('../utils/trackMatching');
+        const { optimalTrackMatching } = await import('../sync/trackMatching');
 
         const tracksToMatch = spotifyTracks
           .filter((item) => item.track && item.track.type === 'track')

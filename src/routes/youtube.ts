@@ -1,14 +1,14 @@
 import { Router } from 'express';
-import { Logger } from '../utils/logger';
-import { getSecureCookieOptions } from '../utils/authValidation';
-import { validate, schemas, ValidatedRequest } from '../utils/validation';
-import { validateAndSerializeYouTubeTokens } from '../utils/cookieParser';
+import { Logger } from '../lib/logger';
+import { getSecureCookieOptions } from '../auth/authValidation';
+import { validate, schemas, ValidatedRequest } from '../lib/validation';
+import { validateAndSerializeYouTubeTokens } from '../auth/cookieParser';
 import {
   getYoutubeAuthUrl,
   exchangeYoutubeCode,
   createYoutubeClient,
   YoutubeApiError,
-} from '../utils/youtubeClient';
+} from '../youtube/client';
 import { z } from 'zod';
 
 const router = Router();

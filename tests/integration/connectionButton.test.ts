@@ -12,8 +12,8 @@ const mockAuth = vi.hoisted(() => ({
   validateSpotifyConnection: vi.fn(),
   validateYouTubeConnection: vi.fn(),
 }));
-vi.mock('@/utils/authValidation', async (orig) => ({
-  ...(await orig<typeof import('@/utils/authValidation')>()),
+vi.mock('@/auth/authValidation', async (orig) => ({
+  ...(await orig<typeof import('@/auth/authValidation')>()),
   validateSpotifyConnection: mockAuth.validateSpotifyConnection,
   validateYouTubeConnection: mockAuth.validateYouTubeConnection,
 }));

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { youtubeCircuitBreaker } from '../../src/utils/circuitBreaker';
+import { youtubeCircuitBreaker } from '../../src/lib/circuitBreaker';
 
 describe('Circuit Breaker Integration', () => {
   beforeEach(() => {
@@ -96,7 +96,7 @@ describe('Circuit Breaker Integration', () => {
       youtubeCircuitBreaker.open();
 
       // Import it again to verify it's the same instance
-      const { youtubeCircuitBreaker: secondRef } = await import('../../src/utils/circuitBreaker');
+      const { youtubeCircuitBreaker: secondRef } = await import('../../src/lib/circuitBreaker');
 
       expect(secondRef.isOpen()).toBe(true);
       expect(secondRef.getState()).toEqual(youtubeCircuitBreaker.getState());

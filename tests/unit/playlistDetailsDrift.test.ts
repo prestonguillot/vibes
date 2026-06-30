@@ -7,15 +7,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const h = vi.hoisted(() => ({ getPlaylist: vi.fn(), fetchAllPlaylistItems: vi.fn() }));
-vi.mock('../../src/utils/spotifyClient', async (importActual) => ({
-  ...(await importActual<typeof import('../../src/utils/spotifyClient')>()),
+vi.mock('../../src/spotify/client', async (importActual) => ({
+  ...(await importActual<typeof import('../../src/spotify/client')>()),
   getPlaylist: h.getPlaylist,
 }));
-vi.mock('../../src/utils/spotifyPlaylistItems', () => ({
+vi.mock('../../src/spotify/playlistItems', () => ({
   fetchAllPlaylistItems: h.fetchAllPlaylistItems,
 }));
 
-import { fetchPlaylistDetails } from '../../src/services/playlistDetailsService';
+import { fetchPlaylistDetails } from '../../src/sync/playlistDetailsService';
 
 const sTrack = (id: string, name: string) => ({
   track: {

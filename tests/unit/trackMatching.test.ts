@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { optimalTrackMatching } from '../../src/utils/trackMatching';
+import { optimalTrackMatching } from '../../src/sync/trackMatching';
 
 describe('optimalTrackMatching', () => {
   describe('Return type validation', () => {

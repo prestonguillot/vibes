@@ -22,8 +22,8 @@ import {
   getUserPlaylists,
   getPlaylist,
   SpotifyPlaylistSummary,
-} from '../../src/utils/spotifyClient';
-import { fetchAllPlaylistItems } from '../../src/utils/spotifyPlaylistItems';
+} from '../../src/spotify/client';
+import { fetchAllPlaylistItems } from '../../src/spotify/playlistItems';
 
 const hasCreds = !!(
   process.env.SPOTIFY_CLIENT_ID &&

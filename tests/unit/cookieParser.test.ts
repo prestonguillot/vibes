@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { parseSpotifyTokenCookie, parseYouTubeTokenCookie } from '../../src/utils/cookieParser';
+import { parseSpotifyTokenCookie, parseYouTubeTokenCookie } from '../../src/auth/cookieParser';
 import { Response } from 'express';
 
 describe('Cookie Parser Utilities', () => {

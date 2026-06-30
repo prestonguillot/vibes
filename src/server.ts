@@ -13,11 +13,11 @@ dotenv.config({ path: envPath, override: true });
 dotenv.config({ path: path.join(process.cwd(), '.env'), override: false });
 
 // NOW import everything else after dotenv is loaded
-import { validateEnvironment } from './utils/envValidation';
+import { validateEnvironment } from './lib/envValidation';
 validateEnvironment();
 
 import { createApp } from './app';
-import { Logger } from './utils/logger';
+import { Logger } from './lib/logger';
 
 const app = createApp();
 const PORT = process.env.PORT || 3000;

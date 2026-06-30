@@ -7,7 +7,7 @@
  */
 
 import crypto from 'crypto';
-import { Logger } from '../utils/logger';
+import { Logger } from '../lib/logger';
 
 /**
  * Initialize CSRF secret

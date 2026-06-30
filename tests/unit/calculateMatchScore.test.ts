@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { calculateMatchScore, optimalTrackMatching } from '../../src/utils/trackMatching';
+import { calculateMatchScore, optimalTrackMatching } from '../../src/sync/trackMatching';
 
 const track = (name: string, artist: string) => ({ id: `${name}-${artist}`, name, artist });
 const video = (

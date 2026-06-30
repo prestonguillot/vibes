@@ -6,8 +6,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { calculateMatchScore } from '../../src/utils/trackMatching';
-import { parseViewCount } from '../../src/utils/youtubeScraper';
+import { calculateMatchScore } from '../../src/sync/trackMatching';
+import { parseViewCount } from '../../src/youtube/scraper';
 
 const track = { id: 't', name: 'Song Name', artist: 'Artist' };
 const baseVideo = { id: 'v', title: 'Song Name', description: '', channelTitle: 'Some Channel' };

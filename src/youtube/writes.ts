@@ -1,5 +1,5 @@
-import { youtubeCircuitBreaker } from './circuitBreaker';
-import { Logger } from './logger';
+import { youtubeCircuitBreaker } from '../lib/circuitBreaker';
+import { Logger } from '../lib/logger';
 
 /**
  * Single choke point for every YouTube write (playlistItems insert/update/delete,
