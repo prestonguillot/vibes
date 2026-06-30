@@ -125,7 +125,7 @@ export function createApp() {
   });
 
   // Debug/Component showcase page
-  app.get('/debug/components', (req, res) => {
+  app.get('/debug/components', (_req, res) => {
     res.render('debug-components', {
       isDebug: true,
       mockPlaylists: [
@@ -218,7 +218,7 @@ export function createApp() {
   });
 
   // Health check
-  app.get('/health', (req, res) => {
+  app.get('/health', (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
   });
 
@@ -286,7 +286,7 @@ export function createApp() {
   });
 
   // Global error handler - must be last
-  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
     Logger.error('Unhandled error', { url: req.originalUrl, method: req.method }, err);
 
     // Don't expose error details in production
