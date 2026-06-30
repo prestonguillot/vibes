@@ -61,7 +61,7 @@ function hideStatusBox(playlistId) {
   statusBox.classList.add('fade-out');
   setTimeout(() => {
     statusBox.classList.remove('fade-out');
-    statusBox.style.display = 'none';
+    statusBox.classList.add('hidden');
   }, 300);
 }
 
@@ -75,7 +75,7 @@ document.body.addEventListener('htmx:beforeRequest', (event) => {
   // Show status box in working state
   const statusBox = document.getElementById(`sync-status-${playlistId}`);
   if (statusBox) {
-    statusBox.style.display = 'block';
+    statusBox.classList.remove('hidden');
     setStatusBoxState(playlistId, 'working', `
       <div style="display: flex; align-items: center; gap: 12px;">
         <div class="spinner-border spinner-border-sm text-primary" role="status">

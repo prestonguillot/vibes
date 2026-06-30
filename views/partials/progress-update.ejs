@@ -10,7 +10,7 @@ const showSpinner = progressType === 'progress' && percentage < 100;
       <span class="progress-text"><%= message %></span>
     </div>
     <div class="progress mb-2 progress-height-6">
-      <div class="progress-bar bg-danger" role="progressbar" style="width: 100%" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div>
+      <div class="progress-bar bg-danger progress-bar--full" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div>
     </div>
   </div>
 <% } else { %>
@@ -28,7 +28,7 @@ const showSpinner = progressType === 'progress' && percentage < 100;
       <div class="progress-details text-muted small mb-1"><%= details %></div>
     <% } %>
     <div class="progress mb-2 progress-height-6">
-      <div class="progress-bar <%= progressBarClass %>" role="progressbar" style="width: <%= percentage %>%" aria-valuenow="<%= percentage %>" aria-valuemin="0" aria-valuemax="100"></div>
+      <div class="progress-bar progress-bar--dynamic <%= progressBarClass %>" role="progressbar" style="--progress-width: <%= percentage %>%" aria-valuenow="<%= percentage %>" aria-valuemin="0" aria-valuemax="100"></div>
     </div>
   </div>
 <% } %>
