@@ -1646,7 +1646,19 @@ body.oauth-error-body {
     display: none;
 }
 
-/* Connection error modal styling */
+/* Connection error modal */
+.connection-error-modal {
+    width: 90%;
+    max-width: 480px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+}
+
+.connection-error-modal::backdrop {
+    background: rgba(0, 0, 0, 0.5);
+}
+
 .connection-error-modal .modal-body {
     padding: 30px;
     text-align: center;
