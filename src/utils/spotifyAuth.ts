@@ -37,9 +37,9 @@ export async function ensureValidSpotifyToken(req: Request, res: Response): Prom
         return updated.accessToken;
       } catch (refreshError) {
         Logger.error('Failed to refresh Spotify token', {}, refreshError);
-        throw new Error('SPOTIFY_AUTH_REQUIRED');
+        throw new Error('SPOTIFY_AUTH_REQUIRED', { cause: refreshError });
       }
     }
-    throw new Error('SPOTIFY_AUTH_REQUIRED');
+    throw new Error('SPOTIFY_AUTH_REQUIRED', { cause: error });
   }
 }

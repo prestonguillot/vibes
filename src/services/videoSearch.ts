@@ -31,7 +31,7 @@ export interface SearchOptions {
   /** Fraction of overall progress the search phase represents (e.g. 0.7). */
   searchPhaseWeight: number;
   /** Emits a progress/error payload to the SSE channel. */
-  emitProgress: (payload: ProgressUpdate) => void;
+  emitProgress: (payload: ProgressUpdate) => void | Promise<void>;
   /** Aborted when the client disconnects; stops the search loop early. */
   signal?: AbortSignal;
 }
@@ -67,7 +67,7 @@ export async function searchTracksForVideos(
       Logger.debug('Searching for track', { trackNumber: searchCount + 1, totalTracks: tracksToSearch.length, artist, songName });
 
       const searchProgress = (searchCount / tracksToSearch.length) * searchPhaseWeight;
-      emitProgress({
+      await emitProgress({
         type: 'progress',
         message: isUpdateMode ? 'Checking for playlist updates' : 'Finding music videos',
         details: isUpdateMode
@@ -100,7 +100,7 @@ export async function searchTracksForVideos(
     } catch (error) {
       searchCount++;
       Logger.error('Error searching for track', { artist, songName }, error);
-      emitProgress({ type: 'error', message: 'Error searching for video', details: formatErrorDetails(error) });
+      await emitProgress({ type: 'error', message: 'Error searching for video', details: formatErrorDetails(error) });
       searchResults.push({ track: songName, artist, found: false, spotifyPosition, spotifyTrackId: track.id });
     }
   }

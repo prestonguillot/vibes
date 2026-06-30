@@ -170,8 +170,8 @@ router.get('/playlists',
     }
 
     // Get ALL YouTube playlists to check which Spotify playlists have been synced (with pagination)
-    let youtubePlaylistNames = new Set<string>();
-    let youtubePlaylistsMap = new Map<string, any>();
+    const youtubePlaylistNames = new Set<string>();
+    const youtubePlaylistsMap = new Map<string, any>();
 
     if (youtubeTokens) {
       // Check circuit breaker before making API calls

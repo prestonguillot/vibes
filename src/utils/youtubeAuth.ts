@@ -40,9 +40,9 @@ export async function ensureValidYouTubeToken(req: Request, res: Response): Prom
         return { client: createYoutubeClient(refreshed.access_token), accessToken: refreshed.access_token, quotaUsed: 1 };
       } catch (refreshError) {
         Logger.error('Failed to refresh YouTube token', {}, refreshError);
-        throw new Error('YOUTUBE_AUTH_REQUIRED');
+        throw new Error('YOUTUBE_AUTH_REQUIRED', { cause: refreshError });
       }
     }
-    throw new Error('YOUTUBE_AUTH_REQUIRED');
+    throw new Error('YOUTUBE_AUTH_REQUIRED', { cause: error });
   }
 }

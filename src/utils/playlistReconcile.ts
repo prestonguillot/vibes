@@ -155,7 +155,7 @@ export async function reconcilePlaylist(
   youtubePlaylistId: string,
   desiredVideoIds: string[],
   current: CurrentPlaylistItem[],
-  onProgress?: (done: number, total: number) => void
+  onProgress?: (done: number, total: number) => void | Promise<void>
 ): Promise<ReconcileResult> {
   const ops = computeReconcileOps(desiredVideoIds, current);
   assertReconcileSafe(ops, desiredVideoIds, current.length);
@@ -200,7 +200,7 @@ export async function reconcilePlaylist(
       result.moved++;
     }
     done++;
-    if (onProgress) onProgress(done, ops.length);
+    if (onProgress) await onProgress(done, ops.length);
   }
 
   Logger.info('Reconcile complete', { youtubePlaylistId, ...result });
