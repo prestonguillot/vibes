@@ -15,6 +15,7 @@
     "test:spotify:live": "vitest run --config vitest.live.config.ts",
     "test:visual": "playwright test",
     "test:visual:update": "playwright test --update-snapshots",
+    "test:visual:argos": "playwright test --config playwright.argos.config.ts",
     "lint": "eslint src",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
@@ -39,6 +40,7 @@
     "zod": "^4.1.12"
   },
   "devDependencies": {
+    "@argos-ci/playwright": "^7.1.2",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.61.1",
     "@types/cookie-parser": "^1.4.9",
