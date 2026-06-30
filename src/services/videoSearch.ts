@@ -7,7 +7,7 @@
 import { searchMusicVideo } from '../utils/youtubeScraper';
 import { formatErrorDetails } from '../utils/errorFormatter';
 import { Logger } from '../utils/logger';
-import { ProgressUpdate } from '../routes/progress';
+import { ProgressUpdate } from '../types/progress';
 
 export interface TrackSearchResult {
   track: string;

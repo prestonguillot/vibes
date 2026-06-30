@@ -5,14 +5,11 @@
         onclick="return false;"
         <% } else { %>
         hx-post="/api/sync/playlist/<%= playlistId %>"
-        hx-target="#sync-result-<%= playlistId %>"
-        hx-swap="innerHTML"
+        hx-target="#sync-status-<%= playlistId %>"
+        hx-swap="outerHTML"
         hx-indicator="#loading"
         hx-include="#syncBatchSize"
         hx-disabled-elt=".sync-btn"
-        hx-get="/auth/spotify/playlist-button/<%= playlistId %>"
-        hx-trigger="playlistSynced-<%= playlistId %> from:body"
-        hx-swap="outerHTML"
         <% } %>
         data-playlist-name="<%= playlistName %>"
         data-playlist-id="<%= playlistId %>"

@@ -1497,6 +1497,12 @@ body.oauth-error-body {
     padding-right: 32px;
 }
 
+.sync-status-loading {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
 .sync-status-close {
     position: absolute;
     top: 8px;
