@@ -24,42 +24,7 @@
                 </p>
               </div>
               <% if (video.matchScore) { %>
-                <div class="match-score-badge match-score-badge--modal flex-shrink-0"
-                     data-stars="<%= video.matchScore.stars %>"
-                     data-score="<%= (video.matchScore.totalScore * 100).toFixed(0) %>"
-                     data-color="<%= video.matchScore.color %>">
-                  <div class="match-score-stars" style="color: <%= video.matchScore.color %>;">
-                    <% for (let i = 0; i < 5; i++) { %>
-                      <span class="star <%= i < Math.floor(video.matchScore.stars) ? 'star--filled' : i < video.matchScore.stars ? 'star--half' : '' %>">★</span>
-                    <% } %>
-                  </div>
-                  <div class="match-score-tooltip">
-                    <div class="tooltip-title">Match Score: <%= (video.matchScore.totalScore * 100).toFixed(0) %>%</div>
-                    <div class="tooltip-components">
-                      <% if (video.matchScore.components.coreMatch) { %>
-                        <div>Title Match: +<%= (video.matchScore.components.coreMatch * 100).toFixed(0) %>%</div>
-                      <% } %>
-                      <% if (video.matchScore.components.fuzzySimilarity) { %>
-                        <div>Fuzzy Match: +<%= (video.matchScore.components.fuzzySimilarity * 100).toFixed(0) %>%</div>
-                      <% } %>
-                      <% if (video.matchScore.components.wordMatching) { %>
-                        <div>Word Match: +<%= (video.matchScore.components.wordMatching * 100).toFixed(0) %>%</div>
-                      <% } %>
-                      <% if (video.matchScore.components.artistBonus) { %>
-                        <div>Artist Bonus: +<%= (video.matchScore.components.artistBonus * 100).toFixed(0) %>%</div>
-                      <% } %>
-                      <% if (video.matchScore.components.officialVideo) { %>
-                        <div>Official Video: +<%= (video.matchScore.components.officialVideo * 100).toFixed(0) %>%</div>
-                      <% } %>
-                      <% if (video.matchScore.components.livePerformance) { %>
-                        <div>Live Performance: +<%= (video.matchScore.components.livePerformance * 100).toFixed(0) %>%</div>
-                      <% } %>
-                      <% if (video.matchScore.components.viewCount) { %>
-                        <div>High View Count: +<%= (video.matchScore.components.viewCount * 100).toFixed(0) %>%</div>
-                      <% } %>
-                    </div>
-                  </div>
-                </div>
+                <%- include('./match-score-badge.ejs', { score: video.matchScore, modifier: 'match-score-badge--modal flex-shrink-0' }) %>
               <% } %>
             </div>
           </div>

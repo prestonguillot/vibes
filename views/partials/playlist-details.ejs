@@ -58,42 +58,7 @@
                         <%= track.youtube.title %>
                       </a>
                       <% if (track.matchScore) { %>
-                        <div class="match-score-badge"
-                             data-stars="<%= track.matchScore.stars %>"
-                             data-score="<%= (track.matchScore.totalScore * 100).toFixed(0) %>"
-                             data-color="<%= track.matchScore.color %>">
-                          <div class="match-score-stars" style="color: <%= track.matchScore.color %>;">
-                            <% for (let i = 0; i < 5; i++) { %>
-                              <span class="star <%= i < Math.floor(track.matchScore.stars) ? 'star--filled' : i < track.matchScore.stars ? 'star--half' : '' %>">★</span>
-                            <% } %>
-                          </div>
-                          <div class="match-score-tooltip">
-                            <div class="tooltip-title">Match Score: <%= (track.matchScore.totalScore * 100).toFixed(0) %>%</div>
-                            <div class="tooltip-components">
-                              <% if (track.matchScore.components.coreMatch) { %>
-                                <div>Title Match: +<%= (track.matchScore.components.coreMatch * 100).toFixed(0) %>%</div>
-                              <% } %>
-                              <% if (track.matchScore.components.fuzzySimilarity) { %>
-                                <div>Fuzzy Match: +<%= (track.matchScore.components.fuzzySimilarity * 100).toFixed(0) %>%</div>
-                              <% } %>
-                              <% if (track.matchScore.components.wordMatching) { %>
-                                <div>Word Match: +<%= (track.matchScore.components.wordMatching * 100).toFixed(0) %>%</div>
-                              <% } %>
-                              <% if (track.matchScore.components.artistBonus) { %>
-                                <div>Artist Bonus: +<%= (track.matchScore.components.artistBonus * 100).toFixed(0) %>%</div>
-                              <% } %>
-                              <% if (track.matchScore.components.officialVideo) { %>
-                                <div>Official Video: +<%= (track.matchScore.components.officialVideo * 100).toFixed(0) %>%</div>
-                              <% } %>
-                              <% if (track.matchScore.components.livePerformance) { %>
-                                <div>Live Performance: +<%= (track.matchScore.components.livePerformance * 100).toFixed(0) %>%</div>
-                              <% } %>
-                              <% if (track.matchScore.components.viewCount) { %>
-                                <div>High View Count: +<%= (track.matchScore.components.viewCount * 100).toFixed(0) %>%</div>
-                              <% } %>
-                            </div>
-                          </div>
-                        </div>
+                        <%- include('./match-score-badge.ejs', { score: track.matchScore }) %>
                       <% } %>
                     </div>
                   </div>
