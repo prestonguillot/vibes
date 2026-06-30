@@ -145,8 +145,10 @@ local/
 test-results/
 coverage/
 
-# Claude Code configuration and project-specific files
-.claude/
+# Claude Code: ignore local/personal files (settings.local.json, *.lock), but track
+# the shared instructions doc.
+.claude/*
+!.claude/CLAUDE.md
 
 # Local development and debugging
 .debug/

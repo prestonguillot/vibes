@@ -8,14 +8,14 @@ A web application that syncs your Spotify playlists to YouTube playlists with mu
 - 📺 Connect to your YouTube account  
 - 🔄 Sync playlists from Spotify to YouTube
 - 🎬 Automatically finds official music videos (with fallbacks to concert footage/fan videos)
-- 💻 Modern web interface using HTMX and Hyperscript
+- 💻 Modern web interface using HTMX
 - 🚀 Easy local development and deployment
 
 ## Tech Stack
 
-- **Backend**: Node.js with TypeScript, Express
-- **Frontend**: HTMX, Bootstrap 5
-- **APIs**: Spotify Web API, YouTube Data API v3
+- **Backend**: Node.js with TypeScript, Express 5
+- **Frontend**: HTMX, Bootstrap 5 (CSS only), native HTML (`<dialog>`, `<details>`)
+- **APIs**: Spotify Web API, YouTube Data API v3 (writes); YouTube search via HTML scrape (no quota)
 
 ## Setup
 
@@ -42,16 +42,15 @@ cp .env.example .env
 PORT=3000
 NODE_ENV=development
 
-# Spotify API Configuration
+# Spotify API Configuration (Spotify requires 127.0.0.1, not localhost)
 SPOTIFY_CLIENT_ID=your-spotify-client-id
 SPOTIFY_CLIENT_SECRET=your-spotify-client-secret
-SPOTIFY_REDIRECT_URI=http://localhost:3000/auth/spotify/callback
+SPOTIFY_REDIRECT_URI=http://127.0.0.1:3000/auth/spotify/callback
 
-# YouTube API Configuration
+# YouTube API Configuration (OAuth only)
 YOUTUBE_CLIENT_ID=your-youtube-client-id
 YOUTUBE_CLIENT_SECRET=your-youtube-client-secret
-YOUTUBE_REDIRECT_URI=http://localhost:3000/auth/youtube/callback
-YOUTUBE_API_KEY=your-youtube-api-key
+YOUTUBE_REDIRECT_URI=http://127.0.0.1:3000/auth/youtube/callback
 ```
 
 ### Development
@@ -92,8 +91,10 @@ npm start
    - Go to "Credentials" → "Create Credentials" → "OAuth 2.0 Client IDs"
    - Application type: Web application
    - Authorized redirect URIs: `http://127.0.0.1:3000/auth/youtube/callback`
-5. Also create an API Key for YouTube searches
-6. Copy the Client ID, Client Secret, and API Key to your `.env` file
+5. Copy the Client ID and Client Secret to your `.env` file
+
+   (No API key is needed — YouTube search is done by HTML scrape, and playlist
+   writes use the OAuth token.)
 
 ## Usage
 

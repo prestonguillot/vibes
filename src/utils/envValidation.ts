@@ -47,10 +47,6 @@ const envSchema: EnvSchema = {
     YOUTUBE_REDIRECT_URI: {
       description: 'YouTube OAuth redirect URI',
       validate: (value) => value.startsWith('http')
-    },
-    YOUTUBE_API_KEY: {
-      description: 'YouTube Data API key',
-      validate: (value) => value.length > 0
     }
   },
 
@@ -62,9 +58,6 @@ const envSchema: EnvSchema = {
     NODE_ENV: {
       description: 'Node environment (development/production)',
       defaultValue: 'development'
-    },
-    SESSION_SECRET: {
-      description: 'Session encryption secret'
     },
     CSRF_SECRET: {
       description: 'CSRF token signing secret (auto-generated in development)'
@@ -119,11 +112,6 @@ export function validateEnvironment(): void {
 
   // Additional security checks
   if (process.env.NODE_ENV === 'production') {
-    // In production, certain variables should not use defaults
-    if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET === 'your-session-secret-here-boo') {
-      errors.push('SESSION_SECRET must be set to a secure random value in production');
-    }
-
     if (!process.env.CSRF_SECRET) {
       errors.push('CSRF_SECRET must be set in production');
     }
