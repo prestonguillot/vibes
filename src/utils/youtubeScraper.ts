@@ -158,7 +158,7 @@ export async function scrapeYouTubeSearch(query: string, maxResults: number = 3)
               videoData = contents[0].itemSectionRenderer.contents;
             }
           }
-        } catch (parseError) {
+        } catch {
           // Continue if we can't parse this script tag
         }
       }
@@ -202,7 +202,7 @@ export async function scrapeYouTubeSearch(query: string, maxResults: number = 3)
     
   } catch (error) {
     Logger.error('YouTube scraping failed', {}, error);
-    throw new Error(`Failed to scrape YouTube search: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(`Failed to scrape YouTube search: ${error instanceof Error ? error.message : 'Unknown error'}`, { cause: error });
   }
 }
 

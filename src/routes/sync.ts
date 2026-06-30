@@ -432,7 +432,7 @@ router.get('/playlist/:playlistId/stream',
 
     let spotifyAccessToken: string;
     let youtube: YoutubeClient;
-    let initialQuotaUsed = 0;
+    let initialQuotaUsed: number;
     try {
       spotifyAccessToken = await ensureValidSpotifyToken(req as Request, res);
       const yt = await ensureValidYouTubeToken(req as Request, res);

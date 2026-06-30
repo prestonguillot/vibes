@@ -92,7 +92,7 @@ export async function validateSpotifyConnection(
 
         Logger.auth('Spotify', 'token refreshed successfully');
         return { connected: true };
-      } catch (refreshError) {
+      } catch {
         Logger.auth('Spotify', 'failed to refresh token');
         res.clearCookie('spotify_tokens');
         return {
@@ -177,7 +177,7 @@ export async function validateYouTubeConnection(
 
         Logger.auth('YouTube', 'token refreshed successfully');
         return { connected: true };
-      } catch (refreshError) {
+      } catch {
         Logger.auth('YouTube', 'failed to refresh token');
         res.clearCookie('youtube_tokens');
         return {

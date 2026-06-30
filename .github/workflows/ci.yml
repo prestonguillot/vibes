@@ -30,6 +30,9 @@ jobs:
       - name: Type-check & build
         run: npm run build
 
+      - name: Lint
+        run: npm run lint
+
       # Unit + mocked-integration suite. Excludes the live Spotify/YouTube tests
       # (tests/live, opt-in via test:spotify:live) and the visual-regression tests
       # (tests/visual, local-only) - neither runs here.
