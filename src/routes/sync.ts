@@ -1,10 +1,6 @@
-import { Router, Request, Response } from 'express';
-import { google, youtube_v3 } from 'googleapis';
-
-// The exact OAuth2 client instance type google.auth.OAuth2 produces (googleapis
-// bundles its own google-auth-library copy, so referencing it directly avoids a
-// duplicate-type mismatch).
-type OAuth2Client = InstanceType<typeof google.auth.OAuth2>;
+import { Router, Request } from 'express';
+import { YtPlaylist, YtPlaylistItem, YtPlaylistItemListResponse } from '../utils/youtubeClient';
+import { ensureValidYouTubeToken } from '../utils/youtubeAuth';
 import { searchMusicVideo } from '../utils/youtubeScraper';
 import { fetchAllPlaylistItems } from '../utils/spotifyPlaylistItems';
 import { findSyncedYoutubePlaylist, syncedPlaylistTitle } from '../utils/youtubePlaylist';
@@ -12,11 +8,10 @@ import { youtubeWrite } from '../utils/youtubeWrites';
 import { reconcilePlaylist, buildSyncDesiredVideoIds } from '../utils/playlistReconcile';
 import { sendProgressUpdate, closeProgressConnections } from './progress';
 import { Logger } from '../utils/logger';
-import { getSecureCookieOptions } from '../utils/authValidation';
 import { validate, schemas, ValidatedRequest } from '../utils/validation';
 import { csrfValidationMiddleware } from '../utils/csrf';
 import { SpotifyTokens, YouTubeTokens } from '../types/oauth';
-import { parseSpotifyTokenCookie, parseYouTubeTokenCookie, validateAndSerializeYouTubeTokens } from '../utils/cookieParser';
+import { parseSpotifyTokenCookie, parseYouTubeTokenCookie } from '../utils/cookieParser';
 import { z } from 'zod';
 import ejs from 'ejs';
 import path from 'path';
@@ -36,55 +31,6 @@ function getYouTubeUserId(youtubeTokens: YouTubeTokens): string {
   }
   return youtubeTokens.channel_id;
 }
-
-// Helper function to ensure valid YouTube token and return quota usage
-async function ensureValidYouTubeToken(req: Request, res: Response): Promise<{ oauth2Client: OAuth2Client, quotaUsed: number }> {
-  const youtubeTokens: YouTubeTokens | null = parseYouTubeTokenCookie(req.cookies.youtube_tokens, res);
-
-  if (!youtubeTokens) {
-    throw new Error('YOUTUBE_AUTH_REQUIRED');
-  }
-
-  const oauth2Client = new google.auth.OAuth2(
-    process.env.YOUTUBE_CLIENT_ID,
-    process.env.YOUTUBE_CLIENT_SECRET,
-    process.env.YOUTUBE_REDIRECT_URI
-  );
-
-  oauth2Client.setCredentials(youtubeTokens);
-
-  try {
-    const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
-    await youtube.channels.list({ part: ['id'], mine: true, maxResults: 1 });
-    Logger.external('YouTube', 'Token validation successful', { quotaUsed: 1 });
-    return { oauth2Client, quotaUsed: 1 }; // channels.list costs 1 unit
-  } catch (error: unknown) {
-    const errorCode = (error as { code?: number }).code;
-    if (errorCode === 401 && youtubeTokens.refresh_token) {
-      Logger.auth('YouTube', 'token expired, refreshing');
-      try {
-        const { credentials } = await oauth2Client.refreshAccessToken();
-
-        // Validate and update cookie with new tokens
-        const updatedTokens = {
-          ...youtubeTokens,
-          ...credentials
-        };
-        const serializedTokens = validateAndSerializeYouTubeTokens(updatedTokens);
-        res.cookie('youtube_tokens', serializedTokens, getSecureCookieOptions());
-        oauth2Client.setCredentials(updatedTokens);
-
-        Logger.auth('YouTube', 'token refreshed successfully');
-        return { oauth2Client, quotaUsed: 1 }; // refreshAccessToken costs 1 unit
-      } catch (refreshError) {
-        Logger.error('Failed to refresh YouTube token', {}, refreshError);
-        throw new Error('YOUTUBE_AUTH_REQUIRED');
-      }
-    } else {
-      throw new Error('YOUTUBE_AUTH_REQUIRED');
-    }
-  }
-};
 
 router.post('/playlist/:playlistId',
   csrfValidationMiddleware, // CSRF protection
@@ -113,7 +59,7 @@ router.post('/playlist/:playlistId',
   // Declare variables outside try block so they're accessible in catch
   let apiCallCount = 0;
   let totalQuotaUsed = 0;
-  let existingPlaylist: youtube_v3.Schema$Playlist | null = null;
+  let existingPlaylist: YtPlaylist | null = null;
   let youtubeUserId: string = '';
 
   try {
@@ -163,9 +109,8 @@ router.post('/playlist/:playlistId',
     // Initialize APIs
     Logger.info('Initializing API clients');
     const spotifyAccessToken = await ensureValidSpotifyToken(req as Request, res);
-    const { oauth2Client, quotaUsed } = await ensureValidYouTubeToken(req as Request, res);
+    const { client: youtube, quotaUsed } = await ensureValidYouTubeToken(req as Request, res);
     totalQuotaUsed = quotaUsed; // Initialize totalQuotaUsed with initial quota
-    const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
     Logger.info('API clients initialized');
 
     sendProgressUpdate(playlistId, youtubeUserId, {
@@ -254,7 +199,7 @@ router.post('/playlist/:playlistId',
 
     let youtubePlaylistId: string = '';
     let existingVideoIds: Set<string> = new Set();
-    let existingItemsMap: Map<string, youtube_v3.Schema$PlaylistItem> = new Map();
+    let existingItemsMap: Map<string, YtPlaylistItem> = new Map();
     let isUpdateMode = false;
 
     try {
@@ -273,7 +218,7 @@ router.post('/playlist/:playlistId',
         let totalExistingVideos = 0;
 
         do {
-          const response: youtube_v3.Schema$PlaylistItemListResponse = (await youtube.playlistItems.list({
+          const response: YtPlaylistItemListResponse = (await youtube.playlistItems.list({
             part: ['id', 'snippet'],
             playlistId: youtubePlaylistId,
             maxResults: 50,

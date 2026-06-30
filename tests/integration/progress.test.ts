@@ -15,44 +15,6 @@ vi.mock('../../src/utils/authValidation', () => ({
   })
 }));
 
-// Mock googleapis
-vi.mock('googleapis', () => ({
-  google: {
-    auth: {
-      OAuth2: vi.fn().mockImplementation(() => ({
-        setCredentials: vi.fn(),
-      })),
-    },
-    youtube: vi.fn().mockReturnValue({
-      channels: {
-        list: vi.fn().mockResolvedValue({
-          data: {
-            items: [
-              {
-                id: 'mock_channel_id_12345'
-              }
-            ]
-          }
-        }),
-      },
-      playlists: {
-        list: vi.fn().mockResolvedValue({
-          data: {
-            items: [
-              {
-                id: 'mock_youtube_playlist_id',
-                snippet: {
-                  title: 'Test Playlist (from Spotify)'
-                }
-              }
-            ],
-            nextPageToken: undefined
-          }
-        }),
-      },
-    }),
-  },
-}));
 
 describe('SSE Progress Updates', () => {
   let app: Express;

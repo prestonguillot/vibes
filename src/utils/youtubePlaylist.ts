@@ -1,4 +1,4 @@
-import { youtube_v3 } from 'googleapis';
+import { YoutubeClient, YtPlaylist, YtPlaylistListResponse } from './youtubeClient';
 
 /**
  * Centralized YouTube playlist read helpers. Every route resolves the user's
@@ -16,13 +16,13 @@ export function syncedPlaylistTitle(spotifyPlaylistName: string): string {
  * `playlists.list` costs 1 quota unit per page regardless of parts requested.
  */
 export async function fetchAllYoutubePlaylists(
-  youtube: youtube_v3.Youtube
-): Promise<youtube_v3.Schema$Playlist[]> {
-  const all: youtube_v3.Schema$Playlist[] = [];
+  youtube: YoutubeClient
+): Promise<YtPlaylist[]> {
+  const all: YtPlaylist[] = [];
   let pageToken: string | undefined = undefined;
 
   do {
-    const response: youtube_v3.Schema$PlaylistListResponse = await youtube.playlists
+    const response: YtPlaylistListResponse = await youtube.playlists
       .list({
         part: ['id', 'snippet', 'contentDetails'],
         mine: true,
@@ -45,9 +45,9 @@ export async function fetchAllYoutubePlaylists(
  * or null if it hasn't been synced yet. Paginates via fetchAllYoutubePlaylists.
  */
 export async function findSyncedYoutubePlaylist(
-  youtube: youtube_v3.Youtube,
+  youtube: YoutubeClient,
   spotifyPlaylistName: string
-): Promise<youtube_v3.Schema$Playlist | null> {
+): Promise<YtPlaylist | null> {
   const expectedTitle = syncedPlaylistTitle(spotifyPlaylistName);
   const all = await fetchAllYoutubePlaylists(youtube);
   return all.find(playlist => playlist.snippet?.title === expectedTitle) || null;

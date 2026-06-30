@@ -1,5 +1,5 @@
 import { Router, Request } from 'express';
-import { google } from 'googleapis';
+import { createYoutubeClient } from '../utils/youtubeClient';
 import { Logger } from '../utils/logger';
 import { getSecureCookieOptions } from '../utils/authValidation';
 import { validate, schemas, ValidatedRequest } from '../utils/validation';
@@ -140,17 +140,9 @@ router.get('/playlists',
     const user = await getCurrentUser(accessToken);
     const currentUserId = user.id;
 
-    // Set up YouTube API to check for existing playlists
-    const oauth2Client = new google.auth.OAuth2(
-      process.env.YOUTUBE_CLIENT_ID,
-      process.env.YOUTUBE_CLIENT_SECRET,
-      process.env.YOUTUBE_REDIRECT_URI
-    );
+    // Set up the YouTube client to check for existing playlists (when connected)
     let youtubeTokens = parseYouTubeTokenCookie(req.cookies.youtube_tokens, res);
-    if (youtubeTokens) {
-      oauth2Client.setCredentials(youtubeTokens);
-    }
-    const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
+    const youtube = youtubeTokens ? createYoutubeClient(youtubeTokens.access_token) : null;
 
     // Get Spotify playlists (paginated, null-filtered and typed by the client)
     let spotifyPlaylists = await getUserPlaylists(accessToken);
@@ -192,7 +184,7 @@ router.get('/playlists',
         youtubeTokens = null;
       } else {
         try {
-          const allYoutubePlaylists = await fetchAllYoutubePlaylists(youtube);
+          const allYoutubePlaylists = await fetchAllYoutubePlaylists(youtube!);
           allYoutubePlaylists.forEach((playlist) => {
             const title = playlist.snippet?.title || '';
             youtubePlaylistNames.add(title);
@@ -359,14 +351,8 @@ router.get('/playlist-button/:playlistId',
     // Get this specific playlist
     const playlist = await getPlaylist(accessToken, playlistId);
 
-    // Set up YouTube API to check if this playlist has been synced
-    const oauth2Client = new google.auth.OAuth2(
-      process.env.YOUTUBE_CLIENT_ID,
-      process.env.YOUTUBE_CLIENT_SECRET,
-      process.env.YOUTUBE_REDIRECT_URI
-    );
-    oauth2Client.setCredentials(youtubeTokens);
-    const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
+    // Set up the YouTube client to check if this playlist has been synced
+    const youtube = createYoutubeClient(youtubeTokens.access_token);
 
     // Check if a YouTube playlist exists for this Spotify playlist
     let isSynced = false;

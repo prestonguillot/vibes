@@ -52,27 +52,14 @@ const playlistSummary = (id: string, name: string, trackTotal: number, ownerId =
   spotifyUrl: `https://open.spotify.com/playlist/${id}`
 });
 
-// Mock googleapis
-vi.mock('googleapis', () => {
-  const mockPlaylists = {
-    list: vi.fn(() => Promise.resolve({ data: { items: [] } }))
-  };
-
-  const mockYoutube = vi.fn(() => ({
-    playlists: mockPlaylists
-  }));
-
-  const mockOAuth2 = vi.fn();
-  mockOAuth2.prototype.setCredentials = vi.fn();
-
-  return {
-    google: {
-      youtube: mockYoutube,
-      auth: {
-        OAuth2: mockOAuth2
-      }
-    }
-  };
+// Mock the YouTube client. createYoutubeClient returns a shared client object so
+// per-test overrides of `ytClient.client.playlists.list` take effect.
+const ytClient = vi.hoisted(() => ({
+  client: { playlists: { list: vi.fn(() => Promise.resolve({ data: { items: [] } })) } }
+}));
+vi.mock('@/utils/youtubeClient', async (importActual) => {
+  const actual = await importActual<typeof import('@/utils/youtubeClient')>();
+  return { ...actual, createYoutubeClient: vi.fn(() => ytClient.client) };
 });
 
 const app = createApp();
@@ -347,9 +334,7 @@ describe('Spotify Playlists', () => {
       ]);
 
       // Mock YouTube API to return a synced playlist
-      const googleapis = await import('googleapis');
-      const mockYoutubeApi = googleapis.google.youtube({} as any);
-      mockYoutubeApi.playlists.list = vi.fn(() =>
+      ytClient.client.playlists.list = vi.fn(() =>
         Promise.resolve({
           data: {
             items: [
@@ -472,9 +457,7 @@ describe('Spotify Playlists', () => {
       ]);
 
       // Mock YouTube API to return a synced playlist
-      const googleapis = await import('googleapis');
-      const mockYoutubeApi = googleapis.google.youtube({} as any);
-      mockYoutubeApi.playlists.list = vi.fn(() =>
+      ytClient.client.playlists.list = vi.fn(() =>
         Promise.resolve({
           data: {
             items: [
@@ -521,9 +504,7 @@ describe('Spotify Playlists', () => {
       ]);
 
       // Mock YouTube API to fail with 403 quota exceeded
-      const googleapis = await import('googleapis');
-      const mockYoutubeApi = googleapis.google.youtube({} as any);
-      mockYoutubeApi.playlists.list = vi.fn(() =>
+      ytClient.client.playlists.list = vi.fn(() =>
         Promise.reject({
           code: 403,
           message: 'The request cannot be completed because you have exceeded your quota.',
@@ -559,9 +540,7 @@ describe('Spotify Playlists', () => {
       ]);
 
       // Mock YouTube API to fail with 403
-      const googleapis = await import('googleapis');
-      const mockYoutubeApi = googleapis.google.youtube({} as any);
-      mockYoutubeApi.playlists.list = vi.fn(() =>
+      ytClient.client.playlists.list = vi.fn(() =>
         Promise.reject({
           code: 403,
           message: 'Quota exceeded'

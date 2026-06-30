@@ -1,4 +1,4 @@
-import { youtube_v3 } from 'googleapis';
+import { YoutubeClient } from './youtubeClient';
 import { Logger } from './logger';
 import { youtubeWrite } from './youtubeWrites';
 
@@ -151,7 +151,7 @@ export function assertReconcileSafe(
  * circuit breaker stops the run early if the quota is exhausted.
  */
 export async function reconcilePlaylist(
-  youtube: youtube_v3.Youtube,
+  youtube: YoutubeClient,
   youtubePlaylistId: string,
   desiredVideoIds: string[],
   current: CurrentPlaylistItem[],
