@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { google } from 'googleapis';
+import { createYoutubeClient, refreshYoutubeAccessToken } from './youtubeClient';
 import { Logger } from './logger';
 import { SpotifyTokens, YouTubeTokens } from '../types/oauth';
 import { youtubeCircuitBreaker, spotifyCircuitBreaker } from './circuitBreaker';
@@ -140,14 +140,7 @@ export async function validateYouTubeConnection(
   }
 
   try {
-    const oauth2Client = new google.auth.OAuth2(
-      process.env.YOUTUBE_CLIENT_ID,
-      process.env.YOUTUBE_CLIENT_SECRET,
-      process.env.YOUTUBE_REDIRECT_URI
-    );
-
-    oauth2Client.setCredentials(youtubeTokens);
-    const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
+    const youtube = createYoutubeClient(youtubeTokens.access_token);
 
     // Test with a lightweight API call
     await youtube.channels.list({ part: ['id'], mine: true, maxResults: 1 });
@@ -176,17 +169,10 @@ export async function validateYouTubeConnection(
     // Try to refresh the token on 401
     if (errorCode === 401 && youtubeTokens.refresh_token) {
       try {
-        const oauth2Client = new google.auth.OAuth2(
-          process.env.YOUTUBE_CLIENT_ID,
-          process.env.YOUTUBE_CLIENT_SECRET,
-          process.env.YOUTUBE_REDIRECT_URI
-        );
-
-        oauth2Client.setCredentials(youtubeTokens);
-        const { credentials } = await oauth2Client.refreshAccessToken();
+        const refreshed = await refreshYoutubeAccessToken(youtubeTokens.refresh_token);
 
         // Update cookie with new tokens
-        const updatedTokens = { ...youtubeTokens, ...credentials };
+        const updatedTokens = { ...youtubeTokens, ...refreshed };
         res.cookie('youtube_tokens', JSON.stringify(updatedTokens), getSecureCookieOptions());
 
         Logger.auth('YouTube', 'token refreshed successfully');

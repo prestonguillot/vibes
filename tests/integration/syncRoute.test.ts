@@ -29,14 +29,20 @@ vi.mock('@/utils/spotifyClient', () => ({ getPlaylist: h.getPlaylist }));
 vi.mock('@/utils/spotifyPlaylistItems', () => ({ fetchAllPlaylistItems: h.fetchAllPlaylistItems }));
 vi.mock('@/utils/youtubeScraper', () => ({ searchMusicVideo: h.searchMusicVideo }));
 
-vi.mock('googleapis', () => {
-  const playlists = { list: h.playlistsList, insert: h.playlistsInsert };
-  const playlistItems = { list: h.playlistItemsList, insert: vi.fn(), update: vi.fn(), delete: vi.fn() };
-  const channels = { list: vi.fn(() => Promise.resolve({ data: { items: [{ id: 'chan' }] } })) };
-  const youtube = vi.fn(() => ({ playlists, playlistItems, channels }));
-  const OAuth2 = vi.fn(() => ({ setCredentials: vi.fn(), refreshAccessToken: vi.fn() }));
-  return { google: { youtube, auth: { OAuth2 } }, youtube_v3: {} };
-});
+// The sync route resolves a YouTube client via ensureValidYouTubeToken; return a
+// fake client wired to the hoisted playlist/playlistItems mocks (writes go through
+// the mocked reconcilePlaylist, so insert/update/delete are unused here).
+vi.mock('@/utils/youtubeAuth', () => ({
+  ensureValidYouTubeToken: vi.fn(async () => ({
+    client: {
+      playlists: { list: h.playlistsList, insert: h.playlistsInsert },
+      playlistItems: { list: h.playlistItemsList, insert: vi.fn(), update: vi.fn(), delete: vi.fn() },
+      channels: { list: vi.fn(() => Promise.resolve({ data: { items: [{ id: 'chan' }] } })) }
+    },
+    accessToken: 'yt-access-token',
+    quotaUsed: 1
+  }))
+}));
 
 vi.mock('@/utils/playlistReconcile', async (importActual) => {
   const actual = await importActual<typeof import('@/utils/playlistReconcile')>();

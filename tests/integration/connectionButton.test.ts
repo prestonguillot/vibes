@@ -6,21 +6,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import { createApp } from '@/app';
 
-// Mock googleapis
-vi.mock('googleapis', () => ({
-  google: {
-    auth: {
-      OAuth2: vi.fn().mockImplementation(() => ({
-        setCredentials: vi.fn(),
-      })),
-    },
-    youtube: vi.fn().mockReturnValue({
-      channels: {
-        list: vi.fn().mockResolvedValue({ data: { items: [{ id: 'test' }] } }),
-      },
-    }),
-  },
-}));
 
 // Mock connection validation so these tests are deterministic and offline - the
 // real validators hit the live Spotify/YouTube APIs (the source of CI flakiness).

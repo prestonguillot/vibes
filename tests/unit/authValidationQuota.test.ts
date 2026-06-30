@@ -3,21 +3,17 @@ import { validateYouTubeConnection } from '../../src/utils/authValidation';
 import { youtubeCircuitBreaker } from '../../src/utils/circuitBreaker';
 import { YouTubeTokens } from '../../src/types/oauth';
 
-// Mock the google API
-vi.mock('googleapis', () => ({
-  google: {
-    auth: {
-      OAuth2: vi.fn().mockImplementation(() => ({
-        setCredentials: vi.fn(),
-      })),
-    },
-    youtube: vi.fn().mockReturnValue({
-      channels: {
-        list: vi.fn(),
-      },
-    }),
-  },
-}));
+// Mock the hand-written YouTube client. createYoutubeClient returns a shared
+// client whose channels.list can be overridden per test; refresh is stubbed.
+const yt = vi.hoisted(() => ({ channelsList: vi.fn(), refresh: vi.fn() }));
+vi.mock('../../src/utils/youtubeClient', async (importActual) => {
+  const actual = await importActual<typeof import('../../src/utils/youtubeClient')>();
+  return {
+    ...actual,
+    createYoutubeClient: vi.fn(() => ({ channels: { list: yt.channelsList } })),
+    refreshYoutubeAccessToken: yt.refresh,
+  };
+});
 
 describe('YouTube Auth Validation - Quota Handling', () => {
   let mockResponse: any;
@@ -78,10 +74,7 @@ describe('YouTube Auth Validation - Quota Handling', () => {
   describe('Quota Error Detection', () => {
     it('should clear tokens on 403 quota error', async () => {
       // Mock YouTube API to throw 403 error
-      const { google } = await import('googleapis');
-      const mockYoutube = google.youtube({} as any);
-
-      vi.mocked(mockYoutube.channels.list).mockRejectedValue({
+      yt.channelsList.mockRejectedValue({
         code: 403,
         message: 'Quota exceeded',
       });
@@ -163,10 +156,7 @@ describe('YouTube Auth Validation - Quota Handling', () => {
     });
 
     it('should return quota exceeded error message on 403 response', async () => {
-      const { google } = await import('googleapis');
-      const mockYoutube = google.youtube({} as any);
-
-      vi.mocked(mockYoutube.channels.list).mockRejectedValueOnce({
+      yt.channelsList.mockRejectedValueOnce({
         code: 403,
         message: 'Quota exceeded',
       });
@@ -179,10 +169,7 @@ describe('YouTube Auth Validation - Quota Handling', () => {
     });
 
     it('should return generic error message for non-quota errors', async () => {
-      const { google } = await import('googleapis');
-      const mockYoutube = google.youtube({} as any);
-
-      vi.mocked(mockYoutube.channels.list).mockRejectedValueOnce({
+      yt.channelsList.mockRejectedValueOnce({
         code: 500,
         message: 'Internal server error',
       });
