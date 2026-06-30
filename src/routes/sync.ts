@@ -46,13 +46,15 @@ interface SyncDeps {
   initialQuotaUsed: number;
   emit: (html: string) => void;
   emitProgress: (update: ProgressUpdate) => Promise<void>;
+  /** Aborted when the client disconnects mid-sync. */
+  signal?: AbortSignal;
 }
 
 // Runs the whole sync, streaming progress + the final result via the provided
 // callbacks. Throws on real failures (the caller renders the error frame); the
 // "nothing to sync" cases emit an error partial and return.
 async function runSync(deps: SyncDeps): Promise<void> {
-  const { playlistId, batchSizeRaw, spotifyAccessToken, youtube, initialQuotaUsed, emit, emitProgress } = deps;
+  const { playlistId, batchSizeRaw, spotifyAccessToken, youtube, initialQuotaUsed, emit, emitProgress, signal } = deps;
   const startTime = Date.now();
 
   let apiCallCount = 0;
@@ -192,8 +194,13 @@ async function runSync(deps: SyncDeps): Promise<void> {
     existingVideoCount: existingVideoIds.size,
     totalTrackCount: tracks.length,
     searchPhaseWeight: SEARCH_PHASE_WEIGHT,
-    emitProgress: (payload) => emitProgress(payload)
+    emitProgress: (payload) => emitProgress(payload),
+    signal
   });
+
+  // If the client disconnected during the search, stop before any YouTube write -
+  // never modify the user's playlist for a sync they've navigated away from.
+  if (signal?.aborted) return;
 
   await emitProgress({
     type: 'progress',
@@ -469,11 +476,12 @@ router.get('/playlist/:playlistId/stream',
       }));
     };
 
+    const abortController = new AbortController();
     let clientClosed = false;
-    req.on('close', () => { clientClosed = true; });
+    req.on('close', () => { clientClosed = true; abortController.abort(); });
 
     try {
-      await runSync({ playlistId, batchSizeRaw: req.query.batchSize, spotifyAccessToken, youtube, initialQuotaUsed, emit, emitProgress });
+      await runSync({ playlistId, batchSizeRaw: req.query.batchSize, spotifyAccessToken, youtube, initialQuotaUsed, emit, emitProgress, signal: abortController.signal });
     } catch (error) {
       Logger.error('Error syncing playlist', {}, error);
       let html: string;

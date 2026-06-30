@@ -32,6 +32,8 @@ export interface SearchOptions {
   searchPhaseWeight: number;
   /** Emits a progress/error payload to the SSE channel. */
   emitProgress: (payload: ProgressUpdate) => void;
+  /** Aborted when the client disconnects; stops the search loop early. */
+  signal?: AbortSignal;
 }
 
 /**
@@ -51,6 +53,7 @@ export async function searchTracksForVideos(
   Logger.info(`Starting video search: ${searchMessage}`, { tracksToSearch: tracksToSearch.length });
 
   for (let i = 0; i < tracksToSearch.length; i++) {
+    if (opts.signal?.aborted) break; // client disconnected - stop searching
     const typedItem = tracksToSearch[i] as SearchTrackItem;
     if (!typedItem.track || typedItem.track.type !== 'track') continue;
 

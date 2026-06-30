@@ -103,10 +103,13 @@ export async function scrapeYouTubeSearch(query: string, maxResults: number = 3)
     
     Logger.debug(`📡 Fetching: ${url}`);
     
-    // Fetch the search results page. A timeout is essential: when YouTube throttles
-    // the scraper it can hold the connection open, which would otherwise hang the
-    // whole sync on one track. On timeout the abort surfaces as a caught error and
-    // the track is skipped (searchTracksForVideos), so the sync keeps going.
+    // Fetch the search results page.
+    // - The SOCS consent cookie stops YouTube from bouncing the request into its
+    //   cookie-consent redirect flow, which otherwise loops until fetch throws
+    //   "redirect count exceeded" (the real cause of search failures under load).
+    // - The timeout guards against YouTube holding a connection open, which would
+    //   hang the whole sync on one track. A timed-out/failed search is caught and
+    //   the track is skipped (searchTracksForVideos), so the sync keeps going.
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
     let response: Response;
@@ -120,6 +123,7 @@ export async function scrapeYouTubeSearch(query: string, maxResults: number = 3)
           'Accept-Encoding': 'gzip, deflate, br',
           'Connection': 'keep-alive',
           'Upgrade-Insecure-Requests': '1',
+          'Cookie': 'SOCS=CAISNQgDEitib3FfaWRlbnRpdHlmcm9udGVuZHVpc2VydmVyXzIwMjQwMTA5LjA1X3AwGgJlbiACGgYIgL3vrwY',
         }
       });
     } finally {
