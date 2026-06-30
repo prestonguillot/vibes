@@ -24,7 +24,7 @@ describe('Index Page', () => {
       const response = await request(app)
         .get('/');
 
-      expect(response.text).toContain('htmx.org');
+      expect(response.text).toContain('/vendor/htmx.min.js');
     });
   });
 
