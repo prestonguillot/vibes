@@ -1,76 +1,30 @@
 /**
- * Fuzzy search for playlists
- * Filters playlist items based on playlist name and track/video names
- * Lazy-loads Spotify track names on first search to enable track-based filtering
- * Uses debounce to avoid excessive filtering while user is typing
+ * Client-side search over the playlist list.
+ *
+ * Filters the already-rendered playlist rows by playlist name and by track/video
+ * names (Spotify track names are lazy-loaded on the first keystroke so you can also
+ * search by song). Debounced while typing.
+ *
+ * Matching is a deliberately simple, case-insensitive, word-by-word substring test.
+ * It used to do Levenshtein fuzzy scoring, which duplicated the server's track
+ * matching for no real benefit on a short, already-on-screen list.
  */
 
-// Global cache for Spotify tracks (lazy-loaded on first search)
+// Lazy-loaded map of playlistId -> [track names], populated on first search.
 let playlistSpotifyTracks = null;
 let spotifyTracksLoading = false;
 
-// Levenshtein distance algorithm for fuzzy matching
-function levenshteinDistance(str1, str2) {
-  const lower1 = str1.toLowerCase();
-  const lower2 = str2.toLowerCase();
-  const matrix = [];
-
-  for (let i = 0; i <= lower2.length; i++) {
-    matrix[i] = [i];
-  }
-  for (let j = 0; j <= lower1.length; j++) {
-    matrix[0][j] = j;
-  }
-
-  for (let i = 1; i <= lower2.length; i++) {
-    for (let j = 1; j <= lower1.length; j++) {
-      if (lower2.charAt(i - 1) === lower1.charAt(j - 1)) {
-        matrix[i][j] = matrix[i - 1][j - 1];
-      } else {
-        matrix[i][j] = Math.min(
-          matrix[i - 1][j - 1] + 1, // substitution
-          matrix[i][j - 1] + 1, // insertion
-          matrix[i - 1][j] + 1, // deletion
-        );
-      }
-    }
-  }
-
-  return matrix[lower2.length][lower1.length];
-}
-
-// Calculate similarity score (0-1, where 1 is exact match)
-function calculateSimilarity(str1, str2) {
-  if (str1 === str2) return 1;
-  if (!str1 || !str2) return 0;
-
-  const distance = levenshteinDistance(str1, str2);
-  const maxLength = Math.max(str1.length, str2.length);
-  return Math.max(0, 1 - distance / maxLength);
-}
-
-// Check if query matches text with fuzzy matching
-function fuzzyMatch(text, query) {
+// Matches when every whitespace-separated query word appears as a substring of the
+// text. Order-independent and case-insensitive (e.g. "weeknd blinding" matches
+// "Blinding Lights - The Weeknd").
+function matchesQuery(text, query) {
   if (!query) return true;
-
-  const lowerText = text.toLowerCase();
-  const lowerQuery = query.toLowerCase();
-
-  // Exact substring match (highest priority)
-  if (lowerText.includes(lowerQuery)) return true;
-
-  // Word-based matching (allow missing common words like "of")
-  const textWords = lowerText.split(/\s+/);
-  const queryWords = lowerQuery.split(/\s+/);
-
-  // Check if all query words are present as substrings in the text
-  return queryWords.every((qWord) =>
-    textWords.some((tWord) => {
-      const similarity = calculateSimilarity(tWord, qWord);
-      // Allow matches with >70% similarity for typo tolerance
-      return similarity > 0.7 || tWord.includes(qWord);
-    }),
-  );
+  const haystack = text.toLowerCase();
+  return query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .every((word) => haystack.includes(word));
 }
 
 // Get all searchable text from a playlist item
@@ -185,7 +139,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     playlistItems.forEach((item) => {
       const searchText = getPlaylistSearchText(item);
-      const matches = fuzzyMatch(searchText, query);
+      const matches = matchesQuery(searchText, query);
 
       if (matches) {
         item.classList.remove('search-hidden');
