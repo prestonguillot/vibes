@@ -7,7 +7,7 @@ export default defineConfig({
     environment: 'node',
     // tests/live hits the real Spotify API; it is opt-in via `npm run test:spotify:live`
     // (vitest.live.config.ts) and must never run on the normal cycle.
-    exclude: [...configDefaults.exclude, 'tests/live/**'],
+    exclude: [...configDefaults.exclude, 'tests/live/**', 'tests/visual/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

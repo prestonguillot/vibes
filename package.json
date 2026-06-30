@@ -12,7 +12,9 @@
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "test:spotify:live": "vitest run --config vitest.live.config.ts"
+    "test:spotify:live": "vitest run --config vitest.live.config.ts",
+    "test:visual": "playwright test",
+    "test:visual:update": "playwright test --update-snapshots"
   },
   "keywords": [
     "spotify",
@@ -33,6 +35,7 @@
     "zod": "^4.1.12"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@types/cookie-parser": "^1.4.9",
     "@types/ejs": "^3.1.5",
     "@types/express": "^4.17.17",
