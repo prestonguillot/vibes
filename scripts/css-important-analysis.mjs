@@ -223,11 +223,56 @@ const loadBearing = all.filter((x) => x.changed);
 const unmatched = all.filter((x) => x.matched === 0 && !x.changed);
 const mediaKept = all.filter((x) => x.inMedia && !x.changed && x.matched > 0);
 
+// Render-analysis only proves "not rendered in THESE states", not "renders nowhere". To tell
+// genuinely-dead CSS from state-gated rules (:hover/:disabled/error views the fixtures don't
+// trigger), cross-reference every never-rendered selector against the codebase: a class/id
+// token referenced NOWHERE in templates/JS/TS can never match, so its whole rule is dead.
+const readAll = (dir, exts, acc = []) => {
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    const p = `${dir}/${e.name}`;
+    if (e.isDirectory()) {
+      if (e.name !== 'node_modules' && e.name !== 'dist') readAll(p, exts, acc);
+    } else if (exts.some((x) => e.name.endsWith(x))) {
+      acc.push(fs.readFileSync(p, 'utf8'));
+    }
+  }
+  return acc;
+};
+const haystack = [
+  ...readAll('views', ['.ejs', '.html']),
+  ...readAll('public', ['.js', '.html']), // .js/.html only - never style.css itself
+  ...readAll('src', ['.ts']),
+].join('\n');
+const esc = (t) => t.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+const referenced = (token) => new RegExp(`\\b${esc(token)}\\b`).test(haystack);
+// .class / #id tokens only; element names, pseudos, attrs and combinators are state, not identity.
+const identTokens = (sel) => (sel.match(/[.#][A-Za-z0-9_-]+/g) || []).map((t) => t.slice(1));
+const deadSelector = (sel) => {
+  const toks = identTokens(sel);
+  return toks.length > 0 && toks.some((t) => !referenced(t));
+};
+const unmatchedSelectors = [...new Set(unmatched.map((x) => x.selector))];
+const dead = unmatchedSelectors.filter(deadSelector);
+const stateGated = unmatchedSelectors.filter((s) => !deadSelector(s));
+
 console.log('distinct (selector,property) !important entries:', all.length);
 console.log('  LOAD-BEARING (keep):', loadBearing.length);
 console.log('  REDUNDANT on rendered components (removable):', removable.length);
-console.log('  UNMATCHED / never rendered (keep, conservative):', unmatched.length);
+console.log(
+  '  UNMATCHED / never rendered:',
+  unmatched.length,
+  `(${unmatchedSelectors.length} selectors)`,
+);
+console.log('    └ DEAD (class/id referenced nowhere - whole rule removable):', dead.length);
+console.log(
+  '    └ state-gated (class exists, needs :hover/:disabled/unrendered view):',
+  stateGated.length,
+);
 console.log('  @media-nested unchanged (keep, conservative):', mediaKept.length);
+console.log('\n--- NEVER-RENDERED selectors classified as DEAD (mystery CSS) ---');
+dead.forEach((s) => console.log(`  ${s}`));
+console.log('\n--- NEVER-RENDERED selectors that are state-gated (kept) ---');
+stateGated.forEach((s) => console.log(`  ${s}`));
 console.log('\n--- REMOVABLE (selector | property) ---');
 removable.forEach((x) => console.log(`${x.selector}  |  ${x.prop}`));
 
