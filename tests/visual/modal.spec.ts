@@ -53,6 +53,15 @@ test('opens on afterSwap and closes on a close control', async ({ page }) => {
   expect(await isOpen(page)).toBe(false);
 });
 
+test('opens the instant the video-options request starts (beforeRequest)', async ({ page }) => {
+  await page.setContent(await modalPage());
+  expect(await isOpen(page)).toBe(false);
+  await page.evaluate(() => document.dispatchEvent(new CustomEvent('htmx:beforeRequest', {
+    detail: { target: document.getElementById('video-modal-content') }
+  })));
+  expect(await isOpen(page)).toBe(true);
+});
+
 test('Escape closes the dialog', async ({ page }) => {
   await page.setContent(await modalPage());
   await swapIn(page);
