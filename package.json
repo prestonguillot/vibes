@@ -31,7 +31,7 @@
     "dotenv": "^16.0.3",
     "ejs": "^3.1.10",
     "express": "^4.18.2",
-    "helmet": "^8.1.0",
+    "helmet": "^8.2.0",
     "zod": "^4.1.12"
   },
   "devDependencies": {
@@ -40,10 +40,10 @@
     "@types/ejs": "^3.1.5",
     "@types/express": "^4.17.17",
     "@types/node": "^20.5.0",
-    "@types/supertest": "^6.0.3",
+    "@types/supertest": "^7.2.0",
     "@vitest/coverage-v8": "^3.2.4",
     "happy-dom": "^20.10.6",
-    "supertest": "^7.1.4",
+    "supertest": "^7.2.2",
     "tsx": "^4.22.4",
     "typescript": "^5.1.6",
     "vitest": "^3.2.4"
