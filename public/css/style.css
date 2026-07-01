@@ -1,3 +1,18 @@
+/* ==========================================================================
+   Theme tokens. Light values below == the original literal colors, so this
+   refactor is visually identical; dark mode overrides these (see [data-theme]).
+   Only the theme-flipping neutrals are tokenised; neon accents + brand colours
+   stay literal because they are the same in both themes.
+   ========================================================================== */
+:root {
+  --surface: #fff; /* card / page surfaces */
+  --surface-alt: #f8f8f8; /* subtle raised/alt surfaces (consolidates near-white greys) */
+  --text: #000; /* body/heading text */
+  --text-muted: #6c757d; /* secondary text (consolidates #666/#6c757d/#495057) */
+  --border: #000; /* the heavy punk borders */
+  --border-subtle: #dee2e6; /* hairline borders */
+  --shadow-rgb: 0, 0, 0; /* offset drop-shadows, used as rgba(var(--shadow-rgb), a) */
+}
 /* 90s PUNK ZINE AESTHETIC - Spotify to YouTube Sync */
 /* Fonts are now preloaded in index.ejs with display=block to prevent FOUT */
 
@@ -9,7 +24,7 @@ html {
 
 /* === BASE STYLES === */
 body {
-  background: #f8f8f8;
+  background: var(--surface-alt);
   background-image:
     radial-gradient(circle at 20% 80%, rgba(0, 0, 0, 0.1) 1px, transparent 1px),
     radial-gradient(circle at 80% 20%, rgba(0, 0, 0, 0.1) 1px, transparent 1px),
@@ -37,13 +52,13 @@ body {
 
 /* === PUNK HEADER === */
 .punk-header {
-  background: #fff;
-  border: 4px solid #000;
+  background: var(--surface);
+  border: 4px solid var(--border);
   border-radius: 0;
   margin-bottom: 30px;
   padding: 20px;
   position: relative;
-  box-shadow: 8px 8px 0px rgba(0, 0, 0, 0.8);
+  box-shadow: 8px 8px 0px rgba(var(--shadow-rgb), 0.8);
   transform: rotate(-0.5deg);
   background-image:
     radial-gradient(circle at 10% 20%, rgba(0, 0, 0, 0.1) 1px, transparent 1px),
@@ -68,13 +83,13 @@ body {
 .punk-title {
   font-family: 'Bungee', cursive;
   font-size: 3.5rem;
-  color: #000;
+  color: var(--text);
   text-transform: uppercase;
   letter-spacing: -2px;
   margin: 0;
   text-shadow:
     3px 3px 0px #ff0040,
-    6px 6px 0px rgba(0, 0, 0, 0.3);
+    6px 6px 0px rgba(var(--shadow-rgb), 0.3);
   transform: rotate(0.8deg);
   line-height: 0.9;
 }
@@ -82,7 +97,7 @@ body {
 .punk-subtitle {
   font-family: 'Permanent Marker', cursive;
   font-size: 1.2rem;
-  color: #000;
+  color: var(--text);
   margin: 15px 0 0 0;
   transform: rotate(-0.3deg);
   text-decoration: underline;
@@ -94,7 +109,7 @@ body {
   font-family: 'Fredoka One', cursive;
   font-size: 2.5rem;
   color: #0066ff;
-  text-shadow: 2px 2px 0px #000;
+  text-shadow: 2px 2px 0px rgb(var(--shadow-rgb));
   display: inline-block;
   animation: punk-bounce 2s infinite;
 }
@@ -194,7 +209,7 @@ body {
 
 .expand-indicator {
   font-size: 16px;
-  color: #666;
+  color: var(--text-muted);
   font-weight: bold;
   transition:
     color 0.2s ease,
@@ -213,8 +228,8 @@ body {
 
 /* Hide details container by default */
 .playlist-details-container {
-  background: #f8f9fa;
-  border: 1px solid #dee2e6;
+  background: var(--surface-alt);
+  border: 1px solid var(--border-subtle);
   border-top: none;
   padding: 0;
   margin: 0;
@@ -232,7 +247,7 @@ body {
   margin: 0;
   padding: 24px 20px;
   text-align: center;
-  color: #000;
+  color: var(--text);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -286,7 +301,7 @@ body {
 
 .collapse-indicator {
   font-size: 16px;
-  color: #666;
+  color: var(--text-muted);
   font-weight: bold;
   transition:
     color 0.2s ease,
@@ -330,7 +345,7 @@ body {
 }
 
 .track-item--even {
-  background-color: #f0f0f0;
+  background-color: var(--surface-alt);
   background-image: repeating-linear-gradient(
     45deg,
     transparent,
@@ -342,7 +357,7 @@ body {
 
 .track-number {
   grid-column: 1;
-  color: #6c757d;
+  color: var(--text-muted);
   font-size: 0.875rem;
   text-align: center;
 }
@@ -378,7 +393,7 @@ body {
 }
 
 .track-artist {
-  color: #6c757d;
+  color: var(--text-muted);
   font-size: 0.875rem;
   line-height: 1.4;
   margin-bottom: 0;
@@ -411,8 +426,8 @@ body {
   height: 90px;
   object-fit: cover;
   border-radius: 4px;
-  border: 2px solid #000;
-  box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.3);
+  border: 2px solid var(--border);
+  box-shadow: 2px 2px 0px rgba(var(--shadow-rgb), 0.3);
   justify-self: center;
   align-self: center;
   transition:
@@ -439,10 +454,10 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #f5f5f5;
+  background-color: var(--surface-alt);
   border-radius: 4px;
-  border: 2px solid #000;
-  box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.3);
+  border: 2px solid var(--border);
+  box-shadow: 2px 2px 0px rgba(var(--shadow-rgb), 0.3);
   justify-self: center;
   align-self: center;
 }
@@ -481,10 +496,10 @@ body {
 
 /* Video Selection Modal Styles - PUNK ZINE AESTHETIC */
 .modal-content {
-  background: #fff;
-  border: 4px solid #000;
+  background: var(--surface);
+  border: 4px solid var(--border);
   border-radius: 0;
-  box-shadow: 8px 8px 0px rgba(0, 0, 0, 0.8);
+  box-shadow: 8px 8px 0px rgba(var(--shadow-rgb), 0.8);
   font-family: 'Courier Prime', monospace;
   background-image:
     radial-gradient(circle at 10% 20%, rgba(0, 0, 0, 0.05) 1px, transparent 1px),
@@ -521,7 +536,7 @@ body {
 
 .modal-body {
   padding: 20px !important;
-  background: #fff;
+  background: var(--surface);
 }
 
 .video-options {
@@ -538,20 +553,20 @@ body {
 .video-option {
   padding: 12px;
   padding-left: 16px;
-  border: 3px solid #000 !important;
+  border: 3px solid var(--border) !important;
   border-left: 6px solid #0066ff !important;
   border-radius: 0;
   margin-bottom: 12px;
   cursor: pointer;
   transition: all 0.2s;
-  background: #fff;
+  background: var(--surface);
   display: block;
-  box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.3);
+  box-shadow: 3px 3px 0px rgba(var(--shadow-rgb), 0.3);
   position: relative;
 }
 
 .video-option:nth-child(even) {
-  background-color: #f8f8f8;
+  background-color: var(--surface-alt);
   background-image: repeating-linear-gradient(
     45deg,
     transparent,
@@ -564,15 +579,15 @@ body {
 
 .video-option:hover {
   border-color: #0066ff;
-  background-color: #f0f0f0;
-  box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.5);
+  background-color: var(--surface-alt);
+  box-shadow: 4px 4px 0px rgba(var(--shadow-rgb), 0.5);
   transform: translateY(-1px);
 }
 
 .video-option-radio:checked + .video-option {
   border-color: #00ff00 !important;
   background-color: #e8ffe8;
-  box-shadow: 5px 5px 0px rgba(0, 0, 0, 0.6);
+  box-shadow: 5px 5px 0px rgba(var(--shadow-rgb), 0.6);
 }
 
 .video-option .selection-indicator {
@@ -588,14 +603,14 @@ body {
   height: 90px;
   object-fit: cover;
   border-radius: 0;
-  border: 2px solid #000;
-  box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.3);
+  border: 2px solid var(--border);
+  box-shadow: 2px 2px 0px rgba(var(--shadow-rgb), 0.3);
   flex-shrink: 0;
 }
 
 .video-option__description {
   font-size: 0.875rem;
-  color: #495057;
+  color: var(--text-muted);
   max-height: 60px;
   overflow: hidden;
   margin-bottom: 0;
@@ -611,8 +626,8 @@ body {
   justify-content: space-between;
   margin-top: 16px;
   padding: 16px 20px;
-  border-top: 3px solid #000;
-  background: #f8f8f8;
+  border-top: 3px solid var(--border);
+  background: var(--surface-alt);
   border-radius: 0;
   gap: 12px;
 }
@@ -625,9 +640,9 @@ body {
 }
 
 .card {
-  border: 3px solid #000;
-  background: #fff;
-  box-shadow: 5px 5px 0px rgba(0, 0, 0, 0.3);
+  border: 3px solid var(--border);
+  background: var(--surface);
+  box-shadow: 5px 5px 0px rgba(var(--shadow-rgb), 0.3);
   /* Reduced rotation to minimize text blurriness and layout shifts */
   transform: rotate(0.05deg);
 }
@@ -644,7 +659,7 @@ body {
 .card-title {
   font-family: 'Fredoka One', cursive;
   font-size: 1.5rem;
-  color: #000;
+  color: var(--text);
   text-transform: uppercase;
   letter-spacing: 1px;
 }
@@ -652,7 +667,7 @@ body {
 .card-header {
   background: #000;
   color: #fff;
-  border-bottom: 3px solid #000;
+  border-bottom: 3px solid var(--border);
   font-family: 'Fredoka One', cursive;
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -667,7 +682,7 @@ body {
 .badge {
   font-family: 'Courier Prime', monospace;
   font-weight: 700;
-  border: 2px solid #000;
+  border: 2px solid var(--border);
   border-radius: 0;
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -680,49 +695,49 @@ body {
 
 .badge.bg-success {
   background-color: #00ff00 !important;
-  color: #000;
+  color: var(--text);
 }
 
 /* === BUTTONS === */
 .connect-btn {
   font-family: 'Courier Prime', monospace;
   font-weight: 700;
-  border: 3px solid #000;
+  border: 3px solid var(--border);
   border-radius: 0;
   text-transform: uppercase;
   letter-spacing: 1px;
   padding: 10px 20px;
-  box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.5);
+  box-shadow: 3px 3px 0px rgba(var(--shadow-rgb), 0.5);
   transition: all 0.2s ease;
 }
 
 .connect-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 5px 5px 0px rgba(0, 0, 0, 0.7);
+  box-shadow: 5px 5px 0px rgba(var(--shadow-rgb), 0.7);
 }
 
 .btn-success.connect-btn {
   background-color: #00ff00;
-  border-color: #000;
-  color: #000;
+  border-color: var(--border);
+  color: var(--text);
 }
 
 .btn-success.connect-btn:disabled {
   background-color: #00ff00;
-  border-color: #000;
-  color: #000;
+  border-color: var(--border);
+  color: var(--text);
   opacity: 1;
 }
 
 .btn-danger.connect-btn {
   background-color: #ff0040;
-  border-color: #000;
+  border-color: var(--border);
   color: #fff;
 }
 
 .btn-danger.connect-btn:disabled {
   background-color: #ff0040;
-  border-color: #000;
+  border-color: var(--border);
   color: #fff;
   opacity: 1;
 }
@@ -732,14 +747,14 @@ body {
 .btn-youtube-reconnect {
   font-family: 'Courier Prime', monospace;
   font-weight: 700;
-  border: 2px solid #000;
+  border: 2px solid var(--border);
   border-radius: 0;
   text-transform: uppercase;
   letter-spacing: 1px;
   padding: 8px 16px;
   font-size: 16px;
   color: #fff;
-  box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.3);
+  box-shadow: 2px 2px 0px rgba(var(--shadow-rgb), 0.3);
   transition: all 0.2s ease;
 }
 
@@ -751,7 +766,7 @@ body {
   background-color: #1ed760;
   color: #fff;
   transform: translateY(-1px);
-  box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.5);
+  box-shadow: 3px 3px 0px rgba(var(--shadow-rgb), 0.5);
 }
 
 .btn-youtube-reconnect {
@@ -762,7 +777,7 @@ body {
   background-color: #cc0000;
   color: #fff;
   transform: translateY(-1px);
-  box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.5);
+  box-shadow: 3px 3px 0px rgba(var(--shadow-rgb), 0.5);
 }
 
 /* === CONNECTION BUTTON STATES === */
@@ -824,22 +839,22 @@ body {
   letter-spacing: 1px;
 
   /* Borders & Styling */
-  border: 2px solid #000;
+  border: 2px solid var(--border);
   border-radius: 0;
-  box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.3);
+  box-shadow: 3px 3px 0px rgba(var(--shadow-rgb), 0.3);
 }
 
 .punk-btn:hover,
 .sync-btn:hover {
   transform: translateY(-1px) !important;
-  box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.5);
+  box-shadow: 4px 4px 0px rgba(var(--shadow-rgb), 0.5);
 }
 
 .punk-btn:active,
 .punk-btn.active,
 .sync-btn:active,
 .sync-btn.active {
-  box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.3);
+  box-shadow: 3px 3px 0px rgba(var(--shadow-rgb), 0.3);
   transform: none !important;
 }
 
@@ -849,14 +864,14 @@ body {
 .sync-btn.disabled {
   opacity: 0.6;
   transform: none;
-  box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.3);
+  box-shadow: 3px 3px 0px rgba(var(--shadow-rgb), 0.3);
 }
 
 /* Color variants for punk button */
 .btn-primary.punk-btn,
 .btn-primary.sync-btn {
   background-color: #ff0040;
-  border-color: #000;
+  border-color: var(--border);
   color: #fff;
 }
 
@@ -864,7 +879,7 @@ body {
 .btn-primary.sync-btn:hover {
   background-color: #cc0033;
   color: #fff;
-  border-color: #000 !important;
+  border-color: var(--border) !important;
 }
 
 .btn-primary.punk-btn:active,
@@ -872,7 +887,7 @@ body {
 .btn-primary.sync-btn:active,
 .btn-primary.sync-btn.active {
   background-color: #ff0040;
-  border-color: #000;
+  border-color: var(--border);
   color: #fff;
 }
 
@@ -881,21 +896,21 @@ body {
 .btn-primary.sync-btn:disabled,
 .btn-primary.sync-btn.disabled {
   background-color: #ff0040;
-  border-color: #000;
+  border-color: var(--border);
   color: #fff;
 }
 
 .btn-secondary.punk-btn,
 .btn-secondary.sync-btn {
   background-color: #6c757d;
-  border-color: #000;
+  border-color: var(--border);
   color: #fff;
 }
 
 .btn-secondary.punk-btn:hover,
 .btn-secondary.sync-btn:hover {
   background-color: #5a6268;
-  border-color: #000 !important;
+  border-color: var(--border) !important;
   color: #fff !important;
 }
 
@@ -904,7 +919,7 @@ body {
 .btn-secondary.sync-btn:active,
 .btn-secondary.sync-btn.active {
   background-color: #6c757d;
-  border-color: #000;
+  border-color: var(--border);
   color: #fff;
 }
 
@@ -913,46 +928,46 @@ body {
 .btn-secondary.sync-btn:disabled,
 .btn-secondary.sync-btn.disabled {
   background-color: #6c757d;
-  border-color: #000;
+  border-color: var(--border);
   color: #fff;
 }
 
 /* Color variant for outline-success (green update buttons) */
 .btn-outline-success.sync-btn {
   background-color: #00ff00;
-  border-color: #000;
-  color: #000;
+  border-color: var(--border);
+  color: var(--text);
 }
 
 .btn-outline-success.sync-btn:hover {
   background-color: #00cc00;
-  color: #000 !important;
-  border-color: #000;
+  color: var(--text) !important;
+  border-color: var(--border);
 }
 
 .btn-outline-success.sync-btn:active,
 .btn-outline-success.sync-btn.active {
   background-color: #00ff00;
-  border-color: #000;
-  color: #000;
+  border-color: var(--border);
+  color: var(--text);
 }
 
 .btn-outline-success.sync-btn:disabled,
 .btn-outline-success.sync-btn.disabled {
   background-color: #00ff00 !important;
-  border-color: #000 !important;
-  color: #000;
+  border-color: var(--border) !important;
+  color: var(--text);
 }
 
 /* Standard Bootstrap secondary button styling */
 .btn-secondary {
   background-color: #6c757d;
-  border-color: #000;
+  border-color: var(--border);
   color: #fff;
-  box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.3);
+  box-shadow: 2px 2px 0px rgba(var(--shadow-rgb), 0.3);
   font-family: 'Courier Prime', monospace;
   font-weight: 700;
-  border: 2px solid #000;
+  border: 2px solid var(--border);
   border-radius: 0;
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -960,29 +975,29 @@ body {
 
 .btn-secondary:hover {
   background-color: #5a6268;
-  border-color: #000;
+  border-color: var(--border);
   color: #fff !important;
 }
 
 .btn-outline-secondary {
-  background-color: #fff;
-  border-color: #000;
-  color: #000;
-  box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.3);
+  background-color: var(--surface);
+  border-color: var(--border);
+  color: var(--text);
+  box-shadow: 2px 2px 0px rgba(var(--shadow-rgb), 0.3);
   font-family: 'Courier Prime', monospace;
   font-weight: 700;
-  border: 2px solid #000;
+  border: 2px solid var(--border);
   border-radius: 0;
   text-transform: uppercase;
   letter-spacing: 1px;
 }
 
 .btn-outline-secondary:hover {
-  background-color: #f0f0f0;
-  border-color: #000;
-  color: #000;
+  background-color: var(--surface-alt);
+  border-color: var(--border);
+  color: var(--text);
   transform: translateY(-1px);
-  box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.5);
+  box-shadow: 3px 3px 0px rgba(var(--shadow-rgb), 0.5);
 }
 
 .btn-outline-secondary.btn-sm {
@@ -996,9 +1011,9 @@ body {
 
 .btn-outline-primary {
   background-color: #0066ff;
-  border: 2px solid #000;
+  border: 2px solid var(--border);
   color: #fff;
-  box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.3);
+  box-shadow: 3px 3px 0px rgba(var(--shadow-rgb), 0.3);
   font-family: 'Courier Prime', monospace;
   font-weight: 700;
   border-radius: 0;
@@ -1008,18 +1023,18 @@ body {
 
 .btn-outline-primary:hover {
   background-color: #0052cc;
-  border: 2px solid #000;
+  border: 2px solid var(--border);
   color: #fff;
   transform: translateY(-1px);
-  box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.5);
+  box-shadow: 4px 4px 0px rgba(var(--shadow-rgb), 0.5);
 }
 
 .btn-outline-primary:active,
 .btn-outline-primary.active {
   background-color: #0066ff;
-  border: 2px solid #000;
+  border: 2px solid var(--border);
   color: #fff;
-  box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.3);
+  box-shadow: 3px 3px 0px rgba(var(--shadow-rgb), 0.3);
 }
 
 /* Small variant - ensure border visibility */
@@ -1052,24 +1067,24 @@ body {
   overflow: hidden;
   padding: 10px 20px 5px 20px;
   margin-bottom: 15px;
-  border-left: 2px solid #000;
-  border-right: 2px solid #000;
-  border-bottom: 2px solid #000;
+  border-left: 2px solid var(--border);
+  border-right: 2px solid var(--border);
+  border-bottom: 2px solid var(--border);
   border-top: none;
   border-radius: 0;
-  background-color: #fff;
+  background-color: var(--surface);
   position: relative;
 }
 
 .playlist-item:hover {
-  background-color: #f0f0f0;
+  background-color: var(--surface-alt);
   border-color: #ff0040;
 }
 
 .playlist-info h5 {
   margin-bottom: 8px;
   font-weight: 700;
-  color: #000;
+  color: var(--text);
   font-family: 'Courier Prime', monospace;
 }
 
@@ -1086,9 +1101,9 @@ body {
   max-width: 100%;
   box-sizing: border-box;
   overflow: hidden;
-  border: 2px solid #000;
+  border: 2px solid var(--border);
   border-radius: 0;
-  background: #f8f8f8;
+  background: var(--surface-alt);
   font-family: 'Courier Prime', monospace;
   margin-top: 15px;
   padding: 2rem;
@@ -1142,7 +1157,7 @@ body {
 /* Base spinner styles - Bootstrap override */
 .spinner-border,
 .spinner-border-sm {
-  border: 2px solid #000;
+  border: 2px solid var(--border);
   border-top-color: #0066ff;
   border-right-color: transparent;
   border-bottom-color: transparent;
@@ -1166,7 +1181,7 @@ body {
 
 /* htmx request indicator spinner. */
 .htmx-indicator {
-  border: 2px solid #000 !important;
+  border: 2px solid var(--border) !important;
   border-top: 2px solid #0066ff !important;
   border-right: 2px solid transparent !important;
   border-bottom: 2px solid transparent !important;
@@ -1264,7 +1279,7 @@ body {
   }
 
   .card {
-    box-shadow: 6px 6px 0px rgba(0, 0, 0, 0.3);
+    box-shadow: 6px 6px 0px rgba(var(--shadow-rgb), 0.3);
   }
 }
 
@@ -1288,14 +1303,14 @@ body {
 /* === FORM CONTROLS === */
 /* Checkboxes - Punk styling with square borders */
 .form-check-input {
-  border: 2px solid #000;
+  border: 2px solid var(--border);
   border-radius: 0;
   cursor: pointer;
 }
 
 .form-check-input:checked {
   background-color: #ff0040;
-  border-color: #000;
+  border-color: var(--border);
 }
 
 .form-check-label {
@@ -1311,10 +1326,10 @@ body {
 select {
   font-family: 'Courier Prime', monospace;
   font-weight: 700;
-  border: 2px solid #000;
+  border: 2px solid var(--border);
   border-radius: 0;
-  background-color: #fff;
-  color: #000;
+  background-color: var(--surface);
+  color: var(--text);
   text-transform: uppercase;
   letter-spacing: 1px;
   cursor: pointer;
@@ -1337,7 +1352,7 @@ select:focus {
 .custom-punk-spinner {
   width: 1.5rem;
   height: 1.5rem;
-  border: 2px solid #000;
+  border: 2px solid var(--border);
   border-top: 2px solid #0066ff;
   border-radius: 50%;
   display: inline-block;
@@ -1352,10 +1367,10 @@ select:focus {
 .btn-primary.punk-btn.processing-state,
 .btn-primary.sync-btn.processing-state {
   background-color: #ff0040 !important; /* Same red as normal, but dimmed */
-  border-color: #000;
+  border-color: var(--border);
   color: #fff !important;
   opacity: 0.6; /* Show it's disabled/processing */
-  box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.3); /* Keep punk shadow but no glow */
+  box-shadow: 3px 3px 0px rgba(var(--shadow-rgb), 0.3); /* Keep punk shadow but no glow */
   cursor: not-allowed;
 }
 
@@ -1384,13 +1399,13 @@ body.oauth-error-body {
 
 /* === PUNK-STYLED ALERTS === */
 .punk-alert {
-  border: 3px solid #000;
+  border: 3px solid var(--border);
   border-radius: 0;
   padding: 20px;
   margin-bottom: 20px;
   font-family: 'Courier Prime', monospace;
-  box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.3);
-  background: #fff;
+  box-shadow: 4px 4px 0px rgba(var(--shadow-rgb), 0.3);
+  background: var(--surface);
 }
 
 .punk-alert--warning {
@@ -1496,20 +1511,20 @@ body.oauth-error-body {
   text-transform: uppercase;
   letter-spacing: 1px;
   margin: 0;
-  color: #000;
+  color: var(--text);
 }
 
 .punk-alert__message {
   font-size: 1rem;
   font-weight: 600;
   margin: 0 0 8px 0;
-  color: #000;
+  color: var(--text);
 }
 
 .punk-alert__details {
   display: block;
   font-size: 0.9rem;
-  color: #666;
+  color: var(--text-muted);
   margin-top: 8px;
 }
 
@@ -1558,12 +1573,12 @@ body.oauth-error-body {
   left: 12px;
   font-size: 1.1rem;
   pointer-events: none;
-  color: #666;
+  color: var(--text-muted);
 }
 
 .search-input {
   padding-left: 40px;
-  border: 2px solid #000;
+  border: 2px solid var(--border);
   border-radius: 0;
   font-family: 'Courier Prime', monospace;
   font-size: 0.95rem;
@@ -1617,7 +1632,7 @@ body.oauth-error-body {
 .btn-error-modal {
   font-family: 'Courier Prime', monospace;
   font-weight: 700;
-  border: 2px solid #000;
+  border: 2px solid var(--border);
   border-radius: 0;
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -1625,29 +1640,29 @@ body.oauth-error-body {
   font-size: 14px;
   background-color: #007bff;
   color: #fff;
-  box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.3);
+  box-shadow: 2px 2px 0px rgba(var(--shadow-rgb), 0.3);
   transition: all 0.2s ease;
 }
 
 .btn-error-modal:hover {
   background-color: #0056b3;
   color: #fff;
-  border: 2px solid #000;
+  border: 2px solid var(--border);
   transform: translateY(-1px);
-  box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.5);
+  box-shadow: 3px 3px 0px rgba(var(--shadow-rgb), 0.5);
 }
 
 .btn-error-modal:focus {
   outline: none;
   background-color: #0056b3;
-  border: 2px solid #000;
-  box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.5);
+  border: 2px solid var(--border);
+  box-shadow: 3px 3px 0px rgba(var(--shadow-rgb), 0.5);
 }
 
 .btn-error-modal:active {
-  border: 2px solid #000;
+  border: 2px solid var(--border);
   transform: translateY(1px);
-  box-shadow: 1px 1px 0px rgba(0, 0, 0, 0.3);
+  box-shadow: 1px 1px 0px rgba(var(--shadow-rgb), 0.3);
 }
 
 /* === MATCH SCORE BADGE STYLES === */
@@ -1708,7 +1723,7 @@ body.oauth-error-body {
     opacity 0.2s ease,
     visibility 0.2s ease;
   border: 1px solid #444;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 12px rgba(var(--shadow-rgb), 0.3);
   font-family: 'Courier Prime', monospace;
   pointer-events: none;
   max-width: 90vw;
@@ -1770,7 +1785,7 @@ body.oauth-error-body {
 
 .match-score-badge--modal .tooltip-components div {
   font-size: 0.72rem;
-  color: #666;
+  color: var(--text-muted);
   line-height: 1.3;
 }
 
