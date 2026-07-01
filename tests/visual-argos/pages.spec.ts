@@ -20,7 +20,7 @@ import { CSS, ROOT, renderString, playlistItem, setTheme, currentTheme } from '.
 test.beforeEach(({}, testInfo) => setTheme((testInfo.project.metadata.theme as string) ?? 'light'));
 
 const fullDoc = (body: string) =>
-  `<!doctype html><html data-theme="${currentTheme()}"><head><meta charset="utf-8"><style>${CSS}
+  `<!doctype html><html data-theme="${currentTheme()}" data-bs-theme="${currentTheme()}"><head><meta charset="utf-8"><style>${CSS}
    body{margin:0}</style></head><body>${body}</body></html>`;
 
 async function indexBody(): Promise<string> {

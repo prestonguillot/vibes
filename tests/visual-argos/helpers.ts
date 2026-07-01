@@ -42,7 +42,7 @@ export const setTheme = (t: string) => {
 export const currentTheme = () => THEME;
 
 const doc = (body: string, harnessCss = '.harness{max-width:900px}') =>
-  `<!doctype html><html data-theme="${THEME}"><head><meta charset="utf-8"><style>${CSS}
+  `<!doctype html><html data-theme="${THEME}" data-bs-theme="${THEME}"><head><meta charset="utf-8"><style>${CSS}
    body{margin:0;padding:16px}${harnessCss}</style></head>
    <body><div class="harness">${body}</div></body></html>`;
 

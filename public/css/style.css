@@ -1953,3 +1953,22 @@ body.oauth-error-body {
   transform: translate(1px, 1px);
   box-shadow: 1px 1px 0 rgba(var(--shadow-rgb), 0.4);
 }
+
+/* === DARK THEME: status surfaces the neutral tokens don't cover ===
+   Success/error/selected backgrounds are literal light colours (kept literal because they are
+   status semantics, not neutral surfaces). In dark mode they'd be bright boxes, so re-theme
+   them to dark-tinted equivalents that keep the same semantic hue. */
+[data-theme='dark'] .sync-feedback,
+[data-theme='dark'] .sync-status-success {
+  background-color: #10301f;
+  border-color: #1db954;
+  color: #7ee2a0;
+}
+[data-theme='dark'] .sync-status-error {
+  background-color: #3a1418;
+  border-color: #ff4d5e;
+  color: #ff9aa6;
+}
+[data-theme='dark'] .video-option-radio:checked + .video-option {
+  background-color: #10301f;
+}
