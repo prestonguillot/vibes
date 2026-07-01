@@ -10,6 +10,7 @@ import fs from 'fs';
 import path from 'path';
 import ejs from 'ejs';
 import {
+  setTheme,
   renderPartial,
   renderHtml,
   renderString,
@@ -17,6 +18,8 @@ import {
   playlistItem,
   ROOT,
 } from './helpers';
+
+test.beforeEach(({}, testInfo) => setTheme((testInfo.project.metadata.theme as string) ?? 'light'));
 
 test('video option hovered', async ({ page }) => {
   const body = await renderString('video-selection-modal.ejs', videoModalFixture);

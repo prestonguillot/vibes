@@ -15,11 +15,13 @@ import { argosScreenshot } from '@argos-ci/playwright';
 import fs from 'fs';
 import path from 'path';
 import ejs from 'ejs';
-import { CSS, ROOT, renderString, playlistItem } from './helpers';
+import { CSS, ROOT, renderString, playlistItem, setTheme, currentTheme } from './helpers';
+
+test.beforeEach(({}, testInfo) => setTheme((testInfo.project.metadata.theme as string) ?? 'light'));
 
 const fullDoc = (body: string) =>
-  `<!doctype html><html><head><meta charset="utf-8"><style>${CSS}
-   body{margin:0;background:#fff}</style></head><body>${body}</body></html>`;
+  `<!doctype html><html data-theme="${currentTheme()}"><head><meta charset="utf-8"><style>${CSS}
+   body{margin:0}</style></head><body>${body}</body></html>`;
 
 async function indexBody(): Promise<string> {
   const html = await ejs.renderFile(path.join(ROOT, 'views/index.ejs'), { csrfToken: 'test' });

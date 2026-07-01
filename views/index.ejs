@@ -11,10 +11,15 @@
     <link rel="stylesheet" href="/css/fonts.css">
     <link href="/vendor/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/css/style.css">
+    <!-- Set the theme before first paint (avoids a flash); defaults to the OS setting -->
+    <script src="/js/theme.js"></script>
     <script src="/vendor/htmx.min.js"></script>
     <script src="/vendor/sse.min.js"></script>
 </head>
 <body<% if (csrfToken) { %> hx-headers='{"X-CSRF-Token": "<%= csrfToken %>"}'<% } %>>
+    <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Switch to dark theme" aria-pressed="false">
+        <span class="theme-toggle__icon" aria-hidden="true">☾</span>
+    </button>
     <div class="container mt-5">
         <div class="row justify-content-center">
             <div class="col-lg-8">
@@ -189,6 +194,7 @@
 
     <!-- External JavaScript Modules -->
     <script src="/js/logger.js"></script>
+    <script src="/js/themeToggle.js"></script>
     <script src="/js/eventLogging.js"></script>
     <script src="/js/videoModal.js"></script>
     <script src="/js/sync.js"></script>
