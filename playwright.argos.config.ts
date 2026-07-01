@@ -17,9 +17,29 @@ import { defineConfig } from '@playwright/test';
 export default defineConfig({
   testDir: './tests/visual-argos',
   fullyParallel: true,
+  // Every spec runs under each project, so each view is baselined per viewport AND per theme.
+  // The theme is applied via metadata.theme (specs set [data-theme] from it in beforeEach).
   projects: [
-    { name: 'desktop', use: { viewport: { width: 1000, height: 900 } } },
-    { name: 'mobile', use: { viewport: { width: 390, height: 844 } } },
+    {
+      name: 'desktop',
+      metadata: { theme: 'light' },
+      use: { viewport: { width: 1000, height: 900 } },
+    },
+    {
+      name: 'desktop-dark',
+      metadata: { theme: 'dark' },
+      use: { viewport: { width: 1000, height: 900 } },
+    },
+    {
+      name: 'mobile',
+      metadata: { theme: 'light' },
+      use: { viewport: { width: 390, height: 844 } },
+    },
+    {
+      name: 'mobile-dark',
+      metadata: { theme: 'dark' },
+      use: { viewport: { width: 390, height: 844 } },
+    },
   ],
   reporter: [
     ['list'],

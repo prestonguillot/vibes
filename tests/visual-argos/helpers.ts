@@ -33,9 +33,17 @@ export const CSS = [
 export const img = (color: string) =>
   `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'%3E%3Crect width='1' height='1' fill='%23${color}'/%3E%3C/svg%3E`;
 
+// Current theme for captures - set per Playwright project via setTheme() in each spec's
+// beforeEach, so every view is baselined in both light and dark.
+let THEME = 'light';
+export const setTheme = (t: string) => {
+  THEME = t;
+};
+export const currentTheme = () => THEME;
+
 const doc = (body: string, harnessCss = '.harness{max-width:900px}') =>
-  `<!doctype html><html><head><meta charset="utf-8"><style>${CSS}
-   body{margin:0;padding:16px;background:#fff}${harnessCss}</style></head>
+  `<!doctype html><html data-theme="${THEME}"><head><meta charset="utf-8"><style>${CSS}
+   body{margin:0;padding:16px}${harnessCss}</style></head>
    <body><div class="harness">${body}</div></body></html>`;
 
 /** Render a partial into an isolated page and load it. */

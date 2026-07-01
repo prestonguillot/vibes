@@ -12,76 +12,78 @@ describe('Button Styling Consistency', () => {
   const cssContent = fs.readFileSync(cssPath, 'utf-8');
 
   describe('Sync button styling', () => {
-    it('should have black borders for red sync buttons (btn-primary.sync-btn)', () => {
+    it('should have contrasting borders for red sync buttons (btn-primary.sync-btn)', () => {
       // Check for the btn-primary.sync-btn rule
       const btnPrimaryMatch = cssContent.match(/\.btn-primary\.sync-btn\s*{[^}]*}/);
       expect(btnPrimaryMatch).toBeTruthy();
 
       const btnPrimaryStyles = btnPrimaryMatch?.[0] || '';
-      expect(btnPrimaryStyles).toContain('border-color: #000');
+      expect(btnPrimaryStyles).toContain('border-color: var(--border)');
       expect(btnPrimaryStyles).not.toContain('border-color: #ff0040');
     });
 
-    it('should have black borders for green update buttons (btn-outline-success.sync-btn)', () => {
+    it('should have contrasting borders for green update buttons (btn-outline-success.sync-btn)', () => {
       // Check for the btn-outline-success.sync-btn rule
       const btnSuccessMatch = cssContent.match(/\.btn-outline-success\.sync-btn\s*{[^}]*}/);
       expect(btnSuccessMatch).toBeTruthy();
 
       const btnSuccessStyles = btnSuccessMatch?.[0] || '';
-      expect(btnSuccessStyles).toContain('border-color: #000');
+      expect(btnSuccessStyles).toContain('border-color: var(--border)');
       expect(btnSuccessStyles).not.toContain('border-color: #00ff00');
     });
 
-    it('should have black borders for disabled gray buttons (btn-secondary)', () => {
+    it('should have contrasting borders for disabled gray buttons (btn-secondary)', () => {
       // Check for the punk-btn rule (generic button styling) - it may have combined selectors
       expect(cssContent).toContain('.punk-btn');
-      expect(cssContent).toMatch(/\.punk-btn[\s\S]*?border:\s*2px solid #000/);
+      expect(cssContent).toMatch(/\.punk-btn[\s\S]*?border:\s*2px solid var\(--border\)/);
 
       // Check for the btn-secondary.punk-btn rule (color variant)
-      expect(cssContent).toMatch(/\.btn-secondary\.punk-btn[\s\S]*?border-color:\s*#000/);
+      expect(cssContent).toMatch(
+        /\.btn-secondary\.punk-btn[\s\S]*?border-color:\s*var\(--border\)/,
+      );
     });
   });
 
   describe('Primary button styling', () => {
-    it('should have black borders for blue buttons (btn-outline-primary)', () => {
+    it('should have contrasting borders for blue buttons (btn-outline-primary)', () => {
       // Check for the btn-outline-primary rule
       const btnOutlinePrimaryMatch = cssContent.match(/\.btn-outline-primary\s*{[^}]*}/);
       expect(btnOutlinePrimaryMatch).toBeTruthy();
 
       const btnOutlinePrimaryStyles = btnOutlinePrimaryMatch?.[0] || '';
-      expect(btnOutlinePrimaryStyles).toContain('border: 2px solid #000');
+      expect(btnOutlinePrimaryStyles).toContain('border: 2px solid var(--border)');
       expect(btnOutlinePrimaryStyles).not.toContain('border: 2px solid #0066ff');
     });
   });
 
   describe('Connection button styling', () => {
-    it('should have black borders for connection buttons (connect-btn)', () => {
+    it('should have contrasting borders for connection buttons (connect-btn)', () => {
       // Check for the connect-btn rule
       const connectBtnMatch = cssContent.match(/\.connect-btn\s*{[^}]*}/);
       expect(connectBtnMatch).toBeTruthy();
 
       const connectBtnStyles = connectBtnMatch?.[0] || '';
-      expect(connectBtnStyles).toContain('border: 3px solid #000');
+      expect(connectBtnStyles).toContain('border: 3px solid var(--border)');
     });
   });
 
   describe('Auth expired button styling', () => {
-    it('should have black borders for Spotify reconnect buttons', () => {
+    it('should have contrasting borders for Spotify reconnect buttons', () => {
       // Check for btn-spotify-reconnect rule
       const spotifyReconnectMatch = cssContent.match(/\.btn-spotify-reconnect[^{]*{[^}]*}/);
       expect(spotifyReconnectMatch).toBeTruthy();
 
       const spotifyReconnectStyles = spotifyReconnectMatch?.[0] || '';
-      expect(spotifyReconnectStyles).toContain('border: 2px solid #000');
+      expect(spotifyReconnectStyles).toContain('border: 2px solid var(--border)');
     });
 
-    it('should have black borders for YouTube reconnect buttons', () => {
+    it('should have contrasting borders for YouTube reconnect buttons', () => {
       // Check for btn-youtube-reconnect rule
       const youtubeReconnectMatch = cssContent.match(/\.btn-youtube-reconnect[^{]*{[^}]*}/);
       expect(youtubeReconnectMatch).toBeTruthy();
 
       const youtubeReconnectStyles = youtubeReconnectMatch?.[0] || '';
-      expect(youtubeReconnectStyles).toContain('border: 2px solid #000');
+      expect(youtubeReconnectStyles).toContain('border: 2px solid var(--border)');
     });
   });
 
@@ -102,12 +104,12 @@ describe('Button Styling Consistency', () => {
 
   describe('Border contrast verification', () => {
     it('should have contrasting borders on all button hover states', () => {
-      // Check that hover states maintain black borders
+      // Check that hover states maintain contrasting borders
       const hoverPatterns = [
-        /\.btn-primary\.sync-btn:hover\s*{[^}]*border-color:\s*#000/,
-        /\.btn-outline-success\.sync-btn:hover\s*{[^}]*border-color:\s*#000/,
-        /\.btn-outline-primary:hover\s*{[^}]*border:\s*2px solid #000/,
-        /\.btn-secondary:hover\s*{[^}]*border-color:\s*#000/,
+        /\.btn-primary\.sync-btn:hover\s*{[^}]*border-color:\s*var\(--border\)/,
+        /\.btn-outline-success\.sync-btn:hover\s*{[^}]*border-color:\s*var\(--border\)/,
+        /\.btn-outline-primary:hover\s*{[^}]*border:\s*2px solid var\(--border\)/,
+        /\.btn-secondary:hover\s*{[^}]*border-color:\s*var\(--border\)/,
       ];
 
       hoverPatterns.forEach((pattern, index) => {
@@ -116,11 +118,11 @@ describe('Button Styling Consistency', () => {
     });
 
     it('should have contrasting borders on all button active states', () => {
-      // Check that active states maintain black borders
+      // Check that active states maintain contrasting borders
       const activePatterns = [
-        /\.btn-primary\.sync-btn:active[^{]*{[^}]*border-color:\s*#000/,
-        /\.btn-outline-success\.sync-btn:active[^{]*{[^}]*border-color:\s*#000/,
-        /\.btn-outline-primary:active[^{]*{[^}]*border:\s*2px solid #000/,
+        /\.btn-primary\.sync-btn:active[^{]*{[^}]*border-color:\s*var\(--border\)/,
+        /\.btn-outline-success\.sync-btn:active[^{]*{[^}]*border-color:\s*var\(--border\)/,
+        /\.btn-outline-primary:active[^{]*{[^}]*border:\s*2px solid var\(--border\)/,
       ];
 
       activePatterns.forEach((pattern, index) => {
@@ -129,10 +131,10 @@ describe('Button Styling Consistency', () => {
     });
 
     it('should have contrasting borders on all button disabled states', () => {
-      // Check that disabled states maintain black borders
+      // Check that disabled states maintain contrasting borders
       const disabledPatterns = [
-        /\.btn-primary\.sync-btn:disabled[^{]*{[^}]*border-color:\s*#000/,
-        /\.btn-outline-success\.sync-btn:disabled[^{]*{[^}]*border-color:\s*#000/,
+        /\.btn-primary\.sync-btn:disabled[^{]*{[^}]*border-color:\s*var\(--border\)/,
+        /\.btn-outline-success\.sync-btn:disabled[^{]*{[^}]*border-color:\s*var\(--border\)/,
       ];
 
       disabledPatterns.forEach((pattern, index) => {

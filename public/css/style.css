@@ -13,6 +13,32 @@
   --border-subtle: #dee2e6; /* hairline borders */
   --shadow-rgb: 0, 0, 0; /* offset drop-shadows, used as rgba(var(--shadow-rgb), a) */
 }
+
+/* Dark theme: near-black surfaces, light borders/text, SAME neon accents (they pop harder on
+   dark). Applied via [data-theme='dark'] on <html>, which public/js/theme.js sets from the
+   stored preference or, if none, the OS setting (prefers-color-scheme) - so "defaults to
+   system" lives in JS and the CSS needs only this one block. */
+[data-theme='dark'] {
+  --surface: #171717; /* cards - a touch lighter than the page */
+  --surface-alt: #0d0d0d; /* page background */
+  --text: #f0f0f0;
+  --text-muted: #9a9a9a;
+  --border: #f0f0f0; /* the heavy borders flip light so shapes read on dark */
+  --border-subtle: #333;
+  --shadow-rgb: 0, 0, 0;
+
+  /* Re-point Bootstrap's own theme variables so its components (cards set their own
+     color/bg, .text-muted, form controls, dropdowns) follow the dark theme rather than their
+     light defaults - otherwise card text stays near-black and vanishes on dark surfaces. */
+  --bs-body-color: var(--text);
+  --bs-body-bg: var(--surface-alt);
+  --bs-secondary-color: var(--text-muted);
+  --bs-tertiary-color: var(--text-muted);
+  --bs-emphasis-color: var(--text);
+  --bs-heading-color: var(--text);
+  --bs-border-color: var(--border-subtle);
+}
+
 /* 90s PUNK ZINE AESTHETIC - Spotify to YouTube Sync */
 /* Fonts are now preloaded in index.ejs with display=block to prevent FOUT */
 
@@ -25,6 +51,7 @@ html {
 /* === BASE STYLES === */
 body {
   background: var(--surface-alt);
+  color: var(--text); /* themed default so inherited text flips in dark mode (was browser-black) */
   background-image:
     radial-gradient(circle at 20% 80%, rgba(0, 0, 0, 0.1) 1px, transparent 1px),
     radial-gradient(circle at 80% 20%, rgba(0, 0, 0, 0.1) 1px, transparent 1px),
@@ -1890,4 +1917,39 @@ body.oauth-error-body {
 
 .video-modal::backdrop {
   background: rgba(0, 0, 0, 0.5);
+}
+
+/* === THEME TOGGLE (fixed, top-right; sharp punk button) === */
+.theme-toggle {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 1050;
+  width: 46px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 3px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 0;
+  cursor: pointer;
+  box-shadow: 3px 3px 0 rgba(var(--shadow-rgb), 0.4);
+  transition:
+    transform 0.08s ease,
+    box-shadow 0.08s ease;
+}
+.theme-toggle__icon {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+.theme-toggle:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 5px 5px 0 rgba(var(--shadow-rgb), 0.4);
+}
+.theme-toggle:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 rgba(var(--shadow-rgb), 0.4);
 }

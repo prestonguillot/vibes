@@ -6,6 +6,7 @@
 import { test } from '@playwright/test';
 import { argosScreenshot } from '@argos-ci/playwright';
 import {
+  setTheme,
   renderPartial,
   renderHtml,
   renderString,
@@ -17,6 +18,8 @@ import {
   youtube,
   score,
 } from './helpers';
+
+test.beforeEach(({}, testInfo) => setTheme((testInfo.project.metadata.theme as string) ?? 'light'));
 
 test('playlist-details: spotify-only', async ({ page }) => {
   await renderPartial(page, 'playlist-details.ejs', {
