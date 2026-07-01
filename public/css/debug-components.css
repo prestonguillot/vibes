@@ -1,9 +1,10 @@
-/* Styles for the /debug/components showcase page only. */
+/* Styles for the /debug/components showcase page only. Uses theme tokens so the showcase
+   follows light/dark like the real app. */
 .component-section {
   margin-bottom: 60px;
   padding: 30px;
-  background: #f0f0f0;
-  border: 2px dashed #ccc;
+  background: var(--surface-alt);
+  border: 2px dashed var(--border-subtle);
   border-radius: 4px;
 }
 
@@ -11,28 +12,28 @@
   font-family: 'Fredoka One', cursive;
   font-size: 1.8rem;
   margin-bottom: 20px;
-  color: #000;
-  border-bottom: 3px solid #000;
+  color: var(--text);
+  border-bottom: 3px solid var(--border);
   padding-bottom: 10px;
 }
 
 .component-description {
   font-size: 0.9rem;
-  color: #666;
+  color: var(--text-muted);
   margin-bottom: 20px;
   font-style: italic;
 }
 
 .component-demo {
-  background: #fff;
+  background: var(--surface);
   padding: 20px;
   margin-bottom: 15px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-subtle);
 }
 
 .demo-label {
   font-size: 0.8rem;
-  color: #999;
+  color: var(--text-muted);
   margin-bottom: 10px;
   font-weight: 600;
   text-transform: uppercase;

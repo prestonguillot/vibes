@@ -18,6 +18,7 @@
 
   function apply(theme) {
     document.documentElement.setAttribute('data-theme', theme);
+    document.documentElement.setAttribute('data-bs-theme', theme); // keep Bootstrap components in sync
     try {
       localStorage.setItem('theme', theme);
     } catch (e) {
