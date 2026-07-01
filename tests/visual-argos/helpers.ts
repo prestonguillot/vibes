@@ -9,8 +9,23 @@ import ejs from 'ejs';
 import type { Page } from '@playwright/test';
 
 export const ROOT = path.join(__dirname, '../..');
+
+// Inline the self-hosted woff2 as base64 data URIs. Under setContent the page base is
+// about:blank, so @font-face url('/fonts/..') requests never resolve and text falls back to
+// system fonts - data URIs need no request, so the real display fonts render in the capture
+// (argosScreenshot waits for document.fonts.ready). Production still uses the url()-based
+// public/css/fonts.css; this is a test-only transform of the same @font-face rules.
+const fontsCss = fs
+  .readFileSync(path.join(ROOT, 'public/css/fonts.css'), 'utf-8')
+  .replace(
+    /url\('\/fonts\/([^']+)'\)/g,
+    (_m, file) =>
+      `url('data:font/woff2;base64,${fs.readFileSync(path.join(ROOT, 'public/fonts', file)).toString('base64')}')`,
+  );
+
 export const CSS = [
   fs.readFileSync(path.join(ROOT, 'public/vendor/bootstrap.min.css'), 'utf-8'),
+  fontsCss,
   fs.readFileSync(path.join(ROOT, 'public/css/style.css'), 'utf-8'),
 ].join('\n');
 
