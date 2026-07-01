@@ -1,0 +1,133 @@
+/**
+ * Shared rendering helpers + fixtures for the Argos visual specs. Renders the real EJS
+ * partials with the actual stylesheets, exactly like the app serves them, so the captured
+ * pixels are the app's own output. Baselines live in Argos - nothing is committed to git.
+ */
+import fs from 'fs';
+import path from 'path';
+import ejs from 'ejs';
+import type { Page } from '@playwright/test';
+
+export const ROOT = path.join(__dirname, '../..');
+export const CSS = [
+  fs.readFileSync(path.join(ROOT, 'public/vendor/bootstrap.min.css'), 'utf-8'),
+  fs.readFileSync(path.join(ROOT, 'public/css/style.css'), 'utf-8'),
+].join('\n');
+
+// Solid-colour data-URI images so captures need no network and stay deterministic.
+export const img = (color: string) =>
+  `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'%3E%3Crect width='1' height='1' fill='%23${color}'/%3E%3C/svg%3E`;
+
+const doc = (body: string, harnessCss = '.harness{max-width:900px}') =>
+  `<!doctype html><html><head><meta charset="utf-8"><style>${CSS}
+   body{margin:0;padding:16px;background:#fff}${harnessCss}</style></head>
+   <body><div class="harness">${body}</div></body></html>`;
+
+/** Render a partial into an isolated page and load it. */
+export async function renderPartial(
+  page: Page,
+  partial: string,
+  data: Record<string, unknown>,
+  harnessCss?: string,
+): Promise<void> {
+  const body = await ejs.renderFile(path.join(ROOT, 'views/partials', partial), data);
+  await page.setContent(doc(body, harnessCss));
+}
+
+/** Load raw markup (already-rendered or hand-written) into an isolated page. */
+export async function renderHtml(page: Page, body: string, harnessCss?: string): Promise<void> {
+  await page.setContent(doc(body, harnessCss));
+}
+
+export const renderString = (partial: string, data: Record<string, unknown>) =>
+  ejs.renderFile(path.join(ROOT, 'views/partials', partial), data);
+
+// --- Fixtures (mirrors the retired tests/visual/components.spec.ts) ---
+
+export const score = {
+  stars: 4.5,
+  totalScore: 0.9,
+  color: '#3bb54a',
+  components: { coreMatch: 0.6, officialVideo: 0.3 },
+};
+
+export const spotify = (over = {}) => ({
+  id: 't1',
+  name: 'Song Title',
+  artist: 'The Artist',
+  album: 'An Album',
+  albumArt: img('cc3366'),
+  ...over,
+});
+
+export const youtube = (over = {}) => ({
+  id: 'vid1',
+  title: 'Song Title (Official Video)',
+  url: '#',
+  thumbnail: img('3366cc'),
+  ...over,
+});
+
+export const detailsBase = {
+  playlistId: 'pl1',
+  playlistName: 'My Playlist',
+  linkedCount: 1,
+  totalTracks: 2,
+  needsResync: false,
+};
+
+export const playlistItem = (over = {}) => ({
+  id: 'p1',
+  name: 'My Playlist',
+  tracksTotal: 33,
+  youtubeTracksTotal: 30,
+  spotifyUrl: '#',
+  youtubeUrl: '#',
+  isSynced: true,
+  syncIcon: '',
+  buttonText: 'Update YouTube Playlist',
+  buttonClass: 'btn-outline-success',
+  isYouTubeConnected: true,
+  isDisabled: false,
+  ...over,
+});
+
+export const videoModalFixture = {
+  modalTitle: 'Choose a video',
+  instructionText: 'Pick the best match for <strong>Song Title</strong>',
+  currentVideoId: '',
+  playlistId: 'p1',
+  trackId: 't1',
+  videos: [
+    {
+      id: 'v1',
+      title: 'Song Title (Official Video)',
+      channelTitle: 'The Artist',
+      description: 'Official music video. '.repeat(12),
+      thumbnail: img('3366cc'),
+      matchScore: score,
+    },
+    {
+      id: 'v2',
+      title: 'Song Title (Live)',
+      channelTitle: 'A Fan',
+      description: 'Live performance from a concert.',
+      thumbnail: img('cc9933'),
+      matchScore: { stars: 3, totalScore: 0.62, color: '#e0a800', components: { coreMatch: 0.6 } },
+    },
+  ],
+};
+
+export const CONNECTION_MODAL = `
+  <dialog class="connection-error-modal" id="connectionErrorModal" aria-labelledby="l">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="l">Spotify Connection Failed</h5>
+        <button type="button" class="btn-close" data-dialog-close aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-message">Spotify API quota exceeded. Please wait and try again later.</p>
+        <div class="text-center"><button type="button" class="btn btn-error-modal" data-dialog-close>OK</button></div>
+      </div>
+    </div>
+  </dialog>`;

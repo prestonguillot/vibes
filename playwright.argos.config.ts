@@ -1,22 +1,26 @@
 import { defineConfig } from '@playwright/test';
 
 /**
- * Argos visual-testing prototype config (separate from playwright.config.ts so the existing
- * local snapshot suite is untouched). The key difference: NO committed PNG baselines. Argos
- * stores baselines server-side keyed by commit/branch, diffs them, and exposes an
- * accept/reject UI + a required GitHub check via the Argos GitHub App. So there is no
- * snapshotPathTemplate and nothing binary lands in git.
+ * Argos visual-testing config. The point: NO committed PNG baselines. Argos stores baselines
+ * server-side keyed by commit/branch, diffs them, auto-passes builds with no change, and asks
+ * for an accept/reject decision only when pixels actually move - surfaced as the required
+ * `argos/default` GitHub check via the Argos GitHub App. So there is no snapshotPathTemplate
+ * and nothing binary lands in git.
  *
  * Run: `npm run test:visual:argos`. Upload only happens when ARGOS_TOKEN is set (CI with the
  * secret configured); locally without a token it just captures + validates the screenshots
  * render, staying green. `ignoreUploadFailures` keeps the job green if Argos is unreachable.
+ *
+ * Every spec runs under each project below, so each capture is baselined per viewport. Both use
+ * Chromium; a real iOS-Safari (WebKit) project is a follow-up once the mobile layout is worked.
  */
 export default defineConfig({
   testDir: './tests/visual-argos',
   fullyParallel: true,
-  use: {
-    viewport: { width: 1000, height: 900 },
-  },
+  projects: [
+    { name: 'desktop', use: { viewport: { width: 1000, height: 900 } } },
+    { name: 'mobile', use: { viewport: { width: 390, height: 844 } } },
+  ],
   reporter: [
     ['list'],
     [
@@ -24,7 +28,6 @@ export default defineConfig({
       {
         uploadToArgos: !!process.env.ARGOS_TOKEN,
         ignoreUploadFailures: true,
-        buildName: 'prototype',
       },
     ],
   ],

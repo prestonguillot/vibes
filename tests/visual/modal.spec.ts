@@ -108,13 +108,3 @@ test('selecting a video enables the confirm button (wiring intact)', async ({ pa
   await page.locator('label[for="video-v1"]').click();
   await expect(confirm).toBeEnabled();
 });
-
-// Screenshot the OPEN dialog in its real nesting (dialog > .modal-content >
-// #video-modal-content). This is the layout the user actually sees - the earlier
-// component baseline screenshotted .modal-content in isolation and never open, so
-// it missed the close-button-position bug. This guards the header layout.
-test('open dialog layout', async ({ page }) => {
-  await page.setContent(await modalPage());
-  await swapIn(page);
-  await expect(page.locator('#videoSelectionModal')).toHaveScreenshot('modal-open.png');
-});

@@ -66,12 +66,6 @@ test('connection modal closes on the X and on Escape', async ({ page }) => {
   expect(await isOpen(page)).toBe(false);
 });
 
-test('connection modal layout', async ({ page }) => {
-  await page.setContent(modalPage());
-  await open(page);
-  await expect(page.locator('#connectionErrorModal')).toHaveScreenshot('connection-modal-open.png');
-});
-
 test('[data-alert-dismiss] removes its alert', async ({ page }) => {
   const alert = await ejs.renderFile(path.join(ROOT, 'views/partials/video-replace-success.ejs'), {
     message: 'Video replaced.',
