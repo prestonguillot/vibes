@@ -2009,7 +2009,7 @@ body.oauth-error-body {
 .video-modal {
   width: 90%;
   max-width: 800px;
-  max-height: 85vh;
+  max-height: 92vh;
   padding: 0;
   border: 0;
   background: transparent;
@@ -2049,6 +2049,17 @@ body.oauth-error-body {
   flex: 0 0 auto;
 }
 
+/* Tighter chrome so the modal spends its height on results, not padding. */
+.video-modal .modal-body {
+  padding: 14px 16px !important;
+}
+
+.video-modal .modal-header,
+.video-modal .modal-footer {
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
 /* The initial-open loading placeholder (.modal-body.text-center) has no results list to
    fill the column, so center its spinner instead of stretch-aligning it. */
 .video-modal .modal-body.text-center {
@@ -2064,7 +2075,12 @@ body.oauth-error-body {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-  padding-right: 8px;
+  /* Keep gesture scrolling inside the list - don't chain to the page behind the modal. */
+  overscroll-behavior: contain;
+  /* Reserve a gutter (classic scrollbars) and pad enough that a macOS overlay scrollbar
+     sits clear of the cards instead of painting over them. */
+  scrollbar-gutter: stable;
+  padding-right: 14px;
 }
 
 /* Loading overlay: while a re-search is in flight, dim the current results and center a
