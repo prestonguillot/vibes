@@ -73,10 +73,11 @@ describe('Index Page', () => {
   });
 
   describe('Playlist Controls Layout', () => {
-    it('should include playlist section heading', async () => {
+    it('should label the playlist section', async () => {
       const response = await request(app).get('/');
 
-      expect(response.text).toContain('Your Spotify Playlists');
+      // The section is labelled by the "Your Playlists" card header
+      expect(response.text).toContain('Your Playlists');
     });
 
     it('should include tracks per sync dropdown with all options', async () => {
@@ -119,14 +120,9 @@ describe('Index Page', () => {
       expect(response.text).toMatch(/hx-trigger="change"/);
     });
 
-    it('should have heading and controls in separate structure for better spacing', async () => {
+    it('should include the section controls (batch size + own-only toggle)', async () => {
       const response = await request(app).get('/');
 
-      // Should have proper spacing class on heading
-      expect(response.text).toMatch(/<h4[^>]*class="[^"]*mb-3[^"]*">Your Spotify Playlists<\/h4>/);
-
-      // Verify heading and controls are present in the same section
-      expect(response.text).toContain('Your Spotify Playlists');
       expect(response.text).toContain('id="syncBatchSize"');
       expect(response.text).toContain('id="ownPlaylistsOnly"');
     });

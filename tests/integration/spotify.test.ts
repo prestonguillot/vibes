@@ -275,15 +275,12 @@ describe('Spotify Playlists', () => {
         .set('Cookie', [`spotify_tokens=${spotifyTokens}`])
         .expect(200);
 
-      // Should show playlist count without extra message
-      expect(response.text).toContain('Showing 2 playlists');
-      // Should NOT show "connect YouTube" message
+      // Shows a plain playlist count; sync status can't be determined without YouTube
+      expect(response.text).toContain('2 playlists');
       expect(response.text).not.toContain('connect YouTube to check sync status');
-      // Should NOT show "none synced yet" since we can't determine sync status
-      expect(response.text).not.toContain('none synced yet');
     });
 
-    it('should show "none synced yet" when YouTube is connected but no playlists are synced', async () => {
+    it('should show 0 synced when YouTube is connected but no playlists are synced', async () => {
       // Mock Spotify API
       mockedGetCurrentUser.mockResolvedValue({ id: 'test-user', displayName: null });
       mockedGetUserPlaylists.mockResolvedValue([
@@ -302,14 +299,13 @@ describe('Spotify Playlists', () => {
         .set('Cookie', [`spotify_tokens=${spotifyTokens}`, `youtube_tokens=${youtubeTokens}`])
         .expect(200);
 
-      // Should show "none synced yet" since YouTube is connected but no playlists match
-      expect(response.text).toContain('none synced yet');
-      expect(response.text).toContain('Showing 1 playlists');
+      // YouTube is connected but nothing matches, so the count shows 0 synced
+      expect(response.text).toContain('1 playlists · 0 synced');
       // Should NOT show "connect YouTube" message
       expect(response.text).not.toContain('connect YouTube to check sync status');
     });
 
-    it('should show synced/unsynced counts when YouTube is connected and playlists are synced', async () => {
+    it('should show the synced count when YouTube is connected and playlists are synced', async () => {
       // Mock Spotify API
       mockedGetCurrentUser.mockResolvedValue({ id: 'test-user', displayName: null });
       mockedGetUserPlaylists.mockResolvedValue([
@@ -345,10 +341,9 @@ describe('Spotify Playlists', () => {
         .set('Cookie', [`spotify_tokens=${spotifyTokens}`, `youtube_tokens=${youtubeTokens}`])
         .expect(200);
 
-      // Should show synced and unsynced counts since at least one is synced
-      // "Synced Playlist" matches "Synced Playlist (from Spotify)" on YouTube
-      expect(response.text).toContain('synced');
-      expect(response.text).toContain('unsynced');
+      // One of the two matches on YouTube, so the count shows 1 synced
+      // ("Synced Playlist" matches "Synced Playlist (from Spotify)")
+      expect(response.text).toContain('2 playlists · 1 synced');
     });
 
     it('should include "your playlists only" when ownOnly=true and YouTube not connected', async () => {

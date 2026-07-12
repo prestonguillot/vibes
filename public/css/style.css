@@ -9,6 +9,7 @@
   --surface-alt: #f8f8f8; /* subtle raised/alt surfaces (consolidates near-white greys) */
   --text: #000; /* body/heading text */
   --text-muted: #6c757d; /* secondary text (consolidates #666/#6c757d/#495057) */
+  --on-bright: #000; /* text on a fixed bright/neon background (e.g. green buttons); never flips */
   --border: #000; /* the heavy punk borders */
   --border-subtle: #dee2e6; /* hairline borders */
   --shadow-rgb: 0, 0, 0; /* offset drop-shadows, used as rgba(var(--shadow-rgb), a) */
@@ -216,36 +217,45 @@ body {
 }
 
 .playlist-expand-area {
-  position: relative;
-  height: 50px;
   cursor: pointer;
   user-select: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 6px 0 0 0;
-  padding: 0 20px;
-  transition: all 0.2s;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 7px 20px;
   border: 2px solid transparent;
+  color: var(--text-muted);
+  font-family: 'Courier Prime', monospace;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 0.78rem;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.expand-label::after {
+  content: 'Show tracks';
+}
+.playlist-expand-toggle:checked + .playlist-expand-area .expand-label::after {
+  content: 'Hide tracks';
 }
 
 .playlist-expand-area:hover {
   background-color: rgba(255, 0, 64, 0.08);
-  border: 2px solid #ff0040;
+  border-color: #ff0040;
+  color: #ff0040;
 }
 
 .expand-indicator {
-  font-size: 16px;
-  color: var(--text-muted);
+  font-size: 13px;
   font-weight: bold;
-  transition:
-    color 0.2s ease,
-    transform 0.3s ease;
+  transition: transform 0.3s ease;
   transform: rotate(0deg);
-}
-
-.playlist-expand-area:hover .expand-indicator {
-  color: #ff0040;
 }
 
 /* Rotate indicator when checkbox is checked */
@@ -746,13 +756,13 @@ body {
 .btn-success.connect-btn {
   background-color: #00ff00;
   border-color: var(--border);
-  color: var(--text);
+  color: var(--on-bright);
 }
 
 .btn-success.connect-btn:disabled {
   background-color: #00ff00;
   border-color: var(--border);
-  color: var(--text);
+  color: var(--on-bright);
   opacity: 1;
 }
 
@@ -963,12 +973,12 @@ body {
 .btn-outline-success.sync-btn {
   background-color: #00ff00;
   border-color: var(--border);
-  color: var(--text);
+  color: var(--on-bright);
 }
 
 .btn-outline-success.sync-btn:hover {
   background-color: #00cc00;
-  color: var(--text) !important;
+  color: var(--on-bright);
   border-color: var(--border);
 }
 
@@ -976,14 +986,14 @@ body {
 .btn-outline-success.sync-btn.active {
   background-color: #00ff00;
   border-color: var(--border);
-  color: var(--text);
+  color: var(--on-bright);
 }
 
 .btn-outline-success.sync-btn:disabled,
 .btn-outline-success.sync-btn.disabled {
   background-color: #00ff00 !important;
   border-color: var(--border) !important;
-  color: var(--text);
+  color: var(--on-bright);
 }
 
 /* Standard Bootstrap secondary button styling */
@@ -1101,11 +1111,21 @@ body {
   border-radius: 0;
   background-color: var(--surface);
   position: relative;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .playlist-item:hover {
   background-color: var(--surface-alt);
   border-color: #ff0040;
+}
+
+/* Suppress the hover highlight while a card is expanded: flashing the whole tall card is
+   distracting while reading its track list. */
+.playlist-item:has(.playlist-expand-toggle:checked):hover {
+  background-color: var(--surface);
+  border-color: var(--border);
 }
 
 .playlist-info h5 {

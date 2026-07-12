@@ -287,16 +287,14 @@ router.get(
       ).then((items) => items.join(''));
 
       // Create summary text - different messages based on YouTube connection and sync status
+      // Just a count: each playlist row already shows its own synced/track counts, so a
+      // sync breakdown here would only duplicate them.
+      const totalCount = spotifyPlaylists.length;
       let summaryText: string;
       if (!youtubeTokens) {
-        // YouTube not connected - can't determine sync status
-        summaryText = `Showing ${spotifyPlaylists.length} playlists`;
-      } else if (syncedPlaylists.length > 0) {
-        // YouTube connected and some playlists are synced
-        summaryText = `Showing ${syncedPlaylists.length} synced and ${unsyncedPlaylists.length} unsynced playlists`;
+        summaryText = `${totalCount} playlists`;
       } else {
-        // YouTube connected but no playlists synced yet
-        summaryText = `Showing ${unsyncedPlaylists.length} playlists (none synced yet)`;
+        summaryText = `${totalCount} playlists · ${syncedPlaylists.length} synced`;
       }
 
       // Cache for 30 minutes (LONG): this response lists ALL YouTube playlists to
