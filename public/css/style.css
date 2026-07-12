@@ -10,6 +10,12 @@
   --text: #000; /* body/heading text */
   --text-muted: #6c757d; /* secondary text (consolidates #666/#6c757d/#495057) */
   --on-bright: #000; /* text on a fixed bright/neon background (e.g. green buttons); never flips */
+  --row-stripe: rgba(
+    0,
+    0,
+    0,
+    0.08
+  ); /* alternating track-row tint; overlay so it reads on any surface */
   --border: #000; /* the heavy punk borders */
   --border-subtle: #dee2e6; /* hairline borders */
   --shadow-rgb: 0, 0, 0; /* offset drop-shadows, used as rgba(var(--shadow-rgb), a) */
@@ -27,6 +33,7 @@
   --border: #f0f0f0; /* the heavy borders flip light so shapes read on dark */
   --border-subtle: #333;
   --shadow-rgb: 0, 0, 0;
+  --row-stripe: rgba(255, 255, 255, 0.07); /* light overlay so stripes read on the dark surface */
 
   /* Re-point Bootstrap's own theme variables so its components (cards set their own
      color/bg, .text-muted, form controls, dropdowns) follow the dark theme rather than their
@@ -356,7 +363,7 @@ body {
 
 .track-item {
   display: grid;
-  grid-template-columns: 40px 140px 1fr auto;
+  grid-template-columns: 40px auto 1fr auto;
   align-items: center;
   padding: 16px 12px;
   border-radius: 0;
@@ -382,13 +389,12 @@ body {
 }
 
 .track-item--even {
-  background-color: var(--surface-alt);
   background-image: repeating-linear-gradient(
     45deg,
     transparent,
     transparent 10px,
-    rgba(0, 0, 0, 0.02) 10px,
-    rgba(0, 0, 0, 0.02) 20px
+    var(--row-stripe) 10px,
+    var(--row-stripe) 20px
   );
 }
 
@@ -403,7 +409,7 @@ body {
   grid-column: 2 / 4;
   min-width: 0;
   display: grid;
-  grid-template-columns: 140px 1fr;
+  grid-template-columns: auto 1fr;
   grid-template-rows: auto auto;
   gap: 16px;
   row-gap: 4px;
@@ -459,8 +465,8 @@ body {
 .youtube-video__thumbnail {
   grid-column: 1;
   grid-row: 1 / -1;
-  width: 120px;
-  height: 90px;
+  width: 213px;
+  height: 120px;
   object-fit: cover;
   border-radius: 4px;
   border: 2px solid var(--border);
@@ -486,8 +492,8 @@ body {
 .youtube-video__thumbnail--placeholder {
   grid-column: 1;
   grid-row: 1 / -1;
-  width: 120px;
-  height: 90px;
+  width: 213px;
+  height: 120px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -529,6 +535,33 @@ body {
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
+}
+
+/* Per-track "open in Spotify" action, shown when YouTube isn't connected so the row isn't bare. */
+.track-spotify-link {
+  display: inline-flex;
+  align-items: center;
+  color: #1db954;
+  text-decoration: none;
+  font-family: 'Courier Prime', monospace;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  padding: 5px 12px;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  box-shadow: 2px 2px 0px rgba(var(--shadow-rgb), 0.3);
+  transition:
+    transform 0.1s ease,
+    box-shadow 0.1s ease;
+}
+
+.track-spotify-link:hover {
+  color: #1db954;
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0px rgba(var(--shadow-rgb), 0.4);
 }
 
 /* Video Selection Modal Styles - PUNK ZINE AESTHETIC */
@@ -686,11 +719,6 @@ body {
 
 .card:nth-child(even) {
   transform: rotate(-0.05deg);
-}
-
-.card:hover {
-  /* Hover effect without rotation to prevent text blurriness */
-  transform: translateY(-2px);
 }
 
 .card-title {
