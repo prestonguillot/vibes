@@ -39,8 +39,8 @@
         <div class="track-content flex-grow-1">
           <% if (track.spotify) { %>
             <div class="spotify-track">
-              <div class="track-title fw-semibold"><%= track.spotify.name %></div>
-              <div class="track-artist text-muted small"><%= track.spotify.artist %> • <%= track.spotify.album %></div>
+              <div class="track-title fw-semibold" title="<%= track.spotify.name %>"><%= track.spotify.name %></div>
+              <div class="track-artist text-muted small" title="<%= track.spotify.artist %> • <%= track.spotify.album %>"><%= track.spotify.artist %> • <%= track.spotify.album %></div>
             </div>
           <% } %>
 
@@ -54,7 +54,7 @@
                        role="button" tabindex="0">
                   <div class="flex-grow-1">
                     <div class="d-flex align-items-center gap-2">
-                      <a href="<%= track.youtube.url %>" target="_blank" class="text-decoration-none small flex-grow-1">
+                      <a href="<%= track.youtube.url %>" target="_blank" class="text-decoration-none small flex-grow-1" title="<%= track.youtube.title %>">
                         <%= track.youtube.title %>
                       </a>
                       <% if (track.matchScore) { %>
@@ -83,11 +83,8 @@
             <!-- Show album art when YouTube is not connected -->
             <div class="youtube-video <%= track.spotify ? 'mt-1' : '' %>">
               <div class="d-flex align-items-center">
-                <img src="<%= track.spotify.albumArt %>" alt="Album art"
+                <img src="<%= track.spotify.albumArt %>" alt="Album art for <%= track.spotify.album %>"
                      class="youtube-video__thumbnail">
-                <div class="flex-grow-1">
-                  <span class="text-muted small"><%= track.spotify.album %></span>
-                </div>
               </div>
             </div>
           <% } %>

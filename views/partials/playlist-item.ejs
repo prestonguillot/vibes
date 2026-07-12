@@ -3,7 +3,7 @@
      data-is-synced="<%= isSynced ? 'true' : 'false' %>">
   <div class="playlist-item__header">
     <div class="playlist-info">
-      <h5 class="mb-1"><%= syncIcon || '' %><%= name %><span class="drift-dot" data-drift-dot title="YouTube is out of sync with Spotify - re-sync to update"></span></h5>
+      <h5 class="mb-1 playlist-name" title="<%= name %>"><%= syncIcon || '' %><%= name %><span class="drift-dot" data-drift-dot title="YouTube is out of sync with Spotify - re-sync to update"></span></h5>
       <p class="text-muted mb-1 playlist-track-summary">
         <% if (youtubeTracksTotal && youtubeTracksTotal > 0) { %>
           <%= youtubeTracksTotal %> tracks synced to YouTube<%= (tracksTotal != null) ? ` of ${tracksTotal}` : '' %>
@@ -68,6 +68,7 @@
   <!-- Always show expand functionality, regardless of sync status -->
   <input type="checkbox" id="expand-<%= id %>" class="playlist-expand-toggle hidden">
   <label for="expand-<%= id %>" class="playlist-expand-area" data-playlist-id="<%= id %>">
+    <span class="expand-label"></span>
     <span class="expand-indicator">▼</span>
   </label>
   <div class="playlist-details-container"
