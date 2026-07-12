@@ -27,8 +27,11 @@ function isOfficialVideo(youtubeVideo: SimplifiedVideo, spotifyArtist: string): 
   const channel = (youtubeVideo.channelTitle || '').toLowerCase();
   const normalizedArtist = spotifyArtist.toLowerCase();
 
-  // Check for official video indicators in title
-  const officialIndicators = /\bofficial\s+(music\s+)?video\b|\bofficial\s+audio\b/i;
+  // Check for official video indicators in title. Allows up to two qualifier words between
+  // "official" and the media word so common variants match too (official music video, official
+  // HD video, official lyric video, official visualizer, official video clip, official audio).
+  const officialIndicators =
+    /\bofficial\s+(?:\w+\s+){0,2}(?:video|audio|visuali[sz]er|lyrics?|clip|mv)\b/i;
   if (officialIndicators.test(youtubeVideo.title)) {
     // Additional check: channel should contain artist name or be a known label
     if (channel.includes(normalizedArtist) || isKnownLabel(channel)) {
