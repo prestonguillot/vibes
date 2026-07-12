@@ -191,7 +191,7 @@ export async function fetchPlaylistDetails(
             id: matchedVideo.id,
             title: matchedVideo.title,
             description: matchedVideo.description,
-            thumbnail: `https://img.youtube.com/vi/${matchedVideo.id}/default.jpg`,
+            thumbnail: `https://img.youtube.com/vi/${matchedVideo.id}/mqdefault.jpg`,
             url: `https://www.youtube.com/watch?v=${matchedVideo.id}`,
           }
         : null,
@@ -211,7 +211,7 @@ export async function fetchPlaylistDetails(
         id: video.id,
         title: video.title,
         description: video.description,
-        thumbnail: `https://img.youtube.com/vi/${video.id}/default.jpg`,
+        thumbnail: `https://img.youtube.com/vi/${video.id}/mqdefault.jpg`,
         url: `https://www.youtube.com/watch?v=${video.id}`,
       },
       linked: false,
@@ -229,7 +229,7 @@ export async function fetchPlaylistDetails(
       .map((track) => trackMatches.get(track.id)?.id)
       .filter((id): id is string => !!id);
     const actualVideoIds = youtubeVideos.map((video) => video.id);
-    const orderOrSetDiffers = desiredVideoIds.join(' ') !== actualVideoIds.join(' ');
+    const orderOrSetDiffers = desiredVideoIds.join(' ') !== actualVideoIds.join(' ');
     needsResync = orderOrSetDiffers || linkedCount < spotifyTracks.length;
   }
 

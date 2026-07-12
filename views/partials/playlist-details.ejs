@@ -74,12 +74,7 @@
             <% } else if (track.spotify) { %>
               <div class="youtube-video youtube-video--placeholder mt-1">
                 <div class="d-flex align-items-center">
-                  <div class="youtube-video__thumbnail youtube-video__thumbnail--placeholder">
-                    <svg width="120" height="90" viewBox="0 0 120 90" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <rect width="120" height="90" fill="#e0e0e0"/>
-                      <text x="60" y="50" text-anchor="middle" font-size="32" fill="#ccc" font-family="Arial">?</text>
-                    </svg>
-                  </div>
+                  <div class="youtube-video__thumbnail youtube-video__thumbnail--placeholder" aria-hidden="true">?</div>
                   <div class="flex-grow-1">
                     <span class="text-muted small fst-italic">No video linked</span>
                   </div>
