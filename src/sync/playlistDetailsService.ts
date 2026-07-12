@@ -158,7 +158,10 @@ export async function fetchPlaylistDetails(
       id: item.snippet?.resourceId?.videoId || '',
       title: item.snippet?.title || '',
       description: item.snippet?.description || '',
-      channelTitle: item.snippet?.channelTitle ?? undefined,
+      // The video's real uploader, needed for official-video detection. snippet.channelTitle on
+      // a playlist item is the PLAYLIST OWNER's channel, so using it made every match miss the
+      // official-video bonus (scores capped low, and official picks fell below the link threshold).
+      channelTitle: item.snippet?.videoOwnerChannelTitle ?? item.snippet?.channelTitle ?? undefined,
       thumbnail:
         item.snippet?.thumbnails?.medium?.url ??
         item.snippet?.thumbnails?.default?.url ??
