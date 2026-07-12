@@ -21,6 +21,18 @@ function initializeVideoModal() {
     }
   });
 
+  // Click outside the modal (on the ::backdrop) dismisses it, same as the X. The dialog
+  // has no padding, so its box equals the content box - a click whose target is the
+  // dialog element itself landed on the backdrop, not the content.
+  const dialogEl = document.getElementById('videoSelectionModal');
+  if (dialogEl) {
+    dialogEl.addEventListener('click', function (event) {
+      if (event.target === dialogEl) {
+        dialogEl.close();
+      }
+    });
+  }
+
   // Wire each video radio so selecting one arms the Confirm button.
   function wireVideoRadios() {
     document.querySelectorAll('.video-option-radio').forEach((radio) => {
