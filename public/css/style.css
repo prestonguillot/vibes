@@ -398,6 +398,39 @@ body {
   );
 }
 
+/* Spotify-only rows have no YouTube content on the right, so fill it with a faded, oversized,
+   tilted bleed of the track's own album art (--album-art, set per row) - a punk-zine flourish
+   that turns the empty space into deliberate composition. */
+.track-item--art-fill {
+  position: relative;
+  overflow: hidden;
+}
+
+.track-item--art-fill::after {
+  content: '';
+  position: absolute;
+  right: -40px;
+  top: 50%;
+  width: 340px;
+  height: 340px;
+  transform: translateY(-50%) rotate(-6deg);
+  background-image: var(--album-art);
+  background-size: cover;
+  background-position: center;
+  opacity: 0.4;
+  filter: contrast(1.1) saturate(1.2);
+  mask-image: linear-gradient(to left, #000 40%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to left, #000 40%, transparent 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Keep the row's real content above the decorative bleed. */
+.track-item--art-fill > * {
+  position: relative;
+  z-index: 1;
+}
+
 .track-number {
   grid-column: 1;
   color: var(--text-muted);
@@ -535,33 +568,6 @@ body {
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
-}
-
-/* Per-track "open in Spotify" action, shown when YouTube isn't connected so the row isn't bare. */
-.track-spotify-link {
-  display: inline-flex;
-  align-items: center;
-  color: #1db954;
-  text-decoration: none;
-  font-family: 'Courier Prime', monospace;
-  font-size: 0.8rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  white-space: nowrap;
-  padding: 5px 12px;
-  background: var(--surface);
-  border: 2px solid var(--border);
-  box-shadow: 2px 2px 0px rgba(var(--shadow-rgb), 0.3);
-  transition:
-    transform 0.1s ease,
-    box-shadow 0.1s ease;
-}
-
-.track-spotify-link:hover {
-  color: #1db954;
-  transform: translate(-1px, -1px);
-  box-shadow: 3px 3px 0px rgba(var(--shadow-rgb), 0.4);
 }
 
 /* Video Selection Modal Styles - PUNK ZINE AESTHETIC */
@@ -758,9 +764,16 @@ body {
   justify-content: center;
 }
 
+/* These badge backgrounds are bright (green/amber/cyan) in both themes, so the label needs
+   fixed dark text - the default white washes out on them. */
+.badge.bg-success,
+.badge.bg-warning,
+.badge.bg-info {
+  color: var(--on-bright);
+}
+
 .badge.bg-success {
   background-color: #00ff00 !important;
-  color: var(--text);
 }
 
 /* === BUTTONS === */
