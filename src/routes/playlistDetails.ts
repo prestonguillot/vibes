@@ -270,6 +270,20 @@ router.get(
         })
         .sort((a, b) => (b.matchScore_score || 0) - (a.matchScore_score || 0)); // Sort by score descending
 
+      // A manual re-search targets only the results list (HX-Target header), so we send
+      // back just that fragment and leave the modal shell (header, search bar, footer)
+      // in place. The initial open targets the whole modal and gets the full shell.
+      const resultsOnly = req.get('HX-Target') === 'video-results-list';
+
+      if (resultsOnly) {
+        const resultsHtml = await ejs.renderFile(
+          path.join(__dirname, '../../views/partials/video-results.ejs'),
+          { videos: videosWithScores, searchQuery: query },
+        );
+        res.send(resultsHtml);
+        return;
+      }
+
       // Determine if this is for a new link or replacing an existing one
       const isReplacing = currentVideoId && currentVideoId !== '';
       const modalTitle = isReplacing ? 'Select Alternative Video' : 'Select Video';

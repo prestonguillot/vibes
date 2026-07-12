@@ -1,0 +1,38 @@
+<%# Results region of the video picker. Rendered inside the modal on open and swapped on
+    its own (target #video-results-list) for a manual re-search, so the modal shell and
+    search bar stay put. %>
+<% if (videos.length === 0) { %>
+  <p class="text-muted small mb-0">No videos found for “<%= searchQuery %>”. Try a different search.</p>
+<% } else { %>
+  <div class="video-options">
+    <% videos.forEach((video, index) => { %>
+      <input type="radio" name="video-selection" id="video-<%= video.id %>" value="<%= video.id %>"
+             class="video-option-radio hidden">
+      <label for="video-<%= video.id %>" class="video-option p-3 border rounded mb-2" data-video-id="<%= video.id %>">
+        <div class="d-flex align-items-start">
+          <img src="<%= video.thumbnail %>" alt="Video thumbnail"
+               class="video-option__thumbnail me-3">
+          <div class="flex-grow-1">
+            <div class="d-flex align-items-start justify-content-between gap-2">
+              <div>
+                <h6 class="mb-1"><%= video.title %></h6>
+                <p class="text-muted small mb-1">by <%= video.channelTitle %></p>
+                <p class="small mb-0 video-option__description--truncated">
+                  <%= video.description.substring(0, 150) %><% if (video.description.length > 150) { %>...<% } %>
+                </p>
+              </div>
+              <% if (video.matchScore) { %>
+                <%- include('./match-score-badge.ejs', { score: video.matchScore, modifier: 'match-score-badge--modal flex-shrink-0' }) %>
+              <% } %>
+            </div>
+          </div>
+          <div class="selection-indicator ms-2">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="#28a745">
+              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+            </svg>
+          </div>
+        </div>
+      </label>
+    <% }); %>
+  </div>
+<% } %>

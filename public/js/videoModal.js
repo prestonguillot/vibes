@@ -21,35 +21,55 @@ function initializeVideoModal() {
     }
   });
 
-  // Listen for HTMX afterSwap events on the document
-  document.addEventListener('htmx:afterSwap', function (event) {
-    // Check if the swap target was the video modal content
-    if (event.detail.target && event.detail.target.id === 'video-modal-content') {
-      // Get the modal element
-      const modalEl = document.getElementById('videoSelectionModal');
-
-      if (modalEl) {
-        // Open the native <dialog>
-        if (typeof modalEl.showModal === 'function' && !modalEl.open) {
-          modalEl.showModal();
+  // Wire each video radio so selecting one arms the Confirm button.
+  function wireVideoRadios() {
+    document.querySelectorAll('.video-option-radio').forEach((radio) => {
+      radio.addEventListener('change', function () {
+        const hiddenInput = document.getElementById('hidden-new-video-id');
+        const confirmBtn = document.getElementById('confirm-selection-btn');
+        if (hiddenInput && confirmBtn) {
+          hiddenInput.value = this.value;
+          confirmBtn.disabled = false;
         }
+      });
+    });
+  }
 
-        // Set up radio button listeners for video selection
-        const radioButtons = document.querySelectorAll('.video-option-radio');
-        radioButtons.forEach((radio) => {
-          radio.addEventListener('change', function () {
-            const hiddenInput = document.getElementById('hidden-new-video-id');
-            const confirmBtn = document.getElementById('confirm-selection-btn');
-            if (hiddenInput && confirmBtn) {
-              hiddenInput.value = this.value;
-              confirmBtn.disabled = false;
-            }
-          });
-        });
-      } else {
+  // Drop any pending pick (used when a fresh search replaces the results).
+  function resetVideoSelection() {
+    const hiddenInput = document.getElementById('hidden-new-video-id');
+    const confirmBtn = document.getElementById('confirm-selection-btn');
+    if (hiddenInput) hiddenInput.value = '';
+    if (confirmBtn) confirmBtn.disabled = true;
+  }
+
+  // Re-wire the picker after either a full-modal open (#video-modal-content) or a
+  // manual re-search that swaps only the results list (#video-results-list).
+  document.addEventListener('htmx:afterSwap', function (event) {
+    const target = event.detail.target;
+    if (!target) return;
+
+    const isFullModal = target.id === 'video-modal-content';
+    const isResults = target.id === 'video-results-list';
+    if (!isFullModal && !isResults) return;
+
+    if (isFullModal) {
+      const modalEl = document.getElementById('videoSelectionModal');
+      if (!modalEl) {
         Logger.error('Video selection modal element not found');
+        return;
+      }
+      if (typeof modalEl.showModal === 'function' && !modalEl.open) {
+        modalEl.showModal();
       }
     }
+
+    // A fresh search replaced the options - clear the earlier pick before re-wiring.
+    if (isResults) {
+      resetVideoSelection();
+    }
+
+    wireVideoRadios();
   });
 
   // Listen for HTMX beforeRequest to disable button and show loading state
