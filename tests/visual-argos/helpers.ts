@@ -29,9 +29,11 @@ export const CSS = [
   fs.readFileSync(path.join(ROOT, 'public/css/style.css'), 'utf-8'),
 ].join('\n');
 
-// Solid-colour data-URI images so captures need no network and stay deterministic.
+// Solid-colour data-URI images so captures need no network and stay deterministic. Fully
+// URL-encoded (no literal quotes) so the URI is also valid inside a CSS url('...') - the
+// album-art backdrop consumes it that way.
 export const img = (color: string) =>
-  `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'%3E%3Crect width='1' height='1' fill='%23${color}'/%3E%3C/svg%3E`;
+  `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"><rect width="1" height="1" fill="#${color}"/></svg>`)}`;
 
 // Current theme for captures - set per Playwright project via setTheme() in each spec's
 // beforeEach, so every view is baselined in both light and dark.
