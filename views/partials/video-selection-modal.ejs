@@ -6,6 +6,27 @@
 <div class="modal-body">
   <p class="text-muted mb-3"><%- instructionText %></p>
 
+  <form class="video-search mb-3"
+        hx-get="/api/playlistDetails/search/<%= trackId %>"
+        hx-target="#video-modal-content"
+        hx-swap="innerHTML"
+        hx-disabled-elt="find button">
+    <input type="hidden" name="trackName" value="<%= trackName %>">
+    <input type="hidden" name="artistName" value="<%= artistName %>">
+    <input type="hidden" name="playlistId" value="<%= playlistId %>">
+    <input type="hidden" name="currentVideoId" value="<%= currentVideoId || '' %>">
+    <label for="video-search-input" class="form-label small text-muted mb-1">Search YouTube</label>
+    <div class="d-flex gap-2 align-items-stretch">
+      <input type="search" id="video-search-input" name="searchQuery"
+             class="form-control" value="<%= searchQuery %>"
+             placeholder="Search for a video…" autocomplete="off">
+      <button type="submit" class="btn btn-primary punk-btn">Search</button>
+    </div>
+  </form>
+
+  <% if (videos.length === 0) { %>
+    <p class="text-muted small mb-0">No videos found for “<%= searchQuery %>”. Try a different search.</p>
+  <% } else { %>
   <div class="video-options">
     <% videos.forEach((video, index) => { %>
       <input type="radio" name="video-selection" id="video-<%= video.id %>" value="<%= video.id %>"
@@ -37,6 +58,7 @@
       </label>
     <% }); %>
   </div>
+  <% } %>
 </div>
 
 <div class="modal-footer">

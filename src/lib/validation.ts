@@ -117,6 +117,9 @@ export const schemas = {
   // Artist name
   artistName: z.string().min(1).max(200),
 
+  // Free-text query for the manual video re-search in the picker
+  searchQuery: z.string().min(1).max(200),
+
   // Generic alphanumeric ID
   alphanumericId: z
     .string()
