@@ -477,8 +477,8 @@ body {
   border-color: #0066ff;
 }
 
-/* Album art is square, so use different dimensions than 16:9 video thumbnails */
-.track-item:has(.youtube-video__thumbnail[alt='Album art']) .youtube-video__thumbnail {
+/* Album art is square, unlike the 16:9 video thumbnails */
+.youtube-video__thumbnail--album {
   width: 120px;
   height: 120px;
 }
