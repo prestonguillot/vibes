@@ -618,12 +618,8 @@ body {
   background: var(--surface);
 }
 
-.video-options {
-  max-height: 400px;
-  overflow-y: auto;
-  margin-bottom: 16px;
-  padding-right: 8px;
-}
+/* The results list scrolls via #video-results-list (see the video-modal flex layout
+   below); .video-options is just the list container. */
 
 .video-option-radio {
   display: none;
@@ -2017,11 +2013,77 @@ body.oauth-error-body {
   padding: 0;
   border: 0;
   background: transparent;
-  overflow: auto;
+  /* The modal itself never scrolls: it's a flex column capped at the viewport, and
+     only the results list inside scrolls. So the header, search bar, and footer stay
+     visible without scrolling the whole dialog. */
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .video-modal::backdrop {
   background: rgba(0, 0, 0, 0.5);
+}
+
+/* Flex chain from the dialog down to the results list so the height cascades and only
+   #video-results-list gets the scroll (min-height:0 lets each level shrink below its
+   content). */
+.video-modal .modal-content,
+.video-modal #video-modal-content,
+.video-modal .modal-body,
+.video-results {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.video-modal #video-modal-content,
+.video-modal .modal-body,
+.video-results {
+  overflow: hidden;
+}
+
+.video-modal .modal-header,
+.video-modal .modal-footer {
+  flex: 0 0 auto;
+}
+
+/* The initial-open loading placeholder (.modal-body.text-center) has no results list to
+   fill the column, so center its spinner instead of stretch-aligning it. */
+.video-modal .modal-body.text-center {
+  align-items: center;
+  justify-content: center;
+}
+
+.video-results {
+  position: relative;
+}
+
+#video-results-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+/* Loading overlay: while a re-search is in flight, dim the current results and center a
+   spinner over them - the results area keeps its height, so the modal doesn't resize. */
+.video-results__loading {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.video-results.htmx-request .video-results__loading {
+  display: flex;
+}
+
+.video-results.htmx-request #video-results-list {
+  opacity: 0.35;
+  pointer-events: none;
 }
 
 /* === THEME TOGGLE (fixed, top-right; sharp punk button) === */

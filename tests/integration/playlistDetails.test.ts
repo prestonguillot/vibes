@@ -735,53 +735,65 @@ describe('Video Search Modal', () => {
   const searchUrl = (params: Record<string, string>) =>
     `/api/playlistDetails/search/track1?${new URLSearchParams(params).toString()}`;
 
-  it('searches the natural track + artist query when none is supplied', async () => {
+  it('renders the full modal (with pre-filled search box) on initial open', async () => {
     h.scrapeYouTubeSearch.mockResolvedValue([scraperResult('vvvvvvvvvvv', 'Song (Official Video)')]);
 
+    // Initial open targets the whole modal - no HX-Target: video-results-list header.
     const response = await request(app).get(
       searchUrl({ trackName: 'Let Me Find Out', artistName: 'Some Artist', playlistId: PLAYLIST_ID }),
     );
 
     expect(response.status).toBe(200);
+    // Falls back to the natural track + artist query.
     expect(h.scrapeYouTubeSearch).toHaveBeenCalledWith('Let Me Find Out Some Artist', 10);
-    // The search box is pre-filled with that natural query.
+    // Full shell: header + the search box pre-filled with that query + the result.
+    expect(response.text).toContain('modal-header');
     expect(response.text).toContain('name="searchQuery"');
     expect(response.text).toContain('value="Let Me Find Out Some Artist"');
+    expect(response.text).toContain('id="video-results-list"');
     expect(response.text).toContain('Song (Official Video)');
   });
 
-  it('uses a supplied query verbatim and pre-fills the box with it', async () => {
+  it('returns only the results fragment for a manual re-search', async () => {
     h.scrapeYouTubeSearch.mockResolvedValue([scraperResult('vvvvvvvvvvv', 'Different Result')]);
 
-    const response = await request(app).get(
-      searchUrl({
-        trackName: 'Let Me Find Out',
-        artistName: 'Some Artist',
-        playlistId: PLAYLIST_ID,
-        searchQuery: 'let me find out official',
-      }),
-    );
+    const response = await request(app)
+      .get(
+        searchUrl({
+          trackName: 'Let Me Find Out',
+          artistName: 'Some Artist',
+          playlistId: PLAYLIST_ID,
+          searchQuery: 'let me find out official',
+        }),
+      )
+      .set('HX-Target', 'video-results-list');
 
     expect(response.status).toBe(200);
+    // The supplied query is used verbatim.
     expect(h.scrapeYouTubeSearch).toHaveBeenCalledWith('let me find out official', 10);
-    expect(response.text).toContain('value="let me find out official"');
+    // A bare fragment: the new result, but none of the modal shell (header/search form).
     expect(response.text).toContain('Different Result');
+    expect(response.text).not.toContain('modal-header');
+    expect(response.text).not.toContain('name="searchQuery"');
   });
 
-  it('shows an empty-state message when the search returns nothing', async () => {
+  it('shows an empty-state fragment when a re-search returns nothing', async () => {
     h.scrapeYouTubeSearch.mockResolvedValue([]);
 
-    const response = await request(app).get(
-      searchUrl({
-        trackName: 'Let Me Find Out',
-        artistName: 'Some Artist',
-        playlistId: PLAYLIST_ID,
-        searchQuery: 'zzz no such video zzz',
-      }),
-    );
+    const response = await request(app)
+      .get(
+        searchUrl({
+          trackName: 'Let Me Find Out',
+          artistName: 'Some Artist',
+          playlistId: PLAYLIST_ID,
+          searchQuery: 'zzz no such video zzz',
+        }),
+      )
+      .set('HX-Target', 'video-results-list');
 
     expect(response.status).toBe(200);
     expect(response.text).toContain('No videos found');
     expect(response.text).not.toContain('video-option-radio');
+    expect(response.text).not.toContain('modal-header');
   });
 });
