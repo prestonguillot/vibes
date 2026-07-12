@@ -48,6 +48,31 @@ describe('calculateMatchScore (golden master)', () => {
     expect(breakdown.components.officialVideo).toBe(0.3);
   });
 
+  it.each([
+    'Creep (Official Video)',
+    'Creep (Official Music Video)',
+    'Creep (Official HD Video)',
+    'Creep (Official Lyric Video)',
+    'Creep (Official Lyrics)',
+    'Creep (Official Audio)',
+    'Creep (Official Visualizer)',
+    'Creep (Official Video Clip)',
+  ])('recognises common official-video title variants: %s', (title) => {
+    const { breakdown } = calculateMatchScore(
+      track('Creep', 'Radiohead'),
+      video({ title, channelTitle: 'RadioheadVEVO' }),
+    );
+    expect(breakdown.components.officialVideo).toBe(0.3);
+  });
+
+  it('does not treat "unofficial video" as official', () => {
+    const { breakdown } = calculateMatchScore(
+      track('Creep', 'Radiohead'),
+      video({ title: 'Creep (Unofficial Video)', channelTitle: 'RadioheadVEVO' }),
+    );
+    expect(breakdown.components.officialVideo).toBeUndefined();
+  });
+
   it('does NOT grant the official bonus when the channel is unrelated (no view-count shortcut anymore)', () => {
     const { breakdown } = calculateMatchScore(
       track('Creep', 'Radiohead'),

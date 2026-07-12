@@ -71,7 +71,8 @@ export interface YtPlaylistItem {
     description?: string;
     position?: number;
     playlistId?: string;
-    channelTitle?: string;
+    channelTitle?: string; // the playlist owner's channel - NOT the video's uploader
+    videoOwnerChannelTitle?: string; // the channel that actually uploaded the video
     publishedAt?: string;
     resourceId?: YtResourceId;
     thumbnails?: { default?: YtThumbnail; medium?: YtThumbnail; high?: YtThumbnail };
