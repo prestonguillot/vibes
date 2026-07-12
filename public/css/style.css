@@ -32,7 +32,7 @@
   --text-muted: #9a9a9a;
   --border: #f0f0f0; /* the heavy borders flip light so shapes read on dark */
   --border-subtle: #333;
-  --shadow-rgb: 0, 0, 0;
+  --shadow-rgb: 255, 255, 255; /* light offset shadows - black ones vanish on the dark surfaces */
   --row-stripe: rgba(255, 255, 255, 0.07); /* light overlay so stripes read on the dark surface */
 
   /* Re-point Bootstrap's own theme variables so its components (cards set their own
