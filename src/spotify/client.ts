@@ -55,6 +55,8 @@ export interface SpotifyPlaylistSummary {
   /** null when Spotify omits the count (Dev Mode strips it from /me/playlists). */
   trackTotal: number | null;
   spotifyUrl: string;
+  /** Playlist cover URL. undefined when Spotify omits images (e.g. Dev Mode). */
+  coverImage?: string;
 }
 
 export interface SpotifyPlaylist {
@@ -83,6 +85,7 @@ interface RawPlaylistObject {
   name: string;
   owner?: { id?: string };
   external_urls?: { spotify?: string };
+  images?: Array<{ url?: string }>;
   // Dev Mode renamed `tracks` -> `items`; accept either.
   tracks?: RawCountObject;
   items?: RawCountObject;
@@ -122,6 +125,7 @@ function toPlaylistSummary(p: RawPlaylistObject): SpotifyPlaylistSummary {
     ownerId: p.owner?.id ?? null,
     trackTotal: readTrackTotal(p),
     spotifyUrl: p.external_urls?.spotify ?? `https://open.spotify.com/playlist/${p.id}`,
+    coverImage: p.images?.[0]?.url,
   };
 }
 

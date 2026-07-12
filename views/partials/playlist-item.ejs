@@ -1,7 +1,11 @@
-<div class="playlist-item" data-playlist-id="<%= id %>"
+<div class="playlist-item<%= coverImage ? ' playlist-item--art' : '' %>" data-playlist-id="<%= id %>"
      data-youtube-count="<%= youtubeTracksTotal || 0 %>"
-     data-is-synced="<%= isSynced ? 'true' : 'false' %>">
+     data-is-synced="<%= isSynced ? 'true' : 'false' %>"
+     <% if (coverImage) { %>style="--playlist-art: url('<%= coverImage %>')"<% } %>>
   <div class="playlist-item__header">
+    <% if (coverImage) { %>
+      <img src="<%= coverImage %>" alt="" class="playlist-cover" aria-hidden="true">
+    <% } %>
     <div class="playlist-info">
       <h5 class="mb-1 playlist-name" title="<%= name %>"><%= syncIcon || '' %><%= name %><span class="drift-dot" data-drift-dot title="YouTube is out of sync with Spotify - re-sync to update"></span></h5>
       <p class="text-muted mb-1 playlist-track-summary">

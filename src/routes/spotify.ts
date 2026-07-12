@@ -274,6 +274,7 @@ router.get(
             name: playlist.name,
             tracksTotal: playlist.trackTotal,
             youtubeTracksTotal,
+            coverImage: playlist.coverImage,
             spotifyUrl: playlist.spotifyUrl,
             youtubeUrl: youtubePlaylistUrl,
             isSynced,

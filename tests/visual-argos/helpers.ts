@@ -106,6 +106,7 @@ export const playlistItem = (over = {}) => ({
   name: 'My Playlist',
   tracksTotal: 33,
   youtubeTracksTotal: 30,
+  coverImage: img('7a3ea1'),
   spotifyUrl: '#',
   youtubeUrl: '#',
   isSynced: true,

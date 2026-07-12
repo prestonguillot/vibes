@@ -1169,6 +1169,47 @@ body {
   border-color: var(--border);
 }
 
+/* Playlist cover thumbnail at the left of the card header. */
+.playlist-cover {
+  width: 76px;
+  height: 76px;
+  object-fit: cover;
+  border: 2px solid var(--border);
+  border-radius: 0;
+  box-shadow: 2px 2px 0px rgba(var(--shadow-rgb), 0.3);
+  flex-shrink: 0;
+  margin-right: 16px;
+}
+
+/* Faded, tilted playlist-cover backdrop bleeding off the right - the same treatment as the
+   track rows, fed by the per-card --playlist-art custom property. Anchored to the TOP (header
+   band) rather than the item's centre, so it stays put when the card expands to full height
+   instead of floating into the middle of the track list. Clipped by the item's overflow:hidden. */
+.playlist-item--art::after {
+  content: '';
+  position: absolute;
+  top: -28px;
+  right: -40px;
+  width: 300px;
+  height: 180px;
+  transform: rotate(-6deg);
+  background-image: var(--playlist-art);
+  background-size: cover;
+  background-position: center;
+  opacity: 0.4;
+  filter: contrast(1.1) saturate(1.2);
+  mask-image: linear-gradient(to left, #000 40%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to left, #000 40%, transparent 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Keep the card's real content above the decorative backdrop. */
+.playlist-item--art > * {
+  position: relative;
+  z-index: 1;
+}
+
 .playlist-info h5 {
   margin-bottom: 8px;
   font-weight: 700;
