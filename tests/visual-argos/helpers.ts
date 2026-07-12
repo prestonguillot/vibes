@@ -124,6 +124,9 @@ export const videoModalFixture = {
   currentVideoId: '',
   playlistId: 'p1',
   trackId: 't1',
+  trackName: 'Song Title',
+  artistName: 'The Artist',
+  searchQuery: 'Song Title The Artist',
   videos: [
     {
       id: 'v1',

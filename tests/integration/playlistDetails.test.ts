@@ -16,6 +16,7 @@ import { createApp } from '@/app';
 const h = vi.hoisted(() => ({
   getPlaylist: vi.fn(),
   fetchAllPlaylistItems: vi.fn(),
+  scrapeYouTubeSearch: vi.fn(),
 }));
 
 vi.mock('@/spotify/client', async (importActual) => {
@@ -25,6 +26,10 @@ vi.mock('@/spotify/client', async (importActual) => {
 
 vi.mock('@/spotify/playlistItems', () => ({
   fetchAllPlaylistItems: h.fetchAllPlaylistItems,
+}));
+
+vi.mock('@/youtube/scraper', () => ({
+  scrapeYouTubeSearch: h.scrapeYouTubeSearch,
 }));
 
 // Builds a normalized playlist-item ({ track }) matching what fetchAllPlaylistItems returns.
@@ -710,5 +715,73 @@ describe('Playlist Details Error Handling', () => {
       // Should NOT have YouTube-specific elements
       expect(response.text).not.toContain('img.youtube.com');
     });
+  });
+});
+
+describe('Video Search Modal', () => {
+  const PLAYLIST_ID = '1234567890123456789012';
+  const scraperResult = (videoId: string, title: string) => ({
+    videoId,
+    title,
+    duration: '3:45',
+    views: '1.2M',
+    channel: 'A Channel',
+  });
+
+  beforeEach(() => {
+    h.scrapeYouTubeSearch.mockReset();
+  });
+
+  const searchUrl = (params: Record<string, string>) =>
+    `/api/playlistDetails/search/track1?${new URLSearchParams(params).toString()}`;
+
+  it('searches the natural track + artist query when none is supplied', async () => {
+    h.scrapeYouTubeSearch.mockResolvedValue([scraperResult('vvvvvvvvvvv', 'Song (Official Video)')]);
+
+    const response = await request(app).get(
+      searchUrl({ trackName: 'Let Me Find Out', artistName: 'Some Artist', playlistId: PLAYLIST_ID }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(h.scrapeYouTubeSearch).toHaveBeenCalledWith('Let Me Find Out Some Artist', 10);
+    // The search box is pre-filled with that natural query.
+    expect(response.text).toContain('name="searchQuery"');
+    expect(response.text).toContain('value="Let Me Find Out Some Artist"');
+    expect(response.text).toContain('Song (Official Video)');
+  });
+
+  it('uses a supplied query verbatim and pre-fills the box with it', async () => {
+    h.scrapeYouTubeSearch.mockResolvedValue([scraperResult('vvvvvvvvvvv', 'Different Result')]);
+
+    const response = await request(app).get(
+      searchUrl({
+        trackName: 'Let Me Find Out',
+        artistName: 'Some Artist',
+        playlistId: PLAYLIST_ID,
+        searchQuery: 'let me find out official',
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(h.scrapeYouTubeSearch).toHaveBeenCalledWith('let me find out official', 10);
+    expect(response.text).toContain('value="let me find out official"');
+    expect(response.text).toContain('Different Result');
+  });
+
+  it('shows an empty-state message when the search returns nothing', async () => {
+    h.scrapeYouTubeSearch.mockResolvedValue([]);
+
+    const response = await request(app).get(
+      searchUrl({
+        trackName: 'Let Me Find Out',
+        artistName: 'Some Artist',
+        playlistId: PLAYLIST_ID,
+        searchQuery: 'zzz no such video zzz',
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.text).toContain('No videos found');
+    expect(response.text).not.toContain('video-option-radio');
   });
 });

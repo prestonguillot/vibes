@@ -205,17 +205,24 @@ router.get(
       artistName: schemas.artistName,
       playlistId: schemas.spotifyPlaylistId,
       currentVideoId: schemas.youtubeVideoId.optional().or(z.literal('')),
+      searchQuery: schemas.searchQuery.optional(),
     }),
   }),
   async (
     req: ValidatedRequest<
       { trackId: string },
-      { trackName: string; artistName: string; playlistId: string; currentVideoId?: string }
+      {
+        trackName: string;
+        artistName: string;
+        playlistId: string;
+        currentVideoId?: string;
+        searchQuery?: string;
+      }
     >,
     res,
   ) => {
     const { trackId } = req.params;
-    const { trackName, artistName, playlistId, currentVideoId } = req.query;
+    const { trackName, artistName, playlistId, currentVideoId, searchQuery } = req.query;
 
     Logger.requestStart('Track Video Search Request', {
       trackId,
@@ -226,11 +233,12 @@ router.get(
     });
 
     try {
-      // Search for videos using the YouTube scraper
-      const searchQuery = `${trackName} ${artistName}`;
-      Logger.external('YouTube', 'Searching for videos', { query: searchQuery });
+      // Search for videos using the YouTube scraper. A manual re-search sends its own
+      // query; the initial open falls back to the "natural" track + artist query.
+      const query = searchQuery?.trim() || `${trackName} ${artistName}`;
+      Logger.external('YouTube', 'Searching for videos', { query });
 
-      const searchResults = await scrapeYouTubeSearch(searchQuery, 10);
+      const searchResults = await scrapeYouTubeSearch(query, 10);
 
       const videos = searchResults.map((result) => ({
         id: result.videoId,
@@ -282,6 +290,9 @@ router.get(
           videos: videosWithScores,
           currentVideoId: currentVideoId || '',
           playlistId,
+          trackName,
+          artistName,
+          searchQuery: query,
         },
       );
 
