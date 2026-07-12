@@ -2017,6 +2017,12 @@ body.oauth-error-body {
      only the results list inside scrolls. So the header, search bar, and footer stay
      visible without scrolling the whole dialog. */
   overflow: hidden;
+}
+
+/* Only lay out as a flex column when the dialog is open. Setting display on the base
+   .video-modal overrides the UA `dialog:not([open]) { display: none }` rule, which would
+   render the closed dialog's loading placeholder inline in the page. */
+.video-modal[open] {
   display: flex;
   flex-direction: column;
 }
