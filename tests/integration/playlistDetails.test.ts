@@ -736,11 +736,17 @@ describe('Video Search Modal', () => {
     `/api/playlistDetails/search/track1?${new URLSearchParams(params).toString()}`;
 
   it('renders the full modal (with pre-filled search box) on initial open', async () => {
-    h.scrapeYouTubeSearch.mockResolvedValue([scraperResult('vvvvvvvvvvv', 'Song (Official Video)')]);
+    h.scrapeYouTubeSearch.mockResolvedValue([
+      scraperResult('vvvvvvvvvvv', 'Song (Official Video)'),
+    ]);
 
     // Initial open targets the whole modal - no HX-Target: video-results-list header.
     const response = await request(app).get(
-      searchUrl({ trackName: 'Let Me Find Out', artistName: 'Some Artist', playlistId: PLAYLIST_ID }),
+      searchUrl({
+        trackName: 'Let Me Find Out',
+        artistName: 'Some Artist',
+        playlistId: PLAYLIST_ID,
+      }),
     );
 
     expect(response.status).toBe(200);
