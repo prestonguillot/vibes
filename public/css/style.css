@@ -75,7 +75,7 @@ body {
   font-family: 'Courier Prime', monospace;
   min-height: 100vh;
   width: 100%;
-  min-width: 390px;
+  min-width: 320px;
   overflow-x: auto;
 }
 
@@ -2160,4 +2160,142 @@ body.oauth-error-body {
 }
 [data-theme='dark'] .video-option-radio:checked + .video-option {
   background-color: #10301f;
+}
+
+/* === MOBILE (iPhone Air 420x921 and narrower phones) ===
+   The desktop layout is dense and fixed-width. Below Bootstrap's `sm` boundary we reflow the
+   playlist cards, track rows, and video modal into a single readable column. */
+@media (max-width: 575.98px) {
+  .punk-title {
+    font-size: 1.8rem;
+    letter-spacing: -1px;
+  }
+  .punk-arrow {
+    font-size: 1.4rem;
+  }
+
+  /* Drop the 180px min-width so buttons size to their (now narrower) container. */
+  .punk-btn,
+  .sync-btn {
+    min-width: 0;
+  }
+
+  /* Playlist card header: cover + info on the top row, sync button full-width below. */
+  .playlist-item__header {
+    flex-wrap: wrap;
+  }
+  .playlist-info {
+    margin-right: 0;
+  }
+  .playlist-actions {
+    flex: 0 0 100%;
+    margin-top: 10px;
+  }
+  .playlist-actions .btn,
+  .playlist-actions .sync-btn {
+    width: 100%;
+  }
+
+  /* Track row -> stacked card: title/artist, a capped preview, then a status action bar. */
+  .track-item {
+    grid-template-columns: 30px 1fr;
+    gap: 4px 10px;
+    padding: 14px 12px;
+    min-height: auto;
+    align-items: start;
+    position: relative;
+  }
+  .track-item--art-fill::after {
+    /* the 340px album-art bleed overflows a phone width - drop the flourish here */
+    display: none;
+  }
+  .track-number {
+    grid-column: 1;
+    grid-row: 1;
+    text-align: left;
+    padding-top: 2px;
+  }
+  .track-content {
+    grid-column: 2;
+    grid-row: 1;
+    display: block;
+    text-align: left;
+  }
+  .spotify-track {
+    display: block;
+    text-align: left;
+  }
+  .track-title,
+  .track-artist {
+    white-space: normal;
+  }
+  /* Undo the desktop display:contents so the preview stacks above its title. */
+  .youtube-video > .d-flex,
+  .youtube-video--placeholder > .d-flex {
+    display: block !important;
+  }
+  .youtube-video .flex-grow-1 > .d-flex {
+    display: flex !important;
+    align-items: center;
+  }
+  .youtube-video__thumbnail,
+  .youtube-video__thumbnail--placeholder {
+    width: 100%;
+    max-width: 240px;
+    height: auto;
+    aspect-ratio: 16 / 9;
+    margin: 10px 0 6px;
+    grid-column: auto;
+    grid-row: auto;
+  }
+  .youtube-video__thumbnail {
+    display: block;
+  }
+  /* Album art (Spotify-only view) stays square, not 16:9. */
+  .youtube-video__thumbnail--album {
+    width: 120px;
+    height: 120px;
+    max-width: none;
+    aspect-ratio: auto;
+  }
+  /* Only rows that actually have a status badge get the action-bar footer (skips the empty
+     status div on Spotify-only rows). */
+  .track-status:has(.badge) {
+    grid-column: 2;
+    grid-row: 2;
+    width: 100%;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 2px solid var(--border-subtle);
+    justify-content: space-between;
+  }
+
+  /* Video modal: stack the footer buttons full-width; let the search button shrink. */
+  .video-modal #video-selection-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .video-modal .modal-footer .punk-btn {
+    width: 100%;
+  }
+  /* Let the search input shrink so the Search button stays inside the modal. */
+  .video-search .punk-btn {
+    min-width: 0;
+  }
+  .video-search .form-control {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  /* Video picker cards: shrink the thumbnail and drop the match badge below the text so
+     the title/description get usable width instead of wrapping one word per line. */
+  .video-option__thumbnail {
+    width: 88px;
+    height: 66px;
+  }
+  .video-option .justify-content-between {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 6px;
+  }
 }

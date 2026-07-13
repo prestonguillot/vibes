@@ -30,9 +30,18 @@ export default defineConfig({
       metadata: { theme: 'dark' },
       use: { viewport: { width: 1000, height: 900 } },
     },
-    // Mobile (light + dark) projects are intentionally omitted for now - the mobile layout
-    // isn't built yet, so those captures only baseline known-broken reflow and burn Argos
-    // credits. Re-add them in the mobile-layout phase.
+    // Mobile: iPhone Air as Chrome DevTools emulates it (420x921 logical). deviceScaleFactor is
+    // left at 1 - layout regression doesn't need 3x rendering, and it keeps the baselines cheap.
+    {
+      name: 'mobile',
+      metadata: { theme: 'light' },
+      use: { viewport: { width: 420, height: 921 } },
+    },
+    {
+      name: 'mobile-dark',
+      metadata: { theme: 'dark' },
+      use: { viewport: { width: 420, height: 921 } },
+    },
   ],
   reporter: [
     ['list'],

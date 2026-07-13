@@ -24,7 +24,8 @@ re-committing them on every intentional change.
 
 ## Coverage
 
-Every spec runs under both viewport projects (`desktop` 1000px, `mobile` 390px):
+Every spec runs under all four projects — `desktop` / `desktop-dark` (1000×900) and
+`mobile` / `mobile-dark` (420×921, iPhone Air as Chrome DevTools emulates it):
 
 - **Components** — playlist-details (3 states), progress-update (3), error-message,
   playlist-item (2), video-selection modal, connection-error modal.
