@@ -2196,11 +2196,28 @@ body.oauth-error-body {
     width: 100%;
   }
 
+  /* Reclaim horizontal space: desktop nests card padding (20px) + details-container (2rem) +
+     details (15px) + track (12px), which crushes content on a phone. Trim each level. */
+  .playlist-item {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+  .playlist-details-container {
+    padding: 12px 8px;
+  }
+  .playlist-details {
+    padding: 0;
+  }
+  /* The container's word-break:break-word snaps button/label text mid-word ("REFRE SH"). */
+  .playlist-header .btn {
+    white-space: nowrap;
+  }
+
   /* Track row -> stacked card: title/artist, a capped preview, then a status action bar. */
   .track-item {
     grid-template-columns: 30px 1fr;
     gap: 4px 10px;
-    padding: 14px 12px;
+    padding: 12px 8px;
     min-height: auto;
     align-items: start;
     position: relative;
@@ -2236,7 +2253,13 @@ body.oauth-error-body {
   }
   .youtube-video .flex-grow-1 > .d-flex {
     display: flex !important;
-    align-items: center;
+    align-items: flex-start;
+  }
+  /* Let the linked video title wrap to its full text instead of truncating to "Lil Wayne…". */
+  .youtube-video a {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
   }
   .youtube-video__thumbnail,
   .youtube-video__thumbnail--placeholder {
