@@ -7,11 +7,22 @@
 (function () {
   'use strict';
 
+  // The status endpoint emits `youtubeConnected` on EVERY poll while connected (every 5m),
+  // not just on the connect transition - the server is stateless and can't tell the two
+  // apart. Refetching the whole Spotify library on each heartbeat hammers Spotify into a
+  // 429, so refresh only on the first signal per page load (a genuine connect goes through
+  // an OAuth redirect, which reloads the page and re-arms this).
+  let refreshedForConnection = false;
+
   // Listen for the youtubeConnected event from the status endpoint
   document.body.addEventListener('youtubeConnected', function () {
+    if (refreshedForConnection) return;
+
     const playlistsContent = document.getElementById('playlists-content');
 
     if (playlistsContent && window.htmx) {
+      refreshedForConnection = true;
+
       // Save checkbox states before refresh
       const checkboxStates = new Map();
       document.querySelectorAll('.playlist-expand-toggle').forEach((checkbox) => {
