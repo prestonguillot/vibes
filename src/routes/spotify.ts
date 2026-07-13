@@ -329,7 +329,10 @@ router.get(
       // Check for rate limiting (429)
       if (statusCode === 429) {
         const retryAfter = error instanceof SpotifyApiError ? error.retryAfter : undefined;
-        Logger.warn('Spotify API rate limit exceeded', { statusCode, retryAfterSeconds: retryAfter ?? null });
+        Logger.warn('Spotify API rate limit exceeded', {
+          statusCode,
+          retryAfterSeconds: retryAfter ?? null,
+        });
         return res.status(429).render('partials/error-message', {
           message: 'Too many requests to Spotify',
           type: 'warning',
