@@ -23,3 +23,12 @@ export function formatErrorDetails(error: unknown): string {
     return 'An error occurred. Please try again or contact support.';
   }
 }
+
+/** Renders a Retry-After delay (seconds) as a short human phrase, e.g. "2 hours" or "45 seconds". */
+export function formatRetryAfter(seconds: number): string {
+  const rounded = Math.max(1, Math.round(seconds));
+  const unit = (n: number, label: string) => `${n} ${label}${n === 1 ? '' : 's'}`;
+  if (rounded < 60) return unit(rounded, 'second');
+  if (rounded < 3600) return unit(Math.round(rounded / 60), 'minute');
+  return unit(Math.round(rounded / 3600), 'hour');
+}

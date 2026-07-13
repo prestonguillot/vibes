@@ -3,6 +3,7 @@ import { createYoutubeClient, YoutubeApiError, YtPlaylist } from '../youtube/cli
 import { Logger } from '../lib/logger';
 import { getSecureCookieOptions } from '../auth/authValidation';
 import { validate, schemas, ValidatedRequest } from '../lib/validation';
+import { formatRetryAfter } from '../lib/errorFormatter';
 import { CacheDuration, setCache } from '../lib/cache';
 import { youtubeCircuitBreaker } from '../lib/circuitBreaker';
 import {
@@ -327,11 +328,15 @@ router.get(
 
       // Check for rate limiting (429)
       if (statusCode === 429) {
-        Logger.warn('Spotify API rate limit exceeded', { statusCode });
+        const retryAfter = error instanceof SpotifyApiError ? error.retryAfter : undefined;
+        Logger.warn('Spotify API rate limit exceeded', { statusCode, retryAfterSeconds: retryAfter ?? null });
         return res.status(429).render('partials/error-message', {
           message: 'Too many requests to Spotify',
           type: 'warning',
-          details: 'Please wait a moment before trying again.',
+          details:
+            retryAfter != null
+              ? `Spotify is rate-limiting this app. Try again in about ${formatRetryAfter(retryAfter)}.`
+              : 'Please wait a moment before trying again.',
         });
       }
 

@@ -26,12 +26,25 @@ const API_BASE = 'https://api.spotify.com/v1';
 export class SpotifyApiError extends Error {
   readonly status: number;
   readonly body?: string;
-  constructor(message: string, status: number, body?: string) {
+  /** Seconds to wait before retrying, parsed from the Retry-After header (429/503). */
+  readonly retryAfter?: number;
+  constructor(message: string, status: number, body?: string, retryAfter?: number) {
     super(message);
     this.name = 'SpotifyApiError';
     this.status = status;
     this.body = body;
+    this.retryAfter = retryAfter;
   }
+}
+
+/** Parses a Retry-After header (delay in seconds, or an HTTP date) into seconds. */
+function parseRetryAfter(value: string | null): number | undefined {
+  if (!value) return undefined;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds)) return Math.max(0, seconds);
+  const when = Date.parse(value);
+  if (!Number.isNaN(when)) return Math.max(0, Math.round((when - Date.now()) / 1000));
+  return undefined;
 }
 
 export interface SpotifyTokenSet {
@@ -156,6 +169,8 @@ async function tokenRequest(body: URLSearchParams): Promise<SpotifyTokenSet> {
 
   const text = await response.text();
   if (!response.ok) {
+    const retryAfterHeader = response.headers.get('retry-after');
+    const retryAfter = parseRetryAfter(retryAfterHeader);
     // Account errors use { error, error_description }.
     let message = `Spotify token request failed: HTTP ${response.status}`;
     try {
@@ -166,7 +181,13 @@ async function tokenRequest(body: URLSearchParams): Promise<SpotifyTokenSet> {
     } catch {
       /* non-JSON body */
     }
-    throw new SpotifyApiError(message, response.status, text);
+    if (response.status === 429) {
+      Logger.warn('Spotify token endpoint rate limited', {
+        retryAfterSeconds: retryAfter ?? null,
+        retryAfterHeader,
+      });
+    }
+    throw new SpotifyApiError(message, response.status, text, retryAfter);
   }
 
   const data = JSON.parse(text) as RawTokenResponse;
@@ -212,6 +233,8 @@ async function apiGet<T>(path: string, accessToken: string): Promise<T> {
 
   if (!response.ok) {
     const text = await response.text().catch(() => '');
+    const retryAfterHeader = response.headers.get('retry-after');
+    const retryAfter = parseRetryAfter(retryAfterHeader);
     let message = `Spotify API request failed: HTTP ${response.status} (${path})`;
     try {
       const parsed = JSON.parse(text) as { error?: { message?: string } };
@@ -220,7 +243,14 @@ async function apiGet<T>(path: string, accessToken: string): Promise<T> {
     } catch {
       /* non-JSON body */
     }
-    throw new SpotifyApiError(message, response.status, text);
+    if (response.status === 429) {
+      Logger.warn('Spotify rate limited', {
+        path,
+        retryAfterSeconds: retryAfter ?? null,
+        retryAfterHeader,
+      });
+    }
+    throw new SpotifyApiError(message, response.status, text, retryAfter);
   }
 
   return (await response.json()) as T;

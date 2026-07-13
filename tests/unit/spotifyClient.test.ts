@@ -33,11 +33,12 @@ const okJson = (data: unknown) =>
     json: async () => data,
     text: async () => JSON.stringify(data),
   }) as never;
-const errResp = (status: number, body: unknown) =>
+const errResp = (status: number, body: unknown, headers: Record<string, string> = {}) =>
   ({
     ok: false,
     status,
     statusText: 'Error',
+    headers: { get: (name: string) => headers[name.toLowerCase()] ?? null },
     json: async () => body,
     text: async () => (typeof body === 'string' ? body : JSON.stringify(body)),
   }) as never;
@@ -285,6 +286,30 @@ describe('error mapping', () => {
       status: 429,
       message: expect.stringContaining('rate limited'),
     });
+  });
+
+  it('captures the Retry-After header (seconds) on a 429', async () => {
+    mockFetch.mockResolvedValue(
+      errResp(429, { error: { status: 429, message: 'rate limited' } }, { 'retry-after': '43200' }),
+    );
+    const err = await getUserPlaylists('AT').catch((e) => e);
+    expect(err).toBeInstanceOf(SpotifyApiError);
+    expect(err.retryAfter).toBe(43200);
+  });
+
+  it('parses a Retry-After HTTP-date into seconds from now', async () => {
+    const tenMinutes = new Date(Date.now() + 600_000).toUTCString();
+    mockFetch.mockResolvedValue(errResp(503, 'unavailable', { 'retry-after': tenMinutes }));
+    const err = await getCurrentUser('AT').catch((e) => e);
+    // Allow a small delta for clock/rounding between building the date and parsing it.
+    expect(err.retryAfter).toBeGreaterThan(590);
+    expect(err.retryAfter).toBeLessThanOrEqual(600);
+  });
+
+  it('leaves retryAfter undefined when the header is absent', async () => {
+    mockFetch.mockResolvedValue(errResp(429, { error: { status: 429, message: 'rate limited' } }));
+    const err = await getPlaylist('AT', 'p').catch((e) => e);
+    expect(err.retryAfter).toBeUndefined();
   });
 
   it('SpotifyApiError is the thrown type with the raw body attached', async () => {
