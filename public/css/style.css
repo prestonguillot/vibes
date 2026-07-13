@@ -718,12 +718,6 @@ body {
   border: 3px solid var(--border);
   background: var(--surface);
   box-shadow: 5px 5px 0px rgba(var(--shadow-rgb), 0.3);
-  /* Reduced rotation to minimize text blurriness and layout shifts */
-  transform: rotate(0.05deg);
-}
-
-.card:nth-child(even) {
-  transform: rotate(-0.05deg);
 }
 
 .card-title {
