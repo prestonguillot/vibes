@@ -2196,6 +2196,18 @@ body.oauth-error-body {
     width: 100%;
   }
 
+  /* A long playlist name must be able to shrink+wrap. Without min-width:0 the flex item can't
+     go below the longest word, so it overflows the row and pushes the whole page wide - which
+     shows up as a horizontal scroll and the "Your Playlists" panel looking offset. */
+  .playlist-info {
+    min-width: 0;
+  }
+
+  /* Trim the panel body padding so the playlist cards sit closer to the panel edge. */
+  .card-body {
+    padding: 8px;
+  }
+
   /* Reclaim horizontal space: desktop nests card padding (20px) + details-container (2rem) +
      details (15px) + track (12px), which crushes content on a phone. Trim each level. */
   .playlist-item {
@@ -2222,9 +2234,12 @@ body.oauth-error-body {
     align-items: start;
     position: relative;
   }
+  /* Album-art bleed, resized for the narrower row (still clipped by the row's overflow:hidden,
+     so it can't push the page wide). */
   .track-item--art-fill::after {
-    /* the 340px album-art bleed overflows a phone width - drop the flourish here */
-    display: none;
+    width: 220px;
+    height: 220px;
+    right: -30px;
   }
   .track-number {
     grid-column: 1;
