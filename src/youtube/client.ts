@@ -195,6 +195,10 @@ export function getYoutubeAuthUrl(scopes: string[], state?: string): string {
     response_type: 'code',
     scope: scopes.join(' '),
     access_type: 'offline',
+    // Force the consent screen so Google re-issues a refresh_token on every connect. With only
+    // access_type=offline it returns one on the FIRST consent, so reconnects got no refresh_token
+    // and the access token died at the 1h expiry with no way to refresh.
+    prompt: 'consent',
   });
   if (state) params.set('state', state);
   return `${OAUTH_AUTH_URL}?${params.toString()}`;

@@ -152,47 +152,56 @@ export async function validateYouTubeConnection(
     const errorCode = (error as { code?: number }).code;
     Logger.auth('YouTube', 'connection invalid', { error: errorMessage, code: errorCode });
 
-    // Quota exceeded - open circuit breaker and clear tokens
+    // 401 = the access token expired/was rejected. This is ROUTINE (tokens expire hourly) and
+    // recoverable by refresh - it is NOT an API-health failure, so it must not count against the
+    // circuit breaker (counting it was what tripped the breaker on every expiry, which then wiped
+    // valid tokens and broke "Connect YouTube"). Try to refresh; only a failed refresh is fatal.
+    if (errorCode === 401) {
+      if (youtubeTokens.refresh_token) {
+        try {
+          const refreshed = await refreshYoutubeAccessToken(youtubeTokens.refresh_token);
+          const updatedTokens = { ...youtubeTokens, ...refreshed };
+          res.cookie('youtube_tokens', JSON.stringify(updatedTokens), getSecureCookieOptions());
+          youtubeCircuitBreaker.recordSuccess();
+          Logger.auth('YouTube', 'token refreshed successfully');
+          return { connected: true };
+        } catch {
+          Logger.auth('YouTube', 'failed to refresh token');
+          res.clearCookie('youtube_tokens');
+          return {
+            connected: false,
+            error: 'YouTube credentials expired. Please reconnect.',
+            errorCode: 401,
+          };
+        }
+      }
+      // No refresh token to recover with. (prompt=consent at connect prevents this going forward.)
+      res.clearCookie('youtube_tokens');
+      return {
+        connected: false,
+        error: 'YouTube credentials expired. Please reconnect.',
+        errorCode: 401,
+      };
+    }
+
+    // Quota (403) - open the breaker so we stop hammering YouTube until it resets.
     if (errorCode === 403) {
       youtubeCircuitBreaker.open();
-      // Clear tokens so user sees disconnected state
       res.clearCookie('youtube_tokens');
       return {
         connected: false,
         error: 'YouTube API quota exceeded. Please try again later.',
         errorCode: 403,
       };
-    } else {
-      youtubeCircuitBreaker.recordFailure(error);
     }
 
-    // Try to refresh the token on 401
-    if (errorCode === 401 && youtubeTokens.refresh_token) {
-      try {
-        const refreshed = await refreshYoutubeAccessToken(youtubeTokens.refresh_token);
-
-        // Update cookie with new tokens
-        const updatedTokens = { ...youtubeTokens, ...refreshed };
-        res.cookie('youtube_tokens', JSON.stringify(updatedTokens), getSecureCookieOptions());
-
-        Logger.auth('YouTube', 'token refreshed successfully');
-        return { connected: true };
-      } catch {
-        Logger.auth('YouTube', 'failed to refresh token');
-        res.clearCookie('youtube_tokens');
-        return {
-          connected: false,
-          error: 'YouTube credentials expired. Please reconnect.',
-          errorCode: 401,
-        };
-      }
-    } else {
-      res.clearCookie('youtube_tokens');
-      return {
-        connected: false,
-        error: 'Unable to validate YouTube connection. Please try reconnecting.',
-        errorCode: errorCode,
-      };
-    }
+    // Genuine API-health failure (5xx / network) - this is what the circuit breaker is for.
+    youtubeCircuitBreaker.recordFailure(error);
+    res.clearCookie('youtube_tokens');
+    return {
+      connected: false,
+      error: 'Unable to validate YouTube connection. Please try reconnecting.',
+      errorCode: errorCode,
+    };
   }
 }
