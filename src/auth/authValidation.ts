@@ -79,8 +79,8 @@ export async function validateSpotifyConnection(
         spotifyCircuitBreaker.recordSuccess();
         Logger.auth('Spotify', 'token refreshed successfully');
         return { connected: true };
-      } catch {
-        Logger.auth('Spotify', 'failed to refresh token');
+      } catch (refreshError) {
+        Logger.warn('Spotify token refresh failed', {}, refreshError);
       }
     }
     if (statusCode === 401) {
@@ -166,8 +166,8 @@ export async function validateYouTubeConnection(
         youtubeCircuitBreaker.recordSuccess();
         Logger.auth('YouTube', 'token refreshed successfully');
         return { connected: true };
-      } catch {
-        Logger.auth('YouTube', 'failed to refresh token');
+      } catch (refreshError) {
+        Logger.warn('YouTube token refresh failed', {}, refreshError);
       }
     }
     if (errorCode === 401) {
