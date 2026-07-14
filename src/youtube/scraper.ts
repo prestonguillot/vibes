@@ -92,6 +92,108 @@ interface YouTubeScrapedVideoData {
  * @returns Array of search results with video IDs, titles, durations, views, and channels
  * @throws Error if scraping fails or is blocked by YouTube
  */
+const SCRAPE_HEADERS: Record<string, string> = {
+  'User-Agent':
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+  Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+  'Accept-Language': 'en-US,en;q=0.5',
+  'Accept-Encoding': 'gzip, deflate, br',
+  Connection: 'keep-alive',
+  'Upgrade-Insecure-Requests': '1',
+};
+
+/**
+ * Cookie jar shared across scrapes, because `fetch` is stateless and Google's bot gate is
+ * cookie-based.
+ *
+ * When YouTube flags the request it 302s to google.com/sorry/, which (without any CAPTCHA)
+ * redirects BACK carrying `?google_abuse=GOOGLE_ABUSE_EXEMPTION=...` - a Set-Cookie payload
+ * smuggled in the query string. YouTube consumes it, sets the exemption as a cookie, and
+ * redirects to the clean URL. A stateless fetch drops that cookie, so the clean URL is
+ * un-exempted and bounces straight back to /sorry/ - an infinite loop (the "redirect count
+ * exceeded" failure). Persisting cookies lets the exemption stick; it is valid ~1h, so one
+ * grant covers the rest of the sync.
+ *
+ * Seeded with SOCS, which separately opts out of the cookie-consent redirect flow.
+ */
+const cookieJar = new Map<string, string>([
+  [
+    'SOCS',
+    'CAISNQgDEitib3FfaWRlbnRpdHlmcm9udGVuZHVpc2VydmVyXzIwMjQwMTA5LjA1X3AwGgJlbiACGgYIgL3vrwY',
+  ],
+]);
+
+function jarCookieHeader(): string {
+  return [...cookieJar].map(([name, value]) => `${name}=${value}`).join('; ');
+}
+
+/** Absorbs Set-Cookie headers from a response into the jar (name=value only; scoping is not
+ *  modelled - every host we touch here is a Google property). */
+function absorbSetCookies(response: Response): void {
+  const setCookies = response.headers.getSetCookie?.() ?? [];
+  for (const raw of setCookies) {
+    const pair = raw.split(';')[0] ?? '';
+    const eq = pair.indexOf('=');
+    if (eq <= 0) continue;
+    const name = pair.slice(0, eq).trim();
+    const value = pair.slice(eq + 1).trim();
+    if (!name) continue;
+    if (!cookieJar.has(name) || cookieJar.get(name) !== value) {
+      Logger.debug('Scraper stored cookie', { name });
+    }
+    cookieJar.set(name, value);
+  }
+}
+
+/**
+ * Fetch that follows redirects BY HAND so a bounce is visible.
+ *
+ * With the default `redirect: 'follow'`, undici silently chases up to 20 hops and then throws
+ * "redirect count exceeded" having discarded every URL it visited - which tells you nothing about
+ * WHERE it was being sent (consent gate? /sorry/ bot check? something else?). Following manually
+ * logs each hop's Location and puts the whole chain in the thrown error.
+ */
+async function fetchShowingRedirects(
+  startUrl: string,
+  signal: AbortSignal,
+  maxRedirects = 5,
+): Promise<Response> {
+  let currentUrl = startUrl;
+  const chain: string[] = [];
+
+  for (let hop = 0; hop <= maxRedirects; hop++) {
+    const response = await fetch(currentUrl, {
+      signal,
+      redirect: 'manual',
+      headers: { ...SCRAPE_HEADERS, Cookie: jarCookieHeader() },
+    });
+
+    // Keep any cookies the hop hands back - notably GOOGLE_ABUSE_EXEMPTION from the /sorry/
+    // bounce, which is what actually clears the gate on the next request.
+    absorbSetCookies(response);
+
+    // Not a redirect - this is the real response.
+    if (response.status < 300 || response.status > 399) return response;
+
+    const location = response.headers.get('location');
+    chain.push(`${response.status} ${currentUrl} -> ${location ?? '(no Location header)'}`);
+    Logger.warn('YouTube search redirected', {
+      hop: hop + 1,
+      status: response.status,
+      from: currentUrl,
+      to: location,
+    });
+
+    // A redirect with no Location is not followable - hand it back and let the caller report it.
+    if (!location) return response;
+    currentUrl = new URL(location, currentUrl).toString();
+  }
+
+  throw new Error(
+    `YouTube redirected more than ${maxRedirects} times (likely a consent or bot gate). Chain: ${chain.join(' | ')}`,
+  );
+}
+
 export async function scrapeYouTubeSearch(
   query: string,
   maxResults: number = 3,
@@ -117,26 +219,25 @@ export async function scrapeYouTubeSearch(
     const timeoutId = setTimeout(() => controller.abort(), 10000);
     let response: Response;
     try {
-      response = await fetch(url, {
-        signal: controller.signal,
-        headers: {
-          'User-Agent':
-            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-          'Accept-Language': 'en-US,en;q=0.5',
-          'Accept-Encoding': 'gzip, deflate, br',
-          Connection: 'keep-alive',
-          'Upgrade-Insecure-Requests': '1',
-          Cookie:
-            'SOCS=CAISNQgDEitib3FfaWRlbnRpdHlmcm9udGVuZHVpc2VydmVyXzIwMjQwMTA5LjA1X3AwGgJlbiACGgYIgL3vrwY',
-        },
-      });
+      response = await fetchShowingRedirects(url, controller.signal);
     } finally {
       clearTimeout(timeoutId);
     }
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      // Log the ACTUAL response, not just the status - if YouTube served a bot/consent gate or a
+      // rate-limit page, the body is the only thing that says so.
+      const body = await response.text().catch(() => '(body unreadable)');
+      Logger.warn('YouTube search returned an unexpected response', {
+        status: response.status,
+        statusText: response.statusText,
+        url: response.url || url,
+        contentType: response.headers.get('content-type'),
+        bodySnippet: body.slice(0, 500),
+      });
+      throw new Error(
+        `HTTP ${response.status}: ${response.statusText} (url: ${response.url || url})`,
+      );
     }
 
     const html = await response.text();
