@@ -97,6 +97,58 @@ describe('Spotify Circuit Breaker', () => {
     });
   });
 
+  describe('401 token expiry does not trip the circuit breaker', () => {
+    it('refreshes on 401 and stays connected without recording a failure', async () => {
+      mockGetCurrentUser.mockRejectedValueOnce(
+        new SpotifyApiError('The access token expired', 401),
+      );
+      mockRefreshAccessToken.mockResolvedValueOnce({
+        accessToken: 'new_access',
+        refreshToken: 'new_refresh',
+      });
+
+      const result = await validateSpotifyConnection(mockSpotifyTokens, mockResponse);
+
+      expect(result.connected).toBe(true);
+      expect(mockRefreshAccessToken).toHaveBeenCalledWith('mock_refresh_token');
+      expect(mockResponse.cookie).toHaveBeenCalledWith(
+        'spotify_tokens',
+        expect.any(String),
+        expect.anything(),
+      );
+      expect(mockResponse.clearCookie).not.toHaveBeenCalled();
+      expect(spotifyCircuitBreaker.isOpen()).toBe(false);
+    });
+
+    it('does NOT open the breaker after repeated 401s (routine expiry, not an API failure)', async () => {
+      mockGetCurrentUser.mockRejectedValue(new SpotifyApiError('The access token expired', 401));
+      mockRefreshAccessToken.mockRejectedValue(new Error('refresh failed'));
+
+      for (let i = 0; i < 5; i++) {
+        const result = await validateSpotifyConnection(mockSpotifyTokens, mockResponse);
+        expect(result.connected).toBe(false);
+        expect(result.errorCode).toBe(401);
+      }
+      expect(spotifyCircuitBreaker.isOpen()).toBe(false);
+    });
+
+    it('clears tokens and asks to reconnect when there is no refresh token', async () => {
+      mockGetCurrentUser.mockRejectedValueOnce(
+        new SpotifyApiError('The access token expired', 401),
+      );
+      const noRefresh = { accessToken: 'a' } as SpotifyTokens;
+
+      const result = await validateSpotifyConnection(noRefresh, mockResponse);
+
+      expect(result.connected).toBe(false);
+      expect(result.errorCode).toBe(401);
+      expect(result.error).toBe('Spotify credentials expired. Please reconnect.');
+      expect(mockResponse.clearCookie).toHaveBeenCalledWith('spotify_tokens');
+      expect(mockRefreshAccessToken).not.toHaveBeenCalled();
+      expect(spotifyCircuitBreaker.isOpen()).toBe(false);
+    });
+  });
+
   describe('Success Recording', () => {
     it('should record success on valid connection', async () => {
       mockGetCurrentUser.mockResolvedValueOnce({ id: 'user123', displayName: 'Test User' });

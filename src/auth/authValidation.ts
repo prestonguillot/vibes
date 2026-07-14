@@ -63,53 +63,54 @@ export async function validateSpotifyConnection(
     const statusCode = error instanceof SpotifyApiError ? error.status : undefined;
     Logger.auth('Spotify', 'connection invalid', { error: errorMessage, statusCode });
 
-    // Quota exceeded - open circuit breaker and clear tokens
-    if (statusCode === 429) {
-      spotifyCircuitBreaker.open();
-      // Clear tokens so user sees disconnected state
-      res.clearCookie('spotify_tokens');
-      return {
-        connected: false,
-        error: 'Spotify API quota exceeded. Please try again later.',
-        errorCode: 429,
-      };
-    } else {
-      spotifyCircuitBreaker.recordFailure(error);
-    }
-
-    // Try to refresh the token on 401
+    // 401 = the access token expired/was rejected - routine and refreshable, NOT an API-health
+    // failure, so it must never count against the breaker. Try to refresh; a failed/absent refresh
+    // falls through to the reconnect path below.
     if (statusCode === 401 && spotifyTokens.refreshToken) {
       try {
         const refreshed = await refreshAccessToken(spotifyTokens.refreshToken);
-
-        // Update cookie with new token (Spotify may not return a new refresh token)
+        // Spotify may not return a new refresh token; reuse the stored one.
         const updatedTokens = {
           ...spotifyTokens,
           accessToken: refreshed.accessToken,
           refreshToken: refreshed.refreshToken ?? spotifyTokens.refreshToken,
         };
         res.cookie('spotify_tokens', JSON.stringify(updatedTokens), getSecureCookieOptions());
-
+        spotifyCircuitBreaker.recordSuccess();
         Logger.auth('Spotify', 'token refreshed successfully');
         return { connected: true };
       } catch {
         Logger.auth('Spotify', 'failed to refresh token');
-        res.clearCookie('spotify_tokens');
-        return {
-          connected: false,
-          error: 'Spotify credentials expired. Please reconnect.',
-          errorCode: 401,
-        };
       }
-    } else {
-      // Clear invalid tokens
+    }
+    if (statusCode === 401) {
       res.clearCookie('spotify_tokens');
       return {
         connected: false,
-        error: 'Unable to validate Spotify connection. Please try reconnecting.',
-        errorCode: statusCode,
+        error: 'Spotify credentials expired. Please reconnect.',
+        errorCode: 401,
       };
     }
+
+    // Rate limit / quota (429) - open the breaker so we back off until it resets.
+    if (statusCode === 429) {
+      spotifyCircuitBreaker.open();
+      res.clearCookie('spotify_tokens');
+      return {
+        connected: false,
+        error: 'Spotify API quota exceeded. Please try again later.',
+        errorCode: 429,
+      };
+    }
+
+    // Genuine API-health failure (5xx / network) - this is what the circuit breaker is for.
+    spotifyCircuitBreaker.recordFailure(error);
+    res.clearCookie('spotify_tokens');
+    return {
+      connected: false,
+      error: 'Unable to validate Spotify connection. Please try reconnecting.',
+      errorCode: statusCode,
+    };
   }
 }
 
@@ -153,29 +154,24 @@ export async function validateYouTubeConnection(
     Logger.auth('YouTube', 'connection invalid', { error: errorMessage, code: errorCode });
 
     // 401 = the access token expired/was rejected. This is ROUTINE (tokens expire hourly) and
-    // recoverable by refresh - it is NOT an API-health failure, so it must not count against the
-    // circuit breaker (counting it was what tripped the breaker on every expiry, which then wiped
-    // valid tokens and broke "Connect YouTube"). Try to refresh; only a failed refresh is fatal.
-    if (errorCode === 401) {
-      if (youtubeTokens.refresh_token) {
-        try {
-          const refreshed = await refreshYoutubeAccessToken(youtubeTokens.refresh_token);
-          const updatedTokens = { ...youtubeTokens, ...refreshed };
-          res.cookie('youtube_tokens', JSON.stringify(updatedTokens), getSecureCookieOptions());
-          youtubeCircuitBreaker.recordSuccess();
-          Logger.auth('YouTube', 'token refreshed successfully');
-          return { connected: true };
-        } catch {
-          Logger.auth('YouTube', 'failed to refresh token');
-          res.clearCookie('youtube_tokens');
-          return {
-            connected: false,
-            error: 'YouTube credentials expired. Please reconnect.',
-            errorCode: 401,
-          };
-        }
+    // recoverable by refresh - it is NOT an API-health failure, so it must never count against the
+    // circuit breaker (counting it was what tripped the breaker on every expiry, then wiped valid
+    // tokens and broke "Connect YouTube"). Try to refresh; a failed/absent refresh falls through to
+    // the reconnect path below.
+    if (errorCode === 401 && youtubeTokens.refresh_token) {
+      try {
+        const refreshed = await refreshYoutubeAccessToken(youtubeTokens.refresh_token);
+        const updatedTokens = { ...youtubeTokens, ...refreshed };
+        res.cookie('youtube_tokens', JSON.stringify(updatedTokens), getSecureCookieOptions());
+        youtubeCircuitBreaker.recordSuccess();
+        Logger.auth('YouTube', 'token refreshed successfully');
+        return { connected: true };
+      } catch {
+        Logger.auth('YouTube', 'failed to refresh token');
       }
-      // No refresh token to recover with. (prompt=consent at connect prevents this going forward.)
+    }
+    if (errorCode === 401) {
+      // Expired with no way to refresh (prompt=consent at connect prevents this going forward).
       res.clearCookie('youtube_tokens');
       return {
         connected: false,
