@@ -26,9 +26,10 @@ function makeRow(id: string, youtubeCount: number) {
   return document.querySelector('.playlist-item') as HTMLElement;
 }
 
-function detailsEl(id: string, trackCount: number, needsResync: boolean) {
+function detailsEl(id: string, trackCount: number, needsResync: boolean, linkedCount?: number) {
+  const linkedAttr = linkedCount === undefined ? '' : ` data-linked-count="${linkedCount}"`;
   const div = document.createElement('div');
-  div.innerHTML = `<div class="playlist-details" data-playlist-id="${id}" data-track-count="${trackCount}" data-needs-resync="${needsResync}"></div>`;
+  div.innerHTML = `<div class="playlist-details" data-playlist-id="${id}" data-track-count="${trackCount}"${linkedAttr} data-needs-resync="${needsResync}"></div>`;
   return div;
 }
 
@@ -39,10 +40,11 @@ beforeEach(() => {
 });
 
 describe('playlistMeta cache', () => {
-  it('records count + drift from a details view via syncFromDetails', () => {
-    (window as any).playlistMeta.syncFromDetails(detailsEl('p1', 42, true));
+  it('records count + linked + drift from a details view via syncFromDetails', () => {
+    (window as any).playlistMeta.syncFromDetails(detailsEl('p1', 42, true, 40));
     expect((window as any).playlistMeta.getMeta('p1')).toEqual({
       trackCount: 42,
+      linkedCount: 40,
       needsResync: true,
     });
   });
@@ -51,16 +53,41 @@ describe('playlistMeta cache', () => {
     (window as any).playlistMeta.syncFromDetails(detailsEl('p1', NaN, false));
     expect((window as any).playlistMeta.getMeta('p1')).toEqual({
       trackCount: null,
+      linkedCount: null,
       needsResync: false,
     });
   });
 
-  it('decorates a synced row as "N synced to YouTube of M"', () => {
+  it('decorates a synced row as "N of M tracks synced to YouTube"', () => {
+    const row = makeRow('p1', 30);
+    (window as any).playlistMeta.setMeta('p1', {
+      trackCount: 33,
+      linkedCount: 30,
+      needsResync: false,
+    });
+    (window as any).playlistMeta.decorateRow(row);
+    expect(row.querySelector('.playlist-track-summary')!.textContent).toBe(
+      '30 of 33 tracks synced to YouTube',
+    );
+  });
+
+  it("prefers the details linked count over the row's stale data-youtube-count", () => {
+    // The row was rendered with the list BEFORE a sync (63), so its attribute is stale. After the
+    // sync the details reports 141 linked of 145 - the row must show the fresh number, not 63.
+    const row = makeRow('p1', 63);
+    (window as any).playlistMeta.syncFromDetails(detailsEl('p1', 145, false, 141));
+    (window as any).playlistMeta.decorateRow(row);
+    expect(row.querySelector('.playlist-track-summary')!.textContent).toBe(
+      '141 of 145 tracks synced to YouTube',
+    );
+  });
+
+  it('falls back to the row count when the details published no linked count', () => {
     const row = makeRow('p1', 30);
     (window as any).playlistMeta.setMeta('p1', { trackCount: 33, needsResync: false });
     (window as any).playlistMeta.decorateRow(row);
     expect(row.querySelector('.playlist-track-summary')!.textContent).toBe(
-      '30 tracks synced to YouTube of 33',
+      '30 of 33 tracks synced to YouTube',
     );
   });
 

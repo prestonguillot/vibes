@@ -11,7 +11,9 @@
       <h5 class="mb-1 playlist-name" title="<%= name %>"><%= syncIcon || '' %><%= name %><span class="drift-dot" data-drift-dot title="YouTube is out of sync with Spotify - re-sync to update"></span></h5>
       <p class="text-muted mb-1 playlist-track-summary">
         <% if (youtubeTracksTotal && youtubeTracksTotal > 0) { %>
-          <%= youtubeTracksTotal %> tracks synced to YouTube<%= (tracksTotal != null) ? ` of ${tracksTotal}` : '' %>
+          <%= (tracksTotal != null)
+                ? `${youtubeTracksTotal} of ${tracksTotal} tracks synced to YouTube`
+                : `${youtubeTracksTotal} tracks synced to YouTube` %>
         <% } else if (tracksTotal != null) { %>
           <%= tracksTotal %> tracks
         <% } else { %>
