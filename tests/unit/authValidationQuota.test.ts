@@ -89,6 +89,52 @@ describe('YouTube Auth Validation - Quota Handling', () => {
     });
   });
 
+  describe('401 token expiry does not trip the circuit breaker', () => {
+    it('refreshes on 401 and stays connected without recording a failure', async () => {
+      yt.channelsList.mockRejectedValueOnce({ code: 401, message: 'Invalid credentials' });
+      yt.refresh.mockResolvedValueOnce({ access_token: 'refreshed_access_token' });
+
+      const result = await validateYouTubeConnection(mockYoutubeTokens, mockResponse);
+
+      expect(result.connected).toBe(true);
+      expect(yt.refresh).toHaveBeenCalledWith('mock_refresh_token');
+      expect(mockResponse.cookie).toHaveBeenCalledWith(
+        'youtube_tokens',
+        expect.any(String),
+        expect.anything(),
+      );
+      expect(mockResponse.clearCookie).not.toHaveBeenCalled();
+      expect(youtubeCircuitBreaker.isOpen()).toBe(false);
+    });
+
+    it('does NOT open the breaker after repeated 401s (routine expiry, not an API failure)', async () => {
+      yt.channelsList.mockRejectedValue({ code: 401, message: 'Invalid credentials' });
+      yt.refresh.mockRejectedValue(new Error('refresh failed'));
+
+      // Well past the failure threshold (2) - none of these should count against the breaker.
+      for (let i = 0; i < 5; i++) {
+        const result = await validateYouTubeConnection(mockYoutubeTokens, mockResponse);
+        expect(result.connected).toBe(false);
+        expect(result.errorCode).toBe(401);
+      }
+      expect(youtubeCircuitBreaker.isOpen()).toBe(false);
+    });
+
+    it('clears tokens and asks to reconnect when there is no refresh token', async () => {
+      yt.channelsList.mockRejectedValueOnce({ code: 401, message: 'Invalid credentials' });
+      const noRefresh = { access_token: 'a', expiry_date: Date.now() + 3600000 } as YouTubeTokens;
+
+      const result = await validateYouTubeConnection(noRefresh, mockResponse);
+
+      expect(result.connected).toBe(false);
+      expect(result.errorCode).toBe(401);
+      expect(result.error).toBe('YouTube credentials expired. Please reconnect.');
+      expect(mockResponse.clearCookie).toHaveBeenCalledWith('youtube_tokens');
+      expect(yt.refresh).not.toHaveBeenCalled();
+      expect(youtubeCircuitBreaker.isOpen()).toBe(false);
+    });
+  });
+
   describe('User Experience Flow', () => {
     it('should transition from connected to disconnected on quota exceeded', async () => {
       // Start in connected state (circuit closed)
