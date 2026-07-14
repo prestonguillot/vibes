@@ -94,14 +94,33 @@ export function buildSyncDesiredVideoIds(
   }
 
   const desired: string[] = [];
-  const used = new Set<string>();
+  // videoId -> the track that claimed it, so a collision can name both sides.
+  const claimedBy = new Map<string, string>();
+  const dropped: Array<{ trackId: string; videoId: string; alreadyClaimedBy: string }> = [];
+
   for (const trackId of orderedSpotifyTrackIds) {
     const videoId = trackToVideo.get(trackId);
-    if (videoId && !used.has(videoId)) {
-      used.add(videoId);
-      desired.push(videoId);
+    if (!videoId) continue;
+
+    const owner = claimedBy.get(videoId);
+    if (owner) {
+      // "First track wins" keeps reconcile from inserting a duplicate - but it means this track
+      // can NEVER sync, and a silent drop makes the sync report success having done nothing
+      // (desired == current -> 0 ops) and leaves needsResync stuck on forever. Say so.
+      dropped.push({ trackId, videoId, alreadyClaimedBy: owner });
+      continue;
     }
+    claimedBy.set(videoId, trackId);
+    desired.push(videoId);
   }
+
+  if (dropped.length > 0) {
+    Logger.warn(
+      'Dropped tracks from the desired order: their video is already claimed by an earlier track',
+      { droppedCount: dropped.length, dropped: dropped.slice(0, 10) },
+    );
+  }
+
   return desired;
 }
 

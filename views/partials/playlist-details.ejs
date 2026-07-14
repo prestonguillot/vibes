@@ -1,5 +1,8 @@
 <div class="playlist-details" data-playlist-id="<%= playlistId %>"
      data-track-count="<%= totalTracks %>"
+     <%# The collapsed row's "x of y synced" is decorated from this: the row's own
+         data-youtube-count is rendered with the list and goes stale after a sync. %>
+     <% if (hasYoutubeConnection) { %>data-linked-count="<%= linkedCount %>"<% } %>
      data-needs-resync="<%= (hasYoutubeConnection && hasYoutubePlaylist && needsResync) ? 'true' : 'false' %>">
   <div class="playlist-header mb-3">
     <h6><%= playlistName %></h6>

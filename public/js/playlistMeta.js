@@ -52,12 +52,15 @@
     var meta = getMeta(id);
     if (!meta) return;
 
-    var youtubeCount = parseInt(row.getAttribute('data-youtube-count'), 10) || 0;
+    // Prefer the linked count the details view computed: the row's own data-youtube-count is
+    // rendered with the list and is stale as soon as a sync changes it.
+    var rowCount = parseInt(row.getAttribute('data-youtube-count'), 10) || 0;
+    var syncedCount = typeof meta.linkedCount === 'number' ? meta.linkedCount : rowCount;
     var summary = row.querySelector('.playlist-track-summary');
     if (summary && typeof meta.trackCount === 'number') {
       summary.textContent =
-        youtubeCount > 0
-          ? youtubeCount + ' tracks synced to YouTube of ' + meta.trackCount
+        syncedCount > 0
+          ? syncedCount + ' of ' + meta.trackCount + ' tracks synced to YouTube'
           : meta.trackCount + ' tracks';
     }
 
@@ -82,8 +85,10 @@
       var el = details[i];
       var id = el.getAttribute('data-playlist-id');
       var count = parseInt(el.getAttribute('data-track-count'), 10);
+      var linked = parseInt(el.getAttribute('data-linked-count'), 10);
       setMeta(id, {
         trackCount: isNaN(count) ? null : count,
+        linkedCount: isNaN(linked) ? null : linked,
         needsResync: el.getAttribute('data-needs-resync') === 'true',
       });
     }
