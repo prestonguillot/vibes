@@ -398,4 +398,144 @@ describe('the progress it streams', () => {
       percentage: 85,
     });
   });
+
+  /**
+   * The whole sequence, asserted whole.
+   *
+   * This is not log text - it is the only thing on screen for the length of a sync, and every line
+   * of it is a promise about what is happening to the user's playlist. Asserted as a list because
+   * that is what pins the wording, the order, and the percentages at once: a step that goes missing,
+   * arrives out of order, or reports a percentage that goes backwards is a bug the user watches
+   * happen, and none of it throws.
+   */
+  it('narrates a create, in order, to the end', async () => {
+    await run({ batchSizeRaw: 'all' });
+
+    expect(progress).toEqual([
+      {
+        type: 'progress',
+        message: 'Starting sync...',
+        details: 'Fetching Spotify playlist details...',
+      },
+      {
+        type: 'progress',
+        message: 'Found playlist: "My Playlist"',
+        details: 'Fetching tracks (limit: 2)...',
+      },
+      {
+        type: 'progress',
+        message: 'Processing 2 tracks',
+        details: 'Searching for existing YouTube playlist...',
+      },
+      {
+        type: 'progress',
+        message: 'Found 2 music videos',
+        details: 'Checking for existing YouTube playlist...',
+        percentage: 70,
+      },
+      {
+        type: 'progress',
+        message: 'Creating new YouTube playlist',
+        details: 'Setting up new playlist...',
+        percentage: 70,
+      },
+      {
+        type: 'progress',
+        message: 'Created playlist: "My Playlist (from Spotify)"',
+        details: 'Adding videos to new playlist...',
+        percentage: 70,
+      },
+      {
+        type: 'complete',
+        message: 'Playlist created successfully!',
+        details: 'Found 2 out of 2 tracks',
+        percentage: 100,
+      },
+    ]);
+  });
+
+  it('narrates an update, and says it is updating rather than creating', async () => {
+    h.findSyncedYoutubePlaylist.mockResolvedValue({ id: 'EXISTING_PL' });
+    h.fetchAllYoutubePlaylistItems.mockResolvedValue([ytItem('v1', 'One')]);
+    h.searchTracksForVideos.mockResolvedValue({
+      videoIds: ['v2'],
+      searchResults: [searchResult('t2', 'Two', true, 'v2')],
+    });
+
+    await run({ batchSizeRaw: 'all' });
+
+    expect(progress).toEqual([
+      {
+        type: 'progress',
+        message: 'Starting sync...',
+        details: 'Fetching Spotify playlist details...',
+      },
+      {
+        type: 'progress',
+        message: 'Found playlist: "My Playlist"',
+        details: 'Fetching tracks (limit: 2)...',
+      },
+      {
+        type: 'progress',
+        message: 'Processing 2 tracks',
+        details: 'Searching for existing YouTube playlist...',
+      },
+      {
+        type: 'progress',
+        message: 'Analyzing playlist for updates',
+        details: 'Found 1 existing videos, matching tracks to identify unsynced ones...',
+        percentage: 5,
+      },
+      {
+        type: 'progress',
+        message: 'Found 1 music videos',
+        details: 'Checking for existing YouTube playlist...',
+        percentage: 70,
+      },
+      {
+        type: 'progress',
+        message: 'Updating existing playlist: "My Playlist (from Spotify)"',
+        details: 'Processing playlist updates...',
+        percentage: 70,
+      },
+      {
+        type: 'progress',
+        message: 'Adding new tracks to playlist',
+        details: 'Adding 1 new videos from next unsynced tracks...',
+        percentage: 70,
+      },
+      {
+        type: 'complete',
+        message: 'Playlist updated successfully!',
+        details: 'Found 1 out of 1 tracks',
+        percentage: 100,
+      },
+    ]);
+  });
+
+  it('counts down the videos as they go in', async () => {
+    h.reconcilePlaylist.mockImplementation(async (_yt, _id, _desired, _current, onProgress) => {
+      await onProgress?.(1, 4);
+      await onProgress?.(4, 4);
+      return { inserted: 4, moved: 0, deleted: 0 };
+    });
+
+    await run();
+
+    expect(progress.filter((p) => p.message === 'Adding videos to playlist')).toEqual([
+      // 77, not 78: 0.7 + 0.25 * 0.3 is 0.77499... in binary floating point, so it rounds down.
+      {
+        type: 'progress',
+        message: 'Adding videos to playlist',
+        details: 'Adding videos (1/4)',
+        percentage: 77,
+      },
+      {
+        type: 'progress',
+        message: 'Adding videos to playlist',
+        details: 'Adding videos (4/4)',
+        percentage: 100,
+      },
+    ]);
+  });
 });
