@@ -280,10 +280,14 @@ router.get(
       // Cache for 30 minutes (LONG): this response lists ALL YouTube playlists to
       // determine sync status, so caching it protects the scarce YouTube quota.
       // The refresh button sends Cache-Control: no-cache to get fresh data on demand.
-      setCache(res, CacheDuration.LONG);
-      Logger.info('Setting cache header for playlists response', {
-        cacheDuration: CacheDuration.LONG,
-      });
+      //
+      // An empty list is never cached. Spotify hands back an empty library now and then, and
+      // caching that answer turns a blip into half an hour of a library that is not there - a
+      // reload cannot clear it, only the refresh button can. There is nothing to protect either
+      // way: no Spotify playlists means no YouTube quota was spent working out their sync status.
+      const cacheDuration = totalCount === 0 ? CacheDuration.NO_CACHE : CacheDuration.LONG;
+      setCache(res, cacheDuration);
+      Logger.info('Setting cache header for playlists response', { cacheDuration });
       res.render('partials/playlist-list-container', { summaryText, playlistsHtml });
     } catch (error) {
       Logger.error('Error fetching playlists', {}, error);

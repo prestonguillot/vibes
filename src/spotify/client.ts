@@ -267,6 +267,7 @@ export async function getUserPlaylists(accessToken: string): Promise<SpotifyPlay
   const all: SpotifyPlaylistSummary[] = [];
   const limit = 50; // API maximum
   let offset = 0;
+  let reportedTotal: number | null = null;
 
   while (true) {
     const page = await apiGet<RawPlaylistsPage>(
@@ -277,6 +278,18 @@ export async function getUserPlaylists(accessToken: string): Promise<SpotifyPlay
     // Spotify can return null entries for deleted/unavailable playlists.
     const items = rawItems.filter((p): p is RawPlaylistObject => p != null);
     all.push(...items.map(toPlaylistSummary));
+    reportedTotal ??= page.total ?? null;
+
+    // Dropping an entry silently makes a short list look like the whole list, and an empty one
+    // indistinguishable from an account with no playlists.
+    if (items.length < rawItems.length) {
+      Logger.warn('Spotify returned null playlist entries', {
+        offset,
+        reportedTotal,
+        returned: rawItems.length,
+        usable: items.length,
+      });
+    }
 
     // Terminate on `next`, and guard on the RAW page length. Testing the null-filtered length here
     // silently truncated the list: a page whose entries are all deleted/unavailable filters to
@@ -285,7 +298,13 @@ export async function getUserPlaylists(accessToken: string): Promise<SpotifyPlay
     offset += limit;
   }
 
-  Logger.debug('Fetched Spotify user playlists', { count: all.length });
+  // Spotify saying it holds playlists while handing back none is the difference between an empty
+  // account and a broken response; without the total, both arrive here as zero.
+  if (all.length === 0 && (reportedTotal ?? 0) > 0) {
+    Logger.warn('Spotify reports playlists but returned none', { reportedTotal });
+  }
+
+  Logger.debug('Fetched Spotify user playlists', { count: all.length, reportedTotal });
   return all;
 }
 
