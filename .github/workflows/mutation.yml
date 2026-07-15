@@ -46,7 +46,10 @@ jobs:
     name: Full sweep
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    # Generous on purpose: this runs the test suite once per mutant, and nothing is waiting on it.
+    # The cost of being wrong is losing an hour of work to a kill; the cost of the ceiling being
+    # high is nothing, because a hung run still stops here.
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v7
 
