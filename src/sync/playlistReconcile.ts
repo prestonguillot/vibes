@@ -23,13 +23,50 @@ export type ReconcileOp =
   | { kind: 'move'; playlistItemId: string; videoId: string; position: number };
 
 /**
+ * Indexes of the leftmost longest strictly increasing subsequence of `values`.
+ *
+ * Which of several equally long subsequences is picked decides the cost, not just the shape: the
+ * leftmost one leaves every other video needing a single move, where another choice can leave one
+ * of them in the way of a video that must not move, and paying for a second move to get out of it.
+ */
+function longestIncreasingSubsequence(values: number[]): number[] {
+  const n = values.length;
+  if (n === 0) return [];
+
+  // longest[i] = length of the longest increasing subsequence starting at i.
+  const longest = new Array<number>(n).fill(1);
+  for (let i = n - 2; i >= 0; i--) {
+    for (let j = i + 1; j < n; j++) {
+      if (values[j]! > values[i]! && longest[j]! + 1 > longest[i]!) longest[i] = longest[j]! + 1;
+    }
+  }
+
+  const out: number[] = [];
+  let wanted = Math.max(...longest);
+  let last = -Infinity;
+  for (let i = 0; i < n && wanted > 0; i++) {
+    if (longest[i] === wanted && values[i]! > last) {
+      out.push(i);
+      last = values[i]!;
+      wanted--;
+    }
+  }
+  return out;
+}
+
+/**
  * Pure planner: given the desired ordered video IDs and the playlist's current
  * items, return the ops (in execution order) that make the playlist match.
  *
  * - Deletes any current item whose video isn't desired, and duplicate copies.
- * - Walks the desired order left-to-right, inserting a missing video or moving a
- *   present-but-misplaced one into position. Items already in place are untouched,
- *   so a typical edit (append, insert one, move one) costs a single write.
+ * - Moves only the videos that have to move, and inserts the ones that are missing.
+ *
+ * Every op is a write costing 50 of a 10,000-unit daily quota, so the count is the whole point.
+ * The fewest moves that can reorder a list is (length - longest increasing subsequence): the videos
+ * along that subsequence are already in the right order relative to each other and only need the
+ * rest moved out from between them. Placing each desired video in turn instead - the obvious
+ * reading of "make it match" - costs one move per video from the first one out of place: a single
+ * video at the wrong end of a 141-video playlist cost 140 writes, or 7,000 units, where 1 would do.
  */
 export function computeReconcileOps(
   desiredVideoIds: string[],
@@ -37,6 +74,7 @@ export function computeReconcileOps(
 ): ReconcileOp[] {
   const ops: ReconcileOp[] = [];
   const desiredSet = new Set(desiredVideoIds);
+  const desiredIndexOf = new Map(desiredVideoIds.map((videoId, i) => [videoId, i]));
 
   // Pass 1: drop orphans and duplicate occurrences, keeping current order.
   const seen = new Set<string>();
@@ -50,21 +88,42 @@ export function computeReconcileOps(
     }
   }
 
-  // Pass 2: place each desired video at its index.
-  for (let i = 0; i < desiredVideoIds.length; i++) {
-    const want = desiredVideoIds[i]!;
-    if (working[i]?.videoId === want) continue; // already in place
+  // Pass 2: the survivors that are already in order relative to each other. They are carried into
+  // place by the moves around them and are never written.
+  const stays = new Set(
+    longestIncreasingSubsequence(working.map((w) => desiredIndexOf.get(w.videoId)!)).map(
+      (i) => working[i]!,
+    ),
+  );
 
-    const j = working.findIndex((w, idx) => idx >= i && w.videoId === want);
-    if (j === -1) {
-      ops.push({ kind: 'insert', videoId: want, position: i });
+  // Pass 3: everything else gets placed, in the order it appears in the desired list, each landing
+  // directly behind the video it belongs behind.
+  //
+  // The landing index is not the video's final index: videos still waiting to be placed are sitting
+  // in between, and each will shift this one left when it leaves. Anchoring to the predecessor -
+  // already settled, because the desired order is walked front to back - is what keeps a single
+  // move per video. Aiming at the final index instead lands correctly only until the next move
+  // pulls something out from in front of it, and then costs a second move to fix.
+  const byVideoId = new Map(working.map((item) => [item.videoId, item]));
+  const toPlace = desiredVideoIds
+    .map((videoId, target) => ({ videoId, target, item: byVideoId.get(videoId) }))
+    .filter(({ item }) => !item || !stays.has(item));
+
+  for (const { videoId, target, item } of toPlace) {
+    if (item) working.splice(working.indexOf(item), 1);
+
+    const predecessor =
+      target === 0 ? -1 : working.findIndex((w) => w.videoId === desiredVideoIds[target - 1]);
+    const position = predecessor + 1;
+
+    if (item) {
+      ops.push({ kind: 'move', playlistItemId: item.playlistItemId, videoId, position });
+      working.splice(position, 0, item);
+    } else {
+      ops.push({ kind: 'insert', videoId, position });
       // The real playlistItemId isn't known until the insert runs; a placeholder
       // keeps positions correct for the rest of the plan.
-      working.splice(i, 0, { videoId: want, playlistItemId: '' });
-    } else {
-      const item = working.splice(j, 1)[0]!;
-      ops.push({ kind: 'move', playlistItemId: item.playlistItemId, videoId: want, position: i });
-      working.splice(i, 0, item);
+      working.splice(position, 0, { videoId, playlistItemId: '' });
     }
   }
 
