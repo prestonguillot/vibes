@@ -19,3 +19,4 @@ declare module '*/public/js/sync.js';
 declare module '*/public/js/themeToggle.js';
 declare module '*/public/js/dismissAlert.js';
 declare module '*/public/js/theme.js';
+declare module '*/public/js/indexPage.js';
