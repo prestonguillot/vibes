@@ -643,6 +643,7 @@ router.post(
       // budget of 10,000. It also could not finish - YouTube aborted partway with a 409, leaving
       // the order worse than before and the next edit with more to undo. Drift is the sync
       // button's job, where the user asks for it and can see what it costs.
+      let placed = true;
       if (isAddingNewVideo) {
         try {
           // YouTube will not move an item it has not finished registering.
@@ -671,8 +672,7 @@ router.post(
             });
           }
         } catch (placementError) {
-          // The video is linked and in the playlist; only its position is off, and the details
-          // view will report the playlist as needing a resync.
+          placed = false;
           Logger.error(
             'Could not place the added video at its position; it stays at the end',
             { trackId, newVideoId },
@@ -681,9 +681,14 @@ router.post(
         }
       }
 
-      const successMessage = isAddingNewVideo
-        ? 'Video linked successfully!'
-        : 'Video replaced successfully!';
+      // The write itself landed, so this is not an error - the video is linked and in the playlist.
+      // But it is not what was asked for either, and reporting it as such is how a playlist ends up
+      // in an order nobody chose with nothing on screen having said so.
+      const successMessage = !placed
+        ? 'Video linked, but it could not be moved into position - sync the playlist to fix the order.'
+        : isAddingNewVideo
+          ? 'Video linked successfully!'
+          : 'Video replaced successfully!';
 
       const html = await ejs.renderFile(
         path.join(__dirname, '../../views/partials/video-replace-success.ejs'),

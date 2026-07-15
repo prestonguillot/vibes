@@ -360,15 +360,19 @@ describe('POST /replace: placing an added video', () => {
     );
   });
 
-  // The video is in the playlist and linked either way; only its position is off, and the details
-  // view already reports the playlist as needing a resync.
-  it('still reports success when the move fails', async () => {
-    h.playlistItemsUpdate.mockRejectedValue(new Error('quota exceeded'));
+  // The write landed - the video is linked and in the playlist - so this is not an error. It is
+  // not what was asked for either: saying "linked successfully" is how a playlist ends up in an
+  // order nobody chose with nothing on screen having said so.
+  it('says the position could not be set when the move fails, rather than reporting success', async () => {
+    threeTracks();
+    h.playlistItemsUpdate.mockRejectedValue(new Error('the operation was aborted'));
 
     const response = await replace({ newVideoId: NEW_VIDEO, playlistId: PLAYLIST_ID });
 
     expect(response.status).toBe(200);
-    expect(response.text).toContain('Video linked successfully');
+    expect(h.playlistItemsUpdate).toHaveBeenCalled();
+    expect(response.text).toContain('could not be moved into position');
+    expect(response.text).not.toContain('Video linked successfully');
   });
 
   it('leaves it where it is when its track is no longer in the Spotify playlist', async () => {
