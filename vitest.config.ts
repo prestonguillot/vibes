@@ -21,14 +21,22 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
+      // Without `include`, vitest reports ONLY files a test imported - so a module nobody tests is
+      // absent from the report rather than sitting at 0%, and the total is an average over the
+      // tested subset. That hid src/lib/envValidation.ts (150 lines, no tests) entirely.
+      // public/js is application code and is covered the same way, now that its tests import the
+      // modules rather than eval them (v8 cannot attribute eval'd code to a file).
+      include: ['src/**/*.ts', 'public/js/**/*.js'],
       exclude: [
         'node_modules/**',
         'dist/**',
         '**/*.config.ts',
         '**/*.d.ts',
-        'public/**',
+        'public/vendor/**',
         'views/**',
         '.claude/**',
+        // Type-only modules: erased at runtime, so there is nothing to execute or report.
+        'src/types/**',
       ],
     },
     setupFiles: ['./tests/setup.ts'],

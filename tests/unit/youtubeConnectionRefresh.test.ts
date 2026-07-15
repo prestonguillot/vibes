@@ -9,17 +9,10 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import fs from 'fs';
-import path from 'path';
-
-const source = fs.readFileSync(
-  path.join(__dirname, '../../public/js/youtubeConnectionRefresh.js'),
-  'utf-8',
-);
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-function setup() {
+async function setup() {
   document.body.innerHTML = `
     <input type="checkbox" id="ownPlaylistsOnly" checked>
     <div id="playlists-content"></div>
@@ -32,8 +25,11 @@ function setup() {
   );
   (window as any).htmx = { ajax };
   (window as any).Logger = { error: vi.fn(), debug: vi.fn(), info: vi.fn(), warn: vi.fn() };
-  // eslint-disable-next-line no-eval
-  (0, eval)(source);
+  // Imported, not eval'd: v8 attributes coverage to a FILE, and eval'd code has none - so an
+  // eval'd module stays invisible to the report however well it is tested. resetModules re-runs it
+  // per test, which is what the eval gave us.
+  vi.resetModules();
+  await import('../../public/js/youtubeConnectionRefresh.js');
   return ajax;
 }
 
@@ -44,7 +40,7 @@ beforeEach(() => {
 
 describe('youtubeConnectionRefresh', () => {
   it('refetches the playlist list with a cache-busting header on youtubeConnected', async () => {
-    const ajax = setup();
+    const ajax = await setup();
     document.body.dispatchEvent(new Event('youtubeConnected'));
     await flush();
 
@@ -60,7 +56,7 @@ describe('youtubeConnectionRefresh', () => {
   });
 
   it('runs the post-swap restore: reloads details for expanded playlists', async () => {
-    const ajax = setup();
+    const ajax = await setup();
     document.body.dispatchEvent(new Event('youtubeConnected'));
     await flush();
 
@@ -74,7 +70,7 @@ describe('youtubeConnectionRefresh', () => {
   });
 
   it('only refreshes once, not on every status heartbeat', async () => {
-    const ajax = setup();
+    const ajax = await setup();
     // The status endpoint emits youtubeConnected on EVERY poll while connected, not just on the
     // connect transition; refetching the whole library each time hammers Spotify into a 429.
     document.body.dispatchEvent(new Event('youtubeConnected'));
@@ -90,7 +86,7 @@ describe('youtubeConnectionRefresh', () => {
   });
 
   it('logs the real error when the refetch fails instead of swallowing it', async () => {
-    const ajax = setup();
+    const ajax = await setup();
     const boom = new Error('network down');
     ajax.mockReturnValueOnce(Promise.reject(boom));
 
