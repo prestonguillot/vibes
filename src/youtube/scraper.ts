@@ -3,7 +3,7 @@ import { Logger } from '../lib/logger';
 import { sleep } from '../lib/delay';
 import { calculateMatchScore } from '../sync/trackMatching';
 
-interface SearchResult {
+export interface SearchResult {
   videoId: string;
   title: string;
   duration: string;
