@@ -5,7 +5,12 @@
  * Each file is compared against its own recorded score rather than a shared threshold. A single bar
  * high enough to be worth enforcing would block any edit to a file that is currently under it, for
  * reasons having nothing to do with the edit. Per-file means a weak file stays editable while a
- * well-tested one cannot quietly rot.
+ * well-tested one cannot quietly rot. Stryker's own `thresholds.break` is one global number: a file
+ * losing fifty mutants is ~1% of the whole, so it would not notice.
+ *
+ * The decisions live in exported functions that take data and return verdicts, so that the thing
+ * standing between this repo and a rotting test suite is itself tested (tests/unit/mutationRatchet).
+ * Everything to do with disk, git and stryker stays in the command handlers at the bottom.
  *
  * Usage:
  *   node scripts/mutation-ratchet.mjs check [--base origin/main]
@@ -20,50 +25,51 @@
  *
  *   node scripts/mutation-ratchet.mjs update
  *       Sweep everything and rewrite the baseline. Run after deliberately changing what is tested.
- *
- *   node scripts/mutation-ratchet.mjs update --from-report
- *       Rewrite the baseline from the last report, without re-running the sweep.
  */
 
 import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import picomatch from 'picomatch';
 
 const BASELINE = 'mutation-baseline.json';
 const REPORT = 'reports/mutation/report.json';
 const CONFIG = 'stryker.config.json';
+const INCREMENTAL = 'reports/stryker-incremental.json';
 
 /**
- * Does Stryker mutate this file? Answered from stryker.config.json's own globs rather than a copy
- * of them, so changing what gets mutated cannot leave this script quietly disagreeing.
+ * Does Stryker mutate this file? Built from stryker.config.json's own globs rather than a copy of
+ * them, so changing what gets mutated cannot leave this script quietly disagreeing.
  *
  * The globs are include-minus-exclude, which is NOT what picomatch does with an array: it ORs them,
  * and reads a leading `!` as "matches anything but this" - so `!src/types/**` alone would match
  * every test and template. The two sets are applied separately.
+ *
+ * @param {string[]} globs stryker's `mutate` globs, exclusions prefixed with `!`
+ * @returns {(file: string) => boolean}
  */
-const MUTATED = (() => {
-  const globs = JSON.parse(readFileSync(CONFIG, 'utf8')).mutate;
+export function makeMutatedMatcher(globs) {
   const included = picomatch(globs.filter((g) => !g.startsWith('!')));
   const excluded = picomatch(globs.filter((g) => g.startsWith('!')).map((g) => g.slice(1)));
   return (file) => included(file) && !excluded(file);
-})();
+}
 
 /**
  * Per-file mutation scores, plus every file the report mentions - including those with nothing
  * mutable in them, which `scores` omits. A file with no mutants is fine; one the run never reached
  * is not, and only `reported` can tell them apart.
+ *
+ * @param {{ files: Record<string, { mutants: { status: string }[] }> }} report stryker's JSON report
+ * @param {string} [cwd] paths in the report are absolute; scores are keyed relative to here
+ * @returns {{ scores: Record<string, number>, reported: Set<string> }}
  */
-function readReport() {
-  if (!existsSync(REPORT)) {
-    throw new Error(`No ${REPORT}. Run stryker first.`);
-  }
-  const report = JSON.parse(readFileSync(REPORT, 'utf8'));
+export function parseReport(report, cwd = process.cwd()) {
   const scores = {};
   const reported = new Set();
 
   for (const [file, data] of Object.entries(report.files)) {
-    const relative = path.relative(process.cwd(), file);
+    const relative = path.relative(cwd, file);
     reported.add(relative);
 
     const counts = {};
@@ -79,10 +85,36 @@ function readReport() {
   return { scores, reported };
 }
 
-const scoresFromReport = () => readReport().scores;
+/**
+ * The verdict on each of `files`: what it scored, what it was supposed to score, and which of those
+ * counts as a regression.
+ *
+ * `unmeasured` is a regression. A file absent from the report was not measured, which is not the
+ * same as not having regressed - a run that silently skips a file must not read as that file being
+ * fine.
+ *
+ * @param {string[]} files the files to judge
+ * @param {Record<string, number>} baseline recorded scores
+ * @param {{ scores: Record<string, number>, reported: Set<string> }} measured from `parseReport`
+ * @returns {{ file: string, before?: number, now?: number,
+ *             status: 'ok' | 'worse' | 'new' | 'unmeasured' | 'nothing-mutable' }[]}
+ */
+export function judge(files, baseline, { scores, reported }) {
+  return files.map((file) => {
+    const before = baseline[file];
+    const now = scores[file];
 
-const readBaseline = () =>
-  existsSync(BASELINE) ? JSON.parse(readFileSync(BASELINE, 'utf8')).scores : {};
+    if (!reported.has(file)) return { file, before, now: undefined, status: 'unmeasured' };
+    if (now === undefined) return { file, before, now, status: 'nothing-mutable' };
+    if (before === undefined) return { file, before, now, status: 'new' };
+    // A point of tolerance: mutant counts shift slightly as code moves around.
+    return { file, before, now, status: now < before - 1 ? 'worse' : 'ok' };
+  });
+}
+
+/** The verdicts that fail a run. */
+export const regressionsIn = (verdicts) =>
+  verdicts.filter((v) => v.status === 'worse' || v.status === 'unmeasured');
 
 /**
  * Merge scores into the baseline, keeping entries the run did not measure.
@@ -90,26 +122,50 @@ const readBaseline = () =>
  * A scoped run reports only the files it mutated, so replacing wholesale would drop every other
  * file's record and silently reset the ratchet to remembering nothing. Entries are pruned only when
  * their file is gone or is no longer mutated at all.
+ *
+ * @param {Record<string, number>} scores
+ * @param {Record<string, number>} previous the baseline as it stands
+ * @param {(file: string) => boolean} stillTracked false for a file that is gone or unmutated
+ * @returns {Record<string, number>} sorted by path
  */
-function writeBaseline(scores) {
-  const merged = { ...readBaseline(), ...scores };
+export function mergeBaseline(scores, previous, stillTracked) {
+  const merged = { ...previous, ...scores };
   for (const file of Object.keys(merged)) {
-    if (!existsSync(file) || !MUTATED(file)) delete merged[file];
+    if (!stillTracked(file)) delete merged[file];
   }
-  const sorted = Object.fromEntries(Object.entries(merged).sort(([a], [b]) => a.localeCompare(b)));
+  return Object.fromEntries(Object.entries(merged).sort(([a], [b]) => a.localeCompare(b)));
+}
+
+const MUTATED = makeMutatedMatcher(JSON.parse(readFileSync(CONFIG, 'utf8')).mutate);
+
+function readReport() {
+  if (!existsSync(REPORT)) {
+    throw new Error(`No ${REPORT}. Run stryker first.`);
+  }
+  return parseReport(JSON.parse(readFileSync(REPORT, 'utf8')));
+}
+
+const readBaseline = () =>
+  existsSync(BASELINE) ? JSON.parse(readFileSync(BASELINE, 'utf8')).scores : {};
+
+function writeBaseline(scores) {
+  const sorted = mergeBaseline(scores, readBaseline(), (f) => existsSync(f) && MUTATED(f));
   writeFileSync(
     BASELINE,
     JSON.stringify(
       {
         _comment:
           'Per-file mutation scores. The ratchet (scripts/mutation-ratchet.mjs) fails a change ' +
-          'that drops a file below its entry here. Regenerate with: npm run test:mutation:update. ' +
-          'These are CI numbers - CI is what blocks a PR, so it is what the bar is set from. A ' +
-          'local run should now agree: the two disagreed until 2026-07-15 because the suite failed ' +
-          'about one run in eight for reasons of its own, and a test failing at random reads to ' +
-          'stryker as a test catching the mutant. ignoreStatic is on, so code that only runs at ' +
-          'import and that no test exercises is not counted at all: a file can score well by not ' +
-          'being measured, and the score cannot report a gap it is not measuring.',
+          'that drops a file below its entry here. Regenerate with: npm run test:mutation:update, ' +
+          'locally - a full sweep is ~12 min here against ~26 on a runner, and both give the same ' +
+          'numbers. They disagreed until 2026-07-15, when the suite still failed about one run in ' +
+          'eight for reasons of its own and a test failing at random read to stryker as a test ' +
+          'catching the mutant; the weekly CI sweep is what checks that they still agree. Scoping ' +
+          'to the files a change touched (--mutate a,b,c) answers most questions in a minute or ' +
+          'two - a full sweep only earns its time for files nothing touched. ignoreStatic is on, ' +
+          'so code that only runs at import and that no test exercises is not counted at all: a ' +
+          'file can score well by not being measured, and the score cannot report a gap it is not ' +
+          'measuring.',
         scores: sorted,
       },
       null,
@@ -126,59 +182,46 @@ function changedFiles(base) {
   return out.split('\n').filter((f) => f && MUTATED(f) && existsSync(f));
 }
 
+const LABEL = { ok: 'ok', worse: '**worse**', new: 'new', unmeasured: '**not measured**' };
+
+const row = ({ file, before, now, status }) =>
+  `| ${file} | ${before ?? '–'}% | ${now === undefined ? '–' : `${now}%`} | ${LABEL[status]} |`;
+
 /**
- * Compare scores against the baseline and report. Returns the files that dropped.
- *
- * A file absent from the report counts as a drop: it was not measured, which is not the same as not
- * having regressed.
- *
- * On CI this also writes the table to the run summary: a report that has to be downloaded and
- * unzipped to be read is a report nobody reads.
+ * The run summary table, on CI: a report that has to be downloaded and unzipped to be read is a
+ * report nobody reads. When something regressed the table says only what regressed; a hundred rows
+ * of `ok` is where a `worse` goes to hide.
  */
+export function summaryTable(verdicts) {
+  const failed = regressionsIn(verdicts);
+  const shown = (failed.length ? verdicts.filter((v) => v.status !== 'ok') : verdicts).filter(
+    (v) => v.status !== 'nothing-mutable',
+  );
+  return [
+    failed.length ? '## Mutation score regressed' : '## Mutation score held',
+    '',
+    '| File | Baseline | Now | |',
+    '| --- | --- | --- | --- |',
+    ...shown.map(row),
+    '',
+  ].join('\n');
+}
+
+/** Judge `files` against what is recorded, reporting to the log and to CI's run summary. */
 function compare(files, { verbose = false } = {}) {
-  const baseline = readBaseline();
-  const { scores, reported } = readReport();
-  const regressions = [];
-  const rows = [];
+  const verdicts = judge(files, readBaseline(), readReport());
 
-  for (const file of files) {
-    if (!reported.has(file)) {
-      regressions.push({ file, before: baseline[file], now: undefined });
-      rows.push(`| ${file} | ${baseline[file] ?? '–'}% | – | **not measured** |`);
-      continue;
-    }
-
-    const now = scores[file];
-    if (now === undefined) continue; // in the report, but nothing mutable in it
-
-    const before = baseline[file];
-    if (before === undefined) {
-      rows.push(`| ${file} | – | ${now}% | new |`);
-      continue;
-    }
-    // A point of tolerance: mutant counts shift slightly as code moves around.
-    if (now < before - 1) {
-      regressions.push({ file, before, now });
-      rows.push(`| ${file} | ${before}% | ${now}% | **worse** |`);
-    } else {
-      rows.push(`| ${file} | ${before}% | ${now}% | ok |`);
-      if (verbose) console.log(`  OK    ${file}: ${now}% (baseline ${before}%)`);
+  if (verbose) {
+    for (const { file, before, now, status } of verdicts) {
+      if (status === 'ok') console.log(`  OK    ${file}: ${now}% (baseline ${before}%)`);
+      if (status === 'new') console.log(`  NEW   ${file}: ${now}% (no baseline yet)`);
     }
   }
-
   if (process.env.GITHUB_STEP_SUMMARY) {
-    const summary = [
-      regressions.length ? '## Mutation score regressed' : '## Mutation score held',
-      '',
-      '| File | Baseline | Now | |',
-      '| --- | --- | --- | --- |',
-      ...(regressions.length ? rows.filter((r) => r.includes('worse') || r.includes('new')) : rows),
-      '',
-    ].join('\n');
-    writeFileSync(process.env.GITHUB_STEP_SUMMARY, summary, { flag: 'a' });
+    writeFileSync(process.env.GITHUB_STEP_SUMMARY, summaryTable(verdicts), { flag: 'a' });
   }
 
-  return regressions;
+  return regressionsIn(verdicts);
 }
 
 function reportRegressions(regressions) {
@@ -198,9 +241,16 @@ function reportRegressions(regressions) {
 /**
  * A dead run must leave no report behind - the comparison cannot tell a stale one from a fresh one.
  * With `thresholds.break` null, stryker exits non-zero only on failure.
+ *
+ * The incremental cache goes too when the run's numbers are going to be recorded. Stryker reports
+ * every file the cache has ever held, not just the ones this run mutated - so a scoped run reports
+ * 48 files for 11 measured, and the other 37 carry whatever status they were given whenever they
+ * were last seen, at whatever config was in force then. Recording those writes numbers nothing
+ * measured, and a bar nothing earned is worse than no bar.
  */
-function runStryker(args) {
+function runStryker(args, { fresh = false } = {}) {
   rmSync(REPORT, { force: true });
+  if (fresh) rmSync(INCREMENTAL, { force: true });
   const result = spawnSync('npx', ['stryker', 'run', ...args], { stdio: 'inherit', shell: false });
   if (result.error) throw result.error;
   if (result.status !== 0) {
@@ -208,33 +258,39 @@ function runStryker(args) {
   }
 }
 
-const command = process.argv[2];
+function main(argv) {
+  const command = argv[2];
 
-if (command === 'update') {
-  if (!process.argv.includes('--from-report')) runStryker([]);
-  writeBaseline(scoresFromReport());
-} else if (command === 'check') {
-  const baseIndex = process.argv.indexOf('--base');
-  const base = baseIndex === -1 ? 'origin/main' : process.argv[baseIndex + 1];
-  const files = changedFiles(base);
+  if (command === 'update') {
+    runStryker([], { fresh: true });
+    writeBaseline(readReport().scores);
+  } else if (command === 'check') {
+    const baseIndex = argv.indexOf('--base');
+    const base = baseIndex === -1 ? 'origin/main' : argv[baseIndex + 1];
+    const files = changedFiles(base);
 
-  if (files.length === 0) {
-    console.log('No mutated files changed - nothing to check.');
-    process.exit(0);
+    if (files.length === 0) {
+      console.log('No mutated files changed - nothing to check.');
+      return 0;
+    }
+
+    console.log(`Mutating ${files.length} changed file(s):\n  ${files.join('\n  ')}\n`);
+    runStryker(['--mutate', files.join(',')]);
+
+    if (reportRegressions(compare(files, { verbose: true }))) return 1;
+    console.log('\nNo file scored below its baseline.');
+  } else if (command === 'check-all') {
+    const files = Object.keys(readReport().scores);
+    if (reportRegressions(compare(files))) return 1;
+    console.log(`No file scored below its baseline (${files.length} checked).`);
+  } else {
+    console.error('Usage: mutation-ratchet.mjs check [--base <ref>] | check-all | update');
+    return 2;
   }
+  return 0;
+}
 
-  console.log(`Mutating ${files.length} changed file(s):\n  ${files.join('\n  ')}\n`);
-  runStryker(['--mutate', files.join(',')]);
-
-  if (reportRegressions(compare(files, { verbose: true }))) process.exit(1);
-  console.log('\nNo file scored below its baseline.');
-} else if (command === 'check-all') {
-  const files = Object.keys(scoresFromReport());
-  if (reportRegressions(compare(files))) process.exit(1);
-  console.log(`No file scored below its baseline (${files.length} checked).`);
-} else {
-  console.error(
-    'Usage: mutation-ratchet.mjs check [--base <ref>] | check-all | update [--from-report]',
-  );
-  process.exit(2);
+// Importing this for its functions must not run a command.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  process.exit(main(process.argv));
 }
