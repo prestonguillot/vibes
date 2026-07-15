@@ -63,12 +63,36 @@ describe('youtubeWrite', () => {
     expect(breaker.recordFailure).not.toHaveBeenCalled();
   });
 
-  it('treats a bare 403 (no reason) as quota too', async () => {
-    const write = vi.fn(() => Promise.reject({ code: 403 }));
-    await expect(youtubeWrite('playlistItems.delete', write)).rejects.toBeInstanceOf(
-      YoutubeQuotaError,
+  it('opens the breaker and throws YoutubeQuotaError on a 403 dailyLimitExceeded', async () => {
+    const write = vi.fn(() =>
+      Promise.reject({ code: 403, errors: [{ reason: 'dailyLimitExceeded' }] }),
     );
+
+    await expect(youtubeWrite('playlists.insert', write)).rejects.toBeInstanceOf(YoutubeQuotaError);
     expect(breaker.open).toHaveBeenCalledOnce();
+  });
+
+  // A bare 403 is NOT necessarily quota - it can be insufficientPermissions, forbidden, or a
+  // video-specific rejection. Reporting it as quota opened the breaker for 15 minutes and hid the
+  // real cause. It must surface as itself.
+  it('does NOT treat a bare 403 (no reason) as quota - rethrows the original, breaker stays closed', async () => {
+    const bare403 = { code: 403 };
+    const write = vi.fn(() => Promise.reject(bare403));
+
+    await expect(youtubeWrite('playlistItems.delete', write)).rejects.toBe(bare403);
+    expect(breaker.open).not.toHaveBeenCalled();
+    expect(breaker.recordFailure).toHaveBeenCalledOnce();
+  });
+
+  // rateLimitExceeded is a short-window throttle (retryable), not the daily budget - opening the
+  // breaker over it needlessly kills the whole run.
+  it('does NOT treat 403 rateLimitExceeded as daily quota', async () => {
+    const throttled = { code: 403, errors: [{ reason: 'rateLimitExceeded' }] };
+    const write = vi.fn(() => Promise.reject(throttled));
+
+    await expect(youtubeWrite('playlistItems.insert', write)).rejects.toBe(throttled);
+    expect(breaker.open).not.toHaveBeenCalled();
+    expect(breaker.recordFailure).toHaveBeenCalledOnce();
   });
 
   it('records a failure and rethrows the original error for non-quota failures', async () => {

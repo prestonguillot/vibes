@@ -31,17 +31,35 @@ export function resetYoutubeWriteQuotaCounter(): void {
   quotaUnitsUsed = 0;
 }
 
-function isQuotaExceeded(error: unknown): boolean {
+/** What a failed write actually was - a 403 is NOT automatically "quota". */
+type WriteFailure = 'quota' | 'rate-limit' | 'other';
+
+function youtubeErrorReason(error: unknown): { status?: number; reason?: string } {
   const err = error as {
     code?: number;
     response?: { status?: number };
     errors?: Array<{ reason?: string }>;
   };
-  const status = err?.code ?? err?.response?.status;
-  if (status !== 403) return false;
-  const reason = err?.errors?.[0]?.reason;
-  // A 403 on a write to the user's own playlist is effectively always quota.
-  return !reason || reason === 'quotaExceeded' || reason === 'rateLimitExceeded';
+  return { status: err?.code ?? err?.response?.status, reason: err?.errors?.[0]?.reason };
+}
+
+/**
+ * Classify a write failure.
+ *
+ * Previously ANY 403 - including one with no reason, and rateLimitExceeded - was treated as daily
+ * quota exhaustion: the breaker was force-opened for 15 minutes and the run aborted with a
+ * "quota exceeded" message. That is wrong twice over:
+ * - rateLimitExceeded is a short-window throttle (retryable), not the daily budget.
+ * - a bare/unknown 403 can be insufficientPermissions, forbidden, or a video-specific rejection;
+ *   reporting it as quota hides the real cause and makes the failure undiagnosable.
+ * Only quotaExceeded/dailyLimitExceeded mean the budget is actually gone.
+ */
+function classifyWriteFailure(error: unknown): WriteFailure {
+  const { status, reason } = youtubeErrorReason(error);
+  if (status !== 403) return 'other';
+  if (reason === 'quotaExceeded' || reason === 'dailyLimitExceeded') return 'quota';
+  if (reason === 'rateLimitExceeded' || reason === 'userRateLimitExceeded') return 'rate-limit';
+  return 'other';
 }
 
 /**
@@ -67,12 +85,24 @@ export async function youtubeWrite<T>(operation: string, write: () => Promise<T>
     });
     return result;
   } catch (error) {
-    if (isQuotaExceeded(error)) {
+    const failure = classifyWriteFailure(error);
+    const { status, reason } = youtubeErrorReason(error);
+
+    // Only a real daily-quota exhaustion justifies opening the breaker and aborting the run.
+    if (failure === 'quota') {
       youtubeCircuitBreaker.open();
-      Logger.warn('YouTube quota exceeded on write - opening circuit breaker', { operation });
+      Logger.warn(
+        'YouTube daily quota exceeded on write - opening circuit breaker',
+        { operation, status, reason },
+        error,
+      );
       throw new YoutubeQuotaError(`YouTube quota exceeded during ${operation}`);
     }
+
+    // Everything else (transient throttle, permissions, an unknown 403) surfaces as ITSELF, with
+    // the real error logged rather than discarded behind a misleading "quota exceeded".
     youtubeCircuitBreaker.recordFailure(error);
+    Logger.warn(`YouTube write failed (${failure})`, { operation, status, reason }, error);
     throw error;
   }
 }
