@@ -45,6 +45,7 @@ describe('playlistMeta cache', () => {
       trackCount: 42,
       linkedCount: 40,
       needsResync: true,
+      updatedAt: expect.any(Number),
     });
   });
 
@@ -54,6 +55,7 @@ describe('playlistMeta cache', () => {
       trackCount: null,
       linkedCount: null,
       needsResync: false,
+      updatedAt: expect.any(Number),
     });
   });
 
@@ -202,6 +204,108 @@ describe('playlistMeta after a sync swaps the details out-of-band', () => {
       trackCount: 10,
       linkedCount: 3,
       needsResync: true,
+      updatedAt: expect.any(Number),
     });
+  });
+});
+
+/**
+ * Which of the page and the cache is right depends on which is newer.
+ *
+ * A hard refresh re-fetches the list, so the counts in the page are minutes-fresh while the cache
+ * may be days old - and reading the cache first regardless is what showed a synced playlist as
+ * "140 of 141" with the drift dot lit, on a page whose own HTML said 141 of 141.
+ */
+describe('playlistMeta on a cold load', () => {
+  /** A row as the server renders it, with a cache entry left over from an earlier visit. */
+  function coldLoad(opts: {
+    serverLinked: number;
+    serverTracks: number | '';
+    cached: { trackCount: number | null; linkedCount: number | null; needsResync: boolean };
+  }) {
+    document.body.innerHTML = `
+      <div class="playlist-item" data-playlist-id="p1"
+           data-youtube-count="${opts.serverLinked}"
+           data-track-count="${opts.serverTracks}">
+        <h5><span class="drift-dot" data-drift-dot></span></h5>
+        <p class="playlist-track-summary">rendered by the server</p>
+      </div>`;
+
+    // Straight into storage, stamped before this page: what an earlier visit left behind.
+    localStorage.setItem(
+      'playlist-meta',
+      JSON.stringify({ p1: { ...opts.cached, updatedAt: Date.now() - 60_000 } }),
+    );
+    (window as any).playlistMeta.decorateAll();
+    return document.querySelector('.playlist-track-summary')!.textContent;
+  }
+
+  it('shows the count the server just fetched, not the one cached before the sync', () => {
+    const summary = coldLoad({
+      serverLinked: 141,
+      serverTracks: 141,
+      cached: { trackCount: 141, linkedCount: 140, needsResync: true },
+    });
+
+    expect(summary).toBe('141 of 141 tracks synced to YouTube');
+  });
+
+  // Spotify omits the total in Dev Mode, so the cache is the only place that number exists - old
+  // or not, it beats having nothing to show.
+  it('falls back to the cached total when the server had none to give', () => {
+    const summary = coldLoad({
+      serverLinked: 141,
+      serverTracks: '',
+      cached: { trackCount: 141, linkedCount: 140, needsResync: false },
+    });
+
+    expect(summary).toBe('141 of 141 tracks synced to YouTube');
+  });
+
+  // An entry cached before stamping existed is from an earlier visit by definition.
+  it('treats an unstamped entry as older than the page', () => {
+    document.body.innerHTML = `
+      <div class="playlist-item" data-playlist-id="p1" data-youtube-count="141" data-track-count="141">
+        <h5><span class="drift-dot" data-drift-dot></span></h5>
+        <p class="playlist-track-summary">rendered by the server</p>
+      </div>`;
+    localStorage.setItem(
+      'playlist-meta',
+      JSON.stringify({ p1: { trackCount: 141, linkedCount: 140, needsResync: true } }),
+    );
+
+    (window as any).playlistMeta.decorateAll();
+
+    expect(document.querySelector('.playlist-track-summary')!.textContent).toBe(
+      '141 of 141 tracks synced to YouTube',
+    );
+  });
+
+  // The server cannot know drift without the per-playlist comparison the details view does, so
+  // last-known is all there is - and is why opening the row is still what settles it.
+  it('still shows the last known drift dot, which the server cannot speak to', () => {
+    coldLoad({
+      serverLinked: 141,
+      serverTracks: 141,
+      cached: { trackCount: 141, linkedCount: 140, needsResync: true },
+    });
+
+    expect(document.querySelector('[data-drift-dot]')!.classList.contains('is-visible')).toBe(true);
+  });
+
+  // The page is the stale one once a sync has run against it.
+  it('lets a details view loaded since the page render win', () => {
+    document.body.innerHTML = `
+      <div class="playlist-item" data-playlist-id="p1" data-youtube-count="140" data-track-count="141">
+        <h5><span class="drift-dot" data-drift-dot></span></h5>
+        <p class="playlist-track-summary">rendered by the server</p>
+      </div>`;
+
+    (window as any).playlistMeta.syncFromDetails(detailsEl('p1', 141, false, 141));
+    (window as any).playlistMeta.decorateAll();
+
+    expect(document.querySelector('.playlist-track-summary')!.textContent).toBe(
+      '141 of 141 tracks synced to YouTube',
+    );
   });
 });

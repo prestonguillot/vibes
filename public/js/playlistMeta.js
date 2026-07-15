@@ -5,18 +5,35 @@
  * The list endpoint can't cheaply know each playlist's exact Spotify track count
  * (Spotify's /me/playlists no longer returns it) or whether it's out of sync
  * (that needs the full per-playlist comparison the details view performs). So when
- * a playlist's details load - which happens automatically on intersect, and again
- * on manual refresh or after a sync - we cache the count and the needsResync flag
- * it computed, keyed by Spotify playlist id, and use it to fill "X of Y" and an
- * out-of-sync dot onto the collapsed row.
+ * a playlist's details load - when the row is opened, on a manual refresh, or in a
+ * sync's last frame - we cache the count and the needsResync flag it computed, keyed
+ * by Spotify playlist id, and use it to fill "X of Y" and an out-of-sync dot onto the
+ * collapsed row.
+ *
+ * Opening the row is the only thing that loads details unprompted: the container carries an
+ * `intersect` trigger, but it is display:none until then and a hidden element never intersects.
  *
  * The server remains authoritative: this is a "last known" decoration that the
  * next details load refreshes. Nothing here triggers extra API calls.
+ *
+ * Which of the two is right depends on which is newer, and neither always is. The counts in the
+ * page were fetched by the server moments ago, so on a fresh load they beat anything cached from a
+ * previous visit. After a sync, the page's copy is the stale one and the cache holds what the sync
+ * just did. Cached entries are stamped so the two can be told apart: reading the cache first
+ * regardless is what left a freshly synced playlist's row reading "140 of 141" with the drift dot
+ * lit, under a details view already reading 141 of 141.
+ *
+ * The drift dot has no server-side counterpart at all - working it out means the full per-playlist
+ * comparison the details view does - so it stays last-known either way.
  */
 (function () {
   'use strict';
 
   var STORAGE_KEY = 'playlist-meta';
+
+  // This runs while the page the server just rendered is parsing, so anything stamped before now
+  // was cached on an earlier visit.
+  var PAGE_RENDERED_AT = Date.now();
 
   function loadMap() {
     try {
@@ -41,8 +58,21 @@
   function setMeta(id, meta) {
     if (!id) return;
     var map = loadMap();
-    map[id] = meta;
+    map[id] = {
+      trackCount: meta.trackCount,
+      linkedCount: meta.linkedCount,
+      needsResync: meta.needsResync,
+      updatedAt: Date.now(),
+    };
     saveMap(map);
+  }
+
+  /** A number the server rendered onto the row, or null where it had none to give. */
+  function serverNumber(row, attribute) {
+    var raw = row.getAttribute(attribute);
+    if (raw === null || raw === '') return null;
+    var value = parseInt(raw, 10);
+    return isNaN(value) ? null : value;
   }
 
   // Rebuild a collapsed row's track summary and out-of-sync dot from cached meta.
@@ -52,16 +82,40 @@
     var meta = getMeta(id);
     if (!meta) return;
 
-    // Prefer the linked count the details view computed: the row's own data-youtube-count is
-    // rendered with the list and is stale as soon as a sync changes it.
-    var rowCount = parseInt(row.getAttribute('data-youtube-count'), 10) || 0;
-    var syncedCount = typeof meta.linkedCount === 'number' ? meta.linkedCount : rowCount;
+    // Entries cached before this page was rendered lost to it; entries written since - by a sync,
+    // or by opening the row - are what the page does not know yet. An entry from before stamping
+    // existed is, by definition, from an earlier visit.
+    //
+    // Written-in-the-same-millisecond counts as newer: an earlier visit cannot share a millisecond
+    // with this one, and a details view that loads the instant the page does otherwise loses to the
+    // page it just corrected.
+    var cacheIsNewer = typeof meta.updatedAt === 'number' && meta.updatedAt >= PAGE_RENDERED_AT;
+
+    var serverLinked = serverNumber(row, 'data-youtube-count');
+    var serverTracks = serverNumber(row, 'data-track-count');
+
+    var linkedCount =
+      cacheIsNewer && typeof meta.linkedCount === 'number'
+        ? meta.linkedCount
+        : serverLinked !== null
+          ? serverLinked
+          : meta.linkedCount;
+
+    // Spotify omits the total in Dev Mode, so the cache is the only place it exists at all - use
+    // it whenever the server had none, however old it is.
+    var trackCount =
+      cacheIsNewer && typeof meta.trackCount === 'number'
+        ? meta.trackCount
+        : serverTracks !== null
+          ? serverTracks
+          : meta.trackCount;
+
     var summary = row.querySelector('.playlist-track-summary');
-    if (summary && typeof meta.trackCount === 'number') {
+    if (summary && typeof trackCount === 'number') {
       summary.textContent =
-        syncedCount > 0
-          ? syncedCount + ' of ' + meta.trackCount + ' tracks synced to YouTube'
-          : meta.trackCount + ' tracks';
+        linkedCount > 0
+          ? linkedCount + ' of ' + trackCount + ' tracks synced to YouTube'
+          : trackCount + ' tracks';
     }
 
     var dot = row.querySelector('[data-drift-dot]');
