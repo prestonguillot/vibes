@@ -160,3 +160,4 @@ playwright-report/
 
 # Mutation testing reports (generated)
 reports/
+.stryker-tmp/
