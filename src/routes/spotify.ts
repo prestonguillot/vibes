@@ -294,7 +294,13 @@ router.get(
 
       // Check if it's an authentication error
       if (error instanceof Error && error.message === 'SPOTIFY_AUTH_REQUIRED') {
-        return res.status(401).render('partials/auth-expired', { service: 'Spotify' });
+        // loginUrl is not optional: the template links it, and rendering without it throws, which
+        // express turns into a 500. An expired session reported as "something went wrong" is a
+        // reconnect the user is never offered.
+        return res.status(401).render('partials/auth-expired', {
+          service: 'Spotify',
+          loginUrl: '/auth/spotify/login',
+        });
       }
 
       // Check if it's a Spotify API server error (502/503)
