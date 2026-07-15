@@ -188,6 +188,103 @@ describe('scrapeYouTubeSearch: the /sorry/ bot gate (production regression)', ()
     expect(requestAt(mock, 0).headers.Cookie).toContain('SOCS=');
   });
 
+  /**
+   * Cookies in a request header are separated by "; ". Run them together and the whole header is
+   * one unparseable cookie, which Google ignores - so the exemption is dropped and the request
+   * bounces back to /sorry/ exactly as if the fix were not there. `toContain` cannot see this: the
+   * values are still both present, just fused. Only the exact header can.
+   */
+  it('separates the cookies it sends, so the header is a header', async () => {
+    const mock = stubFetchSequence([
+      redirectResponse('https://www.google.com/sorry/index?continue=youtube'),
+      redirectResponse('https://www.youtube.com/results?search_query=creep', {
+        setCookie: [`${EXEMPTION}; Domain=.google.com; Path=/`],
+      }),
+      fakeResponse({ body: ytHtml([videoRenderer()]) }),
+    ]);
+
+    await scrapeYouTubeSearch('creep', 3);
+
+    expect(requestAt(mock, 2).headers.Cookie?.split('; ')).toEqual([
+      expect.stringMatching(/^SOCS=.+/),
+      EXEMPTION,
+    ]);
+  });
+
+  /**
+   * What counts as a redirect, at the edges. 3xx with a Location is followed; anything else is the
+   * real response. Get the boundary wrong in one direction and a real page is chased as a bounce
+   * until the hop budget runs out; wrong in the other and a redirect is parsed as a results page,
+   * which finds no videos and reports the track as unmatched.
+   */
+  describe('what counts as a redirect', () => {
+    // The whole 3xx range, edges included - a Location on any of them is somewhere to go.
+    it.each([[300], [301], [302], [399]])('follows a %i that has a Location', async (status) => {
+      const mock = stubFetchSequence([
+        redirectResponse('https://www.youtube.com/results?search_query=creep&hop=1', { status }),
+        fakeResponse({ body: ytHtml([videoRenderer()]) }),
+      ]);
+
+      const results = await scrapeYouTubeSearch('creep', 3);
+
+      expect(mock).toHaveBeenCalledTimes(2);
+      expect(results).toHaveLength(1);
+    });
+
+    it('takes a 200 as the answer', async () => {
+      const mock = stubFetchSequence([fakeResponse({ body: ytHtml([videoRenderer()]) })]);
+
+      await scrapeYouTubeSearch('creep', 3);
+
+      expect(mock).toHaveBeenCalledTimes(1);
+    });
+
+    /**
+     * A Location outside the 3xx range is not an instruction to go anywhere, and following one
+     * would spend the hop budget and report "redirected more than 5 times" - which says nothing
+     * about what actually went wrong. The status is what decides; the Location check below it only
+     * catches a 3xx with nowhere to go.
+     */
+    it('does not follow a Location on a 200', async () => {
+      const mock = stubFetchSequence([
+        fakeResponse({
+          body: ytHtml([videoRenderer()]),
+          headers: { location: 'https://www.youtube.com/somewhere-else' },
+        }),
+        fakeResponse({ body: ytHtml([videoRenderer(), videoRenderer()]) }),
+      ]);
+
+      const results = await scrapeYouTubeSearch('creep', 3);
+
+      expect(mock).toHaveBeenCalledTimes(1);
+      expect(results).toHaveLength(1);
+    });
+
+    it('does not follow a Location on a 400, and reports the failure', async () => {
+      const mock = stubFetchSequence([
+        fakeResponse({
+          status: 400,
+          body: '',
+          headers: { location: 'https://www.youtube.com/somewhere-else' },
+        }),
+        fakeResponse({ body: ytHtml([videoRenderer()]) }),
+      ]);
+
+      await expect(scrapeYouTubeSearch('creep', 3)).rejects.toThrow('HTTP 400');
+
+      expect(mock).toHaveBeenCalledTimes(1);
+    });
+
+    // A 3xx with nowhere to go is handed back rather than chased or retried.
+    it('reports a redirect that carries no Location', async () => {
+      const mock = stubFetchSequence([fakeResponse({ status: 302, body: '' })]);
+
+      await expect(scrapeYouTubeSearch('creep', 3)).rejects.toThrow('HTTP 302');
+
+      expect(mock).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it('follows redirects manually so a bounce is visible', async () => {
     const mock = stubFetchSequence([
       redirectResponse('https://www.youtube.com/results?search_query=creep&retry=1'),
@@ -398,6 +495,25 @@ describe('searchMusicVideo', () => {
     stubFetchSequence([fakeResponse({ body: ytHtml([weaker, stronger]) })]);
 
     expect(await runLadder(searchMusicVideo('Radiohead', 'Creep'))).toBe('stronger');
+  });
+
+  /**
+   * Two videos the scorer cannot separate. The first one wins, which keeps YouTube's own ordering
+   * as the tiebreak - it ranks by relevance, and nothing here knows better. Taking the last instead
+   * would be just as arbitrary, but it would also make the choice depend on how many results came
+   * back, which is not stable between runs.
+   */
+  it('keeps the first of two videos it cannot tell apart', async () => {
+    const identical = (videoId: string) =>
+      videoRenderer({
+        videoId,
+        title: { runs: [{ text: 'Radiohead - Creep (Official Music Video)' }] },
+        longBylineText: { runs: [{ text: 'RadioheadVEVO' }] },
+        viewCountText: { simpleText: '100M views' },
+      });
+    stubFetchSequence([fakeResponse({ body: ytHtml([identical('first'), identical('second')]) })]);
+
+    expect(await runLadder(searchMusicVideo('Radiohead', 'Creep'))).toBe('first');
   });
 
   it('returns null when nothing is found', async () => {
