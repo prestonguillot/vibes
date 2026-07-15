@@ -14,7 +14,6 @@ import { classifyYoutubeError } from '../youtube/writes';
 import { z } from 'zod';
 import ejs from 'ejs';
 import path from 'path';
-import { reconcilePlaylist } from '../sync/playlistReconcile';
 import { fetchPlaylistDetails } from '../sync/playlistDetailsService';
 import { fetchAllPlaylistItems } from '../spotify/playlistItems';
 import { getPlaylist } from '../spotify/client';
@@ -25,8 +24,106 @@ import {
   syncedPlaylistTitle,
 } from '../youtube/playlist';
 import { youtubeWrite } from '../youtube/writes';
-import { calculateMatchScore, SimplifiedTrack, SimplifiedVideo } from '../sync/trackMatching';
+import {
+  calculateMatchScore,
+  optimalTrackMatching,
+  SimplifiedTrack,
+  SimplifiedVideo,
+} from '../sync/trackMatching';
+import type { YoutubeClient } from '../youtube/client';
+
 const router = Router();
+
+/**
+ * Where a newly added video belongs: the number of videos already ahead of its track.
+ *
+ * Reads only - the Spotify track order and the playlist's current contents, at a quota unit each -
+ * and returns null when the track is no longer in the Spotify playlist, leaving the caller nothing
+ * to do. The count is of tracks that HAVE a video: a track nothing was found for occupies no slot
+ * in the YouTube playlist, so counting it would push everything after it one place too far.
+ */
+async function addedVideoPosition({
+  youtube,
+  youtubePlaylistId,
+  spotifyAccessToken,
+  spotifyPlaylistId,
+  trackId,
+  newVideoId,
+}: {
+  youtube: YoutubeClient;
+  youtubePlaylistId: string;
+  spotifyAccessToken: string;
+  spotifyPlaylistId: string;
+  trackId: string;
+  newVideoId: string;
+}): Promise<number | null> {
+  const spotifyTracks = await fetchAllPlaylistItems(spotifyAccessToken, spotifyPlaylistId);
+  const playlistItems = await fetchAllYoutubePlaylistItems(youtube, youtubePlaylistId, [
+    'id',
+    'snippet',
+  ]);
+
+  const tracks = spotifyTracks
+    .filter((item) => item.track && item.track.type === 'track')
+    .map((item) => ({
+      id: item.track!.id!,
+      name: item.track!.name!,
+      artist: item.track!.artists?.[0]?.name || 'Unknown Artist',
+    }));
+
+  const videos = playlistItems
+    .filter((item) => item.snippet?.resourceId?.videoId && item.id)
+    .map((item) => ({
+      id: item.snippet!.resourceId!.videoId!,
+      title: item.snippet?.title || 'Unknown',
+      description: item.snippet?.description || '',
+      playlistItemId: item.id!,
+    }));
+
+  const trackIndex = tracks.findIndex((t) => t.id === trackId);
+  if (trackIndex === -1) return null;
+
+  const matches = optimalTrackMatching(tracks, videos).matches;
+
+  let position = 0;
+  for (const track of tracks.slice(0, trackIndex)) {
+    const matched = matches.get(track.id);
+    // The added video is matched to its own track by id, not by content - the user picked it
+    // precisely because matching would not have.
+    if (matched && matched.id !== newVideoId) position++;
+  }
+  return position;
+}
+
+/** Moves a video already in the playlist to `position`. One write, 50 quota units. */
+async function moveYoutubePlaylistItem(
+  youtube: YoutubeClient,
+  youtubePlaylistId: string,
+  videoId: string,
+  position: number,
+): Promise<void> {
+  const { item } = await findYoutubePlaylistItem(
+    youtube,
+    youtubePlaylistId,
+    (candidate) => candidate.snippet?.resourceId?.videoId === videoId,
+    ['snippet'],
+  );
+  if (!item?.id) throw new Error(`Added video ${videoId} is not in playlist ${youtubePlaylistId}`);
+
+  await youtubeWrite('playlistItems.update', () =>
+    youtube.playlistItems.update({
+      part: ['snippet'],
+      requestBody: {
+        id: item.id!,
+        snippet: {
+          playlistId: youtubePlaylistId,
+          position,
+          resourceId: { kind: 'youtube#video', videoId },
+        },
+      },
+    }),
+  );
+}
 
 // Get detailed playlist information (Spotify tracks + YouTube videos)
 router.get(
@@ -537,85 +634,51 @@ router.post(
         operation: isAddingNewVideo ? 'add' : 'replace',
       });
 
-      // After adding or replacing a video, reorder the playlist to match Spotify order
-      try {
-        Logger.info('Starting playlist reordering after manual video link', {
-          isAddingNewVideo,
-          newVideoId,
-          currentVideoId,
-        });
+      // A replace is already in order: the insert went in at the old video's position and the old
+      // one came out, so the playlist is exactly as the user left it. An addition was appended and
+      // has to move to its track's place - one write, at the position worked out below.
+      //
+      // Neither case reorders the rest of the playlist. Doing that made a one-video edit re-plan
+      // all of it and pay 50 quota units per move: 84 moves for a single swap, against a daily
+      // budget of 10,000. It also could not finish - YouTube aborted partway with a 409, leaving
+      // the order worse than before and the next edit with more to undo. Drift is the sync
+      // button's job, where the user asks for it and can see what it costs.
+      if (isAddingNewVideo) {
+        try {
+          // YouTube will not move an item it has not finished registering.
+          await sleep(3000);
 
-        // Wait for YouTube to process the changes (especially for additions)
-        // YouTube can be slow to propagate, so we need a generous wait
-        const waitTime = isAddingNewVideo ? 3000 : 1000;
-        Logger.info('Waiting for YouTube to process changes before reordering', {
-          waitTime,
-          reason: isAddingNewVideo ? 'new video added' : 'video replaced',
-        });
-        await sleep(waitTime);
+          const position = await addedVideoPosition({
+            youtube,
+            youtubePlaylistId: targetPlaylist.id!,
+            spotifyAccessToken: spotifyTokens.accessToken,
+            spotifyPlaylistId: playlistId,
+            trackId,
+            newVideoId,
+          });
 
-        // Fetch all Spotify tracks for the playlist (full format with .track) to
-        // build the desired order for reconcile.
-        const spotifyTracks = await fetchAllPlaylistItems(spotifyTokens.accessToken, playlistId);
-
-        // Re-read the playlist so the reorder below matches against what YouTube now holds.
-        const allPlaylistItems = await fetchAllYoutubePlaylistItems(youtube, targetPlaylist.id!, [
-          'id',
-          'snippet',
-        ]);
-
-        // Build the desired video order: content-match the current playlist to the
-        // Spotify tracks, then override the linked track with the user's explicit
-        // pick (which may not content-match). Reconcile then makes YouTube match
-        // this order, so the manual pick lands at its track's position.
-        const { optimalTrackMatching } = await import('../sync/trackMatching');
-
-        const tracksToMatch = spotifyTracks
-          .filter((item) => item.track && item.track.type === 'track')
-          .map((item) => ({
-            id: item.track!.id!,
-            name: item.track!.name!,
-            artist: item.track!.artists?.[0]?.name || 'Unknown Artist',
-          }));
-
-        const existingVideos = allPlaylistItems
-          .filter((item) => item.snippet?.resourceId?.videoId && item.id)
-          .map((item) => ({
-            id: item.snippet!.resourceId!.videoId!,
-            title: item.snippet?.title || 'Unknown',
-            description: item.snippet?.description || '',
-            playlistItemId: item.id!,
-          }));
-
-        const matches = optimalTrackMatching(tracksToMatch, existingVideos).matches;
-
-        const desiredVideoIds: string[] = [];
-        for (const track of tracksToMatch) {
-          if (track.id === trackId) {
-            desiredVideoIds.push(newVideoId); // honor the explicit manual pick
+          if (position === null) {
+            Logger.warn('Leaving the added video at the end: its track is no longer in Spotify', {
+              trackId,
+              newVideoId,
+            });
           } else {
-            const matched = matches.get(track.id);
-            if (matched) desiredVideoIds.push(matched.id);
+            await moveYoutubePlaylistItem(youtube, targetPlaylist.id!, newVideoId, position);
+            Logger.info('Placed the added video at its track’s position', {
+              trackId,
+              newVideoId,
+              position,
+            });
           }
+        } catch (placementError) {
+          // The video is linked and in the playlist; only its position is off, and the details
+          // view will report the playlist as needing a resync.
+          Logger.error(
+            'Could not place the added video at its position; it stays at the end',
+            { trackId, newVideoId },
+            placementError,
+          );
         }
-
-        const currentItems = allPlaylistItems
-          .filter((item) => item.snippet?.resourceId?.videoId && item.id)
-          .map((item) => ({
-            videoId: item.snippet!.resourceId!.videoId!,
-            playlistItemId: item.id!,
-          }));
-
-        const reconcileResult = await reconcilePlaylist(
-          youtube,
-          targetPlaylist.id!,
-          desiredVideoIds,
-          currentItems,
-        );
-        Logger.info('Manual link reconcile completed', { trackId, newVideoId, ...reconcileResult });
-      } catch (reorderError) {
-        // Log the error but don't fail the entire operation
-        Logger.error('Error reordering playlist after manual video link', {}, reorderError);
       }
 
       const successMessage = isAddingNewVideo

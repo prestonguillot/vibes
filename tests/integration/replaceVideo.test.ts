@@ -1,11 +1,11 @@
 /**
  * Tests for POST /api/playlistDetails/replace/:trackId - the manual "use this video instead" write.
  *
- * This is the only place the app writes to a YouTube playlist outside a sync.
+ * This is the only place the app writes to a YouTube playlist outside a sync, and every write costs
+ * 50 of a 10,000-unit daily budget - so what these pin most closely is how many it makes.
  *
- * The handler waits for YouTube to propagate the write before reordering. That wait is stubbed and
- * asserted on rather than served: a test that really waits is slow, and starves under load until it
- * fails on a timeout having tested nothing.
+ * The wait before placing an added video is stubbed and asserted on rather than served: a test that
+ * really waits is slow, and starves under load until it fails on a timeout having tested nothing.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -15,11 +15,11 @@ const h = vi.hoisted(() => ({
   sleep: vi.fn(() => Promise.resolve()),
   getPlaylist: vi.fn(),
   fetchAllPlaylistItems: vi.fn(),
-  reconcilePlaylist: vi.fn(),
   playlistsList: vi.fn(),
   playlistItemsList: vi.fn(),
   playlistItemsInsert: vi.fn(),
   playlistItemsDelete: vi.fn(),
+  playlistItemsUpdate: vi.fn(),
 }));
 
 vi.mock('@/lib/delay', () => ({ sleep: h.sleep }));
@@ -28,10 +28,6 @@ vi.mock('@/spotify/client', async (importActual) => ({
   getPlaylist: h.getPlaylist,
 }));
 vi.mock('@/spotify/playlistItems', () => ({ fetchAllPlaylistItems: h.fetchAllPlaylistItems }));
-vi.mock('@/sync/playlistReconcile', async (importActual) => ({
-  ...(await importActual<typeof import('@/sync/playlistReconcile')>()),
-  reconcilePlaylist: h.reconcilePlaylist,
-}));
 vi.mock('@/youtube/client', async (importActual) => ({
   ...(await importActual<typeof import('@/youtube/client')>()),
   createYoutubeClient: () => ({
@@ -40,6 +36,7 @@ vi.mock('@/youtube/client', async (importActual) => ({
       list: h.playlistItemsList,
       insert: h.playlistItemsInsert,
       delete: h.playlistItemsDelete,
+      update: h.playlistItemsUpdate,
     },
   }),
 }));
@@ -98,8 +95,8 @@ beforeEach(() => {
   });
   h.playlistItemsInsert.mockResolvedValue({ data: {} });
   h.playlistItemsDelete.mockResolvedValue({ data: undefined });
+  h.playlistItemsUpdate.mockResolvedValue({ data: {} });
   h.fetchAllPlaylistItems.mockResolvedValue([]);
-  h.reconcilePlaylist.mockResolvedValue({ inserted: 0, deleted: 0, moved: 0 });
 });
 
 describe('POST /replace: refusing the request', () => {
@@ -240,54 +237,53 @@ describe('POST /replace: adding a video to an unlinked track', () => {
 });
 
 describe('POST /replace: waiting for YouTube to propagate', () => {
-  // A write that has not propagated is invisible to the read the reorder is built from, which
-  // reorders the playlist into the shape it had before the write. An addition takes longer to
-  // appear than a replacement, hence the two waits.
-  it.each([
-    ['an addition', { newVideoId: NEW_VIDEO, playlistId: PLAYLIST_ID }, 3000],
-    [
-      'a replacement',
-      { newVideoId: NEW_VIDEO, currentVideoId: OLD_VIDEO, playlistId: PLAYLIST_ID },
-      1000,
-    ],
-  ])('waits after %s, before reading back', async (_label, body, expected) => {
-    await replace(body as Record<string, string>);
+  // An added video cannot be moved until YouTube has finished registering it.
+  it('waits after an addition, before moving the video', async () => {
+    await replace({ newVideoId: NEW_VIDEO, playlistId: PLAYLIST_ID });
 
-    expect(h.sleep).toHaveBeenCalledWith(expected);
-  });
-
-  it('waits before reading the playlist back, not after', async () => {
-    await replace({ newVideoId: NEW_VIDEO, currentVideoId: OLD_VIDEO, playlistId: PLAYLIST_ID });
-
-    expect(h.sleep.mock.invocationCallOrder[0]).toBeLessThan(
+    expect(h.sleep).toHaveBeenCalledWith(3000);
+    expect(h.sleep.mock.invocationCallOrder[0]!).toBeLessThan(
       h.fetchAllPlaylistItems.mock.invocationCallOrder[0]!,
     );
   });
-});
 
-describe('POST /replace: the reorder afterwards', () => {
-  it('reconciles the playlist back into Spotify order', async () => {
+  // A replace reads nothing back, so it has nothing to wait for. The second of waiting was pure
+  // cost on the request the user is sitting in front of.
+  it('does not wait at all on a replacement', async () => {
     await replace({ newVideoId: NEW_VIDEO, currentVideoId: OLD_VIDEO, playlistId: PLAYLIST_ID });
 
-    expect(h.reconcilePlaylist).toHaveBeenCalled();
+    expect(h.sleep).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * What a manual edit is allowed to cost.
+ *
+ * Every playlist write costs 50 of a 10,000-unit daily budget. Re-planning the whole playlist
+ * after a one-video edit spent 84 of them on a single swap, could not finish (YouTube aborts with
+ * a 409 partway), and left the order worse than it started - so the next edit had more to undo.
+ */
+describe('POST /replace: the rest of the playlist is left alone', () => {
+  const writeCount = () =>
+    h.playlistItemsInsert.mock.calls.length +
+    h.playlistItemsDelete.mock.calls.length +
+    h.playlistItemsUpdate.mock.calls.length;
+
+  it('costs exactly two writes to replace a video: the insert and the delete', async () => {
+    await replace({ newVideoId: NEW_VIDEO, currentVideoId: OLD_VIDEO, playlistId: PLAYLIST_ID });
+
+    expect(writeCount()).toBe(2);
+    expect(h.playlistItemsUpdate).not.toHaveBeenCalled();
   });
 
-  // The write already succeeded by this point. A reorder failure must not tell the user their
-  // change was lost - it wasn't.
-  it('still reports success when the reorder fails', async () => {
-    h.reconcilePlaylist.mockRejectedValue(new Error('quota exceeded'));
+  // The insert went in at the old video's position, so the order is already what it was.
+  it('reads nothing back after a replacement', async () => {
+    await replace({ newVideoId: NEW_VIDEO, currentVideoId: OLD_VIDEO, playlistId: PLAYLIST_ID });
 
-    const response = await replace({
-      newVideoId: NEW_VIDEO,
-      currentVideoId: OLD_VIDEO,
-      playlistId: PLAYLIST_ID,
-    });
-
-    expect(response.status).toBe(200);
-    expect(response.text).toContain('Video replaced successfully');
+    expect(h.fetchAllPlaylistItems).not.toHaveBeenCalled();
   });
 
-  it('honours the manual pick over what matching would choose', async () => {
+  it('costs one further write to place an added video: the move', async () => {
     h.fetchAllPlaylistItems.mockResolvedValue([
       { track: { id: TRACK_ID, name: 'Creep', type: 'track', artists: [{ name: 'Radiohead' }] } },
     ]);
@@ -295,10 +291,10 @@ describe('POST /replace: the reorder afterwards', () => {
       data: {
         items: [
           {
-            id: 'item-old',
+            id: 'item-new',
             snippet: {
               position: 0,
-              resourceId: { videoId: OLD_VIDEO },
+              resourceId: { videoId: NEW_VIDEO },
               title: 'Radiohead - Creep',
             },
           },
@@ -306,12 +302,84 @@ describe('POST /replace: the reorder afterwards', () => {
       },
     });
 
-    await replace({ newVideoId: NEW_VIDEO, currentVideoId: OLD_VIDEO, playlistId: PLAYLIST_ID });
+    await replace({ newVideoId: NEW_VIDEO, playlistId: PLAYLIST_ID });
 
-    // The desired order must contain the user's choice, not the video the matcher liked.
-    const desiredVideoIds = h.reconcilePlaylist.mock.calls[0]![2] as string[];
-    expect(desiredVideoIds).toContain(NEW_VIDEO);
-    expect(desiredVideoIds).not.toContain(OLD_VIDEO);
+    expect(h.playlistItemsInsert).toHaveBeenCalledTimes(1);
+    expect(h.playlistItemsUpdate).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('POST /replace: placing an added video', () => {
+  /** Spotify order: three tracks, the added one in the middle. */
+  const threeTracks = () => {
+    h.fetchAllPlaylistItems.mockResolvedValue([
+      { track: { id: 'track-first', name: 'First', type: 'track', artists: [{ name: 'A' }] } },
+      { track: { id: TRACK_ID, name: 'Creep', type: 'track', artists: [{ name: 'Radiohead' }] } },
+      { track: { id: 'track-last', name: 'Last', type: 'track', artists: [{ name: 'Z' }] } },
+    ]);
+    h.playlistItemsList.mockResolvedValue({
+      data: {
+        items: [
+          {
+            id: 'item-first',
+            snippet: { position: 0, resourceId: { videoId: 'vFirst' }, title: 'A - First' },
+          },
+          {
+            id: 'item-last',
+            snippet: { position: 1, resourceId: { videoId: 'vLast' }, title: 'Z - Last' },
+          },
+          {
+            id: 'item-new',
+            snippet: {
+              position: 2,
+              resourceId: { videoId: NEW_VIDEO },
+              title: 'Radiohead - Creep',
+            },
+          },
+        ],
+      },
+    });
+  };
+
+  it('moves it to the slot its track occupies in Spotify order', async () => {
+    threeTracks();
+
+    await replace({ newVideoId: NEW_VIDEO, playlistId: PLAYLIST_ID });
+
+    // One video ahead of it in Spotify order, so position 1 - not 2, where it was appended.
+    expect(h.playlistItemsUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requestBody: expect.objectContaining({
+          id: 'item-new',
+          snippet: expect.objectContaining({
+            position: 1,
+            resourceId: { kind: 'youtube#video', videoId: NEW_VIDEO },
+          }),
+        }),
+      }),
+    );
+  });
+
+  // The video is in the playlist and linked either way; only its position is off, and the details
+  // view already reports the playlist as needing a resync.
+  it('still reports success when the move fails', async () => {
+    h.playlistItemsUpdate.mockRejectedValue(new Error('quota exceeded'));
+
+    const response = await replace({ newVideoId: NEW_VIDEO, playlistId: PLAYLIST_ID });
+
+    expect(response.status).toBe(200);
+    expect(response.text).toContain('Video linked successfully');
+  });
+
+  it('leaves it where it is when its track is no longer in the Spotify playlist', async () => {
+    h.fetchAllPlaylistItems.mockResolvedValue([
+      { track: { id: 'someone-else', name: 'Other', type: 'track', artists: [{ name: 'B' }] } },
+    ]);
+
+    const response = await replace({ newVideoId: NEW_VIDEO, playlistId: PLAYLIST_ID });
+
+    expect(response.status).toBe(200);
+    expect(h.playlistItemsUpdate).not.toHaveBeenCalled();
   });
 });
 
