@@ -13,6 +13,7 @@ import {
   getCsrfToken,
 } from '../../src/auth/csrf';
 import { fakeRequest, fakeResponse } from '../helpers/expressStubs';
+import { Logger } from '../../src/lib/logger';
 
 // A fixed secret keeps signatures deterministic; the real one is a lazily generated singleton.
 vi.mock('../../src/auth/csrfSecret', () => ({ getCsrfSecret: () => 'test-csrf-secret' }));
@@ -222,5 +223,120 @@ describe('getCsrfToken', () => {
     expect(
       getCsrfToken(fakeRequest({ cookies: { csrf_token: '.signature' } }), fakeResponse().res),
     ).toBeNull();
+  });
+});
+
+/**
+ * What a 403 leaves behind.
+ *
+ * A rejected request tells the user nothing useful - by design, it is a forgery response. The log is
+ * the only way to tell which of the six failures happened and why, and it is what gets read when a
+ * real user is locked out of a button. It ran on every test above and nothing ever looked at it.
+ */
+describe('csrfValidationMiddleware: what it reports', () => {
+  const warnings = () => vi.mocked(Logger.warn).mock.calls;
+  const lastWarning = () => warnings().at(-1) as [string, Record<string, unknown>] | undefined;
+
+  const validate = (cookies: Record<string, string>, headers: Record<string, string>) => {
+    const res = fakeResponse();
+    csrfValidationMiddleware(
+      fakeRequest({ cookies, headers, method: 'POST', originalUrl: '/api/x' }),
+      res.res,
+      next(),
+    );
+    return res;
+  };
+
+  beforeEach(() => {
+    vi.spyOn(Logger, 'warn').mockImplementation(() => undefined);
+    vi.spyOn(Logger, 'debug').mockImplementation(() => undefined);
+    vi.spyOn(Logger, 'info').mockImplementation(() => undefined);
+  });
+
+  it.each([
+    ['missing header token', {}, {}],
+    ['missing cookie token', {}, { 'x-csrf-token': 'abc' }],
+    ['malformed cookie token', { csrf_token: 'nodot' }, { 'x-csrf-token': 'nodot' }],
+  ])('names the failure in the log: %s', (expected, cookies, headers) => {
+    validate(cookies, headers);
+
+    expect(lastWarning()?.[0]).toContain(expected);
+  });
+
+  // Which request was rejected. Without it a 403 in a log is unattributable.
+  it.each([
+    ['missing header', {}, {}],
+    ['missing cookie', {}, { 'x-csrf-token': 'abc' }],
+    ['malformed cookie', { csrf_token: 'nodot' }, { 'x-csrf-token': 'nodot' }],
+  ])('says which request it was: %s', (_label, cookies, headers) => {
+    validate(cookies, headers);
+
+    expect(lastWarning()?.[1]).toMatchObject({ url: '/api/x', method: 'POST' });
+  });
+
+  // Not the token itself: a CSRF token in a log is a CSRF token in a log.
+  it('logs a prefix of the tokens, never the whole thing', () => {
+    const { signed, token } = issueToken();
+    const other = issueToken();
+    validate({ csrf_token: signed }, { 'x-csrf-token': other.token });
+
+    const printed = JSON.stringify(vi.mocked(Logger.debug).mock.calls);
+    expect(printed).toContain(token.substring(0, 8));
+    expect(printed).not.toContain(token);
+  });
+
+  it('says NONE rather than a prefix when a token is simply absent', () => {
+    validate({}, {});
+
+    const printed = JSON.stringify(vi.mocked(Logger.debug).mock.calls);
+    expect(printed).toContain('NONE');
+  });
+
+  // A mismatch and a forgery are different problems: one is a stale tab, the other is an attack.
+  it('reports whether the two tokens even matched', () => {
+    const { signed, token } = issueToken();
+    validate({ csrf_token: signed }, { 'x-csrf-token': token });
+
+    const components = vi
+      .mocked(Logger.debug)
+      .mock.calls.find(([m]) => String(m).includes('components'));
+    expect(components?.[1]).toMatchObject({ tokensMatch: true });
+  });
+
+  it('reports a mismatch as a mismatch', () => {
+    const { signed } = issueToken();
+    const other = issueToken();
+    validate({ csrf_token: signed }, { 'x-csrf-token': other.token });
+
+    const components = vi
+      .mocked(Logger.debug)
+      .mock.calls.find(([m]) => String(m).includes('components'));
+    expect(components?.[1]).toMatchObject({ tokensMatch: false });
+  });
+
+  // The header name is the first thing to check when a client stops sending it.
+  it('lists the csrf headers that WERE sent when the expected one was not', () => {
+    const res = fakeResponse();
+    csrfValidationMiddleware(
+      fakeRequest({
+        cookies: {},
+        headers: { 'x-csrf-tokn': 'typo' },
+        method: 'POST',
+        originalUrl: '/api/x',
+      }),
+      res.res,
+      next(),
+    );
+
+    expect(lastWarning()?.[1]).toMatchObject({ headers: ['x-csrf-tokn'] });
+  });
+
+  it('reports which half of a malformed cookie was missing', () => {
+    validate(
+      { csrf_token: 'token-with-no-signature.' },
+      { 'x-csrf-token': 'token-with-no-signature' },
+    );
+
+    expect(lastWarning()?.[1]).toMatchObject({ hasCookieToken: true, hasSignature: false });
   });
 });
