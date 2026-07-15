@@ -197,3 +197,103 @@ describe('Logger level gating', () => {
     expect(printed).toContain('[REDACTED]');
   });
 });
+
+/**
+ * The emoji is picked by matching the message text, and it is the first thing on every line - it is
+ * how a log is skimmed. Every keyword below is a branch that ran on every log call this suite ever
+ * made and that nothing ever looked at, so all of it survived: asserting only that console.log was
+ * called leaves the choice of what to print unpinned.
+ *
+ * Asserted through the public API rather than by exporting the picker: what is being pinned is what
+ * a line starts with, not that a function returns a string.
+ */
+describe('the emoji a message gets', () => {
+  /** The emoji an info line actually starts with. */
+  const emojiFor = (message: string, context: Record<string, unknown> = {}) => {
+    const spy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    Logger.info(message, context);
+    const line = String(spy.mock.calls.at(-1)?.[0] ?? '');
+    return line.split(' ')[0];
+  };
+
+  beforeEach(() => Logger.setLevel(LogLevel.DEBUG));
+
+  it.each([
+    ['🚀', 'server', ['server booting', 'started listening', 'running on port 3000']],
+    ['🔐', 'auth', ['auth failed', 'token refreshed', 'login redirect']],
+    ['🌐', 'external', ['spotify call', 'youtube call', 'external api']],
+    ['🔄', 'sync', ['sync in progress', 'refresh triggered']],
+    ['📋', 'playlist', ['playlist loaded']],
+    ['🎬', 'video', ['video replaced', 'track linked']],
+    ['🔍', 'search', ['search results', 'found matches']],
+    ['💾', 'cache', ['cache hit', 'storage full']],
+    ['⚡', 'performance', ['performance report', 'completed in 5s', 'took 300ms']],
+    ['🎫', 'session', ['session expired']],
+    ['🌐', 'http', ['http error', 'request received', 'response sent']],
+    ['📊', 'api', ['api limit', 'quota exceeded']],
+    ['✅', 'success', ['success', 'validated ok', 'created ok']],
+  ])('starts a line with %s for a %s message', (emoji, _label, messages) => {
+    for (const message of messages) {
+      expect(emojiFor(message), `"${message}"`).toBe(emoji);
+    }
+  });
+
+  /**
+   * The chain is ordered and the first match wins, which is not what the wording suggests: a
+   * message about a sync that has "started" in it is a server message, and creating a playlist is
+   * a playlist message rather than a success. Pinned as what it does, not as what it should do -
+   * every one of these was written the other way round first, and the code was right.
+   */
+  it.each([
+    ['sync started', '🚀', 'started beats sync'],
+    ['found videos', '🎬', 'video beats found'],
+    ['created playlist', '📋', 'playlist beats created'],
+    ['server request', '🚀', 'server beats request'],
+    ['spotify token', '🔐', 'auth beats external'],
+  ])('%s gets %s (%s)', (message, emoji) => {
+    expect(emojiFor(message)).toBe(emoji);
+  });
+
+  it('matches whatever the casing', () => {
+    expect(emojiFor('TOKEN refreshed')).toBe('🔐');
+  });
+
+  // Nothing in the text to go on, so the context is asked next.
+  it.each([
+    ['🎫', { sessionId: 's1' }],
+    ['🎫', { sessionID: 's1' }],
+    ['📋', { playlistId: 'p1' }],
+    ['📋', { playlistName: 'mine' }],
+    ['🎬', { videoId: 'v1' }],
+    ['🎬', { trackId: 't1' }],
+    ['📊', { quotaUsed: 50 }],
+    ['📊', { apiCalls: 3 }],
+  ])('falls back to %s when only the context says so', (emoji, context) => {
+    expect(emojiFor('nothing to go on', context)).toBe(emoji);
+  });
+
+  // Neither the text nor the context says anything: the level is the last word.
+  it.each([
+    ['🔍', LogLevel.DEBUG, 'debug' as const],
+    ['ℹ️', LogLevel.INFO, 'log' as const],
+    ['⚠️', LogLevel.WARN, 'warn' as const],
+    ['❌', LogLevel.ERROR, 'error' as const],
+  ])('falls back to %s, the level, when nothing else matches', (emoji, level, method) => {
+    const spy = vi.spyOn(console, method).mockImplementation(() => undefined);
+    const call = {
+      [LogLevel.DEBUG]: Logger.debug,
+      [LogLevel.INFO]: Logger.info,
+      [LogLevel.WARN]: Logger.warn,
+      [LogLevel.ERROR]: Logger.error,
+    }[level]!;
+
+    call('nothing to go on');
+
+    expect(String(spy.mock.calls.at(-1)?.[0]).split(' ')[0]).toBe(emoji);
+  });
+
+  // The message is asked before the context, so a playlist id does not override "auth".
+  it('lets the message win over the context', () => {
+    expect(emojiFor('token refreshed', { playlistId: 'p1' })).toBe('🔐');
+  });
+});
