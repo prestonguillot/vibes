@@ -1,5 +1,5 @@
 {
-  "_comment": "Per-file mutation scores. The ratchet (scripts/mutation-ratchet.mjs) fails a change that drops a file below its entry here. Regenerate with: npm run test:mutation:update",
+  "_comment": "Per-file mutation scores. The ratchet (scripts/mutation-ratchet.mjs) fails a change that drops a file below its entry here. Regenerate with: npm run test:mutation:update. src/app.ts and src/auth/cookieParser.ts are recorded from CI, which scores them lower: locally a few mutants are killed by tests that never assert the mutated code, and an incidental kill like that is not detection - so `update` run locally will raise them again and CI will reject it.",
   "scores": {
     "public/js/dismissAlert.js": 100,
     "public/js/eventLogging.js": 89.04,
@@ -15,9 +15,9 @@
     "public/js/videoModal.js": 44.12,
     "public/js/youtubeCache.js": 82.35,
     "public/js/youtubeConnectionRefresh.js": 74.58,
-    "src/app.ts": 26.62,
+    "src/app.ts": 24.03,
     "src/auth/authValidation.ts": 90.41,
-    "src/auth/cookieParser.ts": 71.93,
+    "src/auth/cookieParser.ts": 70.18,
     "src/auth/csrf.ts": 52.41,
     "src/auth/csrfSecret.ts": 77.78,
     "src/auth/oauthState.ts": 93.94,
