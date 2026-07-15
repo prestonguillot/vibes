@@ -8,7 +8,7 @@ import { findSetCookie } from '@tests/helpers/httpCookies';
 import { youtubeCircuitBreaker } from '@/lib/circuitBreaker';
 import { createApp } from '@/app';
 import { testServer } from '@tests/helpers/testServer';
-import { getCurrentUser, getUserPlaylists } from '@/spotify/client';
+import { getAuthorizeUrl, getCurrentUser, getUserPlaylists } from '@/spotify/client';
 import { YoutubeApiError } from '@/youtube/client';
 
 // Helper to create valid YouTube token cookies (with all required Zod fields)
@@ -56,10 +56,18 @@ const playlistSummary = (id: string, name: string, trackTotal: number, ownerId =
   spotifyUrl: `https://open.spotify.com/playlist/${id}`,
 });
 
+/**
+ * What playlists.list resolves to. Named, because an inline `items: []` infers never[] and then no
+ * test can hand it a playlist without a type error.
+ */
+type YtPlaylistList = Promise<{ data: { items: Array<{ snippet?: { title?: string } }> } }>;
+
 // Mock the YouTube client. createYoutubeClient returns a shared client object so
 // per-test overrides of `ytClient.client.playlists.list` take effect.
 const ytClient = vi.hoisted(() => ({
-  client: { playlists: { list: vi.fn(() => Promise.resolve({ data: { items: [] } })) } },
+  client: {
+    playlists: { list: vi.fn((): YtPlaylistList => Promise.resolve({ data: { items: [] } })) },
+  },
 }));
 vi.mock('@/youtube/client', async (importActual) => {
   const actual = await importActual<typeof import('@/youtube/client')>();
@@ -114,11 +122,86 @@ describe('Spotify Playlists', () => {
     });
   });
 
+  /**
+   * The scopes are the whole point of the redirect: ask for too few and every later call 403s, ask
+   * for more than the app uses and the user is handed a consent screen for permissions nothing
+   * needs. getAuthorizeUrl is mocked with a fixed URL, so the only way to see what was asked for is
+   * to assert the call - nothing else in this file looked, and the scopes could be emptied without
+   * a test noticing.
+   */
+  describe('GET /auth/spotify/login', () => {
+    it('asks for exactly the playlist scopes the app reads', async () => {
+      await request(app).get('/auth/spotify/login');
+
+      expect(vi.mocked(getAuthorizeUrl)).toHaveBeenCalledWith(
+        ['playlist-read-private', 'playlist-read-collaborative'],
+        expect.any(String),
+      );
+    });
+
+    // Spotify renders a generic error page for an authenticated user when `state=` is present but
+    // empty, so an empty state does not fail the CSRF check - it breaks the flow outright.
+    it('sends a state that is actually there', async () => {
+      await request(app).get('/auth/spotify/login');
+
+      const [, state] = vi.mocked(getAuthorizeUrl).mock.calls.at(-1)!;
+      expect(state).toBeTruthy();
+    });
+  });
+
   describe('GET /auth/spotify/playlists', () => {
     it('should return 401 when not authenticated', async () => {
       const response = await request(app).get('/auth/spotify/playlists').expect(401);
 
       expect(response.text).toContain('Please connect to Spotify first');
+    });
+
+    /**
+     * The order of the list is the only thing telling the user what is already synced. It is two
+     * sorts and a concat, and nothing asserted either: the sorts could be removed entirely and the
+     * page would still render, in whatever order Spotify happened to return.
+     */
+    it('lists synced playlists first, each group alphabetical', async () => {
+      mockedGetCurrentUser.mockResolvedValue({ id: 'test-user', displayName: null });
+      mockedGetUserPlaylists.mockResolvedValue([
+        playlistSummary('4', 'Zebra', 1),
+        playlistSummary('1', 'Banana', 1),
+        playlistSummary('2', 'Apple', 1),
+        playlistSummary('3', 'Cherry', 1),
+      ]);
+      // Banana and Zebra already have a YouTube playlist mirroring them.
+      ytClient.client.playlists.list = vi.fn(() =>
+        Promise.resolve({
+          data: {
+            items: [
+              { snippet: { title: 'Banana (from Spotify)' } },
+              { snippet: { title: 'Zebra (from Spotify)' } },
+            ],
+          },
+        }),
+      );
+
+      const response = await request(app)
+        .get('/auth/spotify/playlists')
+        .set('Cookie', [
+          `spotify_tokens=${JSON.stringify({
+            accessToken: 'test-access-token',
+            refreshToken: 'test-refresh-token',
+          })}`,
+        ])
+        .set('Cookie', [
+          `spotify_tokens=${JSON.stringify({
+            accessToken: 'test-access-token',
+            refreshToken: 'test-refresh-token',
+          })}`,
+          `youtube_tokens=${createMockYouTubeToken()}`,
+        ]);
+
+      const order = ['Banana', 'Zebra', 'Apple', 'Cherry'].map((name) =>
+        response.text.indexOf(`>${name}<`),
+      );
+      expect(order.every((i) => i !== -1)).toBe(true);
+      expect(order).toEqual([...order].sort((a, b) => a - b));
     });
 
     it('should accept ownOnly=true parameter', async () => {
