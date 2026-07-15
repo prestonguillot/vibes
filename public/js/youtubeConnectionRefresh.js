@@ -33,15 +33,18 @@
       const ownOnlyCheckbox = document.getElementById('ownPlaylistsOnly');
       const ownOnly = ownOnlyCheckbox ? ownOnlyCheckbox.checked : true;
 
-      // Trigger HTMX request with cache-busting header
-      window.htmx.ajax('GET', `/auth/spotify/playlists?ownOnly=${ownOnly}`, {
-        target: '#playlists-content',
-        swap: 'innerHTML',
-        headers: {
-          'Cache-Control': 'no-cache',
-        },
-        // Restore checkbox states after swap completes (without animation flashing)
-        onload: function () {
+      // htmx.ajax's context takes target/swap/headers/values/select/selectOOB/source/event/handler
+      // - there is no `onload`, and unknown keys are ignored silently. It returns a promise that
+      // settles once the swap is done, so the restore work hangs off that.
+      window.htmx
+        .ajax('GET', `/auth/spotify/playlists?ownOnly=${ownOnly}`, {
+          target: '#playlists-content',
+          swap: 'innerHTML',
+          headers: {
+            'Cache-Control': 'no-cache',
+          },
+        })
+        .then(() => {
           // Suppress transitions to prevent blinking when restoring checkbox states
           playlistsContent.classList.add('no-transition');
 
@@ -57,23 +60,20 @@
           playlistsContent.offsetHeight;
           playlistsContent.classList.remove('no-transition');
 
-          // Reload details for any expanded playlists to get fresh data
-          // The details container might have old cached content, so we need to refresh
-          if (window.htmx) {
-            document.querySelectorAll('.playlist-expand-toggle:checked').forEach((checkbox) => {
-              const playlistId = checkbox.id.replace('expand-', '');
-              const detailsContainer = document.getElementById(`details-${playlistId}`);
-              if (detailsContainer) {
-                // Trigger HTMX to reload the details
-                window.htmx.ajax('GET', `/api/playlistDetails/playlist/${playlistId}`, {
-                  target: `#details-${playlistId}`,
-                  swap: 'innerHTML',
-                });
-              }
-            });
-          }
-        },
-      });
+          // The list was re-rendered, so any expanded playlist is showing pre-connect details.
+          document.querySelectorAll('.playlist-expand-toggle:checked').forEach((checkbox) => {
+            const playlistId = checkbox.id.replace('expand-', '');
+            if (document.getElementById(`details-${playlistId}`)) {
+              window.htmx.ajax('GET', `/api/playlistDetails/playlist/${playlistId}`, {
+                target: `#details-${playlistId}`,
+                swap: 'innerHTML',
+              });
+            }
+          });
+        })
+        .catch((error) => {
+          Logger.error('Failed to refresh playlists after YouTube connected', {}, error);
+        });
     }
   });
 })();
