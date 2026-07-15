@@ -4,6 +4,18 @@ import { SpotifyTokens, YouTubeTokens } from '../types/oauth';
 import { Logger } from '../lib/logger';
 
 /**
+ * Cookie configuration for authentication tokens
+ */
+export function getSecureCookieOptions() {
+  return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production', // HTTPS only in production
+    maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+    sameSite: 'strict' as const, // Strict CSRF protection
+  };
+}
+
+/**
  * Zod schemas for validating OAuth tokens
  */
 export const SpotifyTokensSchema = z.object({

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { Logger } from '../lib/logger';
-import { getSecureCookieOptions } from '../auth/authValidation';
+import { getSecureCookieOptions } from '../auth/cookieParser';
 import { issueOAuthState, verifyOAuthState } from '../auth/oauthState';
 import { validate, schemas, ValidatedRequest } from '../lib/validation';
 import { validateAndSerializeYouTubeTokens } from '../auth/cookieParser';

@@ -1,7 +1,7 @@
 import { Router, Request } from 'express';
 import { createYoutubeClient, YoutubeApiError, YtPlaylist } from '../youtube/client';
 import { Logger } from '../lib/logger';
-import { getSecureCookieOptions } from '../auth/authValidation';
+import { getSecureCookieOptions } from '../auth/cookieParser';
 import { validate, schemas, ValidatedRequest } from '../lib/validation';
 import { formatRetryAfter } from '../lib/errorFormatter';
 import { CacheDuration, setCache } from '../lib/cache';

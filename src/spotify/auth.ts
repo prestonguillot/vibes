@@ -1,49 +1,85 @@
 /**
- * Shared Spotify token validation/refresh for request handlers.
+ * The single Spotify token validate/refresh/rewrite path.
  *
- * Replaces the copies that previously lived in sync.ts, spotify.ts and
- * playlistDetails.ts. Validates the cookie's access token with a lightweight
- * /me call; on 401 it refreshes (reusing the stored refresh token when Spotify
- * doesn't return a new one), rewrites the cookie, and returns the valid token.
- * Throws Error('SPOTIFY_AUTH_REQUIRED') when the user must reconnect.
+ * Validates an access token with a lightweight /me call; on 401 it refreshes (reusing the stored
+ * refresh token when Spotify doesn't return a new one), rewrites the cookie, and reports what
+ * happened. Both callers go through resolveSpotifyToken and differ only at the edges:
+ * ensureValidSpotifyToken (per-request, throws) and validateSpotifyConnection (status endpoint,
+ * returns a ConnectionResult and owns the circuit breaker).
  */
 
 import { Request, Response } from 'express';
 import { getCurrentUser, refreshAccessToken, SpotifyApiError } from './client';
-import { parseSpotifyTokenCookie, validateAndSerializeSpotifyTokens } from '../auth/cookieParser';
-import { getSecureCookieOptions } from '../auth/authValidation';
+import {
+  getSecureCookieOptions,
+  parseSpotifyTokenCookie,
+  validateAndSerializeSpotifyTokens,
+} from '../auth/cookieParser';
+import { SpotifyTokens, TokenOutcome } from '../types/oauth';
 import { Logger } from '../lib/logger';
 
+/**
+ * Resolve a usable Spotify access token, refreshing and rewriting the cookie if needed.
+ * Never throws for an API rejection - the outcome says what happened, so each caller decides
+ * whether that means "reconnect", "back off", or "report an error".
+ */
+export async function resolveSpotifyToken(
+  tokens: SpotifyTokens,
+  res: Response,
+): Promise<TokenOutcome> {
+  try {
+    await getCurrentUser(tokens.accessToken);
+    return { status: 'valid', accessToken: tokens.accessToken };
+  } catch (error: unknown) {
+    const statusCode = error instanceof SpotifyApiError ? error.status : undefined;
+
+    // 401 = the access token expired/was rejected - routine and refreshable, NOT an API-health
+    // failure. Anything else is about Spotify itself and is reported as-is.
+    if (statusCode !== 401) {
+      return { status: 'error', statusCode, error };
+    }
+
+    if (!tokens.refreshToken) {
+      return { status: 'expired', error };
+    }
+
+    Logger.auth('Spotify', 'token expired, refreshing');
+    try {
+      const refreshed = await refreshAccessToken(tokens.refreshToken);
+      const updated = {
+        accessToken: refreshed.accessToken,
+        // Spotify may not return a new refresh token; reuse the stored one.
+        refreshToken: refreshed.refreshToken ?? tokens.refreshToken,
+      };
+      // Validate before storing: a cookie written straight from a refresh response is exactly
+      // where a malformed token would otherwise be persisted unnoticed.
+      res.cookie(
+        'spotify_tokens',
+        validateAndSerializeSpotifyTokens(updated),
+        getSecureCookieOptions(),
+      );
+      Logger.auth('Spotify', 'token refreshed successfully');
+      return { status: 'refreshed', accessToken: updated.accessToken };
+    } catch (refreshError) {
+      Logger.error('Failed to refresh Spotify token', {}, refreshError);
+      return { status: 'expired', error: refreshError };
+    }
+  }
+}
+
+/**
+ * The access token for this request, refreshing it if needed.
+ * Throws Error('SPOTIFY_AUTH_REQUIRED') when the user must reconnect.
+ */
 export async function ensureValidSpotifyToken(req: Request, res: Response): Promise<string> {
   const tokens = parseSpotifyTokenCookie(req.cookies.spotify_tokens, res);
   if (!tokens) {
     throw new Error('SPOTIFY_AUTH_REQUIRED');
   }
 
-  try {
-    await getCurrentUser(tokens.accessToken);
-    return tokens.accessToken;
-  } catch (error: unknown) {
-    if (error instanceof SpotifyApiError && error.status === 401 && tokens.refreshToken) {
-      Logger.auth('Spotify', 'token expired, refreshing');
-      try {
-        const refreshed = await refreshAccessToken(tokens.refreshToken);
-        const updated = {
-          accessToken: refreshed.accessToken,
-          refreshToken: refreshed.refreshToken ?? tokens.refreshToken,
-        };
-        res.cookie(
-          'spotify_tokens',
-          validateAndSerializeSpotifyTokens(updated),
-          getSecureCookieOptions(),
-        );
-        Logger.auth('Spotify', 'token refreshed successfully');
-        return updated.accessToken;
-      } catch (refreshError) {
-        Logger.error('Failed to refresh Spotify token', {}, refreshError);
-        throw new Error('SPOTIFY_AUTH_REQUIRED', { cause: refreshError });
-      }
-    }
-    throw new Error('SPOTIFY_AUTH_REQUIRED', { cause: error });
+  const outcome = await resolveSpotifyToken(tokens, res);
+  if (outcome.status === 'valid' || outcome.status === 'refreshed') {
+    return outcome.accessToken;
   }
+  throw new Error('SPOTIFY_AUTH_REQUIRED', { cause: outcome.error });
 }
