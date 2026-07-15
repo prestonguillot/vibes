@@ -1,6 +1,10 @@
 <% const cover = locals.coverImage; %>
 <div class="playlist-item<%= cover ? ' playlist-item--art' : '' %>" data-playlist-id="<%= id %>"
      data-youtube-count="<%= youtubeTracksTotal || 0 %>"
+     <%# Empty when Spotify omits the count, which it does for every playlist in Dev Mode. The
+         client fills that in from the last details view it saw; it must be able to tell the
+         difference between "the server says 0" and "the server does not know". %>
+     data-track-count="<%= tracksTotal != null ? tracksTotal : '' %>"
      data-is-synced="<%= isSynced ? 'true' : 'false' %>"
      <% if (cover) { %>style="--playlist-art: url('<%= cover %>')"<% } %>>
   <div class="playlist-item__header">
@@ -78,10 +82,13 @@
     <span class="expand-label"></span>
     <span class="expand-indicator">▼</span>
   </label>
+  <%# The container is display:none until the row is expanded, and a hidden element never
+      intersects - so this loads when it is opened, not before. A sync's own last frame carries the
+      refreshed details for whatever is already open. %>
   <div class="playlist-details-container"
        id="details-<%= id %>"
        hx-get="/api/playlistDetails/playlist/<%= id %>"
-       hx-trigger="intersect once, playlistSyncComplete-<%= id %> from:body"
+       hx-trigger="intersect once"
        hx-swap="innerHTML"
        hx-sync="this:replace">
     <div class="playlist-loading">
