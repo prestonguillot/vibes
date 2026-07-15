@@ -273,11 +273,15 @@ export async function getUserPlaylists(accessToken: string): Promise<SpotifyPlay
       `/me/playlists?limit=${limit}&offset=${offset}`,
       accessToken,
     );
+    const rawItems = page.items ?? [];
     // Spotify can return null entries for deleted/unavailable playlists.
-    const items = (page.items ?? []).filter((p): p is RawPlaylistObject => p != null);
+    const items = rawItems.filter((p): p is RawPlaylistObject => p != null);
     all.push(...items.map(toPlaylistSummary));
 
-    if (!page.next || items.length === 0) break;
+    // Terminate on `next`, and guard on the RAW page length. Testing the null-filtered length here
+    // silently truncated the list: a page whose entries are all deleted/unavailable filters to
+    // empty and would stop pagination even though `next` still points at more playlists.
+    if (!page.next || rawItems.length === 0) break;
     offset += limit;
   }
 
