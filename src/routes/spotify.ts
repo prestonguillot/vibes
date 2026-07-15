@@ -11,7 +11,7 @@ import {
   parseYouTubeTokenCookie,
   validateAndSerializeSpotifyTokens,
 } from '../auth/cookieParser';
-import { generateCsrfToken } from '../auth/csrf';
+import { issueOAuthState, verifyOAuthState } from '../auth/oauthState';
 import {
   getAuthorizeUrl,
   exchangeCodeForTokens,
@@ -35,18 +35,6 @@ const router = Router();
 // Cookie name for the one-time OAuth state value used for CSRF protection.
 const SPOTIFY_OAUTH_STATE_COOKIE = 'spotify_oauth_state';
 
-// The OAuth state cookie must use SameSite=Lax (not Strict) so the browser
-// includes it on the top-level cross-site redirect back from Spotify's consent
-// page. With Strict it would be withheld on that navigation and verification
-// would always fail.
-const getOAuthStateCookieOptions = () => ({
-  httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: 'lax' as const,
-  maxAge: 10 * 60 * 1000, // 10 minutes
-  path: '/',
-});
-
 // Spotify login
 router.get('/login', (req, res) => {
   Logger.requestStart('Spotify Login Request', {
@@ -55,13 +43,10 @@ router.get('/login', (req, res) => {
 
   const scopes = ['playlist-read-private', 'playlist-read-collaborative'];
 
-  // Generate a random OAuth state. This serves two purposes:
-  // 1. CSRF protection - verified against a cookie in the callback.
-  // 2. Spotify's authorize endpoint rejects a present-but-empty `state=`
-  //    parameter for authenticated users (it renders a generic error page),
-  //    so a non-empty value is required for the flow to work at all.
-  const state = generateCsrfToken();
-  res.cookie(SPOTIFY_OAUTH_STATE_COOKIE, state, getOAuthStateCookieOptions());
+  // A non-empty state is required for the flow to work at all (Spotify's authorize endpoint
+  // renders a generic error page for an authenticated user when `state=` is present but empty),
+  // as well as for the CSRF check in the callback.
+  const state = issueOAuthState(res, SPOTIFY_OAUTH_STATE_COOKIE);
 
   const authorizeURL = getAuthorizeUrl(scopes, state);
   Logger.auth('Spotify', 'redirecting to authorization', { authorizeURL });
@@ -78,7 +63,7 @@ router.get(
       state: z.string().optional(),
     }),
   }),
-  async (req, res) => {
+  async (req: ValidatedRequest<Record<string, string>, { code: string; state?: string }>, res) => {
     Logger.requestStart('Spotify Callback Request', {
       requestUrl: req.originalUrl,
       authCodePresent: !!req.query.code,
@@ -86,15 +71,8 @@ router.get(
 
     const { code, state } = req.query;
 
-    // Verify the OAuth state against the one-time cookie set during /login to
-    // prevent CSRF. The cookie is single-use, so clear it regardless of outcome.
-    const expectedState = req.cookies[SPOTIFY_OAUTH_STATE_COOKIE];
-    res.clearCookie(SPOTIFY_OAUTH_STATE_COOKIE, { path: '/' });
-    if (!expectedState || !state || state !== expectedState) {
-      Logger.warn('Spotify callback rejected - OAuth state mismatch', {
-        hasExpectedState: !!expectedState,
-        hasReceivedState: !!state,
-      });
+    // Reject a callback that didn't originate from our /login (CSRF / account fixation).
+    if (!verifyOAuthState(req, res, SPOTIFY_OAUTH_STATE_COOKIE, state, 'Spotify')) {
       return res.redirect('/?error=spotify&reason=state_mismatch');
     }
 
