@@ -43,9 +43,14 @@ function isOfficialVideo(youtubeVideo: SimplifiedVideo, spotifyArtist: string): 
 }
 
 /**
- * Check if channel is a known record label or official music source
+ * Check if channel is a known record label or official music source.
+ *
+ * Exported for tests only. It is the right-hand side of
+ * `channel.includes(artist) || isKnownLabel(channel)`, so driving it through calculateMatchScore
+ * requires a channel that does not contain the artist - easy to get wrong, and it was: every test
+ * that claimed to cover it used "RadioheadVEVO" for Radiohead and short-circuited it away.
  */
-function isKnownLabel(channel: string): boolean {
+export function isKnownLabel(channel: string): boolean {
   const knownLabels = [
     'vevo',
     'universal',
@@ -222,7 +227,8 @@ export function calculateMatchScore(
 /**
  * Convert a score (0-1) to a gradient color from red to green
  */
-function scoreToColor(score: number): string {
+/** Exported for tests: a pure score -> rgb() ramp, cheaper to pin directly than through a match. */
+export function scoreToColor(score: number): string {
   // 0.0-0.4: Red (#FF0000 to #FF8800)
   // 0.4-0.6: Orange/Yellow (#FF8800 to #FFFF00)
   // 0.6-0.8: Yellow-Green (#FFFF00 to #88FF00)
@@ -259,11 +265,14 @@ function scoreToColor(score: number): string {
   }
 }
 
-function extractCoreTitle(title: string): string {
+/** Exported for tests: strips metadata (remaster/live/feat/year/...) down to a comparable title. */
+export function extractCoreTitle(title: string): string {
   let coreTitle = title;
 
-  // FIRST: Remove metadata in parentheses/brackets BEFORE normalization
-  // This ensures we catch patterns like (Official Video), (Official Audio), etc.
+  // FIRST: Remove metadata in parentheses/brackets BEFORE normalization.
+  // NOTE: this matches a SINGLE keyword in the brackets - "(Remaster)", "(Live)". Multi-word
+  // parentheticals like "(Official Video)" are NOT stripped here and survive into the core as
+  // text; the substring test in calculateMatchScore absorbs that, which is why it went unnoticed.
   coreTitle = coreTitle
     .replace(
       /\s*\(\s*(official|remaster|live|acoustic|demo|radio|edit|mix|version|instrumental|audio|video)\s*\).*$/i,
@@ -287,7 +296,6 @@ function extractCoreTitle(title: string): string {
     /\s*\(\s*feat\.?\s+.*?\).*$/i, // Remove "(feat. Artist)"
     /\s*-\s*live\s+at.*$/i, // Remove "- Live at Venue"
     /\s*\(\s*live\s+at.*\).*$/i, // Remove "(Live at Venue)"
-    /\s*,\s*pt\.?\s*\d+.*$/i, // Keep "Pt. 2" but remove metadata after it
   ];
 
   for (const pattern of metadataPatterns) {
@@ -310,16 +318,18 @@ function extractCoreTitle(title: string): string {
   return coreTitle;
 }
 
-function normalizeText(text: string): string {
+/** Exported for tests: lowercase, punctuation -> spaces, collapse, drop ft/feat/featuring. */
+export function normalizeText(text: string): string {
   return text
     .toLowerCase()
     .replace(/[^\w\s]/g, ' ') // Replace punctuation with spaces
-    .replace(/\s+/g, ' ') // Collapse multiple spaces
     .replace(/\b(ft|feat|featuring)\b/g, '') // Only remove collaboration markers
+    .replace(/\s+/g, ' ') // Collapse spaces LAST: the strip above leaves gaps behind
     .trim();
 }
 
-function calculateStringSimilarity(str1: string, str2: string): number {
+/** Exported for tests: 1 - (levenshtein / longer length). */
+export function calculateStringSimilarity(str1: string, str2: string): number {
   if (str1 === str2) return 1.0;
 
   const longer = str1.length > str2.length ? str1 : str2;

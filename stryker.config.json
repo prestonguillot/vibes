@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
-  "_comment": "Mutation testing: deliberately break the source and report which breakages NO test noticed. Coverage only proves a line ran; this proves a test would catch a regression in it.",
+  "_comment": "Mutation testing: deliberately break the source and report which breakages NO test noticed. Coverage only proves a line ran; this proves a test would catch a regression in it. Scoped per phase from the CLI while working: npx stryker run --mutate src/sync/trackMatching.ts",
   "packageManager": "npm",
   "testRunner": "vitest",
   "vitest": {
@@ -12,11 +12,11 @@
   },
   "coverageAnalysis": "perTest",
   "mutate": [
-    "src/sync/**/*.ts",
-    "src/youtube/**/*.ts",
-    "src/auth/**/*.ts",
-    "src/lib/**/*.ts",
-    "src/spotify/**/*.ts"
+    "src/**/*.ts",
+    "!src/types/**",
+    "!src/server.ts",
+    "public/js/**/*.js",
+    "!public/vendor/**"
   ],
   "thresholds": {
     "high": 80,
@@ -26,5 +26,7 @@
   "jsonReporter": {
     "fileName": "reports/mutation/report.json"
   },
-  "concurrency": 6
+  "concurrency": 6,
+  "incremental": true,
+  "incrementalFile": "reports/stryker-incremental.json"
 }
