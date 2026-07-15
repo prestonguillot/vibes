@@ -95,10 +95,18 @@
   }
 
   // After any swap: capture details that just loaded, then re-decorate the list.
-  document.body.addEventListener('htmx:afterSwap', function (evt) {
-    syncFromDetails(evt.target || document);
+  //
+  // Both events, and the whole document rather than what was swapped. A sync delivers the
+  // playlist's refreshed details out-of-band, into #details-<id>: htmx announces that with
+  // oobAfterSwap, and the afterSwap it does fire names the status box, which does not contain
+  // them. Reading only inside the swapped element left the row saying "140 of 141" with the drift
+  // dot lit while the flyout below it already read 141 of 141.
+  function captureAndDecorate() {
+    syncFromDetails(document);
     decorateAll();
-  });
+  }
+  document.body.addEventListener('htmx:afterSwap', captureAndDecorate);
+  document.body.addEventListener('htmx:oobAfterSwap', captureAndDecorate);
 
   // On initial load, paint last-known values before details lazy-load.
   document.addEventListener('DOMContentLoaded', decorateAll);
