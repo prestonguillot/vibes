@@ -487,4 +487,208 @@ describe('videoModal: picking a video', () => {
     // Never wired, so choosing does nothing.
     expect(confirmBtn().disabled).toBe(true);
   });
+
+  /**
+   * A fresh search replaces the options list with different videos. The pick made against the old
+   * list is meaningless now - the id it points at may not even be on screen - so it is dropped and
+   * Confirm goes back to disabled. Leaving it armed would let the user confirm a video they can no
+   * longer see.
+   */
+  describe('when a re-search replaces the results', () => {
+    const reSearch = async (videos: string[]) => {
+      document.getElementById('video-results-list')!.innerHTML = results(videos);
+      afterSwap('video-results-list');
+    };
+
+    it('drops the pick made against the old results', async () => {
+      await modal();
+      afterSwap('video-modal-content');
+      pick('v1');
+
+      await reSearch(['v8', 'v9']);
+
+      expect((document.getElementById('hidden-new-video-id') as HTMLInputElement).value).toBe('');
+      expect(confirmBtn().disabled).toBe(true);
+    });
+
+    it('arms Confirm again on a pick from the new results', async () => {
+      await modal();
+      afterSwap('video-modal-content');
+      pick('v1');
+
+      await reSearch(['v8', 'v9']);
+      pick('v9');
+
+      expect((document.getElementById('hidden-new-video-id') as HTMLInputElement).value).toBe('v9');
+      expect(confirmBtn().disabled).toBe(false);
+    });
+
+    // A full-modal swap is the modal opening fresh; there is no earlier pick to drop, and clearing
+    // would fight the server's own rendering of the current selection.
+    it('does not clear the pick when the whole modal is swapped', async () => {
+      await modal();
+      afterSwap('video-modal-content');
+      pick('v1');
+
+      afterSwap('video-modal-content');
+
+      expect((document.getElementById('hidden-new-video-id') as HTMLInputElement).value).toBe('v1');
+    });
+  });
+});
+
+/**
+ * The modal opens on htmx:beforeRequest rather than when the search returns, so it appears the
+ * instant the user clicks rather than after a scrape that takes seconds. That means the loading
+ * state and the open have to happen before there is any content to show.
+ */
+describe('opening the picker', () => {
+  const setupModal = async ({ open = false } = {}) => {
+    document.body.innerHTML = `
+      <dialog id="videoSelectionModal">
+        <div id="video-modal-content"><span class="spinner">Loading…</span></div>
+      </dialog>`;
+    (window as any).Logger = { error: vi.fn(), debug: vi.fn(), info: vi.fn(), warn: vi.fn() };
+    listeners = trackListeners(document);
+    vi.resetModules();
+    await import('../../public/js/videoModal.js');
+    listeners.stop();
+
+    const dialog = document.getElementById('videoSelectionModal') as HTMLDialogElement;
+    Object.defineProperty(dialog, 'open', { value: open, writable: true, configurable: true });
+    dialog.showModal = vi.fn(() => {
+      (dialog as unknown as { open: boolean }).open = true;
+    }) as unknown as HTMLDialogElement['showModal'];
+    return dialog;
+  };
+
+  const beforeRequest = (targetId: string) =>
+    document.dispatchEvent(
+      new CustomEvent('htmx:beforeRequest', {
+        detail: { elt: document.body, target: document.getElementById(targetId) },
+        bubbles: true,
+      }),
+    );
+
+  it('opens as soon as the search starts, not when it returns', async () => {
+    const dialog = await setupModal();
+
+    beforeRequest('video-modal-content');
+
+    expect(dialog.showModal).toHaveBeenCalled();
+  });
+
+  // The markup captured at load is the spinner the server rendered; it is put back so every open
+  // starts from the loading state rather than the previous track's results.
+  it('shows the loading state while the search runs', async () => {
+    await setupModal();
+    document.getElementById('video-modal-content')!.innerHTML = '<p>last search results</p>';
+
+    beforeRequest('video-modal-content');
+
+    expect(document.getElementById('video-modal-content')!.innerHTML).toContain('Loading');
+  });
+
+  // showModal() on an already-open dialog throws InvalidStateError.
+  it('does not re-open a dialog that is already open', async () => {
+    const dialog = await setupModal({ open: true });
+
+    beforeRequest('video-modal-content');
+
+    expect(dialog.showModal).not.toHaveBeenCalled();
+  });
+
+  it('ignores a request aimed at anything else', async () => {
+    const dialog = await setupModal();
+    const other = document.createElement('div');
+    other.id = 'unrelated';
+    document.body.appendChild(other);
+
+    beforeRequest('unrelated');
+
+    expect(dialog.showModal).not.toHaveBeenCalled();
+    expect(document.getElementById('video-modal-content')!.innerHTML).toContain('Loading');
+  });
+});
+
+/**
+ * Cancel and the X - the ordinary way out. Nothing executed this at all: the in-flight tests seal
+ * Escape and the backdrop, but the close buttons are handled here, and hx-disabled-elt is what
+ * seals THEM during a replace. So this is the path a user takes every time they open the picker and
+ * change their mind, and it was running unmeasured.
+ */
+describe('closing the picker with Cancel or the X', () => {
+  const setupClosers = async () => {
+    document.body.innerHTML = `
+      <dialog id="videoSelectionModal">
+        <div id="video-modal-content">
+          <button type="button" class="btn-close" data-dialog-close></button>
+          <button type="button" data-dialog-close><span id="cancel-label">Cancel</span></button>
+        </div>
+      </dialog>
+      <button type="button" id="outside" data-dialog-close>Not in a dialog</button>`;
+    (window as any).Logger = { error: vi.fn(), debug: vi.fn(), info: vi.fn(), warn: vi.fn() };
+    listeners = trackListeners(document);
+    vi.resetModules();
+    await import('../../public/js/videoModal.js');
+    listeners.stop();
+
+    const dialog = document.getElementById('videoSelectionModal') as HTMLDialogElement;
+    Object.defineProperty(dialog, 'open', { value: true, writable: true, configurable: true });
+    dialog.close = vi.fn(() => {
+      (dialog as unknown as { open: boolean }).open = false;
+    }) as unknown as HTMLDialogElement['close'];
+    return dialog;
+  };
+
+  const clickOn = (selector: string) =>
+    document.querySelector(selector)!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+  it.each([['.btn-close'], ['[data-dialog-close]:not(.btn-close)']])(
+    'closes when %s is clicked',
+    async (selector) => {
+      const dialog = await setupClosers();
+
+      clickOn(selector);
+
+      expect(dialog.close).toHaveBeenCalled();
+    },
+  );
+
+  // The click lands on the label inside the button, not the button itself - closest() is what makes
+  // that work, and without it the user's click does nothing.
+  it('closes when the click lands on a child of the button', async () => {
+    const dialog = await setupClosers();
+
+    clickOn('#cancel-label');
+
+    expect(dialog.close).toHaveBeenCalled();
+  });
+
+  it('does nothing when the click is not on a closer', async () => {
+    const dialog = await setupClosers();
+
+    clickOn('#video-modal-content');
+
+    expect(dialog.close).not.toHaveBeenCalled();
+  });
+
+  // close() on a dialog that is not open is a no-op, but calling it says this does not know what
+  // state it is in.
+  it('does not close a dialog that is already closed', async () => {
+    const dialog = await setupClosers();
+    (dialog as unknown as { open: boolean }).open = false;
+
+    clickOn('.btn-close');
+
+    expect(dialog.close).not.toHaveBeenCalled();
+  });
+
+  it('ignores a closer that is not inside a dialog', async () => {
+    const dialog = await setupClosers();
+
+    clickOn('#outside');
+
+    expect(dialog.close).not.toHaveBeenCalled();
+  });
 });
