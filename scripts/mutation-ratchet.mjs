@@ -26,7 +26,7 @@
  */
 
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import picomatch from 'picomatch';
 
@@ -49,15 +49,23 @@ const MUTATED = (() => {
   return (file) => included(file) && !excluded(file);
 })();
 
-/** Per-file mutation score, keyed by repo-relative path. */
-function scoresFromReport() {
+/**
+ * Per-file mutation scores, plus every file the report mentions - including those with nothing
+ * mutable in them, which `scores` omits. A file with no mutants is fine; one the run never reached
+ * is not, and only `reported` can tell them apart.
+ */
+function readReport() {
   if (!existsSync(REPORT)) {
     throw new Error(`No ${REPORT}. Run stryker first.`);
   }
   const report = JSON.parse(readFileSync(REPORT, 'utf8'));
   const scores = {};
+  const reported = new Set();
 
   for (const [file, data] of Object.entries(report.files)) {
+    const relative = path.relative(process.cwd(), file);
+    reported.add(relative);
+
     const counts = {};
     for (const mutant of data.mutants) counts[mutant.status] = (counts[mutant.status] ?? 0) + 1;
 
@@ -66,16 +74,29 @@ function scoresFromReport() {
     const total = killed + survived;
     if (total === 0) continue; // nothing mutable in here
 
-    scores[path.relative(process.cwd(), file)] = Math.round((killed / total) * 10000) / 100;
+    scores[relative] = Math.round((killed / total) * 10000) / 100;
   }
-  return scores;
+  return { scores, reported };
 }
+
+const scoresFromReport = () => readReport().scores;
 
 const readBaseline = () =>
   existsSync(BASELINE) ? JSON.parse(readFileSync(BASELINE, 'utf8')).scores : {};
 
+/**
+ * Merge scores into the baseline, keeping entries the run did not measure.
+ *
+ * A scoped run reports only the files it mutated, so replacing wholesale would drop every other
+ * file's record and silently reset the ratchet to remembering nothing. Entries are pruned only when
+ * their file is gone or is no longer mutated at all.
+ */
 function writeBaseline(scores) {
-  const sorted = Object.fromEntries(Object.entries(scores).sort(([a], [b]) => a.localeCompare(b)));
+  const merged = { ...readBaseline(), ...scores };
+  for (const file of Object.keys(merged)) {
+    if (!existsSync(file) || !MUTATED(file)) delete merged[file];
+  }
+  const sorted = Object.fromEntries(Object.entries(merged).sort(([a], [b]) => a.localeCompare(b)));
   writeFileSync(
     BASELINE,
     JSON.stringify(
@@ -102,18 +123,27 @@ function changedFiles(base) {
 /**
  * Compare scores against the baseline and report. Returns the files that dropped.
  *
+ * A file absent from the report counts as a drop: it was not measured, which is not the same as not
+ * having regressed.
+ *
  * On CI this also writes the table to the run summary: a report that has to be downloaded and
  * unzipped to be read is a report nobody reads.
  */
 function compare(files, { verbose = false } = {}) {
   const baseline = readBaseline();
-  const scores = scoresFromReport();
+  const { scores, reported } = readReport();
   const regressions = [];
   const rows = [];
 
   for (const file of files) {
+    if (!reported.has(file)) {
+      regressions.push({ file, before: baseline[file], now: undefined });
+      rows.push(`| ${file} | ${baseline[file] ?? '–'}% | – | **not measured** |`);
+      continue;
+    }
+
     const now = scores[file];
-    if (now === undefined) continue; // nothing mutable in it
+    if (now === undefined) continue; // in the report, but nothing mutable in it
 
     const before = baseline[file];
     if (before === undefined) {
@@ -149,7 +179,8 @@ function reportRegressions(regressions) {
   if (regressions.length === 0) return false;
   console.error('\nMutation score regressed:');
   for (const { file, before, now } of regressions) {
-    console.error(`  ${file}: ${before}% -> ${now}%`);
+    if (now === undefined) console.error(`  ${file}: not in the report - it was never scored`);
+    else console.error(`  ${file}: ${before}% -> ${now}%`);
   }
   console.error(
     '\nThe tests no longer catch changes they used to. Either cover the new code, or ' +
@@ -158,11 +189,17 @@ function reportRegressions(regressions) {
   return true;
 }
 
+/**
+ * A dead run must leave no report behind - the comparison cannot tell a stale one from a fresh one.
+ * With `thresholds.break` null, stryker exits non-zero only on failure.
+ */
 function runStryker(args) {
+  rmSync(REPORT, { force: true });
   const result = spawnSync('npx', ['stryker', 'run', ...args], { stdio: 'inherit', shell: false });
-  // A non-zero exit can just mean the configured `break` threshold tripped; the per-file comparison
-  // below is the real verdict, so only a crash matters here.
   if (result.error) throw result.error;
+  if (result.status !== 0) {
+    throw new Error(`stryker exited ${result.status}. Nothing was scored; see the output above.`);
+  }
 }
 
 const command = process.argv[2];

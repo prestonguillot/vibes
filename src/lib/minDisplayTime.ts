@@ -3,6 +3,8 @@
  * check would otherwise flash the button (loading -> result) too quickly to read,
  * so we hold the response until at least this long has passed.
  */
+import { sleep } from './delay';
+
 export const MIN_DISPLAY_TIME_MS = 500;
 
 /**
@@ -12,6 +14,6 @@ export const MIN_DISPLAY_TIME_MS = 500;
 export async function enforceMinDisplayTime(startTime: number): Promise<void> {
   const elapsed = Date.now() - startTime;
   if (elapsed < MIN_DISPLAY_TIME_MS) {
-    await new Promise((resolve) => setTimeout(resolve, MIN_DISPLAY_TIME_MS - elapsed));
+    await sleep(MIN_DISPLAY_TIME_MS - elapsed);
   }
 }
