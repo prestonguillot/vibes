@@ -73,9 +73,11 @@ beforeEach(() => {
   };
   playlistItems = [
     { id: 'item-FIRST', snippet: { position: 0, resourceId: { videoId: 'FIRST' } } },
-    // YouTube returns items with no snippet at all (a deleted or private video). Every predicate
-    // here walks that path, so it is in the default playlist rather than one special case.
+    // YouTube returns items with no snippet at all (a deleted or private video), and items whose
+    // snippet names no video. Every predicate here walks past both, so they are in the default
+    // playlist rather than in one special case.
     { id: 'item-ghost' },
+    { id: 'item-no-resource', snippet: { position: 1 } },
     { id: 'item-OLD', snippet: { position: 3, resourceId: { videoId: 'OLD' } } },
     { id: 'item-NEW', snippet: { position: 9, resourceId: { videoId: 'NEW' } } },
   ];
@@ -171,6 +173,14 @@ describe('replacing a video the user rejected', () => {
     ]);
   });
 
+  // The insert sends a snippet, so it has to say so - YouTube rejects a write whose parts do not
+  // name what the body carries.
+  it('writes the snippet part', async () => {
+    await apply({ currentVideoId: 'OLD' });
+
+    expect(youtube.playlistItems.insert.mock.calls[0]![0].part).toEqual(['snippet']);
+  });
+
   // An item the API returned without a videoId is not the video being looked for.
   it('is not fooled by an item with no video id', async () => {
     playlistItems = [
@@ -201,6 +211,14 @@ describe('when the video to replace has gone', () => {
     expect(youtube.playlistItems.delete).not.toHaveBeenCalled();
   });
 
+  it('says what it could not find, and how far it looked', async () => {
+    const error = await apply({ currentVideoId: 'OLD' }).catch((e: Error) => e);
+
+    expect(error).toBeInstanceOf(VideoNotInPlaylistError);
+    expect(error).toMatchObject({ name: 'VideoNotInPlaylistError' });
+    expect((error as Error).message).toBe('Video OLD is not in the playlist (checked 1 items)');
+  });
+
   // The count is in the message the user reads: "after checking all N items".
   it('says how much of the playlist it checked', async () => {
     playlistItems = Array.from({ length: 42 }, (_, i) => ({
@@ -224,6 +242,7 @@ describe('linking a track that had no video', () => {
       resourceId: { kind: 'youtube#video', videoId: 'NEW' },
     });
     expect(insertSnippet().position).toBeUndefined();
+    expect(youtube.playlistItems.insert.mock.calls[0]![0].part).toEqual(['snippet']);
   });
 
   it('waits before moving it: YouTube will not move an item it has not registered', async () => {
@@ -239,17 +258,29 @@ describe('linking a track that had no video', () => {
   it('moves it to its track’s place', async () => {
     await apply();
 
-    expect(youtube.playlistItems.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        requestBody: expect.objectContaining({
-          id: 'item-NEW',
-          snippet: expect.objectContaining({
-            position: 2,
-            playlistId: 'PL',
-            resourceId: { kind: 'youtube#video', videoId: 'NEW' },
-          }),
-        }),
-      }),
+    expect(youtube.playlistItems.update).toHaveBeenCalledWith({
+      part: ['snippet'],
+      requestBody: {
+        id: 'item-NEW',
+        snippet: {
+          playlistId: 'PL',
+          position: 2,
+          resourceId: { kind: 'youtube#video', videoId: 'NEW' },
+        },
+      },
+    });
+  });
+
+  // Only the snippet is read to find the item to move; asking for more costs nothing but says the
+  // wrong thing about what this needs.
+  it('asks for the snippet when finding the video to move', async () => {
+    await apply();
+
+    expect(h.findYoutubePlaylistItem).toHaveBeenLastCalledWith(
+      youtube,
+      'PL',
+      expect.any(Function),
+      ['snippet'],
     );
   });
 
