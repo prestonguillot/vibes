@@ -1,13 +1,12 @@
 import { Router, Request, Response } from 'express';
-import {
-  YtPlaylist,
-  YtPlaylistItem,
-  YtPlaylistItemListResponse,
-  YoutubeApiError,
-} from '../youtube/client';
+import { YtPlaylist, YtPlaylistItem, YoutubeApiError } from '../youtube/client';
 import { ensureValidYouTubeToken } from '../youtube/auth';
 import { fetchAllPlaylistItems } from '../spotify/playlistItems';
-import { findSyncedYoutubePlaylist, syncedPlaylistTitle } from '../youtube/playlist';
+import {
+  fetchAllYoutubePlaylistItems,
+  findSyncedYoutubePlaylist,
+  syncedPlaylistTitle,
+} from '../youtube/playlist';
 import { youtubeWrite, YoutubeQuotaError } from '../youtube/writes';
 import { reconcilePlaylist, buildSyncDesiredVideoIds } from '../sync/playlistReconcile';
 import { Logger } from '../lib/logger';
@@ -175,32 +174,22 @@ async function runSync(deps: SyncDeps): Promise<void> {
         id: youtubePlaylistId,
       });
 
-      let nextPageToken: string | undefined = undefined;
-      let totalExistingVideos = 0;
-      do {
-        const response: YtPlaylistItemListResponse = (
-          await youtube.playlistItems.list({
-            part: ['id', 'snippet'],
-            playlistId: youtubePlaylistId,
-            maxResults: 50,
-            pageToken: nextPageToken,
-          })
-        ).data;
-        logApiCall('get existing items', 1);
+      const existingItems = await fetchAllYoutubePlaylistItems(
+        youtube,
+        youtubePlaylistId,
+        ['id', 'snippet'],
+        () => logApiCall('get existing items', 1),
+      );
 
-        const existingVideos = response.items || [];
-        totalExistingVideos += existingVideos.length;
-        for (const item of existingVideos) {
-          if (item.snippet?.resourceId?.videoId) {
-            const videoId = item.snippet.resourceId.videoId;
-            existingVideoIds.add(videoId);
-            existingItemsMap.set(videoId, item);
-          }
+      for (const item of existingItems) {
+        if (item.snippet?.resourceId?.videoId) {
+          const videoId = item.snippet.resourceId.videoId;
+          existingVideoIds.add(videoId);
+          existingItemsMap.set(videoId, item);
         }
-        nextPageToken = response.nextPageToken || undefined;
-      } while (nextPageToken);
+      }
 
-      Logger.info('Found existing videos in playlist', { count: totalExistingVideos });
+      Logger.info('Found existing videos in playlist', { count: existingItems.length });
     } else {
       Logger.info('No existing playlist found - entering CREATE mode');
     }

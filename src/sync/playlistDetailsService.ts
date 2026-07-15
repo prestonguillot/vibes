@@ -4,7 +4,8 @@
  * Used by both playlistDetails routes and sync operations to eliminate code duplication
  */
 
-import { YoutubeClient, YtPlaylistItem, YtPlaylistItemListResponse } from '../youtube/client';
+import { YoutubeClient, YtPlaylistItem } from '../youtube/client';
+import { fetchAllYoutubePlaylistItems } from '../youtube/playlist';
 import { optimalTrackMatching, ScoreBreakdown } from '../sync/trackMatching';
 import { fetchAllPlaylistItems } from '../spotify/playlistItems';
 import { getPlaylist } from '../spotify/client';
@@ -131,25 +132,10 @@ export async function fetchPlaylistDetails(
   if (youtube && youtubePlaylistId) {
     Logger.external('YouTube', 'Fetching playlist videos', { youtubePlaylistId });
 
-    const allPlaylistItems: YtPlaylistItem[] = [];
-    let nextPageToken: string | undefined = undefined;
-
-    do {
-      const response: YtPlaylistItemListResponse = await youtube.playlistItems
-        .list({
-          part: ['id', 'snippet'],
-          playlistId: youtubePlaylistId,
-          maxResults: 50,
-          pageToken: nextPageToken,
-        })
-        .then((res) => res.data);
-
-      if (response.items) {
-        allPlaylistItems.push(...response.items);
-      }
-
-      nextPageToken = response.nextPageToken || undefined;
-    } while (nextPageToken);
+    const allPlaylistItems = await fetchAllYoutubePlaylistItems(youtube, youtubePlaylistId, [
+      'id',
+      'snippet',
+    ]);
 
     // Build video objects from the playlist-item snippets. Matching uses only
     // title + channelTitle, both available on the snippet, so no videos.list
