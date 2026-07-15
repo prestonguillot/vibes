@@ -5,8 +5,6 @@
  * declaratively via the htmx SSE extension; this module owns the dismiss control and what happens
  * when the stream closes - marking the outcome, and moving a newly-synced playlist into its
  * alphabetical place among the synced ones.
- *
- * It was at 0% coverage: shipped on every page load via index.ejs, never executed by a test.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';

@@ -271,8 +271,8 @@ export function extractCoreTitle(title: string): string {
 
   // FIRST: Remove metadata in parentheses/brackets BEFORE normalization.
   // NOTE: this matches a SINGLE keyword in the brackets - "(Remaster)", "(Live)". Multi-word
-  // parentheticals like "(Official Video)" are NOT stripped here and survive into the core as
-  // text; the substring test in calculateMatchScore absorbs that, which is why it went unnoticed.
+  // parentheticals like "(Official Video)" are NOT stripped and survive into the core as text;
+  // the substring test in calculateMatchScore is what absorbs them.
   coreTitle = coreTitle
     .replace(
       /\s*\(\s*(official|remaster|live|acoustic|demo|radio|edit|mix|version|instrumental|audio|video)\s*\).*$/i,

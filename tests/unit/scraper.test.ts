@@ -1,13 +1,12 @@
 /**
  * Tests for src/youtube/scraper.ts.
  *
- * This module BROKE IN PRODUCTION (2026-07-14): Google's /sorry/ bot gate hands back a
- * GOOGLE_ABUSE_EXEMPTION cookie and redirects to the clean URL; a stateless fetch dropped it, so
- * the clean URL was un-exempted and bounced straight back - "redirected more than 5 times", every
- * search dead. It was fixed with a cookie jar and had NO tests then and none since: mutation
- * testing found 248 survivors, 235 of them never executed by anything.
+ * Google's /sorry/ bot gate hands back a GOOGLE_ABUSE_EXEMPTION cookie and redirects to the clean
+ * URL. A stateless fetch drops that cookie, leaving the clean URL un-exempted so it bounces
+ * straight back to the gate - an infinite redirect loop that kills every search. The cookie jar is
+ * what makes the exemption stick, so these drive it end to end.
  *
- * Everywhere the scraper appears in other tests it is vi.mock'd away, so the fix was never pinned.
+ * Elsewhere in the suite the scraper is vi.mock'd away, so this is the only place it runs.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';

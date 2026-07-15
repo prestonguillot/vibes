@@ -4,10 +4,7 @@
  * Tests for public/js/playlistFilter.js: the refresh button is usable only when Spotify is
  * connected, and it re-evaluates whenever htmx swaps a status area.
  *
- * This is the code tests/unit/refreshButton.test.ts CLAIMED to cover. It never imported anything -
- * it re-declared `const dataConnected = 'false'` in the test body and asserted `'false' !== 'true'`.
- * It also asserted the button enables only when BOTH services are connected, which was never true:
- * refreshing the playlist list only needs Spotify. Twelve tests, all passing, all wrong.
+ * Spotify alone gates it - refreshing the playlist list needs nothing from YouTube.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -85,8 +82,7 @@ describe('playlistFilter.js: refresh button enablement', () => {
     expect(refreshBtn().disabled).toBe(true);
   });
 
-  // The refresh list comes from Spotify alone, so YouTube must not gate it. The deleted
-  // refreshButton.test.ts asserted the opposite and never noticed.
+  // The refresh list comes from Spotify alone, so YouTube must not gate it.
   it('enables refresh on Spotify alone, with YouTube disconnected', async () => {
     render({ spotify: 'true', youtube: 'false' });
     await load();

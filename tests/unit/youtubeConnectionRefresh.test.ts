@@ -4,8 +4,8 @@
  * Tests for public/js/youtubeConnectionRefresh.js: when YouTube connects, the Spotify playlist
  * list is refetched (cache-busting) and the post-swap restore runs.
  *
- * The restore used to be passed as an `onload` key to htmx.ajax, which has no such option and
- * ignores unknown keys - so it never ran. It hangs off the returned promise instead.
+ * The restore hangs off the promise htmx.ajax returns. There is no `onload` option - htmx ignores
+ * unknown context keys, so passing one silently never runs.
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';

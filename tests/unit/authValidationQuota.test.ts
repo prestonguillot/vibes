@@ -5,9 +5,8 @@ import { YouTubeTokens } from '../../src/types/oauth';
 import { YoutubeApiError } from '../../src/youtube/client';
 
 /**
- * Exactly what src/youtube/client.ts throws for a non-ok response. These used to be plain
- * literals ({ code: 401 }) - a shape the client never produces - which only passed because the
- * old code duck-typed the status off `any` error.
+ * Exactly what src/youtube/client.ts throws for a non-ok response. A plain literal ({ code: 401 })
+ * is not a shape the client produces.
  */
 const apiError = (code: number, message: string, reason?: string) =>
   new YoutubeApiError(message, code, reason);
@@ -130,9 +129,8 @@ describe('YouTube Auth Validation - Quota Handling', () => {
       expect(youtubeCircuitBreaker.isOpen()).toBe(false);
     });
 
-    // The refresh path used to write the cookie with a raw JSON.stringify, bypassing the schema
-    // that every other write goes through - so a bad refresh response was persisted, and only blew
-    // up later when the cookie was read back. Both callers now share one validated write.
+    // A refresh response reaches the cookie only through the schema every other write uses -
+    // otherwise a bad one is persisted and blows up later, when the cookie is read back.
     it('does not persist a refreshed token that fails validation', async () => {
       yt.channelsList.mockRejectedValueOnce(apiError(401, 'Invalid credentials'));
       yt.refresh.mockResolvedValueOnce({ access_token: '' }); // schema requires a non-empty token

@@ -1,9 +1,8 @@
 /**
  * Tests for src/auth/csrf.ts - the signed double-submit cookie.
  *
- * Security-relevant and almost entirely unexecuted: 133 mutants, 114 of them never run. The six
- * distinct 403 paths each carry a different message, and one of them is reachable in a way that is
- * easy to miss - see the timingSafeEqual note below.
+ * The six 403 paths each carry a different message, which is the only way to tell them apart in a
+ * log. One of them is reachable in a way that is easy to miss - see the timingSafeEqual note.
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';

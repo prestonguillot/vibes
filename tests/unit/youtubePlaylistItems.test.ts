@@ -1,10 +1,8 @@
 /**
  * Tests for the playlistItems.list pagination helpers in src/youtube/playlist.ts.
  *
- * This loop used to be copy-pasted at four call sites, which had already drifted apart on the
- * `part` fields they requested. Two behaviours the single implementation has to preserve, because
- * collapsing everything onto a plain "fetch all" would silently lose both:
- *  - the sync route counts quota per page request, so a page hook has to fire once per request;
+ * Two behaviours the callers depend on, neither of which a plain "fetch all" provides:
+ *  - the sync route counts quota per page request, so the page hook fires once per request;
  *  - the replace route stops paging at the item it wants, so a long playlist is not walked in
  *    full on a user-facing path.
  */

@@ -3,10 +3,9 @@
  * every write goes through the circuit breaker, quota cost is counted, and a
  * quota-exceeded (403) opens the breaker and surfaces as YoutubeQuotaError.
  *
- * Errors here are YoutubeApiError, which is the ONLY thing the hand-written client throws. These
- * tests previously built googleapis-shaped literals ({ code, errors: [{ reason }] }) - a shape
- * nothing has produced since that dependency was dropped - so they passed while the real
- * classification read an always-undefined reason and never opened the breaker.
+ * Errors here are YoutubeApiError, which is the ONLY thing the hand-written client throws. A
+ * googleapis-shaped literal ({ code, errors: [{ reason }] }) is not a shape anything produces, and
+ * the classification would read an always-undefined reason from it.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -137,8 +136,8 @@ describe('classifyYoutubeError', () => {
     },
   );
 
-  // The OAuth callback used to call ANY 403 quota_exceeded, telling the user to wait for a
-  // midnight reset when the real cause was likely permissions or consent.
+  // A bare 403 during OAuth is far more likely permissions or consent than quota - calling it
+  // quota sends the user off to wait for a midnight reset that will not fix it.
   it('does not treat a bare 403 as quota', () => {
     expect(classifyYoutubeError(apiError(403))).toBe('other');
   });

@@ -1,10 +1,8 @@
 /**
  * Tests for src/lib/envValidation.ts.
  *
- * validateEnvironment() is the app's startup gate: server.ts calls it before anything else and a
- * throw here is what stops a misconfigured server from booting. Nothing imported it - 124 mutants,
- * every one surviving, and the module was invisible to the coverage report entirely because
- * coverage.include was unset.
+ * validateEnvironment() is the app's startup gate: server.ts calls it before anything else, and the
+ * throw is what stops a misconfigured server from booting.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';

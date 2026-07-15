@@ -2,11 +2,7 @@
  * Tests for src/auth/oauthState.ts - the OAuth `state` CSRF defence.
  *
  * Without it an attacker can complete the connect with THEIR authorization code in a victim's
- * browser, binding the attacker's account to the victim's session. Spotify had this check;
- * YouTube did not until #66.
- *
- * 100% line coverage, 42.4% mutation: the integration test asserts SameSite=Lax and nothing else,
- * so every other cookie option was free to change.
+ * browser, binding the attacker's account to the victim's session.
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';

@@ -1,15 +1,13 @@
 /**
- * Regression tests for resilience against malformed Spotify API responses.
+ * Resilience against malformed Spotify API responses.
  *
- * Spotify's playlist endpoints can return objects with missing fields (e.g. a
- * playlist with no track-count). Previously this crashed fetchPlaylistDetails
- * with "Cannot read properties of undefined (reading 'total')". These tests pin
- * the defensive behavior. Track fetching itself goes through the /items helper
- * (mocked here); see spotifyPlaylistItems.test.ts for that path.
+ * Spotify's playlist endpoints can return objects with missing fields (e.g. a playlist with no
+ * track-count), and fetchPlaylistDetails must survive them rather than crash on
+ * "Cannot read properties of undefined (reading 'total')". Track fetching itself goes through the
+ * /items helper (mocked here); see spotifyPlaylistItems.test.ts for that path.
  *
- * The hand-written spotifyClient maps a missing track-count to `trackTotal: null`,
- * so the cases that previously omitted `tracks.total` now resolve a playlist with
- * `trackTotal: null`.
+ * spotifyClient maps a missing track-count to `trackTotal: null`, so a playlist with no
+ * `tracks.total` resolves with `trackTotal: null`.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -57,7 +55,7 @@ describe('fetchPlaylistDetails resilience', () => {
   });
 
   it('does not crash when the playlist has no track count', async () => {
-    // No track count at all - this is what used to crash (maps to trackTotal: null).
+    // No track count at all, which spotifyClient maps to trackTotal: null.
     mockedGetPlaylist.mockResolvedValue(makePlaylist('Malformed Playlist', null));
     mockedFetchAllPlaylistItems.mockResolvedValue([
       makeItem('t1', 'Song One'),

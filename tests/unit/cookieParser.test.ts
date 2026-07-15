@@ -294,7 +294,6 @@ describe('validateAndSerializeSpotifyTokens', () => {
   });
 
   // The point of the function: a refresh response is never written to a cookie unvalidated.
-  // authValidation used to bypass this with a raw JSON.stringify (fixed in #70).
   it.each([
     ['an empty access token', { accessToken: '', refreshToken: 'refresh' }],
     ['a missing access token', { refreshToken: 'refresh' }],

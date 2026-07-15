@@ -1,10 +1,9 @@
 /**
  * Tests for src/lib/logger.ts.
  *
- * Worst-scoring module in the repo: 238 of 240 mutants survived (0.8%). The reason is structural -
- * vitest.config sets LOG_LEVEL=silent and the level is read at MODULE SCOPE, so by the time any
- * test imports the logger it is frozen at SILENT and log() returns before doing anything. Every
- * mutant inside the formatting and redaction was unreachable.
+ * vitest.config sets LOG_LEVEL=silent and the level is read at MODULE SCOPE, so the logger is
+ * frozen at SILENT by the time any test imports it and log() returns before doing anything. Tests
+ * that need it to emit must call Logger.setLevel() themselves.
  *
  * The redaction is the part that matters: this app handles OAuth tokens, and sanitizeContext is
  * what keeps them out of the logs.
