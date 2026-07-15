@@ -28,7 +28,10 @@ vi.mock('@/spotify/playlistItems', () => ({
   fetchAllPlaylistItems: h.fetchAllPlaylistItems,
 }));
 
-vi.mock('@/youtube/scraper', () => ({
+// Only the network call is stubbed - parseViewCount is a pure helper the route uses to feed
+// viewCount into scoring, so keep the real one.
+vi.mock('@/youtube/scraper', async (importActual) => ({
+  ...(await importActual<typeof import('@/youtube/scraper')>()),
   scrapeYouTubeSearch: h.scrapeYouTubeSearch,
 }));
 

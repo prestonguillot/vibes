@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { scrapeYouTubeSearch } from '../youtube/scraper';
+import { scrapeYouTubeSearch, parseViewCount } from '../youtube/scraper';
 import { Logger } from '../lib/logger';
 import { validate, schemas, ValidatedRequest } from '../lib/validation';
 import { csrfValidationMiddleware } from '../auth/csrf';
@@ -248,6 +248,10 @@ router.get(
         channelTitle: result.channel,
         publishedAt: '', // Not available from scraper
         url: `https://www.youtube.com/watch?v=${result.videoId}`,
+        // calculateMatchScore only applies the popularity bonus when viewCount is a number. The
+        // scraper's own scoring path parses it (scraper.ts searchAndScoreVideos); omitting it here
+        // silently dropped that bonus, so the picker ranked candidates differently from sync.
+        viewCount: parseViewCount(result.views),
       }));
 
       Logger.info('Found alternative videos', { count: videos.length });
