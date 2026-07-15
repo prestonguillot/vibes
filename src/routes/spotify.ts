@@ -224,12 +224,18 @@ router.get(
               // page (which shows the quota modal), matching the OAuth-failure UX.
               res.set('HX-Redirect', '/?error=youtube&reason=quota_exceeded');
               return res.status(403).send('');
-            } else {
-              Logger.warn('Could not fetch YouTube playlists for sorting', {}, error);
-              // Record failure but don't necessarily open circuit (might be transient)
-              youtubeCircuitBreaker.recordFailure(error);
-              // Continue without YouTube playlist info
             }
+
+            // Anything else is not something this knows how to answer, so it must not answer.
+            //
+            // This used to be swallowed and the read treated as "no YouTube playlists exist", which
+            // renders every playlist as unsynced - beside a connection button that still says
+            // connected, because it only looks for the cookie. A user acting on that re-syncs a
+            // playlist that was already synced and pays YouTube quota to do it. The outer handler
+            // renders a real error instead: nothing to check is not the same as nothing synced.
+            Logger.warn('Could not fetch YouTube playlists for sorting', {}, error);
+            youtubeCircuitBreaker.recordFailure(error);
+            throw error;
           }
         }
       }
