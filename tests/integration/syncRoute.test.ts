@@ -396,3 +396,157 @@ describe('GET stream: batch size and empty playlists', () => {
     expect(response.text).toContain('event: close');
   });
 });
+
+/**
+ * What the stream actually tells the user.
+ *
+ * The tests above pin the desired order handed to reconcile - the part that, if wrong, costs the
+ * user their playlist. They say nothing about the frames, which is everything the user sees: the
+ * wording, the counts, the progress. All of it ran on every one of these tests and none of it was
+ * looked at, so all of it survived.
+ */
+describe('GET stream: what it reports', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    youtubeCircuitBreaker.close();
+    h.getPlaylist.mockResolvedValue({
+      id: 'p',
+      name: 'My Playlist',
+      ownerId: 'me',
+      trackTotal: 2,
+      spotifyUrl: 'u',
+    });
+    h.reconcilePlaylist.mockResolvedValue({ inserted: 0, deleted: 0, moved: 0 });
+    h.fetchAllPlaylistItems.mockResolvedValue([track('t1', 'Song One'), track('t2', 'Song Two')]);
+    h.searchMusicVideo.mockImplementation((_a: string, song: string) =>
+      Promise.resolve(song === 'Song One' ? 'v1' : 'v2'),
+    );
+    // Nothing synced yet, so the default here is the CREATE path - which is where the counts mean
+    // what they say. In UPDATE mode the route only searches the tracks that are not already
+    // matched, so "Found 0 out of 0" is the honest report for a playlist that needed nothing.
+    h.playlistsList.mockResolvedValue({ data: { items: [] } });
+    h.playlistsInsert.mockResolvedValue({
+      data: { id: 'NEW_PL', snippet: { title: SYNCED_TITLE } },
+    });
+    h.playlistItemsList.mockResolvedValue({ data: { items: [] } });
+  });
+
+  /** Switch to a playlist that has already been synced. */
+  const alreadySynced = () => {
+    h.playlistsList.mockResolvedValue({
+      data: { items: [{ id: 'YT_PL', snippet: { title: SYNCED_TITLE } }] },
+    });
+    h.playlistItemsList.mockResolvedValue({ data: { items: [] } });
+  };
+
+  /** Every frame's payload, in order. */
+  const frames = (body: string) =>
+    body
+      .split('\n')
+      .filter((l) => l.startsWith('data: '))
+      .map((l) => l.slice(6));
+
+  it('says created for a playlist it had to make', async () => {
+    const response = await stream();
+
+    expect(response.text).toContain('created successfully');
+    expect(response.text).not.toContain('updated successfully');
+  });
+
+  it('says updated for a playlist that was already there', async () => {
+    alreadySynced();
+
+    const response = await stream();
+
+    expect(response.text).toContain('updated successfully');
+    expect(response.text).not.toContain('created successfully');
+  });
+
+  it('reports how many of the tracks it found', async () => {
+    const response = await stream();
+
+    expect(response.text).toContain('Found 2 out of 2 tracks');
+  });
+
+  it('reports the ones it could not find', async () => {
+    h.searchMusicVideo.mockImplementation((_a: string, song: string) =>
+      Promise.resolve(song === 'Song One' ? 'v1' : null),
+    );
+
+    const response = await stream();
+
+    expect(response.text).toContain('Found 1 out of 2 tracks');
+  });
+
+  // The batch size is a promise about how much of the playlist gets touched; saying nothing about
+  // having honoured it leaves the user to work out why 2 of 50 tracks synced.
+  it('says so when the batch size held it back', async () => {
+    h.fetchAllPlaylistItems.mockResolvedValue([
+      track('t1', 'Song One'),
+      track('t2', 'Song Two'),
+      track('t3', 'Song Three'),
+    ]);
+
+    const response = await stream('1');
+
+    expect(response.text).toContain('(limited from 3 total)');
+  });
+
+  it('does not claim a limit when it synced everything', async () => {
+    const response = await stream('all');
+
+    expect(response.text).not.toContain('limited from');
+  });
+
+  // The bar is what the user watches; finishing a sync while it reads 70% reads as a hang.
+  it('finishes the progress bar', async () => {
+    const response = await stream();
+
+    const completion = frames(response.text).find((f) => f.includes('successfully'));
+    expect(completion).toBeDefined();
+    expect(completion).toContain('100');
+  });
+
+  it('ends with a close frame, whatever happened', async () => {
+    const response = await stream();
+
+    expect(response.text).toContain('event: close');
+  });
+});
+
+/**
+ * The stream is opened only after the tokens are resolved, so an auth failure here is a plain HTTP
+ * response rather than a frame - and it has to say which service, or the user cannot act on it.
+ */
+describe('GET stream: authentication', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    youtubeCircuitBreaker.close();
+  });
+
+  it.each([
+    ['Spotify', 'SPOTIFY_AUTH_REQUIRED', '/auth/spotify/login'],
+    ['YouTube', 'YOUTUBE_AUTH_REQUIRED', '/auth/youtube/login'],
+  ])('asks the user to reconnect %s, naming it', async (service, code, loginUrl) => {
+    const { ensureValidSpotifyToken } = await import('@/spotify/auth');
+    vi.mocked(ensureValidSpotifyToken).mockRejectedValueOnce(new Error(code));
+
+    const response = await stream();
+
+    expect(response.status).toBe(401);
+    expect(response.text).toContain(service);
+    expect(response.text).toContain(loginUrl);
+  });
+
+  // Anything else is not the user's fault and must not send them off to reconnect a working account.
+  it('reports an unexpected auth failure as an error, not a reconnect', async () => {
+    const { ensureValidSpotifyToken } = await import('@/spotify/auth');
+    vi.mocked(ensureValidSpotifyToken).mockRejectedValueOnce(new Error('socket hang up'));
+
+    const response = await stream();
+
+    expect(response.status).toBe(500);
+    expect(response.text).toContain('Authentication Error');
+    expect(response.text).not.toContain('/auth/spotify/login');
+  });
+});
