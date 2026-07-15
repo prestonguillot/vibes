@@ -13,6 +13,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import { youtubeCircuitBreaker } from '@/lib/circuitBreaker';
 import { YoutubeApiError } from '@/youtube/client';
+import { findSetCookie } from '@tests/helpers/httpCookies';
 
 const h = vi.hoisted(() => ({
   getPlaylist: vi.fn(),
@@ -200,5 +201,174 @@ describe('GET /api/sync/playlist/:id/stream', () => {
       '/api/sync/playlist/1234567890123456789012/stream?batchSize=all',
     );
     expect(res.status).toBe(401);
+  });
+});
+
+/**
+ * The subscriber endpoint. The POST does not sync - it renders the SSE subscriber, and htmx's sse
+ * extension then opens the stream above. Splitting it that way is what lets the sync survive the
+ * POST response ending.
+ */
+describe('POST /api/sync/playlist/:id', () => {
+  const csrf = async () => {
+    const page = await request(app).get('/');
+    const cookie = findSetCookie(page, 'csrf_token')!.split(';')[0]!;
+    return { cookie, token: cookie.split('=')[1]!.split('.')[0]! };
+  };
+
+  const subscribe = async (
+    body: Record<string, string> = {},
+    opts: { withCsrf?: boolean } = {},
+  ) => {
+    const { cookie, token } = await csrf();
+    const req = request(app)
+      .post('/api/sync/playlist/1234567890123456789012')
+      .set('Cookie', [
+        `spotify_tokens=${spotifyCookie}`,
+        `youtube_tokens=${youtubeCookie}`,
+        cookie,
+      ]);
+    if (opts.withCsrf !== false) req.set('x-csrf-token', token);
+    return req.send(body);
+  };
+
+  beforeEach(() => vi.clearAllMocks());
+
+  it('renders a subscriber pointed at the stream for this playlist', async () => {
+    const response = await subscribe({ batchSize: '5' });
+
+    expect(response.status).toBe(200);
+    expect(response.text).toContain('1234567890123456789012');
+  });
+
+  it('passes the batch size through to the stream URL', async () => {
+    const response = await subscribe({ batchSize: '5' });
+
+    expect(response.text).toContain('batchSize=5');
+  });
+
+  it('defaults the batch size to 1', async () => {
+    const response = await subscribe({});
+
+    expect(response.text).toContain('batchSize=1');
+  });
+
+  // A POST that writes to a playlist has to be CSRF-protected, even though it only renders here -
+  // it is what starts the sync.
+  it('rejects a request with no CSRF token', async () => {
+    const response = await subscribe({ batchSize: '1' }, { withCsrf: false });
+
+    expect(response.status).toBe(403);
+  });
+
+  it('rejects an unusable batch size', async () => {
+    const response = await subscribe({ batchSize: 'not-a-number' });
+
+    expect(response.status).toBe(400);
+  });
+
+  it('rejects a malformed playlist id', async () => {
+    const { cookie, token } = await csrf();
+
+    const response = await request(app)
+      .post('/api/sync/playlist/nope')
+      .set('Cookie', [`spotify_tokens=${spotifyCookie}`, cookie])
+      .set('x-csrf-token', token)
+      .send({});
+
+    expect(response.status).toBe(400);
+  });
+
+  // The subscriber renders without touching Spotify or YouTube; the stream does the work.
+  it('does not start syncing', async () => {
+    await subscribe({ batchSize: '1' });
+
+    expect(h.getPlaylist).not.toHaveBeenCalled();
+    expect(h.fetchAllPlaylistItems).not.toHaveBeenCalled();
+  });
+});
+
+describe('GET stream: batch size and empty playlists', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    youtubeCircuitBreaker.close();
+    h.getPlaylist.mockResolvedValue({
+      id: 'p',
+      name: 'My Playlist',
+      ownerId: 'me',
+      trackTotal: 2,
+      spotifyUrl: 'u',
+    });
+    h.reconcilePlaylist.mockResolvedValue({ inserted: 0, deleted: 0, moved: 0 });
+    h.searchMusicVideo.mockResolvedValue('v1');
+    h.playlistsList.mockResolvedValue({ data: { items: [] } });
+    h.playlistsInsert.mockResolvedValue({ data: { id: 'NEW_PL' } });
+    h.playlistItemsList.mockResolvedValue({ data: { items: [] } });
+  });
+
+  it('searches only the first track when the batch size is 1', async () => {
+    h.fetchAllPlaylistItems.mockResolvedValue([track('t1', 'Song One'), track('t2', 'Song Two')]);
+
+    await stream('1');
+
+    expect(h.searchMusicVideo).toHaveBeenCalledTimes(1);
+  });
+
+  it('searches every track when the batch size is all', async () => {
+    h.fetchAllPlaylistItems.mockResolvedValue([track('t1', 'Song One'), track('t2', 'Song Two')]);
+
+    await stream('all');
+
+    expect(h.searchMusicVideo).toHaveBeenCalledTimes(2);
+  });
+
+  it('stops at the batch size when it is smaller than the playlist', async () => {
+    h.fetchAllPlaylistItems.mockResolvedValue([
+      track('t1', 'One'),
+      track('t2', 'Two'),
+      track('t3', 'Three'),
+    ]);
+
+    await stream('2');
+
+    expect(h.searchMusicVideo).toHaveBeenCalledTimes(2);
+  });
+
+  it('reports an empty playlist instead of creating an empty YouTube one', async () => {
+    h.fetchAllPlaylistItems.mockResolvedValue([]);
+
+    const response = await stream('all');
+
+    expect(response.text).toContain('No Tracks Found');
+    expect(h.playlistsInsert).not.toHaveBeenCalled();
+  });
+
+  // Local files and podcast episodes come back in the items list but cannot be searched for.
+  it('reports a playlist of nothing but unplayable items as empty', async () => {
+    h.fetchAllPlaylistItems.mockResolvedValue([
+      { track: { id: 'e1', name: 'An Episode', type: 'episode', artists: [] } },
+    ]);
+
+    const response = await stream('all');
+
+    expect(response.text).toContain('No Tracks Found');
+    expect(h.searchMusicVideo).not.toHaveBeenCalled();
+  });
+
+  it('streams progress before the result', async () => {
+    h.fetchAllPlaylistItems.mockResolvedValue([track('t1', 'Song One')]);
+
+    const response = await stream('all');
+
+    expect(response.text).toContain('Starting sync');
+    expect(response.text).toContain('Finding music videos');
+  });
+
+  it('ends the stream with a close frame', async () => {
+    h.fetchAllPlaylistItems.mockResolvedValue([track('t1', 'Song One')]);
+
+    const response = await stream('all');
+
+    expect(response.text).toContain('event: close');
   });
 });
