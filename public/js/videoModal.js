@@ -10,6 +10,13 @@ function initializeVideoModal() {
   const initialModalContent = document.getElementById('video-modal-content');
   const loadingMarkup = initialModalContent ? initialModalContent.innerHTML : '';
 
+  // True while a Confirm (video replace) POST is in flight. Leaving the modal mid-write
+  // abandons a request that is already changing the YouTube playlist, so every exit path
+  // is sealed until it settles. The Cancel/X buttons are sealed declaratively by
+  // hx-disabled-elt on the Confirm button; Escape and backdrop-click are invisible to
+  // htmx and are gated on this flag instead.
+  let replaceInFlight = false;
+
   // Close the dialog when a [data-dialog-close] control (Cancel / X) is clicked.
   document.addEventListener('click', function (event) {
     const closer = event.target.closest('[data-dialog-close]');
@@ -27,8 +34,15 @@ function initializeVideoModal() {
   const dialogEl = document.getElementById('videoSelectionModal');
   if (dialogEl) {
     dialogEl.addEventListener('click', function (event) {
-      if (event.target === dialogEl) {
+      if (event.target === dialogEl && !replaceInFlight) {
         dialogEl.close();
+      }
+    });
+
+    // Escape reaches the dialog as a cancel event; preventing it keeps the modal open.
+    dialogEl.addEventListener('cancel', function (event) {
+      if (replaceInFlight) {
+        event.preventDefault();
       }
     });
   }
@@ -98,8 +112,8 @@ function initializeVideoModal() {
 
     const target = event.detail.elt;
     if (target && target.id === 'confirm-selection-btn') {
-      // Disable the button to prevent duplicate submissions
-      target.disabled = true;
+      // Seals Escape and backdrop-click; hx-disabled-elt handles Confirm/Cancel/X.
+      replaceInFlight = true;
 
       // Store original text for restoration
       const originalText = target.innerHTML;
@@ -107,12 +121,6 @@ function initializeVideoModal() {
 
       // Add processing state class for styling
       target.classList.add('processing-state');
-
-      Logger.debug('Processing state applied', {
-        hasClass: target.classList.contains('processing-state'),
-        buttonId: target.id,
-        buttonClasses: target.className,
-      });
 
       // Show loading state with spinner
       target.innerHTML =
@@ -125,6 +133,9 @@ function initializeVideoModal() {
     // Check if this is the confirm selection button
     const target = event.detail.elt;
     if (target && target.id === 'confirm-selection-btn') {
+      // The write has settled either way - exits are safe again.
+      replaceInFlight = false;
+
       // Check if request was successful
       if (event.detail.successful) {
         // Close the native <dialog>
@@ -144,8 +155,7 @@ function initializeVideoModal() {
           }
         }, 300);
       } else {
-        // Request failed - restore button state
-        target.disabled = false;
+        // Request failed - restore the label so it can be retried (htmx re-enables the button).
         target.classList.remove('processing-state');
 
         const originalText = target.getAttribute('data-original-text');
