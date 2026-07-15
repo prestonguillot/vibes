@@ -8,7 +8,7 @@ import { parseSpotifyTokenCookie, parseYouTubeTokenCookie } from '../auth/cookie
 import { CacheDuration, setCache } from '../lib/cache';
 import { formatErrorDetails } from '../lib/errorFormatter';
 import { escapeHtml } from '../lib/htmlEscape';
-import { createYoutubeClient, YtPlaylist, YtPlaylistListResponse } from '../youtube/client';
+import { createYoutubeClient } from '../youtube/client';
 import { classifyYoutubeError } from '../youtube/writes';
 import { z } from 'zod';
 import ejs from 'ejs';
@@ -21,6 +21,7 @@ import {
   fetchAllYoutubePlaylistItems,
   findSyncedYoutubePlaylist,
   findYoutubePlaylistItem,
+  syncedPlaylistTitle,
 } from '../youtube/playlist';
 import { youtubeWrite } from '../youtube/writes';
 import { calculateMatchScore, SimplifiedTrack, SimplifiedVideo } from '../sync/trackMatching';
@@ -404,36 +405,13 @@ router.post(
       // Initialize YouTube API
       const youtube = createYoutubeClient(youtubeTokens.access_token);
 
-      // We need to find the YouTube playlist that corresponds to this Spotify playlist
-      // First, get the Spotify playlist name to construct the YouTube playlist name
+      // Find the YouTube playlist mirroring this Spotify one, by the synced-title convention.
       const spotifyPlaylistData = await getPlaylist(spotifyTokens.accessToken, playlistId);
-      const expectedYouTubePlaylistName = `${spotifyPlaylistData.name} (from Spotify)`;
+      const expectedYouTubePlaylistName = syncedPlaylistTitle(spotifyPlaylistData.name);
 
       Logger.external('YouTube', 'Looking for playlist', { name: expectedYouTubePlaylistName });
 
-      // Get all user's YouTube playlists to find the matching one (with pagination)
-      let targetPlaylist: YtPlaylist | undefined = undefined;
-      let nextPageToken: string | undefined = undefined;
-
-      do {
-        const playlistsResponse: YtPlaylistListResponse = await youtube.playlists
-          .list({
-            part: ['snippet'],
-            mine: true,
-            maxResults: 50,
-            pageToken: nextPageToken,
-          })
-          .then((res) => res.data);
-
-        targetPlaylist = playlistsResponse.items?.find(
-          (playlist: YtPlaylist) => playlist.snippet?.title === expectedYouTubePlaylistName,
-        );
-
-        // If we found it, break early
-        if (targetPlaylist) break;
-
-        nextPageToken = playlistsResponse.nextPageToken || undefined;
-      } while (nextPageToken);
+      const targetPlaylist = await findSyncedYoutubePlaylist(youtube, spotifyPlaylistData.name);
 
       if (!targetPlaylist) {
         Logger.error('YouTube playlist not found', { name: expectedYouTubePlaylistName });
