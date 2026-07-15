@@ -230,7 +230,10 @@ body {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  margin-top: 8px;
+  /* Shrink to the label and centre it. As a full-width flex row, the hover border ran the entire
+     card and cut across the cover-art backdrop bleeding in from the right. */
+  width: fit-content;
+  margin: 8px auto 0;
   padding: 7px 20px;
   border: 2px solid transparent;
   color: var(--text-muted);
