@@ -2,9 +2,10 @@
  * Integration tests for Spotify routes
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import { findSetCookie } from '@tests/helpers/httpCookies';
+import { youtubeCircuitBreaker } from '@/lib/circuitBreaker';
 import { createApp } from '@/app';
 import { getCurrentUser, getUserPlaylists } from '@/spotify/client';
 import { YoutubeApiError } from '@/youtube/client';
@@ -66,7 +67,52 @@ vi.mock('@/youtube/client', async (importActual) => {
 
 const app = createApp();
 
+/**
+ * The breaker is a module singleton and the YouTube client is shared, so a test that trips one or
+ * swaps the other hands that state to whatever runs next. The quota test at the bottom of this file
+ * does both, and is harmless only for as long as it stays last.
+ */
+beforeEach(() => {
+  youtubeCircuitBreaker.close();
+  ytClient.client.playlists.list = vi.fn(() => Promise.resolve({ data: { items: [] } }));
+});
+
 describe('Spotify Playlists', () => {
+  /**
+   * Spotify hands back an empty library now and then - it did so in the wild, once, and the next
+   * request got all 63 back. Caching that answer for half an hour is what turns a blip into an
+   * outage: the page reloads straight out of the browser cache, still empty, and only the refresh
+   * button (which sends no-cache) can clear it.
+   */
+  describe('GET /auth/spotify/playlists: caching', () => {
+    const spotifyCookie = `spotify_tokens=${JSON.stringify({
+      accessToken: 'test-access-token',
+      refreshToken: 'test-refresh-token',
+    })}`;
+
+    const fetchWith = async (playlists: ReturnType<typeof playlistSummary>[]) => {
+      mockedGetCurrentUser.mockResolvedValue({ id: 'test-user', displayName: null });
+      mockedGetUserPlaylists.mockResolvedValue(playlists);
+      return request(app).get('/auth/spotify/playlists').set('Cookie', [spotifyCookie]);
+    };
+
+    it('does not cache an empty library, so the next reload can recover', async () => {
+      const response = await fetchWith([]);
+
+      expect(response.status).toBe(200);
+      expect(response.headers['cache-control']).toBe('no-cache');
+    });
+
+    // The long cache is here to protect YouTube quota, which is only spent when there are
+    // playlists to check the sync status of.
+    it('caches a real library for 30 minutes', async () => {
+      const response = await fetchWith([playlistSummary('1234567890123456789012', 'Real', 10)]);
+
+      expect(response.status).toBe(200);
+      expect(response.headers['cache-control']).toBe('private, max-age=1800');
+    });
+  });
+
   describe('GET /auth/spotify/playlists', () => {
     it('should return 401 when not authenticated', async () => {
       const response = await request(app).get('/auth/spotify/playlists').expect(401);

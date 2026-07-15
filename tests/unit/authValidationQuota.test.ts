@@ -28,6 +28,12 @@ describe('YouTube Auth Validation - Quota Handling', () => {
   let mockYoutubeTokens: YouTubeTokens;
 
   beforeEach(() => {
+    // The quota tests below leave a 403 on channelsList. Without this, a test that runs after one
+    // of them inherits the rejection and trips the breaker, so what these assert depends on the
+    // order they happen to be declared in.
+    yt.channelsList.mockReset();
+    yt.refresh.mockReset();
+
     // Reset circuit breaker before each test
     youtubeCircuitBreaker.close();
 

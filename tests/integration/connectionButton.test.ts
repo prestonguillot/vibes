@@ -4,6 +4,12 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
+
+// Each status render is held back half a second so the spinner cannot flash. That wait is
+// statusEndpointTiming.test.ts's subject; here it is four seconds of sleeping that starves the
+// rest of the suite.
+vi.mock('@/lib/delay', () => ({ sleep: vi.fn(() => Promise.resolve()) }));
+
 import { createApp } from '@/app';
 
 // Mock connection validation so these tests are deterministic and offline - the
