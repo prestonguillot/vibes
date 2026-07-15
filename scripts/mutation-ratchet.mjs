@@ -156,16 +156,10 @@ function writeBaseline(scores) {
       {
         _comment:
           'Per-file mutation scores. The ratchet (scripts/mutation-ratchet.mjs) fails a change ' +
-          'that drops a file below its entry here. Regenerate with: npm run test:mutation:update, ' +
-          'locally - a full sweep is ~12 min here against ~26 on a runner, and both give the same ' +
-          'numbers. They disagreed until 2026-07-15, when the suite still failed about one run in ' +
-          'eight for reasons of its own and a test failing at random read to stryker as a test ' +
-          'catching the mutant; the weekly CI sweep is what checks that they still agree. Scoping ' +
-          'to the files a change touched (--mutate a,b,c) answers most questions in a minute or ' +
-          'two - a full sweep only earns its time for files nothing touched. ignoreStatic is on, ' +
-          'so code that only runs at import and that no test exercises is not counted at all: a ' +
-          'file can score well by not being measured, and the score cannot report a gap it is not ' +
-          'measuring.',
+          'that drops a file below its entry here. Regenerate with: npm run test:mutation:update. ' +
+          'Scoping to the files a change touched (--mutate a,b,c) answers most questions without ' +
+          'sweeping everything. Local and CI agree on these numbers; the weekly CI sweep is what ' +
+          'checks that they still do.',
         scores: sorted,
       },
       null,
