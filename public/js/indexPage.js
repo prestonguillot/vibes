@@ -33,26 +33,34 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 });
 
-// Open clickable video thumbnails in a new tab.
+/**
+ * Open a clickable thumbnail's video in a new tab.
+ *
+ * noopener,noreferrer is not optional: without it the opened YouTube tab receives a live
+ * window.opener pointing at this app and can navigate it somewhere else (reverse tabnabbing).
+ * The url comes from a data attribute on arbitrary rendered DOM.
+ *
+ * @returns true if a thumbnail was opened, so the caller can decide about preventDefault.
+ */
+function openThumbnailVideo(target) {
+  const thumbnail = target.closest('.youtube-video__thumbnail--clickable');
+  if (!thumbnail) return false;
+
+  const url = thumbnail.dataset.videoUrl;
+  if (!url) return false;
+
+  window.open(url, '_blank', 'noopener,noreferrer');
+  return true;
+}
+
 document.addEventListener('click', function (e) {
-  const thumbnail = e.target.closest('.youtube-video__thumbnail--clickable');
-  if (thumbnail) {
-    const url = thumbnail.dataset.videoUrl;
-    if (url) {
-      window.open(url, '_blank');
-    }
-  }
+  openThumbnailVideo(e.target);
 });
 
+// Thumbnails are role=button/tabindex=0, so they must activate from the keyboard too.
 document.addEventListener('keydown', function (e) {
-  if (e.key === 'Enter' || e.key === ' ') {
-    const thumbnail = e.target.closest('.youtube-video__thumbnail--clickable');
-    if (thumbnail) {
-      const url = thumbnail.dataset.videoUrl;
-      if (url) {
-        e.preventDefault();
-        window.open(url, '_blank');
-      }
-    }
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  if (openThumbnailVideo(e.target)) {
+    e.preventDefault(); // stop space from scrolling the page
   }
 });
