@@ -8,13 +8,8 @@ import { parseSpotifyTokenCookie, parseYouTubeTokenCookie } from '../auth/cookie
 import { CacheDuration, setCache } from '../lib/cache';
 import { formatErrorDetails } from '../lib/errorFormatter';
 import { escapeHtml } from '../lib/htmlEscape';
-import {
-  createYoutubeClient,
-  YoutubeApiError,
-  YtPlaylist,
-  YtPlaylistListResponse,
-} from '../youtube/client';
-import { YoutubeQuotaError } from '../youtube/writes';
+import { createYoutubeClient, YtPlaylist, YtPlaylistListResponse } from '../youtube/client';
+import { classifyYoutubeError } from '../youtube/writes';
 import { z } from 'zod';
 import ejs from 'ejs';
 import path from 'path';
@@ -159,14 +154,13 @@ router.get(
       const duration = Date.now() - startTime;
       Logger.error('Error fetching playlist details', { playlistId, duration }, error);
 
-      // Writes surface quota as YoutubeQuotaError; reads as a 403 YoutubeApiError.
-      if (
-        error instanceof YoutubeQuotaError ||
-        (error instanceof YoutubeApiError &&
-          error.code === 403 &&
-          (error.reason === 'quotaExceeded' || error.reason === 'rateLimitExceeded'))
-      ) {
-        Logger.warn('YouTube API quota exceeded - returning error partial for HTMX');
+      // 'quota' (daily budget gone) and 'rate-limit' (transient throttle) both mean YouTube
+      // refused on limits; anything else is a real error.
+      const failure = classifyYoutubeError(error);
+      if (failure !== 'other') {
+        Logger.warn('YouTube refused the read on limits - returning error partial for HTMX', {
+          failure,
+        });
         // Return error partial for HTMX instead of redirecting
         const html = await ejs.renderFile(
           path.join(__dirname, '../../views/partials/error-message.ejs'),

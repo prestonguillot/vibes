@@ -10,6 +10,7 @@ import {
   createYoutubeClient,
   YoutubeApiError,
 } from '../youtube/client';
+import { classifyYoutubeError } from '../youtube/writes';
 import { z } from 'zod';
 
 const router = Router();
@@ -82,12 +83,13 @@ router.get(
     } catch (error) {
       Logger.error('Error getting YouTube tokens', {}, error);
       let errorReason = 'failed';
-      if (error instanceof YoutubeApiError) {
-        if (error.code === 403 || error.reason === 'quotaExceeded') {
-          errorReason = 'quota_exceeded';
-        } else if (error.code === 401 || error.code === 400) {
-          errorReason = 'auth_error';
-        }
+      // A bare 403 is not quota - during OAuth it is far more likely to be a permissions or
+      // consent problem, and calling that "quota exceeded" sent the user off to wait for a
+      // midnight reset that would never fix it.
+      if (classifyYoutubeError(error) === 'quota') {
+        errorReason = 'quota_exceeded';
+      } else if (error instanceof YoutubeApiError && (error.code === 401 || error.code === 400)) {
+        errorReason = 'auth_error';
       }
       res.redirect(`/?error=youtube&reason=${errorReason}`);
     }

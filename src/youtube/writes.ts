@@ -1,4 +1,5 @@
 import { youtubeCircuitBreaker } from '../lib/circuitBreaker';
+import { YoutubeApiError } from './client';
 import { Logger } from '../lib/logger';
 
 /**
@@ -31,31 +32,35 @@ export function resetYoutubeWriteQuotaCounter(): void {
   quotaUnitsUsed = 0;
 }
 
-/** What a failed write actually was - a 403 is NOT automatically "quota". */
-type WriteFailure = 'quota' | 'rate-limit' | 'other';
+/** What a YouTube failure actually was - a 403 is NOT automatically "quota". */
+export type YoutubeFailure = 'quota' | 'rate-limit' | 'other';
 
-function youtubeErrorReason(error: unknown): { status?: number; reason?: string } {
-  const err = error as {
-    code?: number;
-    response?: { status?: number };
-    errors?: Array<{ reason?: string }>;
-  };
-  return { status: err?.code ?? err?.response?.status, reason: err?.errors?.[0]?.reason };
+/**
+ * The status and reason YouTube gave, if this is a YouTube API error at all.
+ *
+ * This used to read `errors[0].reason` and `response.status` - the googleapis error shape. That
+ * dependency was replaced by the hand-written client, which parses the reason out of the body and
+ * exposes it as YoutubeApiError.reason, so those fields no longer exist on anything thrown here
+ * and every lookup silently returned undefined.
+ */
+function youtubeErrorDetails(error: unknown): { status?: number; reason?: string } {
+  if (!(error instanceof YoutubeApiError)) return {};
+  return { status: error.code, reason: error.reason };
 }
 
 /**
- * Classify a write failure.
+ * Classify any YouTube failure, read or write, so one definition of "quota" serves every caller.
  *
- * Previously ANY 403 - including one with no reason, and rateLimitExceeded - was treated as daily
- * quota exhaustion: the breaker was force-opened for 15 minutes and the run aborted with a
- * "quota exceeded" message. That is wrong twice over:
- * - rateLimitExceeded is a short-window throttle (retryable), not the daily budget.
- * - a bare/unknown 403 can be insufficientPermissions, forbidden, or a video-specific rejection;
- *   reporting it as quota hides the real cause and makes the failure undiagnosable.
- * Only quotaExceeded/dailyLimitExceeded mean the budget is actually gone.
+ * Only quotaExceeded/dailyLimitExceeded mean the daily budget is gone. rateLimitExceeded is a
+ * short-window throttle (retryable), and a bare 403 can be insufficientPermissions, forbidden, or
+ * a video-specific rejection - reporting either as quota hides the real cause. This distinction is
+ * only meaningful because youtubeErrorDetails can now actually read the reason.
  */
-function classifyWriteFailure(error: unknown): WriteFailure {
-  const { status, reason } = youtubeErrorReason(error);
+export function classifyYoutubeError(error: unknown): YoutubeFailure {
+  // A write that already classified itself (or was refused by an open breaker).
+  if (error instanceof YoutubeQuotaError) return 'quota';
+
+  const { status, reason } = youtubeErrorDetails(error);
   if (status !== 403) return 'other';
   if (reason === 'quotaExceeded' || reason === 'dailyLimitExceeded') return 'quota';
   if (reason === 'rateLimitExceeded' || reason === 'userRateLimitExceeded') return 'rate-limit';
@@ -68,7 +73,7 @@ function classifyWriteFailure(error: unknown): WriteFailure {
  * and throws YoutubeQuotaError.
  *
  * @param operation Label for logging (e.g. 'playlistItems.insert').
- * @param write The actual googleapis write call.
+ * @param write The actual write call.
  */
 export async function youtubeWrite<T>(operation: string, write: () => Promise<T>): Promise<T> {
   if (!youtubeCircuitBreaker.canProceed()) {
@@ -85,8 +90,8 @@ export async function youtubeWrite<T>(operation: string, write: () => Promise<T>
     });
     return result;
   } catch (error) {
-    const failure = classifyWriteFailure(error);
-    const { status, reason } = youtubeErrorReason(error);
+    const failure = classifyYoutubeError(error);
+    const { status, reason } = youtubeErrorDetails(error);
 
     // Only a real daily-quota exhaustion justifies opening the breaker and aborting the run.
     if (failure === 'quota') {
