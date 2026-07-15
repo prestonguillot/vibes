@@ -17,14 +17,21 @@ function initializeVideoModal() {
   // htmx and are gated on this flag instead.
   let replaceInFlight = false;
 
-  // The video the user just picked, captured before the modal markup is torn down.
+  // The video the user just picked, and the one it replaced, captured before the modal markup is
+  // torn down. The old one is empty for an add: an unlinked track has nothing to replace.
   let replacedVideoId = '';
+  let replacedOldVideoId = '';
 
-  // The panel is re-read from YouTube, which is only eventually consistent: the replace request
-  // ends with a reorder that writes to the playlist, so a read issued straight afterwards can
-  // still describe the pre-write state and paint the OLD thumbnail. Waiting a fixed delay is a
-  // guess in both directions, so a read is instead checked against the pick and re-read until
-  // YouTube catches up. These are the waits BETWEEN re-reads; one more read than waits happens.
+  // The panel is re-read from YouTube, which is only eventually consistent: a read issued straight
+  // after the write can still describe the pre-write state and paint the OLD thumbnail. Waiting a
+  // fixed delay is a guess in both directions, so a read is instead checked against what the write
+  // did and re-read until YouTube catches up. These are the waits BETWEEN re-reads; one more read
+  // than waits happens.
+  //
+  // A replace is two writes, and they do not land together. The insert shows up almost at once
+  // while the delete can lag seconds behind, so a read taken in between lists BOTH: the panel then
+  // shows the video that was just removed as YouTube-only and calls the playlist out of sync.
+  // Waiting only for the pick to arrive is waiting for half the change.
   const REFRESH_RETRY_WAITS_MS = [500, 1200, 2500];
 
   // A refresh reads both Spotify and YouTube, so it is slow and expensive - never assume it has
@@ -75,11 +82,12 @@ function initializeVideoModal() {
   }
 
   /**
-   * Re-read the panel until it shows the picked video, or give up loudly. Silence is what made
-   * this bug invisible: the refresh was fired blind, so a missing control, a read that never
-   * landed, and a stale read all looked exactly like success.
+   * Re-read the panel until it shows what the write actually did - the pick present AND, for a
+   * replace, the video it replaced gone - or give up loudly. Silence is what made this bug
+   * invisible: the refresh was fired blind, so a missing control, a read that never landed, and a
+   * stale read all looked exactly like success.
    */
-  async function refreshUntilVideoAppears(playlistId, videoId) {
+  async function refreshUntilSettled(playlistId, videoId, oldVideoId) {
     for (let attempt = 0; ; attempt++) {
       const control = findRefreshControl(playlistId);
       if (!control) {
@@ -97,8 +105,11 @@ function initializeVideoModal() {
         });
       }
 
-      if (showsVideo(playlistId, videoId)) {
-        Logger.debug('Playlist details caught up with the new video', {
+      const arrived = showsVideo(playlistId, videoId);
+      const departed = !oldVideoId || !showsVideo(playlistId, oldVideoId);
+
+      if (arrived && departed) {
+        Logger.debug('Playlist details caught up with the replacement', {
           playlistId,
           videoId,
           reads: attempt + 1,
@@ -107,17 +118,23 @@ function initializeVideoModal() {
       }
 
       if (attempt >= REFRESH_RETRY_WAITS_MS.length) {
-        Logger.error('Playlist details never showed the new video after replacing it', {
+        Logger.error('Playlist details never caught up after replacing a video', {
           playlistId,
           videoId,
+          oldVideoId,
+          // Which half of the write YouTube is still hiding, so the log names the real state.
+          newVideoShown: arrived,
+          oldVideoStillShown: !departed,
           reads: attempt + 1,
         });
         return;
       }
 
-      Logger.debug('Playlist details still show the old video - re-reading', {
+      Logger.debug('Playlist details do not match the replacement yet - re-reading', {
         playlistId,
         videoId,
+        newVideoShown: arrived,
+        oldVideoStillShown: !departed,
         retryInMs: REFRESH_RETRY_WAITS_MS[attempt],
       });
       await wait(REFRESH_RETRY_WAITS_MS[attempt]);
@@ -225,6 +242,11 @@ function initializeVideoModal() {
       const picked = document.getElementById('hidden-new-video-id');
       replacedVideoId = picked ? picked.value : '';
 
+      // The video being replaced, if any - an unlinked track is an add and has none. Captured
+      // here for the same reason as the pick: the modal markup is gone by the time it is needed.
+      const current = document.querySelector('#video-selection-form [name="currentVideoId"]');
+      replacedOldVideoId = current ? current.value : '';
+
       // Store original text for restoration
       const originalText = target.innerHTML;
       target.setAttribute('data-original-text', originalText);
@@ -265,7 +287,7 @@ function initializeVideoModal() {
             },
           );
         } else {
-          refreshUntilVideoAppears(playlistId, replacedVideoId).catch((error) =>
+          refreshUntilSettled(playlistId, replacedVideoId, replacedOldVideoId).catch((error) =>
             Logger.error(
               'Failed to refresh the playlist after replacing a video',
               { playlistId },

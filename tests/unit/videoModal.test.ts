@@ -24,20 +24,32 @@ const PLAYLIST_ID = 'p1';
 const NEW_VIDEO = 'NEW12345678';
 const OLD_VIDEO = 'OLD87654321';
 
-/** The details panel as the server renders it: rows carry their video id in the watch URL. */
-const panelHtml = (videoId: string) => `
+/**
+ * The details panel as the server renders it: rows carry their video id in the watch URL.
+ *
+ * It takes a list because a replace is two writes that do not land together - between the insert
+ * and the delete propagating, YouTube reports BOTH videos, which is the state the panel used to
+ * accept as settled.
+ */
+const panelHtml = (videoIds: string | string[]) => `
   <div class="playlist-details" data-playlist-id="${PLAYLIST_ID}">
     <button type="button" data-refresh-playlist="${PLAYLIST_ID}"
             hx-get="/api/playlistDetails/playlist/${PLAYLIST_ID}">Refresh</button>
-    <img data-video-url="https://www.youtube.com/watch?v=${videoId}">
+    ${[videoIds]
+      .flat()
+      .map((id) => `<img data-video-url="https://www.youtube.com/watch?v=${id}">`)
+      .join('')}
   </div>`;
 
-async function setup({ panelOpen = true } = {}) {
+async function setup({ panelOpen = true, currentVideoId = OLD_VIDEO } = {}) {
   document.body.innerHTML = `
     <dialog id="videoSelectionModal">
       <div id="video-modal-content">
         <button type="button" class="btn-close" data-dialog-close></button>
         <button type="button" data-dialog-close>Cancel</button>
+        <form id="video-selection-form">
+          <input type="hidden" name="currentVideoId" value="${currentVideoId}">
+        </form>
         <input type="hidden" id="hidden-new-video-id" value="${NEW_VIDEO}">
         <button type="button" id="${CONFIRM_ID}" data-playlist-id="${PLAYLIST_ID}">Confirm Selection</button>
       </div>
@@ -71,7 +83,7 @@ async function setup({ panelOpen = true } = {}) {
  * server response and fires htmx:afterSwap, the signal videoModal.js waits on. The last entry
  * repeats, so a one-element script means "YouTube never catches up".
  */
-function fakeHtmxRefresh(responses: string[], { swaps = true } = {}) {
+function fakeHtmxRefresh(responses: Array<string | string[]>, { swaps = true } = {}) {
   const container = document.querySelector('.playlist-details-container') as HTMLElement;
   let reads = 0;
 
@@ -211,9 +223,60 @@ describe('refreshing the details panel after a replace', () => {
 
     expect(reads()).toBe(4); // three backoff waits => four reads
     expect(logger.error).toHaveBeenCalledWith(
-      expect.stringContaining('never showed the new video'),
+      expect.stringContaining('never caught up'),
       expect.objectContaining({ videoId: NEW_VIDEO, reads: 4 }),
     );
+  });
+
+  /**
+   * A replace is an insert and a delete, and YouTube lands them apart. The insert shows up almost
+   * at once; the delete can lag seconds. A read taken in between lists BOTH videos - and the panel
+   * then paints the video that was just removed as YouTube-only and calls the playlist out of
+   * sync, which is exactly what a user saw and had to fix with a manual refresh.
+   */
+  describe('when the delete has not landed yet', () => {
+    it('keeps re-reading while YouTube still lists the replaced video', async () => {
+      const { confirm } = await setup();
+      // Both videos, then both again, then the delete finally lands.
+      const reads = fakeHtmxRefresh([[NEW_VIDEO, OLD_VIDEO], [NEW_VIDEO, OLD_VIDEO], [NEW_VIDEO]]);
+
+      await replaceAndSettle(confirm);
+
+      expect(reads()).toBe(3);
+      expect(document.querySelector(`[data-video-url*="${OLD_VIDEO}"]`)).toBeNull();
+    });
+
+    it('does not settle on the first read just because the new video arrived', async () => {
+      const { confirm } = await setup();
+      const reads = fakeHtmxRefresh([[NEW_VIDEO, OLD_VIDEO]]);
+
+      await replaceAndSettle(confirm);
+
+      // Never settles: four reads, and it says which half YouTube is still hiding.
+      expect(reads()).toBe(4);
+    });
+
+    it('names which half of the write is still missing when it gives up', async () => {
+      const { confirm, logger } = await setup();
+      fakeHtmxRefresh([[NEW_VIDEO, OLD_VIDEO]]);
+
+      await replaceAndSettle(confirm);
+
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.stringContaining('never caught up'),
+        expect.objectContaining({ newVideoShown: true, oldVideoStillShown: true }),
+      );
+    });
+
+    // An unlinked track has nothing to replace, so there is no departure to wait for.
+    it('settles as soon as the video arrives when there was nothing to replace', async () => {
+      const { confirm } = await setup({ currentVideoId: '' });
+      const reads = fakeHtmxRefresh([[NEW_VIDEO]]);
+
+      await replaceAndSettle(confirm);
+
+      expect(reads()).toBe(1);
+    });
   });
 
   it('reports a read that never lands instead of blaming stale data', async () => {
