@@ -103,14 +103,25 @@ export function calculateMatchScore(
   const components: ScoreBreakdown['components'] = {};
 
   // Strategy 1: Core track title exact match (highest priority)
-  if (coreVideoTitle.includes(coreTrackName) || coreTrackName.includes(coreVideoTitle)) {
+  //
+  // Both sides must be non-empty. extractCoreTitle/normalizeText can reduce a name to '' (a title
+  // that is nothing but metadata, an artist that is only punctuation), and `x.includes('')` is
+  // always true in JS - so an empty core would award this 0.6 (plus the artist bonus) against
+  // EVERY video, sail past the 0.4 threshold, and let a meaningless match outrank and steal the
+  // video that belongs to a real track.
+  if (
+    coreTrackName &&
+    coreVideoTitle &&
+    (coreVideoTitle.includes(coreTrackName) || coreTrackName.includes(coreVideoTitle))
+  ) {
     score += 0.6;
     components.coreMatch = 0.6;
 
     // Bonus if artist is also mentioned
     if (
-      coreVideoTitle.includes(coreArtistName) ||
-      youtubeVideo.title.toLowerCase().includes(coreArtistName)
+      coreArtistName &&
+      (coreVideoTitle.includes(coreArtistName) ||
+        youtubeVideo.title.toLowerCase().includes(coreArtistName))
     ) {
       score += 0.15;
       components.artistBonus = 0.15;
@@ -125,8 +136,9 @@ export function calculateMatchScore(
 
       // Bonus if artist matches
       if (
-        coreVideoTitle.includes(coreArtistName) ||
-        youtubeVideo.title.toLowerCase().includes(coreArtistName)
+        coreArtistName &&
+        (coreVideoTitle.includes(coreArtistName) ||
+          youtubeVideo.title.toLowerCase().includes(coreArtistName))
       ) {
         score += 0.15;
         components.artistBonus = 0.15;
@@ -159,14 +171,24 @@ export function calculateMatchScore(
 
   // Strategy 4: Artist name matching (secondary)
   const videoTitle = normalizeText(youtubeVideo.title);
-  if (videoTitle.includes(coreArtistName) && !components.artistBonus) {
+  if (coreArtistName && videoTitle.includes(coreArtistName) && !components.artistBonus) {
     score += 0.1;
     components.artistBonus = 0.1;
   }
 
+  // The quality bonuses below are TIEBREAKERS between candidates that already resemble the track -
+  // they are not evidence of a match on their own. Without any title/artist signal there is nothing
+  // to break a tie between, and officialVideo (0.3) + viewCountBonus (0.1) alone would reach the
+  // 0.4 threshold, letting a track whose title we cannot read match a popular official video.
+  const hasTextSignal =
+    !!components.coreMatch ||
+    !!components.fuzzySimilarity ||
+    !!components.wordMatching ||
+    !!components.artistBonus;
+
   // QUALITY BONUS: prefer an official music video from the artist's / a label's
   // channel. Uses only stable signals (title + channel).
-  if (isOfficialVideo(youtubeVideo, spotifyTrack.artist)) {
+  if (hasTextSignal && isOfficialVideo(youtubeVideo, spotifyTrack.artist)) {
     score += 0.3;
     components.officialVideo = 0.3;
   }
@@ -176,7 +198,7 @@ export function calculateMatchScore(
   // capped bonus so near-ties resolve toward the canonical/popular upload without
   // overriding the text and artist signals. Only applied when a count is present,
   // so the no-view-count path is unchanged and deterministic.
-  if (typeof youtubeVideo.viewCount === 'number' && youtubeVideo.viewCount > 0) {
+  if (hasTextSignal && typeof youtubeVideo.viewCount === 'number' && youtubeVideo.viewCount > 0) {
     const viewBonus = Math.min(0.1, Math.log10(youtubeVideo.viewCount) / 100);
     score += viewBonus;
     components.viewCountBonus = viewBonus;
