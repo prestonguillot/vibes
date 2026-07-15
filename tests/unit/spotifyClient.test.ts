@@ -20,6 +20,7 @@ import {
   getPlaylist,
   SpotifyApiError,
 } from '../../src/spotify/client';
+import { Logger } from '../../src/lib/logger';
 
 // The client uses Node's global fetch; stub it (see beforeEach).
 const mockFetch = vi.fn();
@@ -171,6 +172,80 @@ describe('getCurrentUser', () => {
   it('maps an absent display_name to null', async () => {
     mockFetch.mockResolvedValue(okJson({ id: 'user42' }));
     expect((await getCurrentUser('AT')).displayName).toBeNull();
+  });
+});
+
+/**
+ * A dropped playlist is invisible: the list just comes back shorter, or empty, and looks like the
+ * truth. These pin the logging that tells an empty account apart from a response that lost them.
+ */
+describe('getUserPlaylists: when playlists go missing', () => {
+  it('reports what it dropped and what Spotify said it held', async () => {
+    const warn = vi.spyOn(Logger, 'warn');
+    mockFetch.mockResolvedValue(
+      okJson({
+        next: null,
+        total: 3,
+        items: [{ id: 'p1', name: 'Kept', owner: { id: 'me' } }, null],
+      }),
+    );
+
+    await getUserPlaylists('AT');
+
+    expect(warn).toHaveBeenCalledWith('Spotify returned null playlist entries', {
+      offset: 0,
+      reportedTotal: 3,
+      returned: 2,
+      usable: 1,
+    });
+  });
+
+  // The reported failure: every entry null, so the page filters to nothing and the user sees an
+  // empty library with no error anywhere.
+  it('says so when Spotify claims playlists but hands back none', async () => {
+    const warn = vi.spyOn(Logger, 'warn');
+    mockFetch.mockResolvedValue(okJson({ next: null, total: 47, items: [null, null] }));
+
+    const playlists = await getUserPlaylists('AT');
+
+    expect(playlists).toEqual([]);
+    expect(warn).toHaveBeenCalledWith('Spotify reports playlists but returned none', {
+      reportedTotal: 47,
+    });
+  });
+
+  it('stays quiet for an account that genuinely has none', async () => {
+    const warn = vi.spyOn(Logger, 'warn');
+    mockFetch.mockResolvedValue(okJson({ next: null, total: 0, items: [] }));
+
+    await getUserPlaylists('AT');
+
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('stays quiet when every playlist comes back intact', async () => {
+    const warn = vi.spyOn(Logger, 'warn');
+    mockFetch.mockResolvedValue(
+      okJson({ next: null, total: 1, items: [{ id: 'p1', name: 'Fine', owner: { id: 'me' } }] }),
+    );
+
+    await getUserPlaylists('AT');
+
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('records the total Spotify reported alongside the count it kept', async () => {
+    const debug = vi.spyOn(Logger, 'debug');
+    mockFetch.mockResolvedValue(
+      okJson({ next: null, total: 9, items: [{ id: 'p1', name: 'One', owner: { id: 'me' } }] }),
+    );
+
+    await getUserPlaylists('AT');
+
+    expect(debug).toHaveBeenCalledWith('Fetched Spotify user playlists', {
+      count: 1,
+      reportedTotal: 9,
+    });
   });
 });
 
