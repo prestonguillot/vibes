@@ -3,11 +3,23 @@
  *
  * validateEnvironment() is the app's startup gate: server.ts calls it before anything else, and the
  * throw is what stops a misconfigured server from booting.
+ *
+ * The schema it gates on - which vars are required, and what makes each one valid - is a table
+ * built as the module loads. Imported at the top of this file that happens before any test runs, so
+ * all 29 of its mutants belong to no test, and with ignoreStatic on they are not scored at all.
+ * Loading the module inside a test puts the table in that test's coverage, so the assertions below
+ * are credited with what they already check.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { validateEnvironment } from '../../src/lib/envValidation';
-import { Logger } from '../../src/lib/logger';
+import type { validateEnvironment as ValidateEnvironment } from '../../src/lib/envValidation';
+import type { Logger as LoggerType } from '../../src/lib/logger';
+
+// Both come from the same fresh module registry, per test. Resetting the registry gives
+// envValidation a new Logger too, so a spy on one imported up here would be watching an object the
+// code under test no longer calls.
+let validateEnvironment: typeof ValidateEnvironment;
+let Logger: typeof LoggerType;
 
 const REQUIRED = {
   SPOTIFY_CLIENT_ID: 'spotify-id',
@@ -31,12 +43,17 @@ function env(vars: Record<string, string | undefined>) {
 const warnings = () =>
   vi.mocked(Logger.warn).mock.calls.map(([, context]) => (context as { warning: string }).warning);
 
-beforeEach(() => {
+beforeEach(async () => {
   vi.restoreAllMocks();
+  vi.resetModules();
+
+  ({ Logger } = await import('../../src/lib/logger'));
   vi.spyOn(Logger, 'warn').mockImplementation(() => undefined);
   vi.spyOn(Logger, 'error').mockImplementation(() => undefined);
   vi.spyOn(Logger, 'info').mockImplementation(() => undefined);
   vi.spyOn(Logger, 'debug').mockImplementation(() => undefined);
+
+  ({ validateEnvironment } = await import('../../src/lib/envValidation'));
 });
 
 afterEach(() => vi.unstubAllEnvs());

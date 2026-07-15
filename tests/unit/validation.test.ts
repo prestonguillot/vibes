@@ -1,9 +1,25 @@
 /**
- * Unit tests for validation schemas
+ * Unit tests for validation schemas.
+ *
+ * The schemas are built once, as the module loads. Imported at the top of this file that happens
+ * before any test runs, so every regex and bound in them belongs to no test - stryker calls those
+ * mutants static, and with ignoreStatic on it does not score them at all. 44 of them, which is
+ * every rule in the file: the length of a YouTube id, what a batch size may be, the bounds on a
+ * name. They were being asserted here and credited to nothing.
+ *
+ * Loading the module inside a test instead puts the construction in that test's coverage, so the
+ * rules are measured by the assertions that already existed.
  */
 
-import { describe, it, expect } from 'vitest';
-import { schemas } from '@/lib/validation';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import type { schemas as Schemas } from '@/lib/validation';
+
+let schemas: typeof Schemas;
+
+beforeEach(async () => {
+  vi.resetModules();
+  ({ schemas } = await import('@/lib/validation'));
+});
 
 describe('Validation Schemas', () => {
   describe('spotifyPlaylistId', () => {
