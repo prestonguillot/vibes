@@ -14,13 +14,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import path from 'path';
 import ejs from 'ejs';
+import { trackListeners } from '@tests/helpers/clientListeners';
 
 const CONFIRM_ID = 'confirm-selection-btn';
 
-// videoModal.js binds to `document`, which survives resetting document.body between tests. Each
-// setup() would stack another copy of the handlers - and copy 2 would read the spinner markup that
-// copy 1 just wrote as the "original" button label. Record the registrations and unbind them.
-const documentListeners: Array<[string, EventListener]> = [];
+let listeners: ReturnType<typeof trackListeners>;
 
 const PLAYLIST_ID = 'p1';
 const NEW_VIDEO = 'NEW12345678';
@@ -49,25 +47,13 @@ async function setup({ panelOpen = true } = {}) {
   const logger = { error: vi.fn(), debug: vi.fn(), info: vi.fn(), warn: vi.fn() };
   (window as any).Logger = logger;
 
-  const addEventListener = document.addEventListener.bind(document);
-  const capture = vi
-    .spyOn(document, 'addEventListener')
-    .mockImplementation(
-      (
-        type: string,
-        listener: EventListenerOrEventListenerObject,
-        options?: boolean | AddEventListenerOptions,
-      ) => {
-        documentListeners.push([type, listener as EventListener]);
-        addEventListener(type, listener, options);
-      },
-    );
+  listeners = trackListeners(document);
   // Imported, not eval'd: v8 attributes coverage to a FILE, and eval'd code has none - so an
   // eval'd module stays invisible to the report however well it is tested. resetModules re-runs it
   // per test, which is what the eval gave us.
   vi.resetModules();
   await import('../../public/js/videoModal.js');
-  capture.mockRestore();
+  listeners.stop();
 
   const dialog = document.getElementById('videoSelectionModal') as HTMLDialogElement;
   // happy-dom implements <dialog>, but keep open state explicit and independent of showModal().
@@ -127,10 +113,7 @@ beforeEach(() => {
   document.body.innerHTML = '';
 });
 
-afterEach(() => {
-  documentListeners.forEach(([type, listener]) => document.removeEventListener(type, listener));
-  documentListeners.length = 0;
-});
+afterEach(() => listeners?.removeAll());
 
 describe('videoModal exit paths during a replace', () => {
   it('ignores a backdrop click while the replace is in flight', async () => {
