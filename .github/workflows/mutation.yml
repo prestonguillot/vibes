@@ -1,0 +1,83 @@
+name: Mutation
+
+# Coverage proves a line ran; mutation testing proves a test would notice if it broke. It is the
+# only thing that catches a test which executes code and asserts nothing.
+#
+# Mutating everything runs the test suite once per mutant, far too slow to sit in front of a PR. So
+# a PR mutates only the files it changed and compares them against their own recorded scores, and
+# the whole codebase is swept on a schedule instead.
+
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'public/js/**'
+      - 'tests/**'
+  schedule:
+    # Sundays, 04:00 UTC. Catches drift that no single change is responsible for. A failure here
+    # emails the repo owner; nothing else about a scheduled run reaches anyone.
+    - cron: '0 4 * * 0'
+  workflow_dispatch:
+
+jobs:
+  changed-files:
+    name: Changed files must not score worse
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The ratchet diffs against the base branch, so it needs the history to diff against.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Ratchet
+        run: node scripts/mutation-ratchet.mjs check --base origin/${{ github.base_ref }}
+
+  full-sweep:
+    name: Full sweep
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The dashboard reporter is added here rather than in stryker.config.json so that a local run
+      # does not try to publish, and so per-branch runs do not clutter the project's history. It
+      # takes project + version from the Actions environment.
+      - name: Run every mutant
+        run: npm run test:mutation -- --reporters dashboard,html,json,clear-text,progress
+        env:
+          STRYKER_DASHBOARD_API_KEY: ${{ secrets.STRYKER_DASHBOARD_API_KEY }}
+
+      # This is the point of the sweep. The per-change check only mutates what a change touched, so
+      # a file whose tests were weakened from elsewhere is invisible to it - this compares all of
+      # them. Failing is deliberate: a failed scheduled run emails the repo owner, which is the only
+      # thing here that actually reaches a person.
+      - name: Every file must still hold its score
+        run: node scripts/mutation-ratchet.mjs check-all
+
+      # Secondary to the dashboard and the run summary; kept for offline digging.
+      - name: Upload the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-report
+          path: reports/mutation/
+          retention-days: 30

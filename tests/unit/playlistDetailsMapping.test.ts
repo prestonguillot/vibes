@@ -1,10 +1,9 @@
 /**
  * Tests for how fetchPlaylistDetails MAPS a playlist into what the UI renders.
  *
- * The existing tests for this module assert three scalars (needsResync, totalTracks,
- * tracks.length), so every field-mapping line was unpinned: 100% line coverage, 43.8% mutation.
- * The fields are what the user actually sees - the thumbnail, the link, the channel that decides
- * the official-video bonus.
+ * The mapped fields ARE the UI - the thumbnail, the link, and the channel that decides the
+ * official-video bonus. The module's other tests assert scalars (needsResync, totalTracks,
+ * tracks.length); the mapping itself is pinned here.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';

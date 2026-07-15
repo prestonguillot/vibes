@@ -6,7 +6,7 @@
   "vitest": {
     "configFile": "vitest.config.ts"
   },
-  "reporters": ["json", "clear-text", "progress"],
+  "reporters": ["html", "json", "clear-text", "progress"],
   "htmlReporter": {
     "fileName": "reports/mutation/index.html"
   },

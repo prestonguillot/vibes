@@ -1,13 +1,10 @@
 /**
  * Tests for src/lib/cache.ts.
  *
- * No test ever imported this module - its 100% line coverage was incidental execution via route
- * integration tests, none of which assert a Cache-Control response header. 100% covered, 18.2%
- * mutation: the highest coverage-to-meaning gap in the repo.
- *
- * It decides how long the browser reuses a response, so a wrong value here shows up as stale
- * playlists nobody can explain, or as extra API calls against a quota that has already caused
- * outages.
+ * These durations decide how long a browser reuses a response, so a wrong one surfaces as stale
+ * playlists nobody can explain, or as extra API calls against a quota that has caused outages.
+ * Route integration tests execute this module without asserting a single Cache-Control header, so
+ * the values are only actually pinned here.
  */
 
 import { describe, it, expect, vi } from 'vitest';
