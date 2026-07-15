@@ -91,3 +91,185 @@ describe('playlist search (client-side filtering)', () => {
     expect(hidden('pl-3')).toBe(false);
   });
 });
+
+/**
+ * The rest of what the box does. The four tests above cover matching; these cover everything the
+ * user sees around it - the empty state, Escape, and what happens when the list is swapped out from
+ * under an active search - none of which anything looked at.
+ */
+describe('playlist search: the no-results message', () => {
+  beforeEach(async () => {
+    vi.useFakeTimers();
+    (globalThis as { Logger?: unknown }).Logger = { error: vi.fn() };
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => TRACKS }) as typeof fetch;
+    document.body.innerHTML = `
+      <input id="playlistSearch" type="text" />
+      <div id="playlists-content">
+        ${row('pl-1', 'Blinding Lights Mix')}
+        ${row('pl-2', 'Chill Vibes')}
+      </div>`;
+    await loadModule();
+    document.dispatchEvent(new window.Event('DOMContentLoaded'));
+  });
+
+  afterEach(() => vi.useRealTimers());
+
+  const message = () => document.querySelector('.no-search-results') as HTMLElement | null;
+
+  it('says so, and quotes the query, when nothing matches', async () => {
+    await search('nothing here matches this');
+
+    expect(message()).not.toBeNull();
+    expect(message()!.textContent).toBe('No playlists found matching "nothing here matches this"');
+    expect(message()!.classList.contains('hidden')).toBe(false);
+  });
+
+  it('says nothing when something matches', async () => {
+    await search('blinding');
+
+    expect(message()).toBeNull();
+  });
+
+  // An empty box is not "no results", it is no search - every row is showing.
+  it('says nothing for an empty query, even though nothing was searched', async () => {
+    await search('');
+
+    expect(message()).toBeNull();
+  });
+
+  it('hides the message again once a query matches', async () => {
+    await search('nothing here matches this');
+    expect(message()!.classList.contains('hidden')).toBe(false);
+
+    await search('blinding');
+
+    expect(message()!.classList.contains('hidden')).toBe(true);
+  });
+
+  // Re-used rather than piled up: searching for three misses in a row must not leave three alerts.
+  it('reuses the one message rather than adding another each time', async () => {
+    await search('no match one');
+    await search('no match two');
+    await search('no match three');
+
+    expect(document.querySelectorAll('.no-search-results')).toHaveLength(1);
+  });
+});
+
+describe('playlist search: Escape', () => {
+  beforeEach(async () => {
+    vi.useFakeTimers();
+    (globalThis as { Logger?: unknown }).Logger = { error: vi.fn() };
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => TRACKS }) as typeof fetch;
+    document.body.innerHTML = `
+      <input id="playlistSearch" type="text" />
+      <div id="playlists-content">
+        ${row('pl-1', 'Blinding Lights Mix')}
+        ${row('pl-2', 'Chill Vibes')}
+      </div>`;
+    await loadModule();
+    document.dispatchEvent(new window.Event('DOMContentLoaded'));
+  });
+
+  afterEach(() => vi.useRealTimers());
+
+  const press = async (key: string) => {
+    const input = document.getElementById('playlistSearch') as HTMLInputElement;
+    input.dispatchEvent(new window.KeyboardEvent('keydown', { key }));
+    await vi.runAllTimersAsync();
+  };
+
+  it('empties the box and shows everything again', async () => {
+    await search('blinding');
+    expect(hidden('pl-2')).toBe(true);
+
+    await press('Escape');
+
+    expect((document.getElementById('playlistSearch') as HTMLInputElement).value).toBe('');
+    expect(hidden('pl-1')).toBe(false);
+    expect(hidden('pl-2')).toBe(false);
+  });
+
+  it('leaves the search alone on any other key', async () => {
+    await search('blinding');
+
+    await press('a');
+
+    expect((document.getElementById('playlistSearch') as HTMLInputElement).value).toBe('blinding');
+    expect(hidden('pl-2')).toBe(true);
+  });
+});
+
+/**
+ * The list is re-rendered whole by htmx - a refresh, a sync, the own-only toggle. The new rows have
+ * never been filtered, so an active search has to be re-applied or a search silently stops being
+ * one; and the cached track names belong to the old rows, so they have to go.
+ */
+describe('playlist search: when the list is swapped out', () => {
+  beforeEach(async () => {
+    vi.useFakeTimers();
+    (globalThis as { Logger?: unknown }).Logger = { error: vi.fn() };
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => TRACKS }) as typeof fetch;
+    document.body.innerHTML = `
+      <input id="playlistSearch" type="text" />
+      <div id="playlists-content">
+        ${row('pl-1', 'Blinding Lights Mix')}
+        ${row('pl-2', 'Chill Vibes')}
+      </div>`;
+    await loadModule();
+    document.dispatchEvent(new window.Event('DOMContentLoaded'));
+  });
+
+  afterEach(() => vi.useRealTimers());
+
+  const swap = async () => {
+    const target = document.getElementById('playlists-content')!;
+    document.body.dispatchEvent(
+      new window.CustomEvent('htmx:afterSwap', { detail: { target }, bubbles: true }),
+    );
+    await vi.runAllTimersAsync();
+  };
+
+  it('re-applies an active search to the rows that arrived', async () => {
+    await search('blinding');
+
+    // The swap brings rows back unfiltered, as the server renders them.
+    document.getElementById('playlists-content')!.innerHTML =
+      row('pl-1', 'Blinding Lights Mix') + row('pl-2', 'Chill Vibes');
+    await swap();
+
+    expect(hidden('pl-1')).toBe(false);
+    expect(hidden('pl-2')).toBe(true);
+  });
+
+  it('refetches the track names, which belonged to the old rows', async () => {
+    await search('tiger');
+    const before = vi.mocked(globalThis.fetch).mock.calls.length;
+
+    await swap();
+    await search('tiger');
+
+    expect(vi.mocked(globalThis.fetch).mock.calls.length).toBeGreaterThan(before);
+  });
+
+  it('does nothing when the swap was some other part of the page', async () => {
+    await search('blinding');
+    const before = vi.mocked(globalThis.fetch).mock.calls.length;
+
+    document.body.dispatchEvent(
+      new window.CustomEvent('htmx:afterSwap', {
+        detail: { target: document.createElement('div') },
+        bubbles: true,
+      }),
+    );
+    await vi.runAllTimersAsync();
+
+    expect(vi.mocked(globalThis.fetch).mock.calls.length).toBe(before);
+  });
+});
