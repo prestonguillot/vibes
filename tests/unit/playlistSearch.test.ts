@@ -6,10 +6,6 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import * as fs from 'fs';
-import * as path from 'path';
-
-const script = fs.readFileSync(path.join(__dirname, '../../public/js/playlistSearch.js'), 'utf-8');
 
 // Track names the (mocked) /api/playlistTracks endpoint returns per playlist id.
 const TRACKS: Record<string, string[]> = {
@@ -34,8 +30,16 @@ async function search(query: string): Promise<void> {
   await vi.runAllTimersAsync();
 }
 
+// Imported, not eval'd: v8 attributes coverage to a FILE, and eval'd code has none - so an
+// eval'd module stays invisible to the report however well it is tested. resetModules re-runs it
+// per test, which is what the eval gave us.
+async function loadModule() {
+  vi.resetModules();
+  await import('../../public/js/playlistSearch.js');
+}
+
 describe('playlist search (client-side filtering)', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.useFakeTimers();
     (globalThis as { Logger?: unknown }).Logger = { error: vi.fn() };
     globalThis.fetch = vi.fn().mockResolvedValue({
@@ -52,8 +56,7 @@ describe('playlist search (client-side filtering)', () => {
       </div>
     `;
 
-    // eslint-disable-next-line no-eval
-    eval(script);
+    await loadModule();
     document.dispatchEvent(new window.Event('DOMContentLoaded'));
   });
 

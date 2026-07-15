@@ -12,11 +12,8 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import fs from 'fs';
 import path from 'path';
 import ejs from 'ejs';
-
-const source = fs.readFileSync(path.join(__dirname, '../../public/js/videoModal.js'), 'utf-8');
 
 const CONFIRM_ID = 'confirm-selection-btn';
 
@@ -37,7 +34,7 @@ const panelHtml = (videoId: string) => `
     <img data-video-url="https://www.youtube.com/watch?v=${videoId}">
   </div>`;
 
-function setup({ panelOpen = true } = {}) {
+async function setup({ panelOpen = true } = {}) {
   document.body.innerHTML = `
     <dialog id="videoSelectionModal">
       <div id="video-modal-content">
@@ -65,8 +62,11 @@ function setup({ panelOpen = true } = {}) {
         addEventListener(type, listener, options);
       },
     );
-  // eslint-disable-next-line no-eval
-  (0, eval)(source);
+  // Imported, not eval'd: v8 attributes coverage to a FILE, and eval'd code has none - so an
+  // eval'd module stays invisible to the report however well it is tested. resetModules re-runs it
+  // per test, which is what the eval gave us.
+  vi.resetModules();
+  await import('../../public/js/videoModal.js');
   capture.mockRestore();
 
   const dialog = document.getElementById('videoSelectionModal') as HTMLDialogElement;
@@ -133,8 +133,8 @@ afterEach(() => {
 });
 
 describe('videoModal exit paths during a replace', () => {
-  it('ignores a backdrop click while the replace is in flight', () => {
-    const { dialog, confirm } = setup();
+  it('ignores a backdrop click while the replace is in flight', async () => {
+    const { dialog, confirm } = await setup();
     startConfirm(confirm);
 
     clickBackdrop(dialog);
@@ -142,15 +142,15 @@ describe('videoModal exit paths during a replace', () => {
     expect(dialog.close).not.toHaveBeenCalled();
   });
 
-  it('ignores Escape while the replace is in flight', () => {
-    const { dialog, confirm } = setup();
+  it('ignores Escape while the replace is in flight', async () => {
+    const { dialog, confirm } = await setup();
     startConfirm(confirm);
 
     expect(pressEscape(dialog).defaultPrevented).toBe(true);
   });
 
-  it('allows a backdrop click again once the replace fails', () => {
-    const { dialog, confirm } = setup();
+  it('allows a backdrop click again once the replace fails', async () => {
+    const { dialog, confirm } = await setup();
     startConfirm(confirm);
     settleConfirm(confirm, false);
 
@@ -159,24 +159,24 @@ describe('videoModal exit paths during a replace', () => {
     expect(dialog.close).toHaveBeenCalled();
   });
 
-  it('allows Escape again once the replace fails', () => {
-    const { dialog, confirm } = setup();
+  it('allows Escape again once the replace fails', async () => {
+    const { dialog, confirm } = await setup();
     startConfirm(confirm);
     settleConfirm(confirm, false);
 
     expect(pressEscape(dialog).defaultPrevented).toBe(false);
   });
 
-  it('leaves the backdrop click working when no replace is running', () => {
-    const { dialog } = setup();
+  it('leaves the backdrop click working when no replace is running', async () => {
+    const { dialog } = await setup();
 
     clickBackdrop(dialog);
 
     expect(dialog.close).toHaveBeenCalled();
   });
 
-  it('restores the Confirm label after a failed replace so it can be retried', () => {
-    const { confirm } = setup();
+  it('restores the Confirm label after a failed replace so it can be retried', async () => {
+    const { confirm } = await setup();
     startConfirm(confirm);
     expect(confirm.innerHTML).toContain('spinner-border');
 
@@ -199,7 +199,7 @@ describe('refreshing the details panel after a replace', () => {
   }
 
   it('reads once when YouTube already shows the new video', async () => {
-    const { confirm, logger } = setup();
+    const { confirm, logger } = await setup();
     const reads = fakeHtmxRefresh([NEW_VIDEO]);
 
     await replaceAndSettle(confirm);
@@ -209,7 +209,7 @@ describe('refreshing the details panel after a replace', () => {
   });
 
   it('re-reads until a stale YouTube catches up, then stops', async () => {
-    const { confirm, logger } = setup();
+    const { confirm, logger } = await setup();
     // The first two reads still describe the pre-write playlist.
     const reads = fakeHtmxRefresh([OLD_VIDEO, OLD_VIDEO, NEW_VIDEO]);
 
@@ -221,7 +221,7 @@ describe('refreshing the details panel after a replace', () => {
   });
 
   it('gives up loudly, and bounded, when the new video never appears', async () => {
-    const { confirm, logger } = setup();
+    const { confirm, logger } = await setup();
     const reads = fakeHtmxRefresh([OLD_VIDEO]);
 
     await replaceAndSettle(confirm);
@@ -234,7 +234,7 @@ describe('refreshing the details panel after a replace', () => {
   });
 
   it('reports a read that never lands instead of blaming stale data', async () => {
-    const { confirm, logger } = setup();
+    const { confirm, logger } = await setup();
     const reads = fakeHtmxRefresh([NEW_VIDEO], { swaps: false });
 
     await replaceAndSettle(confirm);
@@ -247,7 +247,7 @@ describe('refreshing the details panel after a replace', () => {
   });
 
   it('stays quiet when the details panel is not open', async () => {
-    const { confirm, logger } = setup({ panelOpen: false });
+    const { confirm, logger } = await setup({ panelOpen: false });
     const reads = fakeHtmxRefresh([NEW_VIDEO]);
 
     await replaceAndSettle(confirm);
@@ -261,7 +261,7 @@ describe('refreshing the details panel after a replace', () => {
   });
 
   it('does not refresh at all when the replace failed', async () => {
-    const { confirm } = setup();
+    const { confirm } = await setup();
     const reads = fakeHtmxRefresh([NEW_VIDEO]);
 
     startConfirm(confirm);

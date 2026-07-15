@@ -5,17 +5,9 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import * as fs from 'fs';
-import * as path from 'path';
 
 describe('Playlist Scroll Behavior', () => {
-  beforeEach(() => {
-    // Read the actual playlistScroll.js file
-    const scriptContent = fs.readFileSync(
-      path.join(__dirname, '../../public/js/playlistScroll.js'),
-      'utf-8',
-    );
-
+  beforeEach(async () => {
     // Set up the DOM
     document.body.innerHTML = `
       <div class="playlist-item" data-playlist-id="test-playlist-123">
@@ -112,9 +104,11 @@ describe('Playlist Scroll Behavior', () => {
       value: 8000,
     });
 
-    // Execute the script by evaluating it
-    // eslint-disable-next-line no-eval
-    eval(scriptContent);
+    // Imported, not eval'd: v8 attributes coverage to a FILE, and eval'd code has none - so an
+    // eval'd module stays invisible to the report however well it is tested. resetModules re-runs it
+    // per test, which is what the eval gave us.
+    vi.resetModules();
+    await import('../../public/js/playlistScroll.js');
   });
 
   it('should calculate scroll position based on expand button bottom', () => {

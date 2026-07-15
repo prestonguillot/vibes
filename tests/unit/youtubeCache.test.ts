@@ -6,7 +6,7 @@
  * authoritative id the server returns.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 /**
  * The contract public/js/youtubeCache.js publishes on window. Declared here because the module is
@@ -20,24 +20,22 @@ declare global {
     };
   }
 }
-import fs from 'fs';
-import path from 'path';
 
-const source = fs.readFileSync(path.join(__dirname, '../../public/js/youtubeCache.js'), 'utf-8');
-
-function loadModule() {
-  // Execute the IIFE against the happy-dom globals (document, localStorage, window).
-  // eslint-disable-next-line no-eval
-  (0, eval)(source);
+// Import rather than eval: v8 coverage attributes executed lines to a FILE, and eval'd code has
+// no file to attribute to - so an eval'd module is invisible to the coverage report however well
+// it is tested. resetModules re-runs the IIFE for each test, which is what the eval gave us.
+async function loadModule() {
+  vi.resetModules();
+  await import('../../public/js/youtubeCache.js');
 }
 
 const detailsPath = (spotifyId: string) => `/api/playlistDetails/playlist/${spotifyId}`;
 
 describe('youtubeCache.js', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     localStorage.clear();
     document.body.innerHTML = '';
-    loadModule();
+    await loadModule();
   });
 
   it('stores and reads a cached id', () => {

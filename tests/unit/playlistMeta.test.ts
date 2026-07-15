@@ -7,14 +7,13 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import fs from 'fs';
-import path from 'path';
 
-const source = fs.readFileSync(path.join(__dirname, '../../public/js/playlistMeta.js'), 'utf-8');
-
-function loadModule() {
-  // eslint-disable-next-line no-eval
-  (0, eval)(source);
+// Imported, not eval'd: v8 attributes coverage to a FILE, and eval'd code has none - so an
+// eval'd module stays invisible to the report however well it is tested. resetModules re-runs it
+// per test, which is what the eval gave us.
+async function loadModule() {
+  vi.resetModules();
+  await import('../../public/js/playlistMeta.js');
 }
 
 function makeRow(id: string, youtubeCount: number) {
@@ -33,10 +32,10 @@ function detailsEl(id: string, trackCount: number, needsResync: boolean, linkedC
   return div;
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   localStorage.clear();
   document.body.innerHTML = '';
-  loadModule();
+  await loadModule();
 });
 
 describe('playlistMeta cache', () => {
