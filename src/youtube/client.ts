@@ -20,6 +20,8 @@
  *   quotaExceeded -> do not retry.
  */
 
+import { Logger } from '../lib/logger';
+
 const API_BASE = 'https://www.googleapis.com/youtube/v3';
 const OAUTH_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 
@@ -204,6 +206,45 @@ export function getYoutubeAuthUrl(scopes: string[], state?: string): string {
   return `${OAUTH_AUTH_URL}?${params.toString()}`;
 }
 
+/** Google's access tokens last an hour; used when a response omits expires_in. */
+const DEFAULT_TOKEN_LIFETIME_SECONDS = 3600;
+
+/**
+ * Reads the access token out of an OAuth response, rejecting a response that has none.
+ *
+ * `String(data.access_token)` coerces a missing field to the literal string "undefined", which is
+ * then stored in the cookie as a plausible-looking token and only surfaces much later as a
+ * confusing 401 - far from the actual cause.
+ */
+function requireAccessToken(data: Record<string, unknown>, operation: string): string {
+  if (typeof data.access_token !== 'string' || data.access_token.length === 0) {
+    throw new YoutubeApiError(
+      `YouTube ${operation} response contained no access_token`,
+      502,
+      'invalidTokenResponse',
+    );
+  }
+  return data.access_token;
+}
+
+/**
+ * Seconds until the access token expires.
+ *
+ * A missing/garbage expires_in used to coerce to 0, making expiry_date === Date.now(): the token
+ * was born expired, so every subsequent request treated it as stale and tried to refresh it.
+ */
+function tokenLifetimeSeconds(data: Record<string, unknown>, operation: string): number {
+  const expiresIn = Number(data.expires_in);
+  if (!Number.isFinite(expiresIn) || expiresIn <= 0) {
+    Logger.warn(`YouTube ${operation} response had no usable expires_in - assuming default`, {
+      received: data.expires_in,
+      assumedSeconds: DEFAULT_TOKEN_LIFETIME_SECONDS,
+    });
+    return DEFAULT_TOKEN_LIFETIME_SECONDS;
+  }
+  return expiresIn;
+}
+
 /** Exchanges an authorization code for tokens (includes the refresh_token). */
 export async function exchangeYoutubeCode(code: string): Promise<YouTubeOAuthTokens> {
   const { clientId, clientSecret } = requireYoutubeCreds();
@@ -217,11 +258,11 @@ export async function exchangeYoutubeCode(code: string): Promise<YouTubeOAuthTok
     }),
   );
   return {
-    access_token: String(data.access_token),
+    access_token: requireAccessToken(data, 'code exchange'),
     refresh_token: data.refresh_token ? String(data.refresh_token) : undefined,
     scope: String(data.scope ?? ''),
     token_type: String(data.token_type ?? 'Bearer'),
-    expiry_date: Date.now() + Number(data.expires_in ?? 0) * 1000,
+    expiry_date: Date.now() + tokenLifetimeSeconds(data, 'code exchange') * 1000,
   };
 }
 
@@ -242,10 +283,10 @@ export async function refreshYoutubeAccessToken(
     }),
   );
   return {
-    access_token: String(data.access_token),
+    access_token: requireAccessToken(data, 'token refresh'),
     scope: String(data.scope ?? ''),
     token_type: String(data.token_type ?? 'Bearer'),
-    expiry_date: Date.now() + Number(data.expires_in ?? 0) * 1000,
+    expiry_date: Date.now() + tokenLifetimeSeconds(data, 'token refresh') * 1000,
   };
 }
 
