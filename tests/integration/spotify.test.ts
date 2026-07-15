@@ -235,6 +235,66 @@ describe('Spotify Playlists', () => {
     });
 
     /**
+     * "Could not check" is not "nothing is synced".
+     *
+     * A failure this route does not understand used to be swallowed, and the read treated as "no
+     * YouTube playlists exist" - so every playlist rendered as unsynced, beside a connection button
+     * that still said connected. A user acting on that re-syncs a playlist that was already synced
+     * and pays YouTube quota for it. Only 403 (quota) has an answer here; 401 is handled by the
+     * refresh before the read. Anything else has to reach the error handler.
+     */
+    describe('when YouTube cannot be read for a reason this route does not understand', () => {
+      const spotifyCookie = `spotify_tokens=${JSON.stringify({
+        accessToken: 'test-access-token',
+        refreshToken: 'test-refresh-token',
+      })}`;
+
+      const load = () =>
+        request(app)
+          .get('/auth/spotify/playlists')
+          .set('Cookie', [spotifyCookie, `youtube_tokens=${createMockYouTubeToken()}`]);
+
+      beforeEach(() => {
+        mockedGetCurrentUser.mockResolvedValue({ id: 'test-user', displayName: null });
+        mockedGetUserPlaylists.mockResolvedValue([playlistSummary('1', 'Banana', 1)]);
+      });
+
+      it.each([
+        ['a 500 from YouTube', new YoutubeApiError('boom', 500)],
+        ['a network failure', new Error('ECONNRESET')],
+      ])('reports an error rather than a library, on %s', async (_label, error) => {
+        ytClient.client.playlists.list = vi.fn(() => Promise.reject(error));
+
+        const response = await load();
+
+        expect(response.status).toBe(500);
+        expect(response.text).toContain('Error fetching playlists');
+      });
+
+      // The lie it must not tell: the playlist IS synced, and saying otherwise invites a resync
+      // that costs quota to do nothing.
+      it('does not render a synced playlist as unsynced', async () => {
+        ytClient.client.playlists.list = vi.fn(() => Promise.reject(new Error('ECONNRESET')));
+
+        const response = await load();
+
+        expect(response.text).not.toContain('Sync to YouTube');
+      });
+
+      // Quota is the one failure it does understand, and it has its own answer.
+      it('still redirects on a quota 403 rather than erroring', async () => {
+        ytClient.client.playlists.list = vi.fn(() =>
+          Promise.reject(new YoutubeApiError('quota', 403, 'quotaExceeded')),
+        );
+
+        const response = await load();
+
+        expect(response.status).toBe(403);
+        expect(response.headers['hx-redirect']).toBe('/?error=youtube&reason=quota_exceeded');
+      });
+    });
+
+    /**
      * The order of the list is the only thing telling the user what is already synced. It is two
      * sorts and a concat, and nothing asserted either: the sorts could be removed entirely and the
      * page would still render, in whatever order Spotify happened to return.
