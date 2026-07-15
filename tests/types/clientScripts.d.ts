@@ -14,3 +14,8 @@ declare module '*/public/js/playlistMeta.js';
 declare module '*/public/js/playlistScroll.js';
 declare module '*/public/js/playlistSearch.js';
 declare module '*/public/js/youtubeConnectionRefresh.js';
+declare module '*/public/js/playlistFilter.js';
+declare module '*/public/js/sync.js';
+declare module '*/public/js/themeToggle.js';
+declare module '*/public/js/dismissAlert.js';
+declare module '*/public/js/theme.js';
