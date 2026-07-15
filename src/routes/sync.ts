@@ -204,8 +204,20 @@ async function runSync(deps: SyncDeps): Promise<void> {
       Logger.info('No existing playlist found - entering CREATE mode');
     }
   } catch (error) {
-    Logger.error('Error checking for existing playlist', {}, error);
-    // Continue with creation flow
+    // Never continue on a partial view of the playlist - the outer handler renders an error frame.
+    //
+    // If the search failed, whether a synced playlist already exists is unknown, and falling
+    // through to CREATE would build a second copy of it. If the item pagination failed part-way,
+    // isUpdateMode/youtubePlaylistId are already set but existingItemsMap holds only the pages that
+    // arrived: the UPDATE reconcile would then treat the videos it never saw as missing and
+    // re-insert them, duplicating them and scrambling the order. A transient read must not be able
+    // to corrupt the user's playlist.
+    Logger.error(
+      'Error resolving the existing YouTube playlist - aborting before any write',
+      { isUpdateMode, youtubePlaylistId, existingItemsSeen: existingItemsMap.size },
+      error,
+    );
+    throw error;
   }
 
   // STEP 2: Classify tracks - update mode matches existing videos to find which

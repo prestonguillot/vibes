@@ -175,6 +175,33 @@ describe('getCurrentUser', () => {
 });
 
 describe('getUserPlaylists', () => {
+  it('keeps paginating past a page whose entries are all null/unavailable', async () => {
+    // A full page of deleted/unavailable playlists filters to empty. Terminating on that filtered
+    // length silently truncated the list, dropping every playlist on later pages.
+    mockFetch
+      .mockResolvedValueOnce(
+        okJson({ next: 'https://api.spotify.com/v1/me/playlists?offset=50', items: [null, null] }),
+      )
+      .mockResolvedValueOnce(
+        okJson({ next: null, items: [{ id: 'p9', name: 'Survivor', owner: { id: 'me' } }] }),
+      );
+
+    const playlists = await getUserPlaylists('AT');
+
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(playlists.map((p) => p.id)).toEqual(['p9']);
+  });
+
+  it('stops when a page is genuinely empty even if next is set', async () => {
+    mockFetch.mockResolvedValue(
+      okJson({ next: 'https://api.spotify.com/v1/me/playlists?offset=50', items: [] }),
+    );
+
+    await getUserPlaylists('AT');
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
   it('reads the count from the new items.total or legacy tracks.total, drops nulls', async () => {
     mockFetch.mockResolvedValue(
       okJson({
