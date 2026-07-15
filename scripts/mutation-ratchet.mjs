@@ -103,7 +103,11 @@ function writeBaseline(scores) {
       {
         _comment:
           'Per-file mutation scores. The ratchet (scripts/mutation-ratchet.mjs) fails a change ' +
-          'that drops a file below its entry here. Regenerate with: npm run test:mutation:update',
+          'that drops a file below its entry here. Regenerate with: npm run test:mutation:update. ' +
+          'Where a local run and CI disagree, CI is the authority and a local `update` will raise ' +
+          'the entry until CI rejects it: a mutant killed only by tests that never assert the code ' +
+          'it lives in was not really caught, and whether such a kill happens at all varies. ' +
+          'src/auth/cookieParser.ts is recorded from CI for that reason.',
         scores: sorted,
       },
       null,
