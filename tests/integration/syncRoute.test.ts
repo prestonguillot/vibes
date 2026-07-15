@@ -16,6 +16,7 @@ import { YoutubeApiError } from '@/youtube/client';
 import { findSetCookie } from '@tests/helpers/httpCookies';
 
 const h = vi.hoisted(() => ({
+  sleep: vi.fn(() => Promise.resolve()),
   getPlaylist: vi.fn(),
   fetchAllPlaylistItems: vi.fn(),
   searchMusicVideo: vi.fn(),
@@ -27,6 +28,7 @@ const h = vi.hoisted(() => ({
   ),
 }));
 
+vi.mock('@/lib/delay', () => ({ sleep: h.sleep }));
 vi.mock('@/spotify/auth', () => ({
   ensureValidSpotifyToken: vi.fn(async () => 'test-access-token'),
 }));
@@ -165,6 +167,27 @@ describe('GET /api/sync/playlist/:id/stream', () => {
     expect(res.status).toBe(200);
     expect(h.reconcilePlaylist).toHaveBeenCalledTimes(1);
     expect(lastDesired()).toEqual(['v1', 'v2']);
+  });
+
+  // YouTube rejects writes to a playlist it has only just created, and reconcile is what writes.
+  it('create: waits after creating the playlist, before writing to it', async () => {
+    h.fetchAllPlaylistItems.mockResolvedValue([track('t1', 'Song One')]);
+    h.playlistsList.mockResolvedValue({ data: { items: [] } });
+    h.playlistsInsert.mockResolvedValue({
+      data: { id: 'NEW_PL', snippet: { title: SYNCED_TITLE } },
+    });
+    h.playlistItemsList.mockResolvedValue({ data: { items: [] } });
+    h.searchMusicVideo.mockResolvedValue('v1');
+
+    await stream();
+
+    expect(h.sleep).toHaveBeenCalledWith(2000);
+    expect(h.playlistsInsert.mock.invocationCallOrder[0]!).toBeLessThan(
+      h.sleep.mock.invocationCallOrder[0]!,
+    );
+    expect(h.sleep.mock.invocationCallOrder[0]!).toBeLessThan(
+      h.reconcilePlaylist.mock.invocationCallOrder[0]!,
+    );
   });
 
   it('create with no matches: streams an error and never reconciles (no destructive writes)', async () => {
