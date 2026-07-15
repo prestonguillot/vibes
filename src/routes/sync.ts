@@ -73,7 +73,8 @@ async function runSync(deps: SyncDeps): Promise<void> {
 
   let apiCallCount = 0;
   let totalQuotaUsed = initialQuotaUsed;
-  let existingPlaylist: YtPlaylist | null = null;
+  // Always assigned below before it is read: the lookup either sets it or throws.
+  let existingPlaylist: YtPlaylist | null;
 
   await emitProgress({
     type: 'progress',
