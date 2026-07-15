@@ -580,3 +580,101 @@ describe('Spotify Playlists', () => {
     });
   });
 });
+
+/**
+ * What the playlist list does when Spotify says no.
+ *
+ * Each of these is a different problem with a different answer, and telling them apart is the whole
+ * point: a rate limit is not a dead token, and a Spotify outage is not the user's fault. Reporting
+ * any of them as "reconnect" sends someone off to re-authorise an account that is working - and the
+ * 429 is not hypothetical, it took this app off the air for twelve hours.
+ */
+describe('GET /auth/spotify/playlists: when Spotify says no', () => {
+  const spotifyCookie = `spotify_tokens=${JSON.stringify({
+    accessToken: 'sp',
+    refreshToken: 're',
+  })}`;
+
+  const fetchWith = async (error: unknown) => {
+    mockedGetCurrentUser.mockResolvedValue({ id: 'test-user', displayName: null });
+    mockedGetUserPlaylists.mockRejectedValue(error);
+    return request(app).get('/auth/spotify/playlists').set('Cookie', [spotifyCookie]);
+  };
+
+  // The template links the login, so rendering it without a loginUrl throws and express turns that
+  // into a 500 - an expired session reported as "something went wrong", with no way back. This
+  // asked for a 401 and got a 500 the first time it ran.
+  it('asks the user to reconnect when the token is gone, and says where', async () => {
+    const response = await fetchWith(new Error('SPOTIFY_AUTH_REQUIRED'));
+
+    expect(response.status).toBe(401);
+    expect(response.text).toContain('session has expired');
+    expect(response.text).toContain('/auth/spotify/login');
+  });
+
+  // Spotify's problem, not the user's: 503 says "come back", which a 401 does not.
+  it.each([[502], [503]])('reports a Spotify outage (%i) as temporary', async (status) => {
+    const { SpotifyApiError } = await import('@/spotify/client');
+
+    const response = await fetchWith(new SpotifyApiError('down', status));
+
+    expect(response.status).toBe(503);
+    expect(response.text).toContain('temporarily unavailable');
+  });
+
+  it('reports a rate limit as a rate limit', async () => {
+    const { SpotifyApiError } = await import('@/spotify/client');
+
+    const response = await fetchWith(new SpotifyApiError('slow down', 429));
+
+    expect(response.status).toBe(429);
+    expect(response.text).toContain('Too many requests');
+  });
+
+  // Retry-After is the only thing that turns "try later" into something actionable.
+  it.each([
+    [30, 'about 30 seconds'],
+    [1, 'about 1 second'],
+    [90, 'about 2 minutes'],
+    [3600, 'about 1 hour'],
+    [43200, 'about 12 hours'],
+  ])(
+    'tells the user how long to wait when Spotify says %i seconds',
+    async (retryAfter, expected) => {
+      const { SpotifyApiError } = await import('@/spotify/client');
+
+      const response = await fetchWith(
+        new SpotifyApiError('slow down', 429, undefined, retryAfter),
+      );
+
+      expect(response.text).toContain(expected);
+    },
+  );
+
+  it('says to wait a moment when Spotify does not say how long', async () => {
+    const { SpotifyApiError } = await import('@/spotify/client');
+
+    const response = await fetchWith(new SpotifyApiError('slow down', 429));
+
+    expect(response.text).toContain('wait a moment');
+  });
+
+  // Anything else is a bug here, and must not be dressed up as one of Spotify's.
+  it('reports anything else as an error of ours', async () => {
+    const response = await fetchWith(new Error('something unexpected'));
+
+    expect(response.status).toBe(500);
+    expect(response.text).toContain('Error fetching playlists');
+  });
+
+  it.each([[400], [404], [418]])(
+    'does not mistake a %i for an outage or a rate limit',
+    async (status) => {
+      const { SpotifyApiError } = await import('@/spotify/client');
+
+      const response = await fetchWith(new SpotifyApiError('nope', status));
+
+      expect(response.status).toBe(500);
+    },
+  );
+});
