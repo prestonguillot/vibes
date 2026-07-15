@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { YtPlaylist, YtPlaylistItem, YoutubeApiError } from '../youtube/client';
+import { YtPlaylist, YtPlaylistItem } from '../youtube/client';
 import { ensureValidYouTubeToken } from '../youtube/auth';
 import { fetchAllPlaylistItems } from '../spotify/playlistItems';
 import {
@@ -7,7 +7,7 @@ import {
   findSyncedYoutubePlaylist,
   syncedPlaylistTitle,
 } from '../youtube/playlist';
-import { youtubeWrite, YoutubeQuotaError } from '../youtube/writes';
+import { youtubeWrite, classifyYoutubeError } from '../youtube/writes';
 import { reconcilePlaylist, buildSyncDesiredVideoIds } from '../sync/playlistReconcile';
 import { Logger } from '../lib/logger';
 import { validate, schemas, ValidatedRequest } from '../lib/validation';
@@ -622,14 +622,11 @@ router.get(
     } catch (error) {
       Logger.error('Error syncing playlist', {}, error);
       let html: string;
-      // Writes surface quota as YoutubeQuotaError; reads as a 403 YoutubeApiError.
-      if (
-        error instanceof YoutubeQuotaError ||
-        (error instanceof YoutubeApiError &&
-          error.code === 403 &&
-          (error.reason === 'quotaExceeded' || error.reason === 'rateLimitExceeded'))
-      ) {
-        Logger.warn('YouTube API quota exceeded');
+      // 'quota' (daily budget gone) and 'rate-limit' (transient throttle) both mean YouTube refused
+      // on limits; anything else is a real error.
+      const failure = classifyYoutubeError(error);
+      if (failure !== 'other') {
+        Logger.warn('YouTube refused the sync on limits', { failure });
         html = await renderPartial('sync-error.ejs', {
           playlistId,
           title: 'YouTube Quota Exceeded',

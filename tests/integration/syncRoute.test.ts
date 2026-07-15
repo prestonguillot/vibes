@@ -13,6 +13,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import { youtubeCircuitBreaker } from '@/lib/circuitBreaker';
+import { YoutubeApiError } from '@/youtube/client';
 
 const h = vi.hoisted(() => ({
   getPlaylist: vi.fn(),
@@ -181,9 +182,11 @@ describe('GET /api/sync/playlist/:id/stream', () => {
     h.fetchAllPlaylistItems.mockResolvedValue([track('t1', 'Song One')]);
     h.playlistsList.mockResolvedValue({ data: { items: [] } }); // create mode
     h.searchMusicVideo.mockResolvedValue('v1');
-    // A real 403 from the write -> youtubeWrite converts it to YoutubeQuotaError.
+    // Exactly what the client throws for a 403 quota response; youtubeWrite turns it into a
+    // YoutubeQuotaError. (This used to reject a googleapis-shaped literal, a shape nothing has
+    // thrown since that dependency was dropped.)
     h.playlistsInsert.mockRejectedValue(
-      Object.assign(new Error('403'), { code: 403, errors: [{ reason: 'quotaExceeded' }] }),
+      new YoutubeApiError('YouTube API error (403): quota', 403, 'quotaExceeded'),
     );
 
     const res = await stream();
