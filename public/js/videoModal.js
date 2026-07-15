@@ -17,6 +17,113 @@ function initializeVideoModal() {
   // htmx and are gated on this flag instead.
   let replaceInFlight = false;
 
+  // The video the user just picked, captured before the modal markup is torn down.
+  let replacedVideoId = '';
+
+  // The panel is re-read from YouTube, which is only eventually consistent: the replace request
+  // ends with a reorder that writes to the playlist, so a read issued straight afterwards can
+  // still describe the pre-write state and paint the OLD thumbnail. Waiting a fixed delay is a
+  // guess in both directions, so a read is instead checked against the pick and re-read until
+  // YouTube catches up. These are the waits BETWEEN re-reads; one more read than waits happens.
+  const REFRESH_RETRY_WAITS_MS = [500, 1200, 2500];
+
+  // A refresh reads both Spotify and YouTube, so it is slow and expensive - never assume it has
+  // landed on a timer. If htmx has not swapped by now, something else is wrong; say so.
+  const REFRESH_SETTLE_TIMEOUT_MS = 15000;
+
+  const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  /** The refresh control of the details panel currently rendered for a playlist, if still open. */
+  function findRefreshControl(playlistId) {
+    return document.querySelector(`[data-refresh-playlist="${playlistId}"]`);
+  }
+
+  /** Has the panel caught up with the pick? Rows carry their video id in the watch URL. */
+  function showsVideo(playlistId, videoId) {
+    const control = findRefreshControl(playlistId);
+    const panel = control ? control.closest('.playlist-details') : null;
+    return !!panel && !!panel.querySelector(`[data-video-url*="${videoId}"]`);
+  }
+
+  /**
+   * Re-read the panel by driving its own refresh control, so the request stays defined by the
+   * markup, and resolve once htmx has actually swapped the result in. Resolves false if no swap
+   * arrives, rather than reporting a slow read as stale data.
+   */
+  function readPlaylistDetails(control) {
+    const container = control.closest('.playlist-details-container');
+
+    return new Promise((resolve) => {
+      let timer;
+
+      const settle = (swapped) => {
+        clearTimeout(timer);
+        document.removeEventListener('htmx:afterSwap', onSwap);
+        resolve(swapped);
+      };
+
+      const onSwap = (event) => {
+        if (event.detail && event.detail.target === container) {
+          settle(true);
+        }
+      };
+
+      timer = setTimeout(() => settle(false), REFRESH_SETTLE_TIMEOUT_MS);
+      document.addEventListener('htmx:afterSwap', onSwap);
+      control.click();
+    });
+  }
+
+  /**
+   * Re-read the panel until it shows the picked video, or give up loudly. Silence is what made
+   * this bug invisible: the refresh was fired blind, so a missing control, a read that never
+   * landed, and a stale read all looked exactly like success.
+   */
+  async function refreshUntilVideoAppears(playlistId, videoId) {
+    for (let attempt = 0; ; attempt++) {
+      const control = findRefreshControl(playlistId);
+      if (!control) {
+        // The panel was collapsed or replaced meanwhile - nothing to update, not a failure.
+        Logger.debug('Skipping playlist refresh - details panel is not open', { playlistId });
+        return;
+      }
+
+      if (!(await readPlaylistDetails(control))) {
+        Logger.warn('Playlist details refresh never swapped in', {
+          playlistId,
+          videoId,
+          attempt: attempt + 1,
+          timeoutMs: REFRESH_SETTLE_TIMEOUT_MS,
+        });
+      }
+
+      if (showsVideo(playlistId, videoId)) {
+        Logger.debug('Playlist details caught up with the new video', {
+          playlistId,
+          videoId,
+          reads: attempt + 1,
+        });
+        return;
+      }
+
+      if (attempt >= REFRESH_RETRY_WAITS_MS.length) {
+        Logger.error('Playlist details never showed the new video after replacing it', {
+          playlistId,
+          videoId,
+          reads: attempt + 1,
+        });
+        return;
+      }
+
+      Logger.debug('Playlist details still show the old video - re-reading', {
+        playlistId,
+        videoId,
+        retryInMs: REFRESH_RETRY_WAITS_MS[attempt],
+      });
+      await wait(REFRESH_RETRY_WAITS_MS[attempt]);
+    }
+  }
+
   // Close the dialog when a [data-dialog-close] control (Cancel / X) is clicked.
   document.addEventListener('click', function (event) {
     const closer = event.target.closest('[data-dialog-close]');
@@ -115,6 +222,9 @@ function initializeVideoModal() {
       // Seals Escape and backdrop-click; hx-disabled-elt handles Confirm/Cancel/X.
       replaceInFlight = true;
 
+      const picked = document.getElementById('hidden-new-video-id');
+      replacedVideoId = picked ? picked.value : '';
+
       // Store original text for restoration
       const originalText = target.innerHTML;
       target.setAttribute('data-original-text', originalText);
@@ -144,16 +254,25 @@ function initializeVideoModal() {
           modalEl.close();
         }
 
-        // Refresh the playlist details after a short delay
-        setTimeout(() => {
-          const playlistId = target.getAttribute('data-playlist-id');
-          if (playlistId) {
-            const refreshBtn = document.querySelector(`[data-refresh-playlist="${playlistId}"]`);
-            if (refreshBtn) {
-              refreshBtn.click();
-            }
-          }
-        }, 300);
+        const playlistId = target.getAttribute('data-playlist-id');
+        if (!playlistId) {
+          Logger.error('Replaced a video but cannot refresh - the button carries no playlist id');
+        } else if (!replacedVideoId) {
+          Logger.error(
+            'Replaced a video but cannot verify the refresh - no video id was captured',
+            {
+              playlistId,
+            },
+          );
+        } else {
+          refreshUntilVideoAppears(playlistId, replacedVideoId).catch((error) =>
+            Logger.error(
+              'Failed to refresh the playlist after replacing a video',
+              { playlistId },
+              error,
+            ),
+          );
+        }
       } else {
         // Request failed - restore the label so it can be retried (htmx re-enables the button).
         target.classList.remove('processing-state');
