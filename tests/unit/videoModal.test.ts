@@ -365,3 +365,126 @@ describe('video-selection-modal template', () => {
     );
   });
 });
+
+/**
+ * The picker itself - choosing a video, and what happens when a fresh search replaces the options.
+ *
+ * Never executed at all: 71 of this file's mutants sit in here. The tests above cover the exits and
+ * the refresh, which is the dangerous half; this is the half the user actually touches.
+ */
+describe('videoModal: picking a video', () => {
+  /** The modal as the server renders it: a radio per candidate, Confirm disabled until one is on. */
+  const results = (ids: string[]) =>
+    ids
+      .map(
+        (id) =>
+          `<label><input type="radio" name="newVideoId" class="video-option-radio" value="${id}"></label>`,
+      )
+      .join('');
+
+  async function modal({ videos = ['v1', 'v2'] } = {}) {
+    document.body.innerHTML = `
+      <dialog id="videoSelectionModal">
+        <div id="video-modal-content">
+          <form id="video-selection-form">
+            <input type="hidden" name="currentVideoId" value="${OLD_VIDEO}">
+          </form>
+          <input type="hidden" id="hidden-new-video-id" value="">
+          <div id="video-results-list">${results(videos)}</div>
+          <button type="button" id="${CONFIRM_ID}" data-playlist-id="${PLAYLIST_ID}" disabled>Confirm</button>
+        </div>
+      </dialog>`;
+
+    (window as any).Logger = { error: vi.fn(), debug: vi.fn(), info: vi.fn(), warn: vi.fn() };
+    listeners = trackListeners(document);
+    vi.resetModules();
+    await import('../../public/js/videoModal.js');
+    listeners.stop();
+  }
+
+  /** htmx swapped something in; the module re-wires off this. */
+  const afterSwap = (targetId: string) => {
+    const target = document.getElementById(targetId)!;
+    document.dispatchEvent(
+      new CustomEvent('htmx:afterSwap', { detail: { target }, bubbles: true }),
+    );
+  };
+
+  const confirmBtn = () => document.getElementById(CONFIRM_ID) as HTMLButtonElement;
+  const pick = (value: string) => {
+    const radio = document.querySelector(
+      `.video-option-radio[value="${value}"]`,
+    ) as HTMLInputElement;
+    radio.checked = true;
+    radio.dispatchEvent(new Event('change', { bubbles: true }));
+  };
+
+  it('arms Confirm once a video is chosen', async () => {
+    await modal();
+    afterSwap('video-modal-content');
+    expect(confirmBtn().disabled).toBe(true);
+
+    pick('v2');
+
+    expect(confirmBtn().disabled).toBe(false);
+  });
+
+  it('remembers which video was chosen', async () => {
+    await modal();
+    afterSwap('video-modal-content');
+
+    pick('v2');
+
+    expect((document.getElementById('hidden-new-video-id') as HTMLInputElement).value).toBe('v2');
+  });
+
+  it('takes the last choice when the user changes their mind', async () => {
+    await modal();
+    afterSwap('video-modal-content');
+
+    pick('v1');
+    pick('v2');
+
+    expect((document.getElementById('hidden-new-video-id') as HTMLInputElement).value).toBe('v2');
+  });
+
+  // A re-search replaces the options: the old pick refers to a video that is no longer on screen,
+  // and confirming it would replace the track with something the user can no longer see.
+  it('drops the earlier pick when a fresh search replaces the options', async () => {
+    await modal();
+    afterSwap('video-modal-content');
+    pick('v2');
+    expect(confirmBtn().disabled).toBe(false);
+
+    document.getElementById('video-results-list')!.innerHTML = results(['v9']);
+    afterSwap('video-results-list');
+
+    expect((document.getElementById('hidden-new-video-id') as HTMLInputElement).value).toBe('');
+    expect(confirmBtn().disabled).toBe(true);
+  });
+
+  it('wires the new options up after a re-search', async () => {
+    await modal();
+    afterSwap('video-modal-content');
+
+    document.getElementById('video-results-list')!.innerHTML = results(['v9']);
+    afterSwap('video-results-list');
+    pick('v9');
+
+    expect((document.getElementById('hidden-new-video-id') as HTMLInputElement).value).toBe('v9');
+    expect(confirmBtn().disabled).toBe(false);
+  });
+
+  it('ignores a swap of something else entirely', async () => {
+    await modal();
+    const other = document.createElement('div');
+    other.id = 'something-else';
+    document.body.appendChild(other);
+
+    afterSwap('something-else');
+    pick('v1');
+
+    // Never wired, so choosing does nothing.
+    expect(confirmBtn().disabled).toBe(true);
+  });
+});
