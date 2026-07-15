@@ -17,6 +17,10 @@ export default defineConfig({
       'tests/live/**',
       'tests/visual/**',
       'tests/visual-argos/**',
+      // Stryker copies the whole project in here to mutate it. Without this, a test run started
+      // while a mutation run is in flight globs the sandbox copies too - reporting ~3x the tests,
+      // some of them against deliberately mutated source, and failing for no real reason.
+      '.stryker-tmp/**',
     ],
     coverage: {
       provider: 'v8',
