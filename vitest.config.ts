@@ -18,18 +18,18 @@ export default defineConfig({
       'tests/visual/**',
       'tests/visual-argos/**',
       // Stryker copies the whole project in here to mutate it. Without this, a test run started
-      // while a mutation run is in flight globs the sandbox copies too - reporting ~3x the tests,
-      // some of them against deliberately mutated source, and failing for no real reason.
+      // while a mutation run is in flight also globs the sandbox copies - running duplicate tests
+      // against deliberately broken source, and failing for no real reason.
       '.stryker-tmp/**',
     ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
-      // Without `include`, vitest reports ONLY files a test imported - so a module nobody tests is
-      // absent from the report rather than sitting at 0%, and the total is an average over the
-      // tested subset. That hid src/lib/envValidation.ts (150 lines, no tests) entirely.
-      // public/js is application code and is covered the same way, now that its tests import the
-      // modules rather than eval them (v8 cannot attribute eval'd code to a file).
+      // Without `include`, vitest reports ONLY files a test imported: an untested module is absent
+      // from the report rather than reported as uncovered, and the total is an average over
+      // whatever happened to be imported. public/js is application code and belongs here too -
+      // its tests import the modules rather than eval them, because v8 cannot attribute coverage
+      // to eval'd code.
       include: ['src/**/*.ts', 'public/js/**/*.js'],
       exclude: [
         'node_modules/**',

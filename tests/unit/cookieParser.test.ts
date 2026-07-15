@@ -251,9 +251,8 @@ describe('Cookie Parser Utilities', () => {
 /**
  * The cookie options and the validating serializers.
  *
- * The parse functions above are well covered; these three had no direct test at all, which is why
- * the module sits at 100% line coverage and 52.6% mutation. getSecureCookieOptions decides whether
- * the OAuth tokens are readable by JavaScript and whether they travel over plain HTTP.
+ * getSecureCookieOptions decides whether the OAuth tokens are readable by JavaScript and whether
+ * they may travel over plain HTTP, so its every field is asserted rather than spot-checked.
  */
 describe('getSecureCookieOptions', () => {
   afterEach(() => vi.unstubAllEnvs());
