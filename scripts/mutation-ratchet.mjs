@@ -104,10 +104,12 @@ function writeBaseline(scores) {
         _comment:
           'Per-file mutation scores. The ratchet (scripts/mutation-ratchet.mjs) fails a change ' +
           'that drops a file below its entry here. Regenerate with: npm run test:mutation:update. ' +
-          'Where a local run and CI disagree, CI is the authority and a local `update` will raise ' +
-          'the entry until CI rejects it: a mutant killed only by tests that never assert the code ' +
-          'it lives in was not really caught, and whether such a kill happens at all varies. ' +
-          'src/auth/cookieParser.ts is recorded from CI for that reason.',
+          'These are CI numbers - CI is what blocks a PR, so it is what the bar is set from. A ' +
+          'local run should now agree: the two disagreed until 2026-07-15 because the suite failed ' +
+          'about one run in eight for reasons of its own, and a test failing at random reads to ' +
+          'stryker as a test catching the mutant. ignoreStatic is on, so code that only runs at ' +
+          'import and that no test exercises is not counted at all: a file can score well by not ' +
+          'being measured, and the score cannot report a gap it is not measuring.',
         scores: sorted,
       },
       null,
