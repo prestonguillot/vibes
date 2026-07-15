@@ -13,8 +13,6 @@ import {
   YoutubeApiError,
   YtPlaylist,
   YtPlaylistListResponse,
-  YtPlaylistItem,
-  YtPlaylistItemListResponse,
 } from '../youtube/client';
 import { YoutubeQuotaError } from '../youtube/writes';
 import { z } from 'zod';
@@ -24,7 +22,11 @@ import { reconcilePlaylist } from '../sync/playlistReconcile';
 import { fetchPlaylistDetails } from '../sync/playlistDetailsService';
 import { fetchAllPlaylistItems } from '../spotify/playlistItems';
 import { getPlaylist } from '../spotify/client';
-import { findSyncedYoutubePlaylist } from '../youtube/playlist';
+import {
+  fetchAllYoutubePlaylistItems,
+  findSyncedYoutubePlaylist,
+  findYoutubePlaylistItem,
+} from '../youtube/playlist';
 import { youtubeWrite } from '../youtube/writes';
 import { calculateMatchScore, SimplifiedTrack, SimplifiedVideo } from '../sync/trackMatching';
 const router = Router();
@@ -494,36 +496,17 @@ router.post(
           playlistTitle: targetPlaylist.snippet?.title,
         });
 
-        // Get ALL playlist items to find the current video (with pagination)
-        let playlistItemToReplace: YtPlaylistItem | undefined = undefined;
-        let nextPageToken: string | undefined = undefined;
-        let itemsFetched = 0;
-
-        do {
-          const playlistItemsResponse: YtPlaylistItemListResponse = await youtube.playlistItems
-            .list({
-              part: ['snippet', 'contentDetails'],
-              playlistId: targetPlaylist.id!,
-              maxResults: 50,
-              pageToken: nextPageToken,
-            })
-            .then((res) => res.data);
-
-          itemsFetched += playlistItemsResponse.items?.length || 0;
-
-          // Look for the current video in this page
-          playlistItemToReplace = playlistItemsResponse.items?.find(
-            (item: YtPlaylistItem) => item.snippet?.resourceId?.videoId === currentVideoId,
+        const { item: playlistItemToReplace, itemsScanned: itemsFetched } =
+          await findYoutubePlaylistItem(
+            youtube,
+            targetPlaylist.id!,
+            (item) => item.snippet?.resourceId?.videoId === currentVideoId,
+            ['snippet', 'contentDetails'],
           );
 
-          // If we found it, break early
-          if (playlistItemToReplace) {
-            Logger.info('Found video to replace', { currentVideoId, itemsFetched });
-            break;
-          }
-
-          nextPageToken = playlistItemsResponse.nextPageToken || undefined;
-        } while (nextPageToken);
+        if (playlistItemToReplace) {
+          Logger.info('Found video to replace', { currentVideoId, itemsFetched });
+        }
 
         if (!playlistItemToReplace) {
           Logger.error('Video not found in playlist after checking all pages', {
@@ -602,26 +585,11 @@ router.post(
         // build the desired order for reconcile.
         const spotifyTracks = await fetchAllPlaylistItems(spotifyTokens.accessToken, playlistId);
 
-        // Build list of synced tracks (tracks that have YouTube videos)
-        // For simplicity, we'll fetch YouTube playlist again and match with Spotify
-        const allPlaylistItems: YtPlaylistItem[] = [];
-        let pageToken: string | undefined = undefined;
-
-        do {
-          const response: YtPlaylistItemListResponse = await youtube.playlistItems
-            .list({
-              part: ['snippet'],
-              playlistId: targetPlaylist.id!,
-              maxResults: 50,
-              pageToken,
-            })
-            .then((res) => res.data);
-
-          if (response.items) {
-            allPlaylistItems.push(...response.items);
-          }
-          pageToken = response.nextPageToken || undefined;
-        } while (pageToken);
+        // Re-read the playlist so the reorder below matches against what YouTube now holds.
+        const allPlaylistItems = await fetchAllYoutubePlaylistItems(youtube, targetPlaylist.id!, [
+          'id',
+          'snippet',
+        ]);
 
         // Build the desired video order: content-match the current playlist to the
         // Spotify tracks, then override the linked track with the user's explicit
