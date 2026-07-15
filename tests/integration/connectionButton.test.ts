@@ -126,48 +126,50 @@ describe('Connection Button Endpoints', () => {
     });
   });
 
-  describe('HTMX Event Triggers', () => {
-    describe('YouTube connection events', () => {
-      it('should send HX-Trigger header when YouTube is connected', async () => {
-        mockAuth.validateYouTubeConnection.mockResolvedValue({ connected: true });
-        // Mock valid YouTube tokens (must include all required fields for Zod validation)
-        const mockYouTubeTokens = JSON.stringify({
-          access_token: 'mock_youtube_access_token',
-          refresh_token: 'mock_youtube_refresh_token',
-          scope: 'https://www.googleapis.com/auth/youtube',
-          token_type: 'Bearer',
-          expiry_date: Date.now() + 3600000, // 1 hour from now
-        });
+  /**
+   * The status endpoint reports a connection; it never announces one.
+   *
+   * It holds no session, so "connected" and "just connected" are the same thing to it. Announcing a
+   * connection on every render made the client refetch the whole Spotify library - every playlist
+   * on both services - each time the button rendered. Only the OAuth callback knows a connect
+   * actually happened, and it says so with ?connected=youtube.
+   */
+  describe('the status buttons announce nothing', () => {
+    const YOUTUBE_TOKENS = JSON.stringify({
+      access_token: 'mock_youtube_access_token',
+      refresh_token: 'mock_youtube_refresh_token',
+      scope: 'https://www.googleapis.com/auth/youtube',
+      token_type: 'Bearer',
+      expiry_date: Date.now() + 3600000,
+    });
+    const SPOTIFY_TOKENS = JSON.stringify({
+      accessToken: 'mock_spotify_access_token',
+      refreshToken: 'mock_spotify_refresh_token',
+    });
 
-        const response = await request(app)
-          .get('/api/status/youtube/button')
-          .set('Cookie', [`youtube_tokens=${mockYouTubeTokens}`]);
+    it('sends no HX-Trigger when YouTube is connected', async () => {
+      mockAuth.validateYouTubeConnection.mockResolvedValue({ connected: true });
 
-        // Should send HX-Trigger header to refresh playlists
-        expect(response.headers['hx-trigger']).toBe('youtubeConnected');
-      });
+      const response = await request(app)
+        .get('/api/status/youtube/button')
+        .set('Cookie', [`youtube_tokens=${YOUTUBE_TOKENS}`]);
 
-      it('should NOT send HX-Trigger header when YouTube is not connected', async () => {
-        const response = await request(app).get('/api/status/youtube/button');
+      expect(response.status).toBe(200);
+      expect(response.headers['hx-trigger']).toBeUndefined();
+    });
 
-        // Should NOT send HX-Trigger header when not connected
-        expect(response.headers['hx-trigger']).toBeUndefined();
-      });
+    it('sends no HX-Trigger when YouTube is not connected', async () => {
+      const response = await request(app).get('/api/status/youtube/button');
 
-      it('should NOT send HX-Trigger header for Spotify button', async () => {
-        // Mock valid Spotify tokens
-        const mockSpotifyTokens = JSON.stringify({
-          accessToken: 'mock_spotify_access_token',
-          refreshToken: 'mock_spotify_refresh_token',
-        });
+      expect(response.headers['hx-trigger']).toBeUndefined();
+    });
 
-        const response = await request(app)
-          .get('/api/status/spotify/button')
-          .set('Cookie', [`spotify_tokens=${mockSpotifyTokens}`]);
+    it('sends no HX-Trigger for the Spotify button', async () => {
+      const response = await request(app)
+        .get('/api/status/spotify/button')
+        .set('Cookie', [`spotify_tokens=${SPOTIFY_TOKENS}`]);
 
-        // Spotify button should not trigger playlist refresh
-        expect(response.headers['hx-trigger']).toBeUndefined();
-      });
+      expect(response.headers['hx-trigger']).toBeUndefined();
     });
   });
 });

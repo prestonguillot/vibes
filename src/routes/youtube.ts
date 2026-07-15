@@ -78,8 +78,11 @@ router.get(
 
       Logger.auth('YouTube', 'tokens with channel ID stored in cookie', { channelId });
 
-      // Redirect back to main page - status endpoint will detect connection and trigger event
-      res.redirect('/');
+      // ?connected=youtube marks this as the moment YouTube was connected, which is something only
+      // this callback knows: the status endpoint holds no session and cannot tell "connected" from
+      // "just connected". The playlist list may be sitting in the browser cache from before this,
+      // showing every playlist as unsynced, so the client refetches it once on this signal.
+      res.redirect('/?connected=youtube');
     } catch (error) {
       Logger.error('Error getting YouTube tokens', {}, error);
       let errorReason = 'failed';

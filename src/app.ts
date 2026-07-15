@@ -174,11 +174,6 @@ export function createApp() {
     // Connection status can change (connected → error), so we must not return cached responses
     setCache(res, CacheDuration.NO_CACHE);
 
-    // Trigger playlist refresh when YouTube becomes connected
-    if (youtubeResult.connected) {
-      res.setHeader('HX-Trigger', 'youtubeConnected');
-    }
-
     res.render('partials/connection-button', {
       service: 'youtube',
       connected: youtubeResult.connected,
