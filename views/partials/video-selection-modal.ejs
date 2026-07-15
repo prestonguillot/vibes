@@ -48,6 +48,7 @@
             hx-post="/api/playlistDetails/replace/<%= trackId %>"
             hx-include="#video-selection-form"
             hx-swap="none"
+            hx-disabled-elt="#confirm-selection-btn, #videoSelectionModal [data-dialog-close]"
             data-playlist-id="<%= playlistId %>"
             disabled>
       Confirm Selection
