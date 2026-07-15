@@ -550,3 +550,103 @@ describe('GET stream: authentication', () => {
     expect(response.text).not.toContain('/auth/spotify/login');
   });
 });
+
+/**
+ * The result frame: the tracks it could not link, and the details it swaps back in.
+ *
+ * The unlinked list is the only place a user is told which songs did not make it - without it a
+ * sync that found 18 of 20 looks the same as one that found 20. And the details are delivered
+ * out-of-band here, which is what stops the row above them going stale (PR #85/#86).
+ */
+describe('GET stream: the result frame', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    youtubeCircuitBreaker.close();
+    h.getPlaylist.mockResolvedValue({
+      id: 'p',
+      name: 'My Playlist',
+      ownerId: 'me',
+      trackTotal: 3,
+      spotifyUrl: 'u',
+    });
+    h.reconcilePlaylist.mockResolvedValue({ inserted: 0, deleted: 0, moved: 0 });
+    h.playlistsList.mockResolvedValue({ data: { items: [] } });
+    h.playlistsInsert.mockResolvedValue({
+      data: { id: 'NEW_PL', snippet: { title: SYNCED_TITLE } },
+    });
+    h.playlistItemsList.mockResolvedValue({ data: { items: [] } });
+    h.fetchAllPlaylistItems.mockResolvedValue([
+      track('t1', 'Song One'),
+      track('t2', 'Song Two'),
+      track('t3', 'Song Three'),
+    ]);
+  });
+
+  /** Nothing found for the named songs. */
+  const cannotFind = (...missing: string[]) =>
+    h.searchMusicVideo.mockImplementation((_a: string, song: string) =>
+      Promise.resolve(missing.includes(song) ? null : 'v' + song),
+    );
+
+  it('names the track it could not link', async () => {
+    cannotFind('Song Two');
+
+    const response = await stream();
+
+    expect(response.text).toContain('could not be linked');
+    expect(response.text).toContain('Song Two');
+  });
+
+  it('counts them, and says track or tracks', async () => {
+    cannotFind('Song Two');
+    expect((await stream()).text).toContain('1 track could not be linked');
+
+    vi.clearAllMocks();
+    h.getPlaylist.mockResolvedValue({
+      id: 'p',
+      name: 'My Playlist',
+      ownerId: 'me',
+      trackTotal: 3,
+      spotifyUrl: 'u',
+    });
+    h.reconcilePlaylist.mockResolvedValue({ inserted: 0, deleted: 0, moved: 0 });
+    h.playlistsList.mockResolvedValue({ data: { items: [] } });
+    h.playlistsInsert.mockResolvedValue({
+      data: { id: 'NEW_PL', snippet: { title: SYNCED_TITLE } },
+    });
+    h.playlistItemsList.mockResolvedValue({ data: { items: [] } });
+    h.fetchAllPlaylistItems.mockResolvedValue([
+      track('t1', 'Song One'),
+      track('t2', 'Song Two'),
+      track('t3', 'Song Three'),
+    ]);
+    cannotFind('Song Two', 'Song Three');
+
+    expect((await stream()).text).toContain('2 tracks could not be linked');
+  });
+
+  it('says nothing about unlinked tracks when it found them all', async () => {
+    cannotFind();
+
+    const response = await stream();
+
+    expect(response.text).not.toContain('could not be linked');
+  });
+
+  // Delivered out-of-band, into #details-<id>, which is what keeps the collapsed row honest.
+  it('swaps the refreshed details back in', async () => {
+    cannotFind();
+
+    const response = await stream();
+
+    expect(response.text).toContain('details-1234567890123456789012');
+  });
+
+  it('leaves the button saying the playlist can be updated now', async () => {
+    cannotFind();
+
+    const response = await stream();
+
+    expect(response.text).toContain('Update YouTube Playlist');
+  });
+});
