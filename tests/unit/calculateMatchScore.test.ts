@@ -155,3 +155,49 @@ describe('optimalTrackMatching conflict resolution (golden master)', () => {
     expect(matches.size).toBe(0);
   });
 });
+
+describe('titles that normalize to an empty core', () => {
+  const officialVideo = {
+    id: 'v1',
+    title: 'Nirvana - Smells Like Teen Spirit (Official Music Video)',
+    description: '',
+    channelTitle: 'NirvanaVEVO',
+  };
+
+  // extractCoreTitle/normalizeText can reduce a name to ''. `x.includes('')` is always true in JS,
+  // so an empty core used to score 0.6 (+0.15 artist) against EVERY video - over the 0.4 threshold.
+  it.each(['(Live)', '   ', '...', '(Official Video)'])(
+    'does not award a core-title match for %j',
+    (name) => {
+      const { breakdown } = calculateMatchScore({ id: 't', name, artist: '???' }, officialVideo);
+      expect(breakdown.components.coreMatch).toBeUndefined();
+      expect(breakdown.components.artistBonus).toBeUndefined();
+    },
+  );
+
+  it('scores below the 0.4 match threshold even against a hugely popular official video', () => {
+    const babyShark = {
+      id: 'v2',
+      title: 'Baby Shark Dance (Official Video)',
+      description: '',
+      channelTitle: 'Pinkfong',
+      viewCount: 15_000_000_000,
+    };
+    // Quality bonuses are tiebreakers, not evidence: officialVideo (0.3) + viewCount (0.1) must not
+    // reach 0.4 on their own for a track whose title cannot be read.
+    const { score } = calculateMatchScore({ id: 't', name: '(Live)', artist: '???' }, babyShark);
+    expect(score).toBeLessThan(0.4);
+  });
+
+  it('does not let a junk track steal the video that belongs to a real track', () => {
+    const result = optimalTrackMatching(
+      [
+        { id: 'junk', name: '(Live)', artist: '...' },
+        { id: 'real', name: 'Smells Like Teen Spirit', artist: 'Nirvana' },
+      ],
+      [officialVideo],
+    );
+    expect(result.matches.get('real')?.id).toBe('v1');
+    expect(result.matches.has('junk')).toBe(false);
+  });
+});
