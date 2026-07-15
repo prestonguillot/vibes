@@ -359,6 +359,19 @@ function calculateLevenshteinDistance(str1: string, str2: string): number {
 export interface MatchingResult {
   matches: Map<string, SimplifiedVideo>;
   scores: Map<string, ScoreBreakdown>; // Track ID -> Score breakdown
+  /**
+   * Tracks that lost a video to a DIFFERENT Spotify track for the same song.
+   *
+   * The playlist holds the song twice under two track ids; the matcher awards the one video to
+   * one of them, and sync's one-video-one-slot rule means the loser can never link - a search just
+   * returns that same video and sync drops it as a duplicate. Callers need this to tell drift a
+   * sync could fix from drift it provably cannot.
+   *
+   * Deliberately not "lost any viable candidate": a weak fuzzy near-miss (e.g. "Song B" scoring
+   * 0.42 against a "Song A" video) is not the same song, and a search can still find it its own
+   * video - treating that as unresolvable would silence legitimate drift.
+   */
+  contested: Set<string>;
 }
 
 /**
@@ -425,13 +438,35 @@ export function optimalTrackMatching(
     assignedVideos.add(candidate.video.id);
   }
 
+  // Which track actually won each video.
+  const trackById = new Map(tracks.map((t) => [t.id, t]));
+  const winnerByVideoId = new Map<string, SimplifiedTrack>();
+  for (const [trackId, video] of matches) {
+    const winner = trackById.get(trackId);
+    if (winner) winnerByVideoId.set(video.id, winner);
+  }
+
+  const isSameSong = (a: SimplifiedTrack, b: SimplifiedTrack) =>
+    normalizeText(a.name) === normalizeText(b.name) &&
+    normalizeText(a.artist) === normalizeText(b.artist);
+
+  // An unmatched track is unresolvable only if a video it wanted went to another track that is the
+  // same song - i.e. the playlist genuinely contains the song twice.
+  const contested = new Set<string>();
+  for (const candidate of candidates) {
+    if (matches.has(candidate.track.id)) continue;
+    const winner = winnerByVideoId.get(candidate.video.id);
+    if (winner && isSameSong(winner, candidate.track)) contested.add(candidate.track.id);
+  }
+
   Logger.debug('Optimal matching results', {
     totalTracks: tracks.length,
     totalVideos: videos.length,
     candidatesEvaluated: candidates.length,
     successfulMatches: matches.size,
     unmatchedTracks: tracks.length - matches.size,
+    contestedTracks: contested.size,
   });
 
-  return { matches, scores };
+  return { matches, scores, contested };
 }
