@@ -7,7 +7,10 @@ describe('CircuitBreaker', () => {
   beforeEach(() => {
     circuitBreaker = new CircuitBreaker('Test Circuit', {
       failureThreshold: 2,
-      resetTimeout: 1000, // 1 second for faster tests
+      // The waits below are real, so this is as short as the clock can be trusted to resolve.
+      // A second each was five seconds of the suite sitting still, and a test that sleeps starves
+      // the ones beside it until one of them times out having tested nothing.
+      resetTimeout: 50,
       successThreshold: 2,
     });
   });
@@ -88,7 +91,7 @@ describe('CircuitBreaker', () => {
 
     it('should transition to HALF_OPEN after timeout', async () => {
       // Wait for reset timeout
-      await new Promise((resolve) => setTimeout(resolve, 1100));
+      await new Promise((resolve) => setTimeout(resolve, 60));
 
       expect(circuitBreaker.canProceed()).toBe(true);
       const state = circuitBreaker.getState();
@@ -103,7 +106,7 @@ describe('CircuitBreaker', () => {
       circuitBreaker.recordFailure();
 
       // Wait for reset timeout to enter HALF_OPEN
-      await new Promise((resolve) => setTimeout(resolve, 1100));
+      await new Promise((resolve) => setTimeout(resolve, 60));
       circuitBreaker.canProceed(); // Trigger transition to HALF_OPEN
     });
 
@@ -175,7 +178,7 @@ describe('CircuitBreaker', () => {
       expect(circuitBreaker.canProceed()).toBe(false);
 
       // Wait for timeout
-      await new Promise((resolve) => setTimeout(resolve, 1100));
+      await new Promise((resolve) => setTimeout(resolve, 60));
 
       expect(circuitBreaker.canProceed()).toBe(true);
     });
