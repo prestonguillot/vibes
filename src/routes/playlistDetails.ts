@@ -15,85 +15,18 @@ import { z } from 'zod';
 import ejs from 'ejs';
 import path from 'path';
 import { fetchPlaylistDetails } from '../sync/playlistDetailsService';
-import { fetchAllPlaylistItems } from '../spotify/playlistItems';
+import { addedVideoPosition } from '../sync/addedVideoPosition';
 import { getPlaylist } from '../spotify/client';
 import {
-  fetchAllYoutubePlaylistItems,
   findSyncedYoutubePlaylist,
   findYoutubePlaylistItem,
   syncedPlaylistTitle,
 } from '../youtube/playlist';
 import { youtubeWrite } from '../youtube/writes';
-import {
-  calculateMatchScore,
-  optimalTrackMatching,
-  SimplifiedTrack,
-  SimplifiedVideo,
-} from '../sync/trackMatching';
+import { calculateMatchScore, SimplifiedTrack, SimplifiedVideo } from '../sync/trackMatching';
 import type { YoutubeClient } from '../youtube/client';
 
 const router = Router();
-
-/**
- * Where a newly added video belongs: the number of videos already ahead of its track.
- *
- * Reads only - the Spotify track order and the playlist's current contents, at a quota unit each -
- * and returns null when the track is no longer in the Spotify playlist, leaving the caller nothing
- * to do. The count is of tracks that HAVE a video: a track nothing was found for occupies no slot
- * in the YouTube playlist, so counting it would push everything after it one place too far.
- */
-async function addedVideoPosition({
-  youtube,
-  youtubePlaylistId,
-  spotifyAccessToken,
-  spotifyPlaylistId,
-  trackId,
-  newVideoId,
-}: {
-  youtube: YoutubeClient;
-  youtubePlaylistId: string;
-  spotifyAccessToken: string;
-  spotifyPlaylistId: string;
-  trackId: string;
-  newVideoId: string;
-}): Promise<number | null> {
-  const spotifyTracks = await fetchAllPlaylistItems(spotifyAccessToken, spotifyPlaylistId);
-  const playlistItems = await fetchAllYoutubePlaylistItems(youtube, youtubePlaylistId, [
-    'id',
-    'snippet',
-  ]);
-
-  const tracks = spotifyTracks
-    .filter((item) => item.track && item.track.type === 'track')
-    .map((item) => ({
-      id: item.track!.id!,
-      name: item.track!.name!,
-      artist: item.track!.artists?.[0]?.name || 'Unknown Artist',
-    }));
-
-  const videos = playlistItems
-    .filter((item) => item.snippet?.resourceId?.videoId && item.id)
-    .map((item) => ({
-      id: item.snippet!.resourceId!.videoId!,
-      title: item.snippet?.title || 'Unknown',
-      description: item.snippet?.description || '',
-      playlistItemId: item.id!,
-    }));
-
-  const trackIndex = tracks.findIndex((t) => t.id === trackId);
-  if (trackIndex === -1) return null;
-
-  const matches = optimalTrackMatching(tracks, videos).matches;
-
-  let position = 0;
-  for (const track of tracks.slice(0, trackIndex)) {
-    const matched = matches.get(track.id);
-    // The added video is matched to its own track by id, not by content - the user picked it
-    // precisely because matching would not have.
-    if (matched && matched.id !== newVideoId) position++;
-  }
-  return position;
-}
 
 /** Moves a video already in the playlist to `position`. One write, 50 quota units. */
 async function moveYoutubePlaylistItem(
