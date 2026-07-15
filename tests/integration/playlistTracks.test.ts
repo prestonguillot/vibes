@@ -16,8 +16,9 @@ vi.mock('@/spotify/auth', () => ({ ensureValidSpotifyToken: h.ensureValidSpotify
 vi.mock('@/spotify/playlistItems', () => ({ fetchAllPlaylistItems: h.fetchAllPlaylistItems }));
 
 import { createApp } from '@/app';
+import { testServer } from '@tests/helpers/testServer';
 
-const app = createApp();
+const app = testServer(createApp());
 
 const item = (name: string, artist = 'Radiohead') => ({
   track: { id: `t-${name}`, name, type: 'track', artists: [{ name: artist }] },

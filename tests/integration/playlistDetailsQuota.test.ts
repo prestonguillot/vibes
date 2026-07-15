@@ -14,6 +14,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import request from 'supertest';
 import { createApp } from '@/app';
+import { testServer } from '@tests/helpers/testServer';
 import { YoutubeApiError } from '@/youtube/client';
 import { YoutubeQuotaError } from '@/youtube/writes';
 
@@ -24,7 +25,7 @@ vi.mock('@/sync/playlistDetailsService', async (importActual) => {
   return { ...actual, fetchPlaylistDetails: h.fetchPlaylistDetails };
 });
 
-const app = createApp();
+const app = testServer(createApp());
 
 const spotifyCookie = `spotify_tokens=${JSON.stringify({ accessToken: 'sp-token', refreshToken: 'sp-refresh' })}`;
 const youtubeCookie = `youtube_tokens=${JSON.stringify({

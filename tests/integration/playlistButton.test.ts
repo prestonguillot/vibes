@@ -25,8 +25,9 @@ vi.mock('@/youtube/client', async (importActual) => ({
 }));
 
 import { createApp } from '@/app';
+import { testServer } from '@tests/helpers/testServer';
 
-const app = createApp();
+const app = testServer(createApp());
 
 const PLAYLIST_ID = '37i9dQZF1DXcBWIGoYBM5M';
 const SPOTIFY_COOKIE = 'spotify_tokens={"accessToken":"sp","refreshToken":"re"}';

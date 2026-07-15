@@ -8,6 +8,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import { createApp } from '@/app';
+import { testServer } from '@tests/helpers/testServer';
 
 // The route reads playlist metadata via the hand-written spotifyClient
 // (getPlaylist -> { name, trackTotal, ... }) and the track list via the /items
@@ -74,7 +75,7 @@ const mockPlaylist = (
   h.fetchAllPlaylistItems.mockResolvedValue(items);
 };
 
-const app = createApp();
+const app = testServer(createApp());
 
 describe('Playlist Details Error Handling', () => {
   beforeEach(() => {

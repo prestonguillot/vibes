@@ -19,8 +19,9 @@ vi.mock('@/lib/delay', () => ({ sleep: vi.fn(() => Promise.resolve()) }));
 
 import { Logger } from '@/lib/logger';
 import { createApp } from '@/app';
+import { testServer } from '@tests/helpers/testServer';
 
-const app = createApp();
+const app = testServer(createApp());
 
 const SPOTIFY_COOKIE = 'spotify_tokens={"accessToken":"sp","refreshToken":"sp-r"}';
 const YOUTUBE_COOKIE = 'youtube_tokens={"access_token":"yt","refresh_token":"yt-r"}';

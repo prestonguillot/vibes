@@ -11,6 +11,7 @@ import request from 'supertest';
 vi.mock('@/lib/delay', () => ({ sleep: vi.fn(() => Promise.resolve()) }));
 
 import { createApp } from '@/app';
+import { testServer } from '@tests/helpers/testServer';
 
 // Mock connection validation so these tests are deterministic and offline - the
 // real validators hit the live Spotify/YouTube APIs (the source of CI flakiness).
@@ -24,7 +25,7 @@ vi.mock('@/auth/authValidation', async (orig) => ({
   validateYouTubeConnection: mockAuth.validateYouTubeConnection,
 }));
 
-const app = createApp();
+const app = testServer(createApp());
 
 describe('Connection Button Endpoints', () => {
   beforeEach(() => {

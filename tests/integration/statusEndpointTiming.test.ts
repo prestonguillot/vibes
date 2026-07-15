@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../../src/app';
+import { testServer } from '../helpers/testServer';
 import { youtubeCircuitBreaker } from '../../src/lib/circuitBreaker';
 
 // The connection-status buttons enforce a minimum on-screen time (anti-flash). The
@@ -13,7 +14,7 @@ vi.mock('../../src/lib/minDisplayTime', async (orig) => ({
   enforceMinDisplayTime: h.enforceMinDisplayTime,
 }));
 
-const app = createApp();
+const app = testServer(createApp());
 
 describe('Status button endpoints', () => {
   beforeEach(() => {

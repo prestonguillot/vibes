@@ -21,9 +21,10 @@ vi.mock('@/youtube/client', async (importActual) => ({
 }));
 
 import { createApp } from '@/app';
+import { testServer } from '@tests/helpers/testServer';
 import { findSetCookie } from '@tests/helpers/httpCookies';
 
-const app = createApp();
+const app = testServer(createApp());
 
 const CODE = 'a'.repeat(40);
 const STATE = 'matching-state';

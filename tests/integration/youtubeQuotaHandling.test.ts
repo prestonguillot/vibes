@@ -1,13 +1,15 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../../src/app';
+import { testServer } from '../helpers/testServer';
 import { youtubeCircuitBreaker } from '../../src/lib/circuitBreaker';
 
-describe('YouTube Quota Exceeded Handling', () => {
-  let app: any;
+// One server for the file. Rebuilding the app per test bought nothing - it holds no state, and
+// what varies between these tests is the circuit breaker, which is a module singleton either way.
+const app = testServer(createApp());
 
+describe('YouTube Quota Exceeded Handling', () => {
   beforeEach(() => {
-    app = createApp();
     // Reset circuit breaker state before each test
     youtubeCircuitBreaker.close();
   });
