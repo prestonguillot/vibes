@@ -43,22 +43,22 @@ describe('Index Page', () => {
       expect(response.text).toMatch(/id="ownPlaylistsOnly"[^>]*name="ownOnly"/);
     });
 
-    it('should configure YouTube status to poll regularly', async () => {
+    it.each([['youtube'], ['spotify']])('resolves the %s status once, on load', async (service) => {
       const response = await request(app).get('/');
 
-      // YouTube status should poll every 5 minutes
-      expect(response.text).toContain('id="youtube-status"');
-      expect(response.text).toContain('hx-get="/api/status/youtube/button"');
-      expect(response.text).toContain('hx-trigger="load, every 5m"');
+      expect(response.text).toContain(`id="${service}-status"`);
+      expect(response.text).toContain(`hx-get="/api/status/${service}/button"`);
+      expect(response.text).toContain('hx-trigger="load"');
     });
 
-    it('should configure Spotify status to poll regularly', async () => {
+    // Each status check is a real call to Spotify and YouTube. Every operation validates and
+    // refreshes its own token on demand, so a poll keeps nothing alive - it re-checks a connection
+    // nobody is using, indefinitely, for as long as a tab stays open.
+    it('does not poll the status endpoints', async () => {
       const response = await request(app).get('/');
 
-      // Spotify status should poll every 5 minutes
-      expect(response.text).toContain('id="spotify-status"');
-      expect(response.text).toContain('hx-get="/api/status/spotify/button"');
-      expect(response.text).toContain('hx-trigger="load, every 5m"');
+      expect(response.text).not.toContain('every 5m');
+      expect(response.text).not.toMatch(/hx-trigger="load,\s*every/);
     });
   });
 

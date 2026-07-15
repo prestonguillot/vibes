@@ -1,8 +1,8 @@
 /**
  * @vitest-environment happy-dom
  *
- * Tests for public/js/youtubeConnectionRefresh.js: when YouTube connects, the Spotify playlist
- * list is refetched (cache-busting) and the post-swap restore runs.
+ * Tests for public/js/youtubeConnectionRefresh.js: on the ?connected=youtube signal the Spotify
+ * playlist list is refetched past the cache, and the post-swap restore runs.
  *
  * The restore hangs off the promise htmx.ajax returns. There is no `onload` option - htmx ignores
  * unknown context keys, so passing one silently never runs.
@@ -12,7 +12,14 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-async function setup() {
+/**
+ * Load the module with the given query string in the address bar.
+ *
+ * The module acts as it loads, so anything the refetch should see - the DOM, the htmx stub's
+ * behaviour - has to be in place before the import, not after.
+ */
+async function setup(search = '?connected=youtube', ajaxImpl?: () => Promise<unknown>) {
+  window.history.replaceState({}, '', `/${search}`);
   document.body.innerHTML = `
     <input type="checkbox" id="ownPlaylistsOnly" checked>
     <div id="playlists-content"></div>
@@ -20,8 +27,9 @@ async function setup() {
     <div id="details-p1"></div>`;
 
   // htmx.ajax(verb, path, context) - typed so mock.calls carries the real argument shape.
-  const ajax = vi.fn((_verb: string, _path: string, _context?: Record<string, unknown>) =>
-    Promise.resolve(),
+  const ajax = vi.fn(
+    (_verb: string, _path: string, _context?: Record<string, unknown>) =>
+      ajaxImpl?.() ?? Promise.resolve(),
   );
   (window as any).htmx = { ajax };
   (window as any).Logger = { error: vi.fn(), debug: vi.fn(), info: vi.fn(), warn: vi.fn() };
@@ -33,15 +41,17 @@ async function setup() {
   return ajax;
 }
 
+const listRefetches = (ajax: ReturnType<typeof vi.fn>) =>
+  ajax.mock.calls.filter((c) => String(c[1]).startsWith('/auth/spotify/playlists'));
+
 beforeEach(() => {
   vi.restoreAllMocks();
   document.body.innerHTML = '';
 });
 
-describe('youtubeConnectionRefresh', () => {
-  it('refetches the playlist list with a cache-busting header on youtubeConnected', async () => {
+describe('youtubeConnectionRefresh on a connect', () => {
+  it('refetches the playlist list past the cache', async () => {
     const ajax = await setup();
-    document.body.dispatchEvent(new Event('youtubeConnected'));
     await flush();
 
     expect(ajax).toHaveBeenCalledWith(
@@ -50,17 +60,37 @@ describe('youtubeConnectionRefresh', () => {
       expect.objectContaining({
         target: '#playlists-content',
         swap: 'innerHTML',
+        // Without this the browser serves the copy it fetched before the connect, in which every
+        // playlist is unsynced - which is the entire reason to refetch.
         headers: { 'Cache-Control': 'no-cache' },
       }),
     );
   });
 
-  it('runs the post-swap restore: reloads details for expanded playlists', async () => {
-    const ajax = await setup();
-    document.body.dispatchEvent(new Event('youtubeConnected'));
+  it('carries the current own-only filter into the refetch', async () => {
+    window.history.replaceState({}, '', '/?connected=youtube');
+    document.body.innerHTML = `
+      <input type="checkbox" id="ownPlaylistsOnly">
+      <div id="playlists-content"></div>`;
+    const ajax = vi.fn(() => Promise.resolve());
+    (window as any).htmx = { ajax };
+    (window as any).Logger = { error: vi.fn() };
+    vi.resetModules();
+    await import('../../public/js/youtubeConnectionRefresh.js');
     await flush();
 
-    // The regression: this second call only happens if the promise callback actually fires.
+    expect(ajax).toHaveBeenCalledWith(
+      'GET',
+      '/auth/spotify/playlists?ownOnly=false',
+      expect.anything(),
+    );
+  });
+
+  it('runs the post-swap restore: reloads details for expanded playlists', async () => {
+    const ajax = await setup();
+    await flush();
+
+    // This second call only happens if the promise callback actually fires.
     expect(ajax).toHaveBeenCalledWith(
       'GET',
       '/api/playlistDetails/playlist/p1',
@@ -69,28 +99,10 @@ describe('youtubeConnectionRefresh', () => {
     expect(ajax).toHaveBeenCalledTimes(2);
   });
 
-  it('only refreshes once, not on every status heartbeat', async () => {
-    const ajax = await setup();
-    // The status endpoint emits youtubeConnected on EVERY poll while connected, not just on the
-    // connect transition; refetching the whole library each time hammers Spotify into a 429.
-    document.body.dispatchEvent(new Event('youtubeConnected'));
-    await flush();
-    document.body.dispatchEvent(new Event('youtubeConnected'));
-    document.body.dispatchEvent(new Event('youtubeConnected'));
-    await flush();
-
-    const listRefetches = ajax.mock.calls.filter(
-      (c) => c[1] === '/auth/spotify/playlists?ownOnly=true',
-    );
-    expect(listRefetches).toHaveLength(1);
-  });
-
   it('logs the real error when the refetch fails instead of swallowing it', async () => {
-    const ajax = await setup();
     const boom = new Error('network down');
-    ajax.mockReturnValueOnce(Promise.reject(boom));
+    await setup('?connected=youtube', () => Promise.reject(boom));
 
-    document.body.dispatchEvent(new Event('youtubeConnected'));
     await flush();
 
     expect((window as any).Logger.error).toHaveBeenCalledWith(
@@ -98,5 +110,63 @@ describe('youtubeConnectionRefresh', () => {
       {},
       boom,
     );
+  });
+
+  // Reloading is an ordinary page load, and must not cost another full listing of both services.
+  it('takes the marker out of the URL so a reload does not refetch again', async () => {
+    await setup();
+    await flush();
+
+    expect(window.location.search).toBe('');
+  });
+
+  it('keeps any other query parameters when it removes the marker', async () => {
+    await setup('?connected=youtube&debug=1');
+    await flush();
+
+    expect(window.location.search).toBe('?debug=1');
+  });
+});
+
+describe('youtubeConnectionRefresh without a connect', () => {
+  // The expensive case: an ordinary page load already renders the list with YouTube state from the
+  // cookie, so refetching would list every playlist on both services again for nothing.
+  it('does nothing on a plain page load', async () => {
+    const ajax = await setup('');
+    await flush();
+
+    expect(ajax).not.toHaveBeenCalled();
+  });
+
+  it.each([['?connected=spotify'], ['?connected='], ['?connected=youtube2'], ['?other=youtube']])(
+    'does nothing for %s',
+    async (search) => {
+      const ajax = await setup(search);
+      await flush();
+
+      expect(listRefetches(ajax)).toHaveLength(0);
+    },
+  );
+
+  it('no longer responds to a status render announcing a connection', async () => {
+    const ajax = await setup('');
+    document.body.dispatchEvent(new Event('youtubeConnected'));
+    await flush();
+
+    expect(ajax).not.toHaveBeenCalled();
+  });
+});
+
+describe('youtubeConnectionRefresh on a page without the list', () => {
+  it('does nothing when there is no playlist container', async () => {
+    window.history.replaceState({}, '', '/?connected=youtube');
+    document.body.innerHTML = '';
+    const ajax = vi.fn(() => Promise.resolve());
+    (window as any).htmx = { ajax };
+    vi.resetModules();
+    await import('../../public/js/youtubeConnectionRefresh.js');
+    await flush();
+
+    expect(ajax).not.toHaveBeenCalled();
   });
 });

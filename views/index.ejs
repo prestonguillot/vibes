@@ -34,9 +34,12 @@
                         <div class="card h-100">
                             <div class="card-body text-center">
                                 <h5 class="card-title">SPOTIFY</h5>
+                                <%# Loaded once. Every operation validates and refreshes its own
+                                    token on demand, so polling keeps nothing alive - it would only
+                                    re-check a connection nobody is using. %>
                                 <div id="spotify-status"
                                      hx-get="/api/status/spotify/button"
-                                     hx-trigger="load, every 5m"
+                                     hx-trigger="load"
                                      hx-swap="innerHTML">
                                     <button class="btn btn-success connect-btn disabled" disabled>
                                         <span class="d-flex align-items-center justify-content-center">
@@ -54,7 +57,7 @@
                                 <h5 class="card-title">YOUTUBE</h5>
                                 <div id="youtube-status"
                                      hx-get="/api/status/youtube/button"
-                                     hx-trigger="load, every 5m"
+                                     hx-trigger="load"
                                      hx-swap="innerHTML">
                                     <button class="btn btn-danger connect-btn disabled" disabled>
                                         <span class="d-flex align-items-center justify-content-center">
