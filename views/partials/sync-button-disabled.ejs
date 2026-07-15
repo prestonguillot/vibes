@@ -1,3 +1,5 @@
-<button class="btn btn-secondary sync-btn" disabled<% if (title) { %> title="<%= title %>"<% } %>>
+<%# title is optional, so it must be probed with typeof - a bare `if (title)` throws
+    "title is not defined" for the callers that omit it, taking the whole render with it. %>
+<button class="btn btn-secondary sync-btn" disabled<% if (typeof title !== 'undefined' && title) { %> title="<%= title %>"<% } %>>
   <%= message %>
 </button>
