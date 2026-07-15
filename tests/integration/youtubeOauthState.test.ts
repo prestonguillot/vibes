@@ -8,6 +8,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import request from 'supertest';
+import { findSetCookie, setCookies } from '@tests/helpers/httpCookies';
 import { createApp } from '../../src/app';
 
 const app = createApp();
@@ -23,9 +24,7 @@ describe('GET /auth/youtube/login - OAuth state', () => {
   it('sets a non-empty youtube_oauth_state cookie with SameSite=Lax', async () => {
     const response = await request(app).get('/auth/youtube/login').expect(302);
 
-    const stateCookie = ([] as string[])
-      .concat(response.headers['set-cookie'])
-      .find((c) => c.startsWith('youtube_oauth_state='));
+    const stateCookie = findSetCookie(response, 'youtube_oauth_state');
 
     expect(stateCookie).toBeDefined();
     expect(stateCookie).not.toMatch(/^youtube_oauth_state=;/);
@@ -37,9 +36,7 @@ describe('GET /auth/youtube/login - OAuth state', () => {
   it('passes the same state to Google in the authorize URL', async () => {
     const response = await request(app).get('/auth/youtube/login').expect(302);
 
-    const stateCookie = ([] as string[])
-      .concat(response.headers['set-cookie'])
-      .find((c) => c.startsWith('youtube_oauth_state='))!;
+    const stateCookie = findSetCookie(response, 'youtube_oauth_state')!;
     const cookieValue = decodeURIComponent(stateCookie.split(';')[0]!.split('=')[1]!);
 
     const authorizeUrl = new URL(response.headers['location']!);
@@ -57,7 +54,7 @@ describe('GET /auth/youtube/callback - OAuth state verification', () => {
     expect(response.status).toBe(302);
     expect(response.headers['location']).toBe('/?error=youtube&reason=state_mismatch');
     // The rejection must happen before any token exchange - no tokens may be set.
-    const setCookie = ([] as string[]).concat(response.headers['set-cookie'] ?? []);
+    const setCookie = setCookies(response);
     expect(setCookie.some((c) => c.startsWith('youtube_tokens='))).toBe(false);
   });
 
@@ -86,7 +83,7 @@ describe('GET /auth/youtube/callback - OAuth state verification', () => {
       .set('Cookie', 'youtube_oauth_state=expected-state')
       .query({ code: CODE, state: 'wrong' });
 
-    const setCookie = ([] as string[]).concat(response.headers['set-cookie'] ?? []);
+    const setCookie = setCookies(response);
     expect(setCookie.some((c) => /^youtube_oauth_state=;/.test(c))).toBe(true);
   });
 

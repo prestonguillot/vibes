@@ -12,7 +12,6 @@
  */
 import { test } from '@playwright/test';
 import { argosScreenshot } from '@argos-ci/playwright';
-import fs from 'fs';
 import path from 'path';
 import ejs from 'ejs';
 import { CSS, ROOT, renderString, playlistItem, setTheme, currentTheme } from './helpers';

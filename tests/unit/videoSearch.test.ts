@@ -60,7 +60,7 @@ describe('searchTracksForVideos', () => {
     const { videoIds, searchResults } = await searchTracksForVideos([item('t1', 'One')], baseOpts);
     expect(videoIds).toEqual([]);
     expect(searchResults[0]).toMatchObject({ found: false, spotifyTrackId: 't1' });
-    expect(searchResults[0].videoId).toBeUndefined();
+    expect(searchResults[0]!.videoId).toBeUndefined();
   });
 
   it('skips items that are not of type track', async () => {
@@ -82,7 +82,7 @@ describe('searchTracksForVideos', () => {
       baseOpts,
     );
     expect(videoIds).toEqual(['v2']);
-    expect(searchResults[0].found).toBe(false);
-    expect(searchResults[1].found).toBe(true);
+    expect(searchResults[0]!.found).toBe(false);
+    expect(searchResults[1]!.found).toBe(true);
   });
 });

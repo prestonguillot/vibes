@@ -255,8 +255,8 @@ describe('getUserPlaylists', () => {
 
     expect(playlists.map((p) => p.id)).toEqual(['p1', 'p2']);
     expect(mockFetch).toHaveBeenCalledTimes(2);
-    expect(mockFetch.mock.calls[0][0]).toContain('offset=0');
-    expect(mockFetch.mock.calls[1][0]).toContain('offset=50');
+    expect(mockFetch.mock.calls[0]![0]).toContain('offset=0');
+    expect(mockFetch.mock.calls[1]![0]).toContain('offset=50');
   });
 });
 

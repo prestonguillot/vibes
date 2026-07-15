@@ -43,8 +43,8 @@ describe('fetchAllPlaylistItems', () => {
     const items = await fetchAllPlaylistItems('token', 'pl1');
 
     expect(items).toHaveLength(2);
-    expect(items[0].track?.id).toBe('a');
-    expect(items[1].track?.name).toBe('Track b');
+    expect(items[0]!.track?.id).toBe('a');
+    expect(items[1]!.track?.name).toBe('Track b');
   });
 
   it('falls back to the deprecated `track` field when `item` is absent', async () => {
@@ -57,7 +57,7 @@ describe('fetchAllPlaylistItems', () => {
 
     const items = await fetchAllPlaylistItems('token', 'pl1');
 
-    expect(items[0].track?.id).toBe('legacy');
+    expect(items[0]!.track?.id).toBe('legacy');
   });
 
   it('paginates: a full page is followed by another request, a short page stops it', async () => {
@@ -77,7 +77,7 @@ describe('fetchAllPlaylistItems', () => {
 
     await fetchAllPlaylistItems('my-token', 'pl-xyz');
 
-    const [url, options] = mockedFetch.mock.calls[0];
+    const [url, options] = mockedFetch.mock.calls[0]!;
     expect(String(url)).toContain('/playlists/pl-xyz/items');
     expect((options as any).headers.Authorization).toBe('Bearer my-token');
   });

@@ -73,19 +73,12 @@ describe('Circuit Breaker Integration', () => {
       expect(state.nextAttemptTime).toBeGreaterThan(Date.now());
     });
 
-    it('should clear YouTube tokens when circuit breaker opens', () => {
-      // Simulate setting a YouTube token cookie
-      const mockResponse = {
-        clearCookie: vi.fn(),
-        cookie: vi.fn(),
-      };
-
-      // Open circuit breaker
+    // The token-clearing that follows from this is asserted where it happens, against the real
+    // validator: see tests/unit/authValidationQuota.test.ts.
+    it('refuses further calls once the breaker opens', () => {
       youtubeCircuitBreaker.open();
-      expect(youtubeCircuitBreaker.isOpen()).toBe(true);
 
-      // When circuit breaker is open and we try to validate, tokens should be cleared
-      // This is tested in the actual route/validation code behavior
+      expect(youtubeCircuitBreaker.isOpen()).toBe(true);
       expect(youtubeCircuitBreaker.canProceed()).toBe(false);
     });
   });

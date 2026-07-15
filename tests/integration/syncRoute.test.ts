@@ -22,7 +22,9 @@ const h = vi.hoisted(() => ({
   playlistsList: vi.fn(),
   playlistsInsert: vi.fn(),
   playlistItemsList: vi.fn(),
-  reconcilePlaylist: vi.fn(() => Promise.resolve({ inserted: 0, deleted: 0, moved: 0 })),
+  reconcilePlaylist: vi.fn<typeof import('@/sync/playlistReconcile').reconcilePlaylist>(() =>
+    Promise.resolve({ inserted: 0, deleted: 0, moved: 0 }),
+  ),
 }));
 
 vi.mock('@/spotify/auth', () => ({

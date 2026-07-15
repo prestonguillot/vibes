@@ -225,9 +225,11 @@ describe('Validation Schemas', () => {
       expect(trueResult === true).toBe(true);
       expect(falseResult === false).toBe(true);
 
-      // These should fail (the bug we fixed)
-      expect(trueResult === 'true').toBe(false);
-      expect(falseResult === 'false').toBe(false);
+      // The bug this describes - comparing the parsed flag to the STRING 'true' - could never
+      // match, because the schema hands back a boolean. Assert that, rather than re-asserting
+      // that a boolean is not a string.
+      expect(typeof trueResult).toBe('boolean');
+      expect(typeof falseResult).toBe('boolean');
     });
   });
 });

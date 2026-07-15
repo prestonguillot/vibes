@@ -5,6 +5,7 @@
 
 import { describe, it, expect } from 'vitest';
 import request from 'supertest';
+import { findSetCookie, setCookies } from '@tests/helpers/httpCookies';
 import { createApp } from '@/app';
 
 const app = createApp();
@@ -35,11 +36,8 @@ describe('Main Page', () => {
     it('should set CSRF cookie', async () => {
       const response = await request(app).get('/');
 
-      expect(response.headers['set-cookie']).toBeDefined();
-      const csrfCookie = response.headers['set-cookie']?.find((cookie: string) =>
-        cookie.startsWith('csrf_token='),
-      );
-      expect(csrfCookie).toBeDefined();
+      expect(setCookies(response)).not.toHaveLength(0);
+      expect(findSetCookie(response, 'csrf_token')).toBeDefined();
     });
   });
 });
