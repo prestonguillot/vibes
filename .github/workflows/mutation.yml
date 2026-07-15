@@ -64,6 +64,13 @@ jobs:
       # The dashboard reporter is added here rather than in stryker.config.json so that a local run
       # does not try to publish, and so per-branch runs do not clutter the project's history. It
       # takes project + version from the Actions environment.
+      #
+      # Concurrency is left to stryker, which reads the machine: n-1 workers, or n when n <= 4.
+      # A runner has 4 cores and a dev machine has more, so a number pinned in the config is wrong
+      # on both - it was 6, which oversubscribed this runner by half and left a 10-core machine a
+      # third idle. Oversubscribing does not only cost time: a mutant is scored killed when it
+      # times out, the timeout is 5000ms + 1.5x the measured test time, and workers fighting for a
+      # core push slow-but-surviving mutants over that line. It buys a score with contention.
       - name: Run every mutant
         run: npm run test:mutation -- --reporters dashboard,html,json,clear-text,progress
         env:

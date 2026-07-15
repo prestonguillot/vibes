@@ -26,7 +26,6 @@
   "jsonReporter": {
     "fileName": "reports/mutation/report.json"
   },
-  "concurrency": 6,
   "incremental": true,
   "incrementalFile": "reports/stryker-incremental.json"
 }
