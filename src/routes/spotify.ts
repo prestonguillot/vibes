@@ -1,5 +1,6 @@
 import { Router, Request } from 'express';
 import { createYoutubeClient, YoutubeApiError, YtPlaylist } from '../youtube/client';
+import { ensureValidYouTubeToken } from '../youtube/auth';
 import { Logger } from '../lib/logger';
 import { getSecureCookieOptions } from '../auth/cookieParser';
 import { validate, schemas, ValidatedRequest } from '../lib/validation';
@@ -138,9 +139,26 @@ router.get(
       const user = await getCurrentUser(accessToken);
       const currentUserId = user.id;
 
-      // Set up the YouTube client to check for existing playlists (when connected)
+      // Set up the YouTube client to check for existing playlists (when connected).
+      //
+      // Through ensureValidYouTubeToken, not the cookie's access token directly: that token lasts
+      // about an hour, and this page is the first thing loaded after the app has been left alone
+      // for longer than that. A dead token fails the playlist read below, which is caught and
+      // treated as "no YouTube playlists exist" - so every playlist renders as unsynced while the
+      // connection button, which only looks for the cookie, still says connected.
       let youtubeTokens = parseYouTubeTokenCookie(req.cookies.youtube_tokens, res);
-      const youtube = youtubeTokens ? createYoutubeClient(youtubeTokens.access_token) : null;
+      let youtube = null;
+      if (youtubeTokens) {
+        try {
+          youtube = (await ensureValidYouTubeToken(req as Request, res)).client;
+        } catch (error) {
+          // The refresh itself failed, so the connection really is gone. Say so rather than
+          // reporting a synced library as unsynced.
+          Logger.warn('YouTube token could not be refreshed for the playlist list', {}, error);
+          res.clearCookie('youtube_tokens');
+          youtubeTokens = null;
+        }
+      }
 
       // Get Spotify playlists (paginated, null-filtered and typed by the client)
       let spotifyPlaylists = await getUserPlaylists(accessToken);
