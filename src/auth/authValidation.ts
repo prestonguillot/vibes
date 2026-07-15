@@ -1,21 +1,23 @@
-import { Response } from 'express';
-import { createYoutubeClient, refreshYoutubeAccessToken } from '../youtube/client';
-import { Logger } from '../lib/logger';
-import { SpotifyTokens, YouTubeTokens } from '../types/oauth';
-import { youtubeCircuitBreaker, spotifyCircuitBreaker } from '../lib/circuitBreaker';
-import { getCurrentUser, refreshAccessToken, SpotifyApiError } from '../spotify/client';
-
 /**
- * Cookie configuration for authentication tokens
+ * Connection status for the UI.
+ *
+ * The token work itself - validate, refresh on 401, rewrite the cookie - is NOT here: it lives
+ * once per service in spotify/auth.ts and youtube/auth.ts, which the per-request handlers use
+ * too. What remains is what only the status endpoint cares about: gating on the circuit breaker,
+ * feeding it, and turning an outcome into something the user can read.
  */
-export function getSecureCookieOptions() {
-  return {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production', // HTTPS only in production
-    maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-    sameSite: 'strict' as const, // Strict CSRF protection
-  };
-}
+
+import { Response } from 'express';
+import { Logger } from '../lib/logger';
+import { SpotifyTokens, TokenOutcome, YouTubeTokens } from '../types/oauth';
+import { youtubeCircuitBreaker, spotifyCircuitBreaker } from '../lib/circuitBreaker';
+import { resolveSpotifyToken } from '../spotify/auth';
+import { resolveYouTubeToken } from '../youtube/auth';
+
+/** The class itself is module-private; the shared helpers below only need its shape. */
+type Breaker = typeof spotifyCircuitBreaker;
+
+type Service = 'Spotify' | 'YouTube';
 
 /**
  * Connection validation result with optional error details
@@ -24,6 +26,82 @@ export interface ConnectionResult {
   connected: boolean;
   error?: string; // User-friendly error message
   errorCode?: string | number; // Technical error code for logging
+}
+
+/**
+ * Turn a resolved token into a connection result, keeping the circuit breaker honest.
+ *
+ * The breaker reflects API health only: a success (or a successful refresh) clears it, the
+ * service's own "you have had enough" status opens it, and a genuine failure (5xx/network) counts
+ * against it. An expired token never touches it - that is routine, not ill health.
+ *
+ * @param quotaStatus The status this service uses to say a limit was hit (429 Spotify, 403 YouTube).
+ */
+function toConnectionResult(
+  service: Service,
+  cookieName: string,
+  breaker: Breaker,
+  quotaStatus: number,
+  outcome: TokenOutcome,
+  res: Response,
+): ConnectionResult {
+  if (outcome.status === 'valid' || outcome.status === 'refreshed') {
+    breaker.recordSuccess();
+    Logger.auth(service, 'connection validated');
+    return { connected: true };
+  }
+
+  if (outcome.status === 'expired') {
+    Logger.auth(service, 'connection invalid - credentials expired');
+    res.clearCookie(cookieName);
+    return {
+      connected: false,
+      error: `${service} credentials expired. Please reconnect.`,
+      errorCode: 401,
+    };
+  }
+
+  const { statusCode, error } = outcome;
+  Logger.auth(service, 'connection invalid', {
+    error: error instanceof Error ? error.message : 'Unknown error',
+    statusCode,
+  });
+  res.clearCookie(cookieName);
+
+  // The service told us to back off - stop calling it until it resets.
+  if (statusCode === quotaStatus) {
+    breaker.open();
+    return {
+      connected: false,
+      error: `${service} API quota exceeded. Please try again later.`,
+      errorCode: quotaStatus,
+    };
+  }
+
+  // Genuine API-health failure (5xx / network) - this is what the circuit breaker is for.
+  breaker.recordFailure(error);
+  return {
+    connected: false,
+    error: `Unable to validate ${service} connection. Please try reconnecting.`,
+    errorCode: statusCode,
+  };
+}
+
+/** Refuse to call a service the breaker has already given up on; show it as disconnected. */
+function breakerOpenResult(
+  service: Service,
+  cookieName: string,
+  breaker: Breaker,
+  res: Response,
+): ConnectionResult {
+  Logger.auth(service, 'circuit breaker is OPEN, clearing tokens', { state: breaker.getState() });
+  // Clear tokens so user sees disconnected state
+  res.clearCookie(cookieName);
+  return {
+    connected: false,
+    error: `${service} API quota exceeded. Please try again later.`,
+    errorCode: 'CIRCUIT_BREAKER_OPEN',
+  };
 }
 
 /**
@@ -38,80 +116,12 @@ export async function validateSpotifyConnection(
     return { connected: false };
   }
 
-  // Check circuit breaker before making API call
   if (!spotifyCircuitBreaker.canProceed()) {
-    Logger.auth('Spotify', 'circuit breaker is OPEN, clearing tokens', {
-      state: spotifyCircuitBreaker.getState(),
-    });
-    // Clear tokens so user sees disconnected state
-    res.clearCookie('spotify_tokens');
-    return {
-      connected: false,
-      error: 'Spotify API quota exceeded. Please try again later.',
-      errorCode: 'CIRCUIT_BREAKER_OPEN',
-    };
+    return breakerOpenResult('Spotify', 'spotify_tokens', spotifyCircuitBreaker, res);
   }
 
-  try {
-    // Test with a lightweight API call
-    await getCurrentUser(spotifyTokens.accessToken);
-    Logger.auth('Spotify', 'connection validated');
-    spotifyCircuitBreaker.recordSuccess();
-    return { connected: true };
-  } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    const statusCode = error instanceof SpotifyApiError ? error.status : undefined;
-    Logger.auth('Spotify', 'connection invalid', { error: errorMessage, statusCode });
-
-    // 401 = the access token expired/was rejected - routine and refreshable, NOT an API-health
-    // failure, so it must never count against the breaker. Try to refresh; a failed/absent refresh
-    // falls through to the reconnect path below.
-    if (statusCode === 401 && spotifyTokens.refreshToken) {
-      try {
-        const refreshed = await refreshAccessToken(spotifyTokens.refreshToken);
-        // Spotify may not return a new refresh token; reuse the stored one.
-        const updatedTokens = {
-          ...spotifyTokens,
-          accessToken: refreshed.accessToken,
-          refreshToken: refreshed.refreshToken ?? spotifyTokens.refreshToken,
-        };
-        res.cookie('spotify_tokens', JSON.stringify(updatedTokens), getSecureCookieOptions());
-        spotifyCircuitBreaker.recordSuccess();
-        Logger.auth('Spotify', 'token refreshed successfully');
-        return { connected: true };
-      } catch (refreshError) {
-        Logger.warn('Spotify token refresh failed', {}, refreshError);
-      }
-    }
-    if (statusCode === 401) {
-      res.clearCookie('spotify_tokens');
-      return {
-        connected: false,
-        error: 'Spotify credentials expired. Please reconnect.',
-        errorCode: 401,
-      };
-    }
-
-    // Rate limit / quota (429) - open the breaker so we back off until it resets.
-    if (statusCode === 429) {
-      spotifyCircuitBreaker.open();
-      res.clearCookie('spotify_tokens');
-      return {
-        connected: false,
-        error: 'Spotify API quota exceeded. Please try again later.',
-        errorCode: 429,
-      };
-    }
-
-    // Genuine API-health failure (5xx / network) - this is what the circuit breaker is for.
-    spotifyCircuitBreaker.recordFailure(error);
-    res.clearCookie('spotify_tokens');
-    return {
-      connected: false,
-      error: 'Unable to validate Spotify connection. Please try reconnecting.',
-      errorCode: statusCode,
-    };
-  }
+  const outcome = await resolveSpotifyToken(spotifyTokens, res);
+  return toConnectionResult('Spotify', 'spotify_tokens', spotifyCircuitBreaker, 429, outcome, res);
 }
 
 /**
@@ -126,78 +136,10 @@ export async function validateYouTubeConnection(
     return { connected: false };
   }
 
-  // Check circuit breaker before making API call
   if (!youtubeCircuitBreaker.canProceed()) {
-    Logger.auth('YouTube', 'circuit breaker is OPEN, clearing tokens', {
-      state: youtubeCircuitBreaker.getState(),
-    });
-    // Clear tokens so user sees disconnected state
-    res.clearCookie('youtube_tokens');
-    return {
-      connected: false,
-      error: 'YouTube API quota exceeded. Please try again later.',
-      errorCode: 'CIRCUIT_BREAKER_OPEN',
-    };
+    return breakerOpenResult('YouTube', 'youtube_tokens', youtubeCircuitBreaker, res);
   }
 
-  try {
-    const youtube = createYoutubeClient(youtubeTokens.access_token);
-
-    // Test with a lightweight API call
-    await youtube.channels.list({ part: ['id'], mine: true, maxResults: 1 });
-    Logger.auth('YouTube', 'connection validated');
-    youtubeCircuitBreaker.recordSuccess();
-    return { connected: true };
-  } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    const errorCode = (error as { code?: number }).code;
-    Logger.auth('YouTube', 'connection invalid', { error: errorMessage, code: errorCode });
-
-    // 401 = the access token expired/was rejected. This is ROUTINE (tokens expire hourly) and
-    // recoverable by refresh - it is NOT an API-health failure, so it must never count against the
-    // circuit breaker (counting it was what tripped the breaker on every expiry, then wiped valid
-    // tokens and broke "Connect YouTube"). Try to refresh; a failed/absent refresh falls through to
-    // the reconnect path below.
-    if (errorCode === 401 && youtubeTokens.refresh_token) {
-      try {
-        const refreshed = await refreshYoutubeAccessToken(youtubeTokens.refresh_token);
-        const updatedTokens = { ...youtubeTokens, ...refreshed };
-        res.cookie('youtube_tokens', JSON.stringify(updatedTokens), getSecureCookieOptions());
-        youtubeCircuitBreaker.recordSuccess();
-        Logger.auth('YouTube', 'token refreshed successfully');
-        return { connected: true };
-      } catch (refreshError) {
-        Logger.warn('YouTube token refresh failed', {}, refreshError);
-      }
-    }
-    if (errorCode === 401) {
-      // Expired with no way to refresh (prompt=consent at connect prevents this going forward).
-      res.clearCookie('youtube_tokens');
-      return {
-        connected: false,
-        error: 'YouTube credentials expired. Please reconnect.',
-        errorCode: 401,
-      };
-    }
-
-    // Quota (403) - open the breaker so we stop hammering YouTube until it resets.
-    if (errorCode === 403) {
-      youtubeCircuitBreaker.open();
-      res.clearCookie('youtube_tokens');
-      return {
-        connected: false,
-        error: 'YouTube API quota exceeded. Please try again later.',
-        errorCode: 403,
-      };
-    }
-
-    // Genuine API-health failure (5xx / network) - this is what the circuit breaker is for.
-    youtubeCircuitBreaker.recordFailure(error);
-    res.clearCookie('youtube_tokens');
-    return {
-      connected: false,
-      error: 'Unable to validate YouTube connection. Please try reconnecting.',
-      errorCode: errorCode,
-    };
-  }
+  const outcome = await resolveYouTubeToken(youtubeTokens, res);
+  return toConnectionResult('YouTube', 'youtube_tokens', youtubeCircuitBreaker, 403, outcome, res);
 }

@@ -2,6 +2,15 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { validateYouTubeConnection } from '../../src/auth/authValidation';
 import { youtubeCircuitBreaker } from '../../src/lib/circuitBreaker';
 import { YouTubeTokens } from '../../src/types/oauth';
+import { YoutubeApiError } from '../../src/youtube/client';
+
+/**
+ * Exactly what src/youtube/client.ts throws for a non-ok response. These used to be plain
+ * literals ({ code: 401 }) - a shape the client never produces - which only passed because the
+ * old code duck-typed the status off `any` error.
+ */
+const apiError = (code: number, message: string, reason?: string) =>
+  new YoutubeApiError(message, code, reason);
 
 // Mock the hand-written YouTube client. createYoutubeClient returns a shared
 // client whose channels.list can be overridden per test; refresh is stubbed.
@@ -29,10 +38,14 @@ describe('YouTube Auth Validation - Quota Handling', () => {
       cookie: vi.fn(),
     };
 
-    // Mock YouTube tokens
+    // A cookie's worth of YouTube tokens. scope/token_type are not optional garnish: the schema
+    // requires them, and parseYouTubeTokenCookie validates against that same schema on the way in,
+    // so tokens reaching this code always carry them.
     mockYoutubeTokens = {
       access_token: 'mock_access_token',
       refresh_token: 'mock_refresh_token',
+      scope: 'https://www.googleapis.com/auth/youtube',
+      token_type: 'Bearer',
       expiry_date: Date.now() + 3600000,
     };
 
@@ -74,10 +87,7 @@ describe('YouTube Auth Validation - Quota Handling', () => {
   describe('Quota Error Detection', () => {
     it('should clear tokens on 403 quota error', async () => {
       // Mock YouTube API to throw 403 error
-      yt.channelsList.mockRejectedValue({
-        code: 403,
-        message: 'Quota exceeded',
-      });
+      yt.channelsList.mockRejectedValue(apiError(403, 'Quota exceeded', 'quotaExceeded'));
 
       const result = await validateYouTubeConnection(mockYoutubeTokens, mockResponse);
 
@@ -91,7 +101,7 @@ describe('YouTube Auth Validation - Quota Handling', () => {
 
   describe('401 token expiry does not trip the circuit breaker', () => {
     it('refreshes on 401 and stays connected without recording a failure', async () => {
-      yt.channelsList.mockRejectedValueOnce({ code: 401, message: 'Invalid credentials' });
+      yt.channelsList.mockRejectedValueOnce(apiError(401, 'Invalid credentials'));
       yt.refresh.mockResolvedValueOnce({ access_token: 'refreshed_access_token' });
 
       const result = await validateYouTubeConnection(mockYoutubeTokens, mockResponse);
@@ -108,7 +118,7 @@ describe('YouTube Auth Validation - Quota Handling', () => {
     });
 
     it('does NOT open the breaker after repeated 401s (routine expiry, not an API failure)', async () => {
-      yt.channelsList.mockRejectedValue({ code: 401, message: 'Invalid credentials' });
+      yt.channelsList.mockRejectedValue(apiError(401, 'Invalid credentials'));
       yt.refresh.mockRejectedValue(new Error('refresh failed'));
 
       // Well past the failure threshold (2) - none of these should count against the breaker.
@@ -120,9 +130,29 @@ describe('YouTube Auth Validation - Quota Handling', () => {
       expect(youtubeCircuitBreaker.isOpen()).toBe(false);
     });
 
+    // The refresh path used to write the cookie with a raw JSON.stringify, bypassing the schema
+    // that every other write goes through - so a bad refresh response was persisted, and only blew
+    // up later when the cookie was read back. Both callers now share one validated write.
+    it('does not persist a refreshed token that fails validation', async () => {
+      yt.channelsList.mockRejectedValueOnce(apiError(401, 'Invalid credentials'));
+      yt.refresh.mockResolvedValueOnce({ access_token: '' }); // schema requires a non-empty token
+
+      const result = await validateYouTubeConnection(mockYoutubeTokens, mockResponse);
+
+      expect(mockResponse.cookie).not.toHaveBeenCalled();
+      expect(result.connected).toBe(false);
+      expect(result.errorCode).toBe(401);
+      expect(youtubeCircuitBreaker.isOpen()).toBe(false);
+    });
+
     it('clears tokens and asks to reconnect when there is no refresh token', async () => {
-      yt.channelsList.mockRejectedValueOnce({ code: 401, message: 'Invalid credentials' });
-      const noRefresh = { access_token: 'a', expiry_date: Date.now() + 3600000 } as YouTubeTokens;
+      yt.channelsList.mockRejectedValueOnce(apiError(401, 'Invalid credentials'));
+      const noRefresh: YouTubeTokens = {
+        access_token: 'a',
+        scope: 'https://www.googleapis.com/auth/youtube',
+        token_type: 'Bearer',
+        expiry_date: Date.now() + 3600000,
+      };
 
       const result = await validateYouTubeConnection(noRefresh, mockResponse);
 
@@ -202,10 +232,7 @@ describe('YouTube Auth Validation - Quota Handling', () => {
     });
 
     it('should return quota exceeded error message on 403 response', async () => {
-      yt.channelsList.mockRejectedValueOnce({
-        code: 403,
-        message: 'Quota exceeded',
-      });
+      yt.channelsList.mockRejectedValueOnce(apiError(403, 'Quota exceeded', 'quotaExceeded'));
 
       const result = await validateYouTubeConnection(mockYoutubeTokens, mockResponse);
 
@@ -215,10 +242,7 @@ describe('YouTube Auth Validation - Quota Handling', () => {
     });
 
     it('should return generic error message for non-quota errors', async () => {
-      yt.channelsList.mockRejectedValueOnce({
-        code: 500,
-        message: 'Internal server error',
-      });
+      yt.channelsList.mockRejectedValueOnce(apiError(500, 'Internal server error'));
 
       const result = await validateYouTubeConnection(mockYoutubeTokens, mockResponse);
 
