@@ -230,8 +230,8 @@ function requireAccessToken(data: Record<string, unknown>, operation: string): s
 /**
  * Seconds until the access token expires.
  *
- * A missing/garbage expires_in used to coerce to 0, making expiry_date === Date.now(): the token
- * was born expired, so every subsequent request treated it as stale and tried to refresh it.
+ * A missing or garbage expires_in must not coerce to 0: that makes expiry_date === Date.now(), so
+ * the token is born expired and every subsequent request treats it as stale and refreshes it.
  */
 function tokenLifetimeSeconds(data: Record<string, unknown>, operation: string): number {
   const expiresIn = Number(data.expires_in);

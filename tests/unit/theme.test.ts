@@ -4,8 +4,7 @@
  * Tests for public/js/theme.js and public/js/themeToggle.js - the light/dark theme.
  *
  * theme.js runs in <head> before first paint, so a mistake here is a visible flash of the wrong
- * theme (or, in the localStorage-throws case, the whole page failing to render its tokens). Both
- * files were at 0% coverage.
+ * theme (or, in the localStorage-throws case, the whole page failing to render its tokens).
  *
  * Both set data-theme AND data-bs-theme: the first drives our tokens, the second drives Bootstrap
  * 5.3's own dark mode (alert backgrounds, the btn-close X, form controls). Dropping either leaves

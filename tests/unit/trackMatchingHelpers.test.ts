@@ -1,10 +1,9 @@
 /**
  * Direct tests for the pure helpers behind the matcher.
  *
- * These were reachable only through calculateMatchScore, which meant nothing pinned them: mutation
- * testing showed ~90 surviving mutants in extractCoreTitle's metadata regexes alone, every boundary
- * in scoreToColor (asserted only as `toMatch(/^rgb\(/)`), and `Math.min -> Math.max` inside the
- * Levenshtein distance. A wrong answer here is not an error, it is a wrong video.
+ * Driving them through calculateMatchScore only reaches them indirectly, and a wrong answer here is
+ * not an error - it is a wrong video. Each is exported so its own contract can be pinned: the
+ * metadata regexes, the colour ramp boundaries, and the Levenshtein distance.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -62,9 +61,8 @@ describe('extractCoreTitle', () => {
     expect(extractCoreTitle(title)).toBe(expected);
   });
 
-  // Regression: a metadata pattern used to strip ", Pt. 2" outright, so every part of a track
-  // collapsed to the same core - "Song, Pt. 2" and "Song, Pt. 3" both became "song" and contested
-  // each other's video at an identical 0.6. The part number is the whole distinction.
+  // The part number is the whole distinction between siblings: drop it and "Song, Pt. 2" and
+  // "Song, Pt. 3" share a core, score identically against the same video, and contest it.
   it.each([
     ['Song, Pt. 2', 'song pt 2'],
     ['Song, Pt. 3', 'song pt 3'],
@@ -112,8 +110,8 @@ describe('calculateStringSimilarity', () => {
     expect(calculateStringSimilarity('abc', 'xyz')).toBe(0);
   });
 
-  // The classic Levenshtein fixture: kitten -> sitting is 3 edits. This is what pins the
-  // Math.min over the deletion/insertion/substitution costs; Math.max passes every vaguer test.
+  // The classic Levenshtein fixture: kitten -> sitting is 3 edits. An exact distance is what pins
+  // the Math.min over the deletion/insertion/substitution costs.
   it('scores kitten/sitting as 1 - 3/7', () => {
     expect(calculateStringSimilarity('kitten', 'sitting')).toBeCloseTo(1 - 3 / 7, 10);
   });
@@ -164,8 +162,7 @@ describe('isKnownLabel', () => {
 });
 
 describe('scoreToColor', () => {
-  // Four ramps meeting at 0.4 / 0.6 / 0.8. Every boundary and every arithmetic term here survived
-  // mutation because the only assertion anywhere was `toMatch(/^rgb\(/)`.
+  // Four ramps meeting at 0.4 / 0.6 / 0.8.
   it.each([
     [0, 'rgb(255, 0, 0)'],
     [0.2, 'rgb(255, 68, 0)'],

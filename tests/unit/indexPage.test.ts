@@ -2,7 +2,6 @@
  * @vitest-environment happy-dom
  *
  * Tests for public/js/indexPage.js: the OAuth error dialog and opening video thumbnails.
- * Shipped on every page load via index.ejs, and at 0% coverage.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';

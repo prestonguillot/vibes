@@ -183,7 +183,7 @@ describe('titles that normalize to an empty core', () => {
   };
 
   // extractCoreTitle/normalizeText can reduce a name to ''. `x.includes('')` is always true in JS,
-  // so an empty core used to score 0.6 (+0.15 artist) against EVERY video - over the 0.4 threshold.
+  // so an unguarded empty core scores 0.6 (+0.15 artist) against EVERY video - over the threshold.
   it.each(['(Live)', '   ', '...', '(Official Video)'])(
     'does not award a core-title match for %j',
     (name) => {

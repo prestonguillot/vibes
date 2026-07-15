@@ -1,10 +1,9 @@
 /**
- * Route tests for the sync handler - the critical path that previously wiped a
- * playlist. These pin the desired order passed to reconcile across the main
- * branches (re-sync unchanged, update with a new track, create, create with no
- * matches) so a future refactor of the handler can't silently regress it.
+ * Route tests for the sync handler - the path that rewrites a whole playlist, where a wrong
+ * desired order costs the user their playlist. These pin the order passed to reconcile across the
+ * main branches (re-sync unchanged, update with a new track, create, create with no matches).
  *
- * The sync now runs inside the SSE stream route (GET /playlist/:id/stream), which
+ * The sync runs inside the SSE stream route (GET /playlist/:id/stream), which
  * streams progress + the final result as `event: message` frames; supertest reads
  * the whole streamed body. reconcilePlaylist is spied (its planner + safety rail
  * are unit-tested separately); everything else is mocked so no real API is hit.
@@ -185,8 +184,7 @@ describe('GET /api/sync/playlist/:id/stream', () => {
     h.playlistsList.mockResolvedValue({ data: { items: [] } }); // create mode
     h.searchMusicVideo.mockResolvedValue('v1');
     // Exactly what the client throws for a 403 quota response; youtubeWrite turns it into a
-    // YoutubeQuotaError. (This used to reject a googleapis-shaped literal, a shape nothing has
-    // thrown since that dependency was dropped.)
+    // YoutubeQuotaError.
     h.playlistsInsert.mockRejectedValue(
       new YoutubeApiError('YouTube API error (403): quota', 403, 'quotaExceeded'),
     );

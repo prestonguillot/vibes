@@ -1,14 +1,11 @@
 /**
  * Tests for the hand-written YouTube client (src/youtube/client.ts).
  *
- * createYoutubeClient's seven methods were NEVER constructed by any test: everywhere a client is
- * needed the suite substitutes a hand-built fake, so the real request construction - verb, path,
- * `part` joining, which params are forwarded, the 204 handling, the error mapping - was entirely
- * unexecuted. 138 mutants, 72 with no coverage at all.
+ * Elsewhere in the suite the client is a hand-built fake, so these drive the real one: the verb,
+ * path, `part` joining, which params are forwarded, the 204 handling and the error mapping.
  *
- * This is the layer that turns a YouTube response into YoutubeApiError.code/.reason, which is what
- * classifyYoutubeError reads to decide whether the quota breaker opens. It got that wrong before
- * (#69) precisely because nothing tested this shape.
+ * The error mapping matters most - it produces the YoutubeApiError.code/.reason that
+ * classifyYoutubeError reads to decide whether the quota breaker opens.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';

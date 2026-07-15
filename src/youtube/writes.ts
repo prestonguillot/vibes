@@ -38,10 +38,8 @@ export type YoutubeFailure = 'quota' | 'rate-limit' | 'other';
 /**
  * The status and reason YouTube gave, if this is a YouTube API error at all.
  *
- * This used to read `errors[0].reason` and `response.status` - the googleapis error shape. That
- * dependency was replaced by the hand-written client, which parses the reason out of the body and
- * exposes it as YoutubeApiError.reason, so those fields no longer exist on anything thrown here
- * and every lookup silently returned undefined.
+ * YoutubeApiError is the only thing the client throws: it parses the reason out of the response
+ * body and exposes it directly, so there is no nested `errors[0].reason` to read here.
  */
 function youtubeErrorDetails(error: unknown): { status?: number; reason?: string } {
   if (!(error instanceof YoutubeApiError)) return {};

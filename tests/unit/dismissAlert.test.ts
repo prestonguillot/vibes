@@ -2,7 +2,6 @@
  * @vitest-environment happy-dom
  *
  * Tests for public/js/dismissAlert.js: a [data-alert-dismiss] control removes its closest .alert.
- * Small, but it is bound on every page load via index.ejs and was at 0% coverage.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';

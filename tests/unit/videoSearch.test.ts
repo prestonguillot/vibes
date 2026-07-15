@@ -23,7 +23,7 @@ const baseOpts = {
   emitProgress: () => {},
 };
 
-// File scope: this used to live inside the first describe, so the blocks below saw its calls.
+// File scope, so every block starts with a clean mock - not just the first describe.
 beforeEach(() => vi.clearAllMocks());
 
 describe('searchTracksForVideos', () => {
@@ -91,10 +91,8 @@ describe('searchTracksForVideos', () => {
 /**
  * Progress reporting, the abort signal, and rate limiting.
  *
- * These were unobservable by construction: `emitProgress` was a no-op stub (so ~20 mutants inside
- * the payload survived - message, details, currentTrack, percentage could all be anything), and
- * `totalTrackCount: 0` disabled the rate-limit branch in every test. Roughly 60% of the function
- * was never watched.
+ * baseOpts stubs emitProgress and sets totalTrackCount: 0 to keep the other tests fast, which
+ * leaves the progress payloads and the rate-limit branch unobserved. These watch both.
  */
 describe('searchTracksForVideos progress reporting', () => {
   const withProgress = (over: Partial<typeof baseOpts> = {}) => {
