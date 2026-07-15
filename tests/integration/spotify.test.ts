@@ -43,6 +43,17 @@ vi.mock('@/spotify/auth', () => ({
   ensureValidSpotifyToken: vi.fn(async () => 'test-access-token'),
 }));
 
+/**
+ * The playlist list resolves its YouTube client through ensureValidYouTubeToken rather than the
+ * cookie's access token, so that a token which expired while the app sat unused is refreshed rather
+ * than failing the read - see the "when the YouTube token has expired" tests below.
+ */
+const ytAuth = vi.hoisted(() => ({ ensureValidYouTubeToken: vi.fn() }));
+vi.mock('@/youtube/auth', async (importActual) => ({
+  ...(await importActual<typeof import('@/youtube/auth')>()),
+  ensureValidYouTubeToken: ytAuth.ensureValidYouTubeToken,
+}));
+
 const mockedGetCurrentUser = vi.mocked(getCurrentUser);
 const mockedGetUserPlaylists = vi.mocked(getUserPlaylists);
 
@@ -84,6 +95,11 @@ const app = testServer(createApp());
 beforeEach(() => {
   youtubeCircuitBreaker.close();
   ytClient.client.playlists.list = vi.fn(() => Promise.resolve({ data: { items: [] } }));
+  ytAuth.ensureValidYouTubeToken.mockResolvedValue({
+    client: ytClient.client,
+    accessToken: 'test-youtube-token',
+    quotaUsed: 1,
+  });
 });
 
 describe('Spotify Playlists', () => {
@@ -154,6 +170,68 @@ describe('Spotify Playlists', () => {
       const response = await request(app).get('/auth/spotify/playlists').expect(401);
 
       expect(response.text).toContain('Please connect to Spotify first');
+    });
+
+    /**
+     * A YouTube access token lasts about an hour, and this page is the first thing loaded after the
+     * app has been left alone for longer than that. Reported by Preston on 2026-07-15: "youtube
+     * shows connected but nothing showed up as actually synced".
+     *
+     * The read that decides what is synced used to go out on the cookie's access token directly. A
+     * dead token failed it, the failure was caught and treated as "no YouTube playlists exist", and
+     * every playlist rendered as unsynced - while the connection button, which only looks for the
+     * cookie, still said connected. Nothing on screen said anything had gone wrong.
+     */
+    describe('when the YouTube token has expired while the app sat unused', () => {
+      const spotifyCookie = `spotify_tokens=${JSON.stringify({
+        accessToken: 'test-access-token',
+        refreshToken: 'test-refresh-token',
+      })}`;
+
+      const load = () =>
+        request(app)
+          .get('/auth/spotify/playlists')
+          .set('Cookie', [spotifyCookie, `youtube_tokens=${createMockYouTubeToken()}`]);
+
+      beforeEach(() => {
+        mockedGetCurrentUser.mockResolvedValue({ id: 'test-user', displayName: null });
+        mockedGetUserPlaylists.mockResolvedValue([playlistSummary('1', 'Banana', 1)]);
+        ytClient.client.playlists.list = vi.fn(() =>
+          Promise.resolve({ data: { items: [{ snippet: { title: 'Banana (from Spotify)' } }] } }),
+        );
+      });
+
+      it('refreshes it rather than reading with a dead one', async () => {
+        await load();
+
+        expect(ytAuth.ensureValidYouTubeToken).toHaveBeenCalled();
+      });
+
+      it('still shows the playlist as synced', async () => {
+        const response = await load();
+
+        expect(response.text).toContain('Update YouTube Playlist');
+      });
+
+      // The refresh failing means the connection really is gone. Saying so is honest; reporting a
+      // synced library as unsynced is not.
+      it('disconnects YouTube when the token cannot be refreshed', async () => {
+        ytAuth.ensureValidYouTubeToken.mockRejectedValue(new Error('YOUTUBE_AUTH_REQUIRED'));
+
+        const response = await load();
+
+        expect(response.status).toBe(200);
+        expect(findSetCookie(response, 'youtube_tokens')).toContain('Expires=Thu, 01 Jan 1970');
+      });
+
+      it('does not claim the playlist is unsynced when it cannot check', async () => {
+        ytAuth.ensureValidYouTubeToken.mockRejectedValue(new Error('YOUTUBE_AUTH_REQUIRED'));
+
+        const response = await load();
+
+        // Not connected, so it offers a connect rather than a sync-state it cannot know.
+        expect(response.text).not.toContain('Update YouTube Playlist');
+      });
     });
 
     /**
