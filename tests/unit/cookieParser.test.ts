@@ -1,5 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { parseSpotifyTokenCookie, parseYouTubeTokenCookie } from '../../src/auth/cookieParser';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import {
+  getSecureCookieOptions,
+  parseSpotifyTokenCookie,
+  parseYouTubeTokenCookie,
+  validateAndSerializeSpotifyTokens,
+  validateAndSerializeYouTubeTokens,
+} from '../../src/auth/cookieParser';
 import { Response } from 'express';
 
 describe('Cookie Parser Utilities', () => {
@@ -239,5 +245,105 @@ describe('Cookie Parser Utilities', () => {
 
       expect(mockRes.clearCookie).toHaveBeenCalledWith('spotify_tokens');
     });
+  });
+});
+
+/**
+ * The cookie options and the validating serializers.
+ *
+ * The parse functions above are well covered; these three had no direct test at all, which is why
+ * the module sits at 100% line coverage and 52.6% mutation. getSecureCookieOptions decides whether
+ * the OAuth tokens are readable by JavaScript and whether they travel over plain HTTP.
+ */
+describe('getSecureCookieOptions', () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it('locks the token cookies down', () => {
+    // Asserted whole. httpOnly keeps the tokens out of JS (the app's stated security model is that
+    // OAuth tokens live in httpOnly cookies); sameSite:strict is the CSRF defence; a wrong maxAge
+    // silently logs the user out.
+    expect(getSecureCookieOptions()).toEqual({
+      httpOnly: true,
+      secure: false, // NODE_ENV is 'test'
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      sameSite: 'strict',
+    });
+  });
+
+  it('requires HTTPS in production', () => {
+    vi.stubEnv('NODE_ENV', 'production');
+
+    expect(getSecureCookieOptions().secure).toBe(true);
+  });
+
+  it.each([['development'], ['test']])('does not require HTTPS in %s', (env) => {
+    vi.stubEnv('NODE_ENV', env);
+
+    expect(getSecureCookieOptions().secure).toBe(false);
+  });
+});
+
+describe('validateAndSerializeSpotifyTokens', () => {
+  it('serializes a valid pair to JSON', () => {
+    const json = validateAndSerializeSpotifyTokens({
+      accessToken: 'access',
+      refreshToken: 'refresh',
+    });
+
+    expect(JSON.parse(json)).toEqual({ accessToken: 'access', refreshToken: 'refresh' });
+  });
+
+  // The point of the function: a refresh response is never written to a cookie unvalidated.
+  // authValidation used to bypass this with a raw JSON.stringify (fixed in #70).
+  it.each([
+    ['an empty access token', { accessToken: '', refreshToken: 'refresh' }],
+    ['a missing access token', { refreshToken: 'refresh' }],
+    ['an empty refresh token', { accessToken: 'access', refreshToken: '' }],
+    ['nothing at all', {}],
+  ])('refuses to serialize %s', (_label, tokens) => {
+    expect(() => validateAndSerializeSpotifyTokens(tokens)).toThrow();
+  });
+
+  it('strips unknown keys rather than storing them', () => {
+    const json = validateAndSerializeSpotifyTokens({
+      accessToken: 'access',
+      refreshToken: 'refresh',
+      somethingElse: 'should not survive',
+    });
+
+    expect(JSON.parse(json)).not.toHaveProperty('somethingElse');
+  });
+});
+
+describe('validateAndSerializeYouTubeTokens', () => {
+  const valid = {
+    access_token: 'access',
+    refresh_token: 'refresh',
+    scope: 'https://www.googleapis.com/auth/youtube',
+    token_type: 'Bearer',
+  };
+
+  it('serializes a valid token set to JSON', () => {
+    expect(JSON.parse(validateAndSerializeYouTubeTokens(valid))).toMatchObject(valid);
+  });
+
+  it('keeps the cached channel id', () => {
+    const json = validateAndSerializeYouTubeTokens({ ...valid, channel_id: 'UC123' });
+
+    expect(JSON.parse(json).channel_id).toBe('UC123');
+  });
+
+  it('accepts a token set with no refresh token', () => {
+    const { refresh_token: _drop, ...noRefresh } = valid;
+
+    expect(() => validateAndSerializeYouTubeTokens(noRefresh)).not.toThrow();
+  });
+
+  it.each([
+    ['an empty access token', { ...valid, access_token: '' }],
+    ['no scope', { access_token: 'a', token_type: 'Bearer' }],
+    ['no token_type', { access_token: 'a', scope: 's' }],
+  ])('refuses to serialize %s', (_label, tokens) => {
+    expect(() => validateAndSerializeYouTubeTokens(tokens)).toThrow();
   });
 });
