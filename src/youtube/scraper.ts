@@ -116,12 +116,20 @@ const SCRAPE_HEADERS: Record<string, string> = {
  *
  * Seeded with SOCS, which separately opts out of the cookie-consent redirect flow.
  */
-const cookieJar = new Map<string, string>([
-  [
-    'SOCS',
-    'CAISNQgDEitib3FfaWRlbnRpdHlmcm9udGVuZHVpc2VydmVyXzIwMjQwMTA5LjA1X3AwGgJlbiACGgYIgL3vrwY',
-  ],
-]);
+const SOCS_CONSENT_COOKIE =
+  'CAISNQgDEitib3FfaWRlbnRpdHlmcm9udGVuZHVpc2VydmVyXzIwMjQwMTA5LjA1X3AwGgJlbiACGgYIgL3vrwY';
+
+const cookieJar = new Map<string, string>([['SOCS', SOCS_CONSENT_COOKIE]]);
+
+/**
+ * Empty the jar back to its seeded state. Exported for tests only: the jar is module scope and
+ * lives for the process, so a test that absorbs GOOGLE_ABUSE_EXEMPTION would change the Cookie
+ * header every later test sees.
+ */
+export function __resetCookieJar(): void {
+  cookieJar.clear();
+  cookieJar.set('SOCS', SOCS_CONSENT_COOKIE);
+}
 
 function jarCookieHeader(): string {
   return [...cookieJar].map(([name, value]) => `${name}=${value}`).join('; ');
@@ -194,6 +202,73 @@ async function fetchShowingRedirects(
   );
 }
 
+/**
+ * Pull the search results out of a YouTube results page.
+ *
+ * Exported and kept pure so it can be tested without a network at all: this is where the scrape is
+ * most fragile (YouTube's markup is not a contract) and it was entirely unexecuted by any test.
+ * Anything unreadable yields fewer results rather than throwing - a search that finds nothing is
+ * recoverable, a sync that dies is not.
+ */
+export function parseSearchResultsHtml(html: string, maxResults: number): SearchResult[] {
+  const $ = cheerio.load(html);
+  const results: SearchResult[] = [];
+
+  // YouTube embeds the results as JSON in a script tag.
+  let videoData: YouTubeScrapedVideoData[] = [];
+
+  $('script').each((_i, elem) => {
+    const scriptContent = $(elem).html();
+    if (scriptContent && scriptContent.includes('var ytInitialData')) {
+      try {
+        // NOTE: `.` does not match newlines and the quantifier is lazy, so this only finds
+        // ytInitialData when it is minified onto one line and contains no `};` inside a string.
+        const match = scriptContent.match(/var ytInitialData = ({.*?});/);
+        if (match && match[1]) {
+          const data = JSON.parse(match[1]);
+          const contents =
+            data?.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer
+              ?.contents;
+
+          if (contents && contents[0]?.itemSectionRenderer?.contents) {
+            videoData = contents[0].itemSectionRenderer.contents;
+          }
+        }
+      } catch {
+        // A script tag we cannot parse is not fatal - keep looking at the others.
+      }
+    }
+  });
+
+  Logger.debug(`🔍 Found ${videoData.length} potential video items`);
+
+  for (const item of videoData) {
+    if (item.videoRenderer && results.length < maxResults) {
+      const video = item.videoRenderer;
+
+      const videoId = video.videoId;
+      const title = video.title?.runs?.[0]?.text || video.title?.simpleText || 'Unknown Title';
+      const duration = video.lengthText?.simpleText || 'Unknown Duration';
+      const views = video.viewCountText?.simpleText || 'Unknown Views';
+      // longBylineText carries the real channel name; ownerText is the fallback.
+      let channel = 'Unknown Channel';
+      if (video.longBylineText?.runs?.[0]?.text) {
+        channel = video.longBylineText.runs[0].text;
+      } else if (video.ownerText?.runs?.[0]?.text) {
+        channel = video.ownerText.runs[0].text;
+      }
+
+      // An item with no videoId is unusable - skip it WITHOUT counting it against maxResults.
+      if (videoId) {
+        results.push({ videoId, title, duration, views, channel });
+        Logger.debug(`✅ Found video: ${title} (${videoId}) by ${channel}`);
+      }
+    }
+  }
+
+  return results;
+}
+
 export async function scrapeYouTubeSearch(
   query: string,
   maxResults: number = 3,
@@ -243,67 +318,7 @@ export async function scrapeYouTubeSearch(
     const html = await response.text();
     Logger.debug(`📄 Received HTML page (${html.length} chars)`);
 
-    // Parse HTML with Cheerio
-    const $ = cheerio.load(html);
-    const results: SearchResult[] = [];
-
-    // Look for video data in script tags (YouTube embeds data in JSON)
-    let videoData: YouTubeScrapedVideoData[] = [];
-
-    $('script').each((_i, elem) => {
-      const scriptContent = $(elem).html();
-      if (scriptContent && scriptContent.includes('var ytInitialData')) {
-        try {
-          // Extract the JSON data from the script tag
-          const match = scriptContent.match(/var ytInitialData = ({.*?});/);
-          if (match && match[1]) {
-            const data = JSON.parse(match[1]);
-            const contents =
-              data?.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer
-                ?.contents;
-
-            if (contents && contents[0]?.itemSectionRenderer?.contents) {
-              videoData = contents[0].itemSectionRenderer.contents;
-            }
-          }
-        } catch {
-          // Continue if we can't parse this script tag
-        }
-      }
-    });
-
-    Logger.debug(`🔍 Found ${videoData.length} potential video items`);
-
-    // Extract video information
-    for (const item of videoData) {
-      if (item.videoRenderer && results.length < maxResults) {
-        const video = item.videoRenderer;
-
-        const videoId = video.videoId;
-        const title = video.title?.runs?.[0]?.text || video.title?.simpleText || 'Unknown Title';
-        const duration = video.lengthText?.simpleText || 'Unknown Duration';
-        const views = video.viewCountText?.simpleText || 'Unknown Views';
-        // Get channel name - try multiple sources to ensure we get the actual channel name
-        let channel = 'Unknown Channel';
-        if (video.longBylineText?.runs?.[0]?.text) {
-          channel = video.longBylineText.runs[0].text;
-        } else if (video.ownerText?.runs?.[0]?.text) {
-          channel = video.ownerText.runs[0].text;
-        }
-
-        if (videoId) {
-          results.push({
-            videoId,
-            title,
-            duration,
-            views,
-            channel,
-          });
-
-          Logger.debug(`✅ Found video: ${title} (${videoId}) by ${channel}`);
-        }
-      }
-    }
+    const results = parseSearchResultsHtml(html, maxResults);
 
     Logger.debug(
       `🕷️ Scraping completed in ${Date.now() - startTime}ms, found ${results.length} videos`,
