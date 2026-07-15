@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { Logger } from '../lib/logger';
 import { getSecureCookieOptions } from '../auth/authValidation';
+import { issueOAuthState, verifyOAuthState } from '../auth/oauthState';
 import { validate, schemas, ValidatedRequest } from '../lib/validation';
 import { validateAndSerializeYouTubeTokens } from '../auth/cookieParser';
 import {
@@ -14,6 +15,7 @@ import { z } from 'zod';
 const router = Router();
 
 const YOUTUBE_SCOPES = ['https://www.googleapis.com/auth/youtube'];
+const YOUTUBE_OAUTH_STATE_COOKIE = 'youtube_oauth_state';
 
 // YouTube login
 router.get('/login', (req, res) => {
@@ -21,7 +23,8 @@ router.get('/login', (req, res) => {
     requestUrl: req.originalUrl,
   });
 
-  const url = getYoutubeAuthUrl(YOUTUBE_SCOPES);
+  const state = issueOAuthState(res, YOUTUBE_OAUTH_STATE_COOKIE);
+  const url = getYoutubeAuthUrl(YOUTUBE_SCOPES, state);
   Logger.auth('YouTube', 'redirecting to authorization', { authorizeURL: url });
   res.redirect(url);
 });
@@ -32,15 +35,21 @@ router.get(
   validate({
     query: z.object({
       code: schemas.oauthCode,
+      state: z.string().optional(),
     }),
   }),
-  async (req: ValidatedRequest<Record<string, string>, { code: string }>, res) => {
+  async (req: ValidatedRequest<Record<string, string>, { code: string; state?: string }>, res) => {
     Logger.requestStart('YouTube Callback Request', {
       requestUrl: req.originalUrl,
       authCodePresent: !!req.query.code,
     });
 
-    const { code } = req.query;
+    const { code, state } = req.query;
+
+    // Reject a callback that didn't originate from our /login (CSRF / account fixation).
+    if (!verifyOAuthState(req, res, YOUTUBE_OAUTH_STATE_COOKIE, state, 'YouTube')) {
+      return res.redirect('/?error=youtube&reason=state_mismatch');
+    }
 
     try {
       const tokens = await exchangeYoutubeCode(code as string);
