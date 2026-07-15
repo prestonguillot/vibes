@@ -157,3 +157,6 @@ debug.log
 # Playwright (visual regression) run artifacts; baselines under tests/visual/__snapshots__ ARE tracked
 test-results/
 playwright-report/
+
+# Mutation testing reports (generated)
+reports/
