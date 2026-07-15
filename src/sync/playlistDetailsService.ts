@@ -219,15 +219,14 @@ export async function fetchPlaylistDetails(
 
   const allTracks = [...mergedTracks, ...orphanedVideos];
 
-  // A synced playlist "needs re-sync" when a sync would change it: the matched
-  // videos are out of Spotify order, there are orphan videos, or some tracks
-  // have no video yet. Compares the desired order (matched videos in Spotify
-  // order) against the actual YouTube order, using the same matching as sync.
+  // A synced playlist "needs re-sync" when a sync would actually CHANGE it: the matched videos are
+  // out of Spotify order, there are orphan videos, or a track is missing a video that a sync could
+  // still find. Compares the desired order (matched videos in Spotify order) against the actual
+  // YouTube order, using the same matching as sync.
   //
-  // Two distinct Spotify tracks for the same song compete for a single video: the matcher awards
-  // it to one, and sync's one-video-one-slot rule leaves the other permanently unlinked. So for
-  // such a playlist `linkedCount < spotifyTracks.length` never goes false and needsResync stays
-  // true however many times it is synced - while the sync it invites reconciles to 0 ops.
+  // A contested track is excluded: its song already sits in the playlist under another track's
+  // slot, so a search returns that same video and sync drops it as a duplicate. Counting those as
+  // drift kept the flag permanently true and invited a re-sync that reconciles to 0 ops.
   let needsResync = false;
   if (hasYoutubePlaylist) {
     const desiredVideoIds = spotifyTracks
@@ -235,7 +234,10 @@ export async function fetchPlaylistDetails(
       .filter((id): id is string => !!id);
     const actualVideoIds = youtubeVideos.map((video) => video.id);
     const orderOrSetDiffers = desiredVideoIds.join(' ') !== actualVideoIds.join(' ');
-    needsResync = orderOrSetDiffers || linkedCount < spotifyTracks.length;
+    const resolvableUnlinked = spotifyTracks.filter(
+      (track) => !trackMatches.has(track.id) && !matchingResult.contested.has(track.id),
+    ).length;
+    needsResync = orderOrSetDiffers || resolvableUnlinked > 0;
   }
 
   Logger.info('Playlist details processed', {

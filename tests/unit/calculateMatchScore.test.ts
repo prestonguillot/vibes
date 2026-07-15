@@ -201,3 +201,43 @@ describe('titles that normalize to an empty core', () => {
     expect(result.matches.has('junk')).toBe(false);
   });
 });
+
+describe('optimalTrackMatching contested tracks', () => {
+  const gottaHaveIt = {
+    id: 'v1',
+    title: 'Jay Z Kanye West - Gotta Have It (Official Video)',
+    description: '',
+    channelTitle: 'RocNationVevo',
+  };
+
+  it('marks the loser contested when the same song appears twice under different track ids', () => {
+    // One video, two Spotify entries for the same song: sync's one-video-one-slot rule means the
+    // loser can never link, so it must not be counted as fixable drift.
+    const result = optimalTrackMatching(
+      [
+        { id: 'tA', name: 'Gotta Have It', artist: 'JAY-Z' },
+        { id: 'tB', name: 'Gotta Have It', artist: 'JAY-Z' },
+      ],
+      [gottaHaveIt],
+    );
+
+    expect(result.matches.has('tA')).toBe(true);
+    expect(result.matches.has('tB')).toBe(false);
+    expect([...result.contested]).toEqual(['tB']);
+  });
+
+  it('does NOT mark a different song contested just for losing a weak fuzzy near-miss', () => {
+    // "Song B" fuzzy-scores ~0.42 against a "Song A" video - over the 0.4 bar, but it is not the
+    // same song. A search can still find it its own video, so this is real, fixable drift.
+    const result = optimalTrackMatching(
+      [
+        { id: 't1', name: 'Song A', artist: 'Artist' },
+        { id: 't2', name: 'Song B', artist: 'Artist' },
+      ],
+      [{ id: 'vA', title: 'Song A', description: '', channelTitle: 'c' }],
+    );
+
+    expect(result.matches.has('t2')).toBe(false);
+    expect(result.contested.size).toBe(0);
+  });
+});
