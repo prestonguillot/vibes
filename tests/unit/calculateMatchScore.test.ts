@@ -40,12 +40,30 @@ describe('calculateMatchScore (golden master)', () => {
     expect(score).toBe(1.0);
   });
 
-  it('grants the official-video bonus for a known label channel (e.g. VEVO)', () => {
+  // The channel must NOT contain the artist name. isKnownLabel() is the right-hand side of
+  // `channel.includes(normalizedArtist) || isKnownLabel(channel)`, so a channel like
+  // "RadioheadVEVO" satisfies the LEFT side and short-circuits the label check away entirely -
+  // which is how isKnownLabel came to be replaceable with `return false` while every test passed.
+  it.each([
+    ['Universal Music Group', 'universal'],
+    ['SonyMusic', 'sony'],
+    ['Warner Records', 'warner'],
+    ['Nuclear Blast Records', 'nuclear blast'],
+    ['RocNationVEVO', 'vevo'],
+  ])('grants the official-video bonus via a known label channel: %s', (channelTitle) => {
     const { breakdown } = calculateMatchScore(
       track('Creep', 'Radiohead'),
-      video({ title: 'Creep (Official Music Video)', channelTitle: 'RadioheadVEVO' }),
+      video({ title: 'Creep (Official Music Video)', channelTitle }),
     );
     expect(breakdown.components.officialVideo).toBe(0.3);
+  });
+
+  it('withholds the official-video bonus when the channel is neither the artist nor a label', () => {
+    const { breakdown } = calculateMatchScore(
+      track('Creep', 'Radiohead'),
+      video({ title: 'Creep (Official Music Video)', channelTitle: 'SomeRandomUploader' }),
+    );
+    expect(breakdown.components.officialVideo).toBeUndefined();
   });
 
   it.each([
@@ -239,5 +257,160 @@ describe('optimalTrackMatching contested tracks', () => {
 
     expect(result.matches.has('t2')).toBe(false);
     expect(result.contested.size).toBe(0);
+  });
+});
+
+/**
+ * Component-level tests.
+ *
+ * Mutation testing showed the scoring components were almost entirely unpinned: the tests above
+ * assert coarse outcomes ("the right video won") while every bonus underneath could be changed,
+ * deleted or negated with nothing failing. `fuzzySimilarity` and `wordMatching` were not named in
+ * a single test.
+ *
+ * These assert `components` as a WHOLE object, which also pins the components that must NOT be
+ * present - a bonus leaking into a branch it does not belong to fails here for free.
+ */
+describe('calculateMatchScore components', () => {
+  it('awards only coreMatch when the artist appears nowhere in the video title', () => {
+    const { breakdown } = calculateMatchScore(
+      track('Creep', 'Radiohead'),
+      video({ title: 'Creep' }),
+    );
+
+    expect(breakdown.components).toEqual({ coreMatch: 0.6 });
+    expect(breakdown.totalScore).toBe(0.6);
+  });
+
+  it('adds the 0.15 artist bonus when the artist is in the title', () => {
+    const { breakdown } = calculateMatchScore(
+      track('Creep', 'Radiohead'),
+      video({ title: 'Radiohead - Creep' }),
+    );
+
+    expect(breakdown.components).toEqual({ coreMatch: 0.6, artistBonus: 0.15 });
+  });
+
+  // Strategy 2 needs a title where NEITHER string contains the other (a substring either way is
+  // Strategy 1's job) but similarity still clears 0.8 - i.e. a typo, not a suffix. Transposing two
+  // letters gives distance 2 over 16 chars => 0.875.
+  it('falls back to fuzzySimilarity, scored as 0.5 x similarity', () => {
+    const { breakdown } = calculateMatchScore(
+      track('Paranoid Android', 'Radiohead'),
+      video({ title: 'Paranoid Andorid' }),
+    );
+
+    expect(breakdown.components.coreMatch).toBeUndefined();
+    expect(breakdown.components).toEqual({ fuzzySimilarity: 0.5 * 0.875 });
+    // The score IS the component - pins `score += x` against `score -= x`.
+    expect(breakdown.totalScore).toBeCloseTo(0.5 * 0.875, 10);
+  });
+
+  it('withholds fuzzySimilarity when similarity is at or below 0.8', () => {
+    const { breakdown } = calculateMatchScore(
+      track('Paranoid Android', 'Radiohead'),
+      video({ title: 'Paranoxx Xndorid' }),
+    );
+
+    expect(breakdown.components.fuzzySimilarity).toBeUndefined();
+  });
+
+  // Strategy 3: too dissimilar for fuzzy, but most significant words are present.
+  it('falls back to wordMatching, scored as 0.4 x the matched-word ratio', () => {
+    const { breakdown } = calculateMatchScore(
+      track('Karma Police Reprise', 'Radiohead'),
+      video({ title: 'Karma Police Instrumental Cover Take Two' }),
+    );
+
+    expect(breakdown.components.coreMatch).toBeUndefined();
+    expect(breakdown.components.fuzzySimilarity).toBeUndefined();
+    // 2 of 3 words (karma, police) match => 0.4 * 2/3
+    expect(breakdown.components.wordMatching).toBeCloseTo(0.4 * (2 / 3), 10);
+  });
+
+  it('withholds wordMatching when at or below half the words match', () => {
+    const { breakdown } = calculateMatchScore(
+      track('Karma Police Reprise Overture', 'Radiohead'),
+      video({ title: 'Karma Police Symphonic Rendition Live Take' }),
+    );
+
+    // 2 of 4 = 0.5, and the gate is `> 0.5` - pins the boundary.
+    expect(breakdown.components.wordMatching).toBeUndefined();
+  });
+
+  it('applies the secondary 0.1 artist bonus when only the artist matches', () => {
+    const { breakdown } = calculateMatchScore(
+      track('Creep', 'Radiohead'),
+      video({ title: 'Radiohead interview backstage' }),
+    );
+
+    expect(breakdown.components).toEqual({ artistBonus: 0.1 });
+  });
+
+  it('does not stack the secondary artist bonus on top of the 0.15 one', () => {
+    const { breakdown } = calculateMatchScore(
+      track('Creep', 'Radiohead'),
+      video({ title: 'Radiohead - Creep' }),
+    );
+
+    expect(breakdown.components.artistBonus).toBe(0.15);
+  });
+});
+
+/**
+ * The hasTextSignal gate. officialVideo (0.3) + viewCountBonus (0.1) reach the 0.4 match threshold
+ * on their own, so without it a track whose title cannot be read would match any popular official
+ * video. These pin that the quality bonuses are tiebreakers, never evidence.
+ */
+describe('calculateMatchScore quality bonuses require a text signal', () => {
+  const popularOfficial = {
+    id: 'v1',
+    title: 'Some Other Song (Official Video)',
+    description: '',
+    channelTitle: 'Universal Music Group',
+    viewCount: 10_000_000,
+  };
+
+  it('withholds officialVideo and viewCountBonus with no text signal at all', () => {
+    const { breakdown } = calculateMatchScore(track('Creep', 'Radiohead'), popularOfficial);
+
+    expect(breakdown.components).toEqual({});
+    expect(breakdown.totalScore).toBe(0);
+  });
+
+  it.each([
+    ['coreMatch', 'Creep (Official Video)'],
+    ['artistBonus', 'Radiohead interview (Official Video)'],
+  ])('grants the quality bonuses once there IS a %s signal', (_component, title) => {
+    const { breakdown } = calculateMatchScore(track('Creep', 'Radiohead'), {
+      ...popularOfficial,
+      title,
+    });
+
+    expect(breakdown.components.officialVideo).toBe(0.3);
+    expect(breakdown.components.viewCountBonus).toBeGreaterThan(0);
+  });
+
+  it('scores the view bonus as log10(views)/100', () => {
+    const { breakdown } = calculateMatchScore(track('Creep', 'Radiohead'), {
+      id: 'v1',
+      title: 'Radiohead - Creep',
+      description: '',
+      viewCount: 1_000_000,
+    });
+
+    // log10(1e6) = 6 => 0.06, under the 0.1 cap.
+    expect(breakdown.components.viewCountBonus).toBeCloseTo(0.06, 10);
+  });
+
+  it('caps the view bonus at 0.1 however large the count', () => {
+    const { breakdown } = calculateMatchScore(track('Creep', 'Radiohead'), {
+      id: 'v1',
+      title: 'Radiohead - Creep',
+      description: '',
+      viewCount: 1_000_000_000_000_000,
+    });
+
+    expect(breakdown.components.viewCountBonus).toBe(0.1);
   });
 });
