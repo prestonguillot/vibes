@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import { scrapeYouTubeSearch, parseViewCount } from '../youtube/scraper';
 import { Logger } from '../lib/logger';
 import { sleep } from '../lib/delay';
 import { validate, schemas, ValidatedRequest } from '../lib/validation';
@@ -16,6 +15,7 @@ import ejs from 'ejs';
 import path from 'path';
 import { fetchPlaylistDetails } from '../sync/playlistDetailsService';
 import { addedVideoPosition } from '../sync/addedVideoPosition';
+import { searchCandidates } from '../sync/videoPicker';
 import { getPlaylist } from '../spotify/client';
 import {
   findSyncedYoutubePlaylist,
@@ -23,7 +23,6 @@ import {
   syncedPlaylistTitle,
 } from '../youtube/playlist';
 import { youtubeWrite } from '../youtube/writes';
-import { calculateMatchScore, SimplifiedTrack, SimplifiedVideo } from '../sync/trackMatching';
 import type { YoutubeClient } from '../youtube/client';
 
 const router = Router();
@@ -261,46 +260,10 @@ router.get(
     });
 
     try {
-      // Search for videos using the YouTube scraper. A manual re-search sends its own
-      // query; the initial open falls back to the "natural" track + artist query.
-      const query = searchQuery?.trim() || `${trackName} ${artistName}`;
-      Logger.external('YouTube', 'Searching for videos', { query });
-
-      const searchResults = await scrapeYouTubeSearch(query, 10);
-
-      const videos = searchResults.map((result) => ({
-        id: result.videoId,
-        title: result.title,
-        description: `Duration: ${result.duration} • Views: ${result.views}`,
-        thumbnail: `https://img.youtube.com/vi/${result.videoId}/mqdefault.jpg`,
-        channelTitle: result.channel,
-        publishedAt: '', // Not available from scraper
-        url: `https://www.youtube.com/watch?v=${result.videoId}`,
-        // calculateMatchScore only applies the popularity bonus when viewCount is a number. The
-        // scraper's own scoring path parses it (scraper.ts searchAndScoreVideos); omitting it here
-        // silently dropped that bonus, so the picker ranked candidates differently from sync.
-        viewCount: parseViewCount(result.views),
-      }));
-
-      Logger.info('Found alternative videos', { count: videos.length });
-
-      // Calculate match scores for each video
-      const spotifyTrack: SimplifiedTrack = {
-        id: trackId,
-        name: trackName,
-        artist: artistName,
-      };
-
-      const videosWithScores = videos
-        .map((video: SimplifiedVideo) => {
-          const { score, breakdown } = calculateMatchScore(spotifyTrack, video);
-          return {
-            ...video,
-            matchScore: breakdown,
-            matchScore_score: score, // Store the actual score for sorting
-          };
-        })
-        .sort((a, b) => (b.matchScore_score || 0) - (a.matchScore_score || 0)); // Sort by score descending
+      const { query, videos: videosWithScores } = await searchCandidates(
+        { id: trackId, name: trackName, artist: artistName },
+        searchQuery,
+      );
 
       // A manual re-search targets only the results list (HX-Target header), so we send
       // back just that fragment and leave the modal shell (header, search bar, footer)
