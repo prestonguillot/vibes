@@ -3,14 +3,16 @@
  *
  * This is the only place the app writes to a YouTube playlist outside a sync.
  *
- * The handler sleeps 1s (replace) / 3s (add) waiting for YouTube to propagate before reordering,
- * so these run in real time rather than fighting supertest with fake timers.
+ * The handler waits for YouTube to propagate the write before reordering. That wait is stubbed and
+ * asserted on rather than served: a test that really waits is slow, and starves under load until it
+ * fails on a timeout having tested nothing.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 
 const h = vi.hoisted(() => ({
+  sleep: vi.fn(() => Promise.resolve()),
   getPlaylist: vi.fn(),
   fetchAllPlaylistItems: vi.fn(),
   reconcilePlaylist: vi.fn(),
@@ -20,6 +22,7 @@ const h = vi.hoisted(() => ({
   playlistItemsDelete: vi.fn(),
 }));
 
+vi.mock('@/lib/delay', () => ({ sleep: h.sleep }));
 vi.mock('@/spotify/client', async (importActual) => ({
   ...(await importActual<typeof import('@/spotify/client')>()),
   getPlaylist: h.getPlaylist,
@@ -233,6 +236,32 @@ describe('POST /replace: adding a video to an unlinked track', () => {
 
     expect(response.status).toBe(200);
     expect(h.playlistItemsDelete).not.toHaveBeenCalled();
+  });
+});
+
+describe('POST /replace: waiting for YouTube to propagate', () => {
+  // A write that has not propagated is invisible to the read the reorder is built from, which
+  // reorders the playlist into the shape it had before the write. An addition takes longer to
+  // appear than a replacement, hence the two waits.
+  it.each([
+    ['an addition', { newVideoId: NEW_VIDEO, playlistId: PLAYLIST_ID }, 3000],
+    [
+      'a replacement',
+      { newVideoId: NEW_VIDEO, currentVideoId: OLD_VIDEO, playlistId: PLAYLIST_ID },
+      1000,
+    ],
+  ])('waits after %s, before reading back', async (_label, body, expected) => {
+    await replace(body as Record<string, string>);
+
+    expect(h.sleep).toHaveBeenCalledWith(expected);
+  });
+
+  it('waits before reading the playlist back, not after', async () => {
+    await replace({ newVideoId: NEW_VIDEO, currentVideoId: OLD_VIDEO, playlistId: PLAYLIST_ID });
+
+    expect(h.sleep.mock.invocationCallOrder[0]).toBeLessThan(
+      h.fetchAllPlaylistItems.mock.invocationCallOrder[0]!,
+    );
   });
 });
 

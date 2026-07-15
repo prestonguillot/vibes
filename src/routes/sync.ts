@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { YtPlaylist, YtPlaylistItem } from '../youtube/client';
+import { sleep } from '../lib/delay';
 import { ensureValidYouTubeToken } from '../youtube/auth';
 import { fetchAllPlaylistItems } from '../spotify/playlistItems';
 import {
@@ -359,7 +360,7 @@ async function runSync(deps: SyncDeps): Promise<void> {
     });
 
     // A brand-new playlist isn't immediately writable - wait before the first insert.
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    await sleep(2000);
 
     const orderedTrackIds = tracks
       .map((item) => (item as { track?: { id?: string } }).track?.id)

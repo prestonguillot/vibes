@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { scrapeYouTubeSearch, parseViewCount } from '../youtube/scraper';
 import { Logger } from '../lib/logger';
+import { sleep } from '../lib/delay';
 import { validate, schemas, ValidatedRequest } from '../lib/validation';
 import { csrfValidationMiddleware } from '../auth/csrf';
 import { SpotifyTokens, YouTubeTokens } from '../types/oauth';
@@ -551,7 +552,7 @@ router.post(
           waitTime,
           reason: isAddingNewVideo ? 'new video added' : 'video replaced',
         });
-        await new Promise((resolve) => setTimeout(resolve, waitTime));
+        await sleep(waitTime);
 
         // Fetch all Spotify tracks for the playlist (full format with .track) to
         // build the desired order for reconcile.

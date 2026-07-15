@@ -1,5 +1,6 @@
 import * as cheerio from 'cheerio';
 import { Logger } from '../lib/logger';
+import { sleep } from '../lib/delay';
 import { calculateMatchScore } from '../sync/trackMatching';
 
 interface SearchResult {
@@ -401,7 +402,7 @@ export async function searchAndScoreVideos(
     }
 
     // Add a small delay between searches to be respectful
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await sleep(1000);
   }
 
   Logger.debug(`❌ No suitable videos found for ${artist} - ${songName}`);

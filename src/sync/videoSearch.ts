@@ -7,6 +7,7 @@
 import { searchMusicVideo } from '../youtube/scraper';
 import { formatErrorDetails } from '../lib/errorFormatter';
 import { Logger } from '../lib/logger';
+import { sleep } from '../lib/delay';
 import { ProgressUpdate } from '../types/progress';
 
 export interface TrackSearchResult {
@@ -114,7 +115,7 @@ export async function searchTracksForVideos(
       // Rate limiting: small delay between searches to be respectful.
       if (searchCount < totalTrackCount) {
         Logger.debug('Rate limiting delay', { delayMs: 100 });
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        await sleep(100);
       }
     } catch (error) {
       searchCount++;
