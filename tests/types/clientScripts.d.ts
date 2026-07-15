@@ -20,3 +20,5 @@ declare module '*/public/js/themeToggle.js';
 declare module '*/public/js/dismissAlert.js';
 declare module '*/public/js/theme.js';
 declare module '*/public/js/indexPage.js';
+declare module '*/public/js/logger.js';
+declare module '*/public/js/eventLogging.js';
