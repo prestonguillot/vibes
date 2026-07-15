@@ -112,7 +112,7 @@ describe('Button Styling Consistency', () => {
         /\.btn-secondary:hover\s*{[^}]*border-color:\s*var\(--border\)/,
       ];
 
-      hoverPatterns.forEach((pattern, index) => {
+      hoverPatterns.forEach((pattern) => {
         expect(cssContent).toMatch(pattern);
       });
     });
@@ -125,7 +125,7 @@ describe('Button Styling Consistency', () => {
         /\.btn-outline-primary:active[^{]*{[^}]*border:\s*2px solid var\(--border\)/,
       ];
 
-      activePatterns.forEach((pattern, index) => {
+      activePatterns.forEach((pattern) => {
         expect(cssContent).toMatch(pattern);
       });
     });
@@ -137,7 +137,7 @@ describe('Button Styling Consistency', () => {
         /\.btn-outline-success\.sync-btn:disabled[^{]*{[^}]*border-color:\s*var\(--border\)/,
       ];
 
-      disabledPatterns.forEach((pattern, index) => {
+      disabledPatterns.forEach((pattern) => {
         expect(cssContent).toMatch(pattern);
       });
     });

@@ -7,6 +7,19 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
+
+/**
+ * The contract public/js/youtubeCache.js publishes on window. Declared here because the module is
+ * plain browser JS loaded by eval, so nothing else tells tsc this global exists.
+ */
+declare global {
+  interface Window {
+    youtubeCache: {
+      getCachedId(spotifyPlaylistId: string): string | undefined;
+      setCachedId(spotifyPlaylistId: string, youtubePlaylistId: string | null): void;
+    };
+  }
+}
 import fs from 'fs';
 import path from 'path';
 

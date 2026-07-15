@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { CircuitBreaker, CircuitState } from '../../src/lib/circuitBreaker';
 
 describe('CircuitBreaker', () => {
@@ -155,8 +155,6 @@ describe('CircuitBreaker', () => {
 
   describe('Quota Error Scenario', () => {
     it('should immediately open on quota error', () => {
-      const quotaError = { code: 403, message: 'Quota exceeded' };
-
       circuitBreaker.open();
 
       expect(circuitBreaker.isOpen()).toBe(true);

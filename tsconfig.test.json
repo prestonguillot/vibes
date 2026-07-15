@@ -1,0 +1,25 @@
+{
+  // Typechecks everything the build's tsconfig cannot: tests, and the config files at the root.
+  // The base config exists to EMIT (rootDir src -> outDir dist), so tests must not be added to its
+  // include - they would be compiled into dist. vitest transpiles without typechecking, so without
+  // this pass nothing ever type-checks tests/, and fixtures silently drift from the types they
+  // claim (see the mocks that asserted error shapes the client cannot throw).
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": ".",
+    // vitest runs with globals: true, so describe/it/vi are ambient rather than imported.
+    // Listing "types" replaces the default of every @types package, so node has to be named too.
+    "types": ["vitest/globals", "node"],
+    // The server is Node-only and its lib is ES2022 on purpose. Tests are not: the happy-dom specs
+    // exercise public/js against a real DOM, and the Playwright specs run in a browser.
+    "lib": ["ES2022", "DOM"],
+    // vitest resolves these aliases at runtime; tsc needs telling separately. No baseUrl: it is
+    // deprecated in TS6, and paths already resolve relative to this file.
+    "paths": {
+      "@/*": ["./src/*"],
+      "@tests/*": ["./tests/*"]
+    }
+  },
+  "include": ["src/**/*", "tests/**/*", "*.config.ts", "*.config.mts"]
+}

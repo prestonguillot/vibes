@@ -4,6 +4,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import request from 'supertest';
+import { findSetCookie } from '@tests/helpers/httpCookies';
 import { createApp } from '@/app';
 import { getCurrentUser, getUserPlaylists } from '@/spotify/client';
 import { YoutubeApiError } from '@/youtube/client';
@@ -167,11 +168,7 @@ describe('Spotify Playlists', () => {
     it('should set a non-empty spotify_oauth_state cookie', async () => {
       const response = await request(app).get('/auth/spotify/login').expect(302);
 
-      const setCookie = response.headers['set-cookie'];
-      expect(setCookie).toBeDefined();
-      const stateCookie = ([] as string[])
-        .concat(setCookie)
-        .find((c) => c.startsWith('spotify_oauth_state='));
+      const stateCookie = findSetCookie(response, 'spotify_oauth_state');
       expect(stateCookie).toBeDefined();
       // Cookie must carry an actual value and use SameSite=Lax so it survives
       // the cross-site redirect back from Spotify.

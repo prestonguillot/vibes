@@ -73,21 +73,21 @@ describe.skipIf(!hasCreds)('Spotify live API (mock-validation harness)', () => {
 
   it('GET /playlists/{id} returns name + count for the first playlist', async () => {
     if (!playlists?.length) return; // nothing to check on an empty account
-    const detail = await getPlaylist(accessToken, playlists[0].id);
+    const detail = await getPlaylist(accessToken, playlists[0]!.id);
     expect(typeof detail.name).toBe('string');
     expect(detail.trackTotal === null || typeof detail.trackTotal === 'number').toBe(true);
   });
 
   it('GET /playlists/{id}/items still nests the track under `item` (Feb 2026 shape)', async () => {
     if (!playlists?.length) return;
-    const items = await fetchAllPlaylistItems(accessToken, playlists[0].id);
+    const items = await fetchAllPlaylistItems(accessToken, playlists[0]!.id);
     expect(Array.isArray(items)).toBe(true);
     // fetchAllPlaylistItems normalizes raw.item ?? raw.track. If Spotify moved the
     // field again, every track would come back null and this would fail.
     const withTracks = items.filter((i) => i.track != null);
     if (items.length > 0) {
       expect(withTracks.length).toBeGreaterThan(0);
-      const track = withTracks[0].track!;
+      const track = withTracks[0]!.track!;
       expect(typeof track.id).toBe('string');
       expect(typeof track.name).toBe('string');
       expect(track.type).toBe('track');

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../../src/app';
 import { youtubeCircuitBreaker } from '../../src/lib/circuitBreaker';
@@ -25,15 +25,9 @@ describe('YouTube Quota Exceeded Handling', () => {
           'youtube_tokens={"access_token":"mock_youtube_token","refresh_token":"mock_youtube_refresh"}',
         ]);
 
-      // Should receive response that clears YouTube cookies
-      const setCookieHeaders = response.headers['set-cookie'] || [];
-      const youtubeCookieCleared = setCookieHeaders.some(
-        (cookie: string) => cookie.includes('youtube_tokens=') && cookie.includes('Max-Age=0'),
-      );
-
-      // When circuit breaker is open, YouTube tokens should be cleared
-      // (Note: actual behavior depends on Spotify auth succeeding, which it won't in this test,
-      // but we're testing the circuit breaker logic exists)
+      // The cookie-clearing this reaches for cannot happen here (it needs Spotify auth to
+      // succeed, which it does not in this test), so only the breaker state is asserted.
+      expect(response.status).toBeGreaterThanOrEqual(200);
       expect(youtubeCircuitBreaker.isOpen()).toBe(true);
     });
 

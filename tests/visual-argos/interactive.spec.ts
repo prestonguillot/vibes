@@ -40,7 +40,10 @@ test('sync button hovered', async ({ page }) => {
 
 test('component showcase (full-page composition)', async ({ page }) => {
   const fixtures = JSON.parse(fs.readFileSync(path.join(ROOT, 'src/debug-fixtures.json'), 'utf-8'));
-  const html = await ejs.renderFile(path.join(ROOT, 'views/debug-components.ejs'), fixtures);
+  const html: string = await ejs.renderFile(
+    path.join(ROOT, 'views/debug-components.ejs'),
+    fixtures,
+  );
   // The showcase is a full document whose <head> links a stylesheet no server is serving here;
   // extract its <body> and re-wrap so the real CSS from helpers applies.
   const bodyInner = html.match(/<body[^>]*>([\s\S]*)<\/body>/i)?.[1] ?? html;

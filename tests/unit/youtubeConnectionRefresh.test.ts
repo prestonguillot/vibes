@@ -26,7 +26,10 @@ function setup() {
     <input type="checkbox" class="playlist-expand-toggle" id="expand-p1" checked>
     <div id="details-p1"></div>`;
 
-  const ajax = vi.fn(() => Promise.resolve());
+  // htmx.ajax(verb, path, context) - typed so mock.calls carries the real argument shape.
+  const ajax = vi.fn((_verb: string, _path: string, _context?: Record<string, unknown>) =>
+    Promise.resolve(),
+  );
   (window as any).htmx = { ajax };
   (window as any).Logger = { error: vi.fn(), debug: vi.fn(), info: vi.fn(), warn: vi.fn() };
   // eslint-disable-next-line no-eval

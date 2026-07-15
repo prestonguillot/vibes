@@ -30,6 +30,13 @@ jobs:
       - name: Type-check & build
         run: npm run build
 
+      # The build's tsconfig only covers src/. Tests went unchecked for the life of the repo, which
+      # is how fixtures came to assert error shapes the client cannot throw, and how 64 tests that
+      # never imported the app survived. vitest transpiles without typechecking, so this is the
+      # only thing that looks.
+      - name: Type-check tests
+        run: npm run type-check:tests
+
       - name: Lint
         run: npm run lint
 

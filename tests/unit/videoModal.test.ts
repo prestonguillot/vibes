@@ -55,10 +55,16 @@ function setup({ panelOpen = true } = {}) {
   const addEventListener = document.addEventListener.bind(document);
   const capture = vi
     .spyOn(document, 'addEventListener')
-    .mockImplementation((type: string, listener: EventListener, options?: unknown) => {
-      documentListeners.push([type, listener]);
-      addEventListener(type, listener, options as AddEventListenerOptions);
-    });
+    .mockImplementation(
+      (
+        type: string,
+        listener: EventListenerOrEventListenerObject,
+        options?: boolean | AddEventListenerOptions,
+      ) => {
+        documentListeners.push([type, listener as EventListener]);
+        addEventListener(type, listener, options);
+      },
+    );
   // eslint-disable-next-line no-eval
   (0, eval)(source);
   capture.mockRestore();
@@ -85,7 +91,7 @@ function fakeHtmxRefresh(responses: string[], { swaps = true } = {}) {
 
   container.addEventListener('click', (event) => {
     if (!(event.target as Element).closest('[data-refresh-playlist]')) return;
-    const videoId = responses[Math.min(reads, responses.length - 1)];
+    const videoId = responses[Math.min(reads, responses.length - 1)]!;
     reads += 1;
     if (!swaps) return; // a read that never lands
     container.innerHTML = panelHtml(videoId);
