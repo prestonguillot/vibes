@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import { Logger } from '../lib/logger';
-import { sleep } from '../lib/delay';
 import { validate, schemas, ValidatedRequest } from '../lib/validation';
 import { csrfValidationMiddleware } from '../auth/csrf';
 import { SpotifyTokens, YouTubeTokens } from '../types/oauth';
@@ -14,48 +13,16 @@ import { z } from 'zod';
 import ejs from 'ejs';
 import path from 'path';
 import { fetchPlaylistDetails } from '../sync/playlistDetailsService';
-import { addedVideoPosition } from '../sync/addedVideoPosition';
 import { searchCandidates } from '../sync/videoPicker';
-import { getPlaylist } from '../spotify/client';
 import {
-  findSyncedYoutubePlaylist,
-  findYoutubePlaylistItem,
-  syncedPlaylistTitle,
-} from '../youtube/playlist';
-import { youtubeWrite } from '../youtube/writes';
-import type { YoutubeClient } from '../youtube/client';
+  applyVideoChoice,
+  VideoNotInPlaylistError,
+  VideoChoiceResult,
+} from '../sync/applyVideoChoice';
+import { getPlaylist } from '../spotify/client';
+import { findSyncedYoutubePlaylist, syncedPlaylistTitle } from '../youtube/playlist';
 
 const router = Router();
-
-/** Moves a video already in the playlist to `position`. One write, 50 quota units. */
-async function moveYoutubePlaylistItem(
-  youtube: YoutubeClient,
-  youtubePlaylistId: string,
-  videoId: string,
-  position: number,
-): Promise<void> {
-  const { item } = await findYoutubePlaylistItem(
-    youtube,
-    youtubePlaylistId,
-    (candidate) => candidate.snippet?.resourceId?.videoId === videoId,
-    ['snippet'],
-  );
-  if (!item?.id) throw new Error(`Added video ${videoId} is not in playlist ${youtubePlaylistId}`);
-
-  await youtubeWrite('playlistItems.update', () =>
-    youtube.playlistItems.update({
-      part: ['snippet'],
-      requestBody: {
-        id: item.id!,
-        snippet: {
-          playlistId: youtubePlaylistId,
-          position,
-          resourceId: { kind: 'youtube#video', videoId },
-        },
-      },
-    }),
-  );
-}
 
 // Get detailed playlist information (Spotify tracks + YouTube videos)
 router.get(
@@ -427,162 +394,41 @@ router.post(
         id: targetPlaylist.id,
       });
 
-      // Check if this is adding a new video (unlinked track) or replacing an existing one
-      const isAddingNewVideo = !currentVideoId || currentVideoId === '';
-
-      if (isAddingNewVideo) {
-        // ADD MODE: Simply add the new video to the end of the playlist
-        Logger.info('Adding new video to playlist', {
-          newVideoId,
+      let choice: VideoChoiceResult;
+      try {
+        choice = await applyVideoChoice({
+          youtube,
+          youtubePlaylistId: targetPlaylist.id!,
+          spotifyAccessToken: spotifyTokens.accessToken,
+          spotifyPlaylistId: playlistId,
           trackId,
-          playlistTitle: targetPlaylist.snippet?.title,
-        });
-
-        await youtubeWrite('playlistItems.insert', () =>
-          youtube.playlistItems.insert({
-            part: ['snippet'],
-            requestBody: {
-              snippet: {
-                playlistId: targetPlaylist.id!,
-                resourceId: {
-                  kind: 'youtube#video',
-                  videoId: newVideoId,
-                },
-              },
-            },
-          }),
-        );
-
-        Logger.info('Added new video successfully', { newVideoId });
-      } else {
-        // REPLACE MODE: Find and replace the existing video
-        Logger.info('Replacing existing video', {
-          currentVideoId,
           newVideoId,
-          playlistTitle: targetPlaylist.snippet?.title,
+          currentVideoId,
         });
+      } catch (error) {
+        if (!(error instanceof VideoNotInPlaylistError)) throw error;
 
-        const { item: playlistItemToReplace, itemsScanned: itemsFetched } =
-          await findYoutubePlaylistItem(
-            youtube,
-            targetPlaylist.id!,
-            (item) => item.snippet?.resourceId?.videoId === currentVideoId,
-            ['snippet', 'contentDetails'],
-          );
-
-        if (playlistItemToReplace) {
-          Logger.info('Found video to replace', { currentVideoId, itemsFetched });
-        }
-
-        if (!playlistItemToReplace) {
-          Logger.error('Video not found in playlist after checking all pages', {
-            currentVideoId,
-            playlistTitle: targetPlaylist.snippet?.title,
-            totalItemsChecked: itemsFetched,
-          });
-
-          const html = await ejs.renderFile(
-            path.join(__dirname, '../../views/partials/error-message.ejs'),
-            {
-              type: 'danger',
-              title: 'Video not found',
-              message: `Could not find the video in the YouTube playlist after checking all ${itemsFetched} items.`,
-              details:
-                'The video may have been removed from the playlist, or the playlist data may be out of sync. Try refreshing the playlist details and trying again.',
-            },
-          );
-          return res.status(404).send(html);
-        }
-
-        // Get the position of the current video so we can maintain order
-        const currentPosition = playlistItemToReplace.snippet?.position || 0;
-
-        // Add the new video at the same position
-        await youtubeWrite('playlistItems.insert', () =>
-          youtube.playlistItems.insert({
-            part: ['snippet'],
-            requestBody: {
-              snippet: {
-                playlistId: targetPlaylist.id!,
-                position: currentPosition,
-                resourceId: {
-                  kind: 'youtube#video',
-                  videoId: newVideoId,
-                },
-              },
-            },
-          }),
+        const html = await ejs.renderFile(
+          path.join(__dirname, '../../views/partials/error-message.ejs'),
+          {
+            type: 'danger',
+            title: 'Video not found',
+            message: `Could not find the video in the YouTube playlist after checking all ${error.itemsScanned} items.`,
+            details:
+              'The video may have been removed from the playlist, or the playlist data may be out of sync. Try refreshing the playlist details and trying again.',
+          },
         );
-
-        Logger.info('Added new video', { newVideoId, position: currentPosition });
-
-        // Remove the old video (it will now be at position + 1 due to the insert)
-        await youtubeWrite('playlistItems.delete', () =>
-          youtube.playlistItems.delete({
-            id: playlistItemToReplace.id!,
-          }),
-        );
-
-        Logger.info('Removed old video', { currentVideoId });
+        return res.status(404).send(html);
       }
 
-      Logger.info('Video operation completed successfully', {
-        operation: isAddingNewVideo ? 'add' : 'replace',
-      });
+      Logger.info('Video operation completed successfully', { operation: choice.mode });
 
-      // A replace is already in order: the insert went in at the old video's position and the old
-      // one came out, so the playlist is exactly as the user left it. An addition was appended and
-      // has to move to its track's place - one write, at the position worked out below.
-      //
-      // Neither case reorders the rest of the playlist. Doing that made a one-video edit re-plan
-      // all of it and pay 50 quota units per move: 84 moves for a single swap, against a daily
-      // budget of 10,000. It also could not finish - YouTube aborted partway with a 409, leaving
-      // the order worse than before and the next edit with more to undo. Drift is the sync
-      // button's job, where the user asks for it and can see what it costs.
-      let placed = true;
-      if (isAddingNewVideo) {
-        try {
-          // YouTube will not move an item it has not finished registering.
-          await sleep(3000);
-
-          const position = await addedVideoPosition({
-            youtube,
-            youtubePlaylistId: targetPlaylist.id!,
-            spotifyAccessToken: spotifyTokens.accessToken,
-            spotifyPlaylistId: playlistId,
-            trackId,
-            newVideoId,
-          });
-
-          if (position === null) {
-            Logger.warn('Leaving the added video at the end: its track is no longer in Spotify', {
-              trackId,
-              newVideoId,
-            });
-          } else {
-            await moveYoutubePlaylistItem(youtube, targetPlaylist.id!, newVideoId, position);
-            Logger.info('Placed the added video at its track’s position', {
-              trackId,
-              newVideoId,
-              position,
-            });
-          }
-        } catch (placementError) {
-          placed = false;
-          Logger.error(
-            'Could not place the added video at its position; it stays at the end',
-            { trackId, newVideoId },
-            placementError,
-          );
-        }
-      }
-
-      // The write itself landed, so this is not an error - the video is linked and in the playlist.
-      // But it is not what was asked for either, and reporting it as such is how a playlist ends up
-      // in an order nobody chose with nothing on screen having said so.
-      const successMessage = !placed
+      // A write that landed but could not be placed is not an error - the video is linked and in the
+      // playlist. But it is not what was asked for either, and reporting it as success is how a
+      // playlist ends up in an order nobody chose with nothing on screen having said so.
+      const successMessage = !choice.placed
         ? 'Video linked, but it could not be moved into position - sync the playlist to fix the order.'
-        : isAddingNewVideo
+        : choice.mode === 'add'
           ? 'Video linked successfully!'
           : 'Video replaced successfully!';
 
