@@ -223,6 +223,11 @@ export async function fetchPlaylistDetails(
   // videos are out of Spotify order, there are orphan videos, or some tracks
   // have no video yet. Compares the desired order (matched videos in Spotify
   // order) against the actual YouTube order, using the same matching as sync.
+  //
+  // Two distinct Spotify tracks for the same song compete for a single video: the matcher awards
+  // it to one, and sync's one-video-one-slot rule leaves the other permanently unlinked. So for
+  // such a playlist `linkedCount < spotifyTracks.length` never goes false and needsResync stays
+  // true however many times it is synced - while the sync it invites reconciles to 0 ops.
   let needsResync = false;
   if (hasYoutubePlaylist) {
     const desiredVideoIds = spotifyTracks
