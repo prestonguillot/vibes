@@ -11,12 +11,20 @@ export enum LogLevel {
   SILENT = 4, // suppresses all output (LOG_LEVEL=silent, or used by the test setup)
 }
 
-// Parse log level from environment variable or use default
-function getInitialLogLevel(): LogLevel {
+/**
+ * Parse the log level from LOG_LEVEL, falling back to a per-environment default.
+ *
+ * Exported for tests. The `typeof === 'number'` check is load-bearing: a numeric enum carries
+ * REVERSE mappings, so `'0' in LogLevel` is true and `LogLevel['0']` is the string 'DEBUG'. Taking
+ * that as the level left currentLogLevel holding a string, which made `level < currentLogLevel`
+ * always false - so LOG_LEVEL=0 silently logged everything at every level.
+ */
+export function getInitialLogLevel(): LogLevel {
   const logLevelEnv = process.env.LOG_LEVEL?.toUpperCase();
 
-  if (logLevelEnv && logLevelEnv in LogLevel) {
-    return LogLevel[logLevelEnv as keyof typeof LogLevel];
+  if (logLevelEnv) {
+    const parsed = LogLevel[logLevelEnv as keyof typeof LogLevel];
+    if (typeof parsed === 'number') return parsed;
   }
 
   // Default: DEBUG in development, INFO in production
@@ -66,8 +74,9 @@ const SENSITIVE_KEYS = [
   'cookies',
 ];
 
-// Helper function to sanitize context by removing sensitive data
-function sanitizeContext(context: Record<string, unknown>): Record<string, unknown> {
+/** Redact anything whose key looks sensitive. Exported for tests - this is the security-relevant
+ *  half of the logger, and nothing exercised it. */
+export function sanitizeContext(context: Record<string, unknown>): Record<string, unknown> {
   const sanitized: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(context)) {
