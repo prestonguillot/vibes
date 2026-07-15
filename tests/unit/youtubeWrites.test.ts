@@ -19,6 +19,11 @@ vi.mock('../../src/lib/circuitBreaker', () => ({
   },
 }));
 
+// The backoff between retries is asserted on rather than served: serving it would put seconds of
+// real sleeping in the suite for no added coverage.
+const h = vi.hoisted(() => ({ sleep: vi.fn((_ms: number) => Promise.resolve()) }));
+vi.mock('../../src/lib/delay', () => ({ sleep: h.sleep }));
+
 import { youtubeCircuitBreaker } from '../../src/lib/circuitBreaker';
 import { YoutubeApiError } from '../../src/youtube/client';
 import {
@@ -153,5 +158,98 @@ describe('classifyYoutubeError', () => {
   it('tolerates errors that are not YouTube API errors at all', () => {
     expect(classifyYoutubeError(new Error('socket hang up'))).toBe('other');
     expect(classifyYoutubeError(undefined)).toBe('other');
+  });
+});
+
+/**
+ * A run of rapid playlist writes draws 409 SERVICE_UNAVAILABLE - "the operation was aborted" -
+ * out of YouTube. It is a conflict, not a refusal: the same write succeeds a moment later.
+ *
+ * Giving up on the first one abandoned a reorder a quarter of the way through, which spends the
+ * quota and leaves the playlist in neither the old order nor the new - so the next attempt has more
+ * to undo than this one did.
+ */
+describe('youtubeWrite: failures that pass', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetYoutubeWriteQuotaCounter();
+    breaker.canProceed.mockReturnValue(true);
+  });
+
+  it('tries a 409 again, and reports the success', async () => {
+    const write = vi
+      .fn()
+      .mockRejectedValueOnce(apiError(409, 'SERVICE_UNAVAILABLE'))
+      .mockResolvedValueOnce('done');
+
+    await expect(youtubeWrite('playlistItems.update', write)).resolves.toBe('done');
+
+    expect(write).toHaveBeenCalledTimes(2);
+    expect(breaker.recordSuccess).toHaveBeenCalledOnce();
+    // A write that eventually worked is not a failure the breaker should count towards opening.
+    expect(breaker.recordFailure).not.toHaveBeenCalled();
+  });
+
+  it('charges quota once for a write that took two attempts', async () => {
+    const write = vi.fn().mockRejectedValueOnce(apiError(409)).mockResolvedValueOnce('done');
+
+    await youtubeWrite('playlistItems.update', write);
+
+    expect(getYoutubeWriteQuotaUsed()).toBe(YOUTUBE_WRITE_COST);
+  });
+
+  it('backs off further each time rather than hammering', async () => {
+    const write = vi
+      .fn()
+      .mockRejectedValueOnce(apiError(409))
+      .mockRejectedValueOnce(apiError(503))
+      .mockResolvedValueOnce('done');
+
+    await youtubeWrite('playlistItems.update', write);
+
+    expect(h.sleep.mock.calls.map(([ms]) => ms)).toEqual([500, 1000]);
+  });
+
+  it.each([
+    ['a 409 conflict', apiError(409, 'SERVICE_UNAVAILABLE')],
+    ['a 503 from YouTube itself', apiError(503)],
+    ['a 500 from YouTube itself', apiError(500)],
+    ['a short-window rate limit', apiError(403, 'rateLimitExceeded')],
+  ])('tries again after %s', async (_label, error) => {
+    const write = vi.fn().mockRejectedValueOnce(error).mockResolvedValueOnce('done');
+
+    await expect(youtubeWrite('playlistItems.update', write)).resolves.toBe('done');
+    expect(write).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    ['the daily quota being gone', apiError(403, 'quotaExceeded')],
+    ['a permission problem', apiError(403, 'insufficientPermissions')],
+    ['a video that cannot be added', apiError(400, 'invalidVideoId')],
+    ['a playlist that is not there', apiError(404)],
+  ])('does not try again after %s', async (_label, error) => {
+    const write = vi.fn().mockRejectedValue(error);
+
+    await expect(youtubeWrite('playlistItems.update', write)).rejects.toThrow();
+    expect(write).toHaveBeenCalledTimes(1);
+    expect(h.sleep).not.toHaveBeenCalled();
+  });
+
+  it('gives up rather than retrying forever, and says what beat it', async () => {
+    const write = vi.fn().mockRejectedValue(apiError(409, 'SERVICE_UNAVAILABLE'));
+
+    await expect(youtubeWrite('playlistItems.update', write)).rejects.toMatchObject({ code: 409 });
+
+    expect(write).toHaveBeenCalledTimes(4);
+    // Only now, having actually given up, does the breaker hear about it.
+    expect(breaker.recordFailure).toHaveBeenCalledOnce();
+  });
+
+  it('charges no quota for a write that never landed', async () => {
+    const write = vi.fn().mockRejectedValue(apiError(409));
+
+    await expect(youtubeWrite('playlistItems.update', write)).rejects.toThrow();
+
+    expect(getYoutubeWriteQuotaUsed()).toBe(0);
   });
 });
