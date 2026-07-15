@@ -7,8 +7,9 @@ import { describe, it, expect } from 'vitest';
 import request from 'supertest';
 import { findSetCookie, setCookies } from '@tests/helpers/httpCookies';
 import { createApp } from '@/app';
+import { testServer } from '@tests/helpers/testServer';
 
-const app = createApp();
+const app = testServer(createApp());
 
 describe('Health Check', () => {
   describe('GET /health', () => {

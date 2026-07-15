@@ -10,8 +10,9 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import request from 'supertest';
 import { findSetCookie, setCookies } from '@tests/helpers/httpCookies';
 import { createApp } from '../../src/app';
+import { testServer } from '../helpers/testServer';
 
-const app = createApp();
+const app = testServer(createApp());
 const CODE = '4/0AXEQxICtest-authorization-code';
 
 beforeEach(() => {

@@ -6,8 +6,9 @@
 import { describe, it, expect } from 'vitest';
 import request from 'supertest';
 import { createApp } from '@/app';
+import { testServer } from '@tests/helpers/testServer';
 
-const app = createApp();
+const app = testServer(createApp());
 
 describe('Index Page', () => {
   describe('GET /', () => {

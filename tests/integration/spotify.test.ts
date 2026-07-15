@@ -7,6 +7,7 @@ import request from 'supertest';
 import { findSetCookie } from '@tests/helpers/httpCookies';
 import { youtubeCircuitBreaker } from '@/lib/circuitBreaker';
 import { createApp } from '@/app';
+import { testServer } from '@tests/helpers/testServer';
 import { getCurrentUser, getUserPlaylists } from '@/spotify/client';
 import { YoutubeApiError } from '@/youtube/client';
 
@@ -65,7 +66,7 @@ vi.mock('@/youtube/client', async (importActual) => {
   return { ...actual, createYoutubeClient: vi.fn(() => ytClient.client) };
 });
 
-const app = createApp();
+const app = testServer(createApp());
 
 /**
  * The breaker is a module singleton and the YouTube client is shared, so a test that trips one or

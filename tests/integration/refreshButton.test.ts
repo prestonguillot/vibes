@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../../src/app';
+import { testServer } from '../helpers/testServer';
 import { youtubeCircuitBreaker } from '../../src/lib/circuitBreaker';
 
 // Mock connection validation so these tests are deterministic and offline - the
@@ -15,11 +16,13 @@ vi.mock('../../src/auth/authValidation', async (orig) => ({
   validateYouTubeConnection: mockAuth.validateYouTubeConnection,
 }));
 
-describe('Refresh Button Integration', () => {
-  let app: any;
+// One server for the file. Rebuilding the app per test bought nothing - it holds no state, and what
+// varies between these tests is the mocked validators and the circuit breaker, both of which live
+// outside it.
+const app = testServer(createApp());
 
+describe('Refresh Button Integration', () => {
   beforeEach(() => {
-    app = createApp();
     youtubeCircuitBreaker.close();
     mockAuth.validateSpotifyConnection.mockResolvedValue({ connected: false });
     mockAuth.validateYouTubeConnection.mockResolvedValue({ connected: false });

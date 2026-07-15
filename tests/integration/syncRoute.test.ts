@@ -59,8 +59,9 @@ vi.mock('@/sync/playlistReconcile', async (importActual) => {
 });
 
 import { createApp } from '@/app';
+import { testServer } from '@tests/helpers/testServer';
 
-const app = createApp();
+const app = testServer(createApp());
 
 const spotifyCookie = JSON.stringify({ accessToken: 'a', refreshToken: 'b' });
 const youtubeCookie = JSON.stringify({
