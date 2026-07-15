@@ -274,20 +274,14 @@ describe('the emoji a message gets', () => {
 
   // Neither the text nor the context says anything: the level is the last word.
   it.each([
-    ['🔍', LogLevel.DEBUG, 'debug' as const],
-    ['ℹ️', LogLevel.INFO, 'log' as const],
-    ['⚠️', LogLevel.WARN, 'warn' as const],
-    ['❌', LogLevel.ERROR, 'error' as const],
-  ])('falls back to %s, the level, when nothing else matches', (emoji, level, method) => {
-    const spy = vi.spyOn(console, method).mockImplementation(() => undefined);
-    const call = {
-      [LogLevel.DEBUG]: Logger.debug,
-      [LogLevel.INFO]: Logger.info,
-      [LogLevel.WARN]: Logger.warn,
-      [LogLevel.ERROR]: Logger.error,
-    }[level]!;
+    ['🔍', 'debug' as const, Logger.debug],
+    ['ℹ️', 'log' as const, Logger.info],
+    ['⚠️', 'warn' as const, Logger.warn],
+    ['❌', 'error' as const, Logger.error],
+  ])('falls back to %s, the level, when nothing else matches', (emoji, consoleMethod, write) => {
+    const spy = vi.spyOn(console, consoleMethod).mockImplementation(() => undefined);
 
-    call('nothing to go on');
+    write('nothing to go on');
 
     expect(String(spy.mock.calls.at(-1)?.[0]).split(' ')[0]).toBe(emoji);
   });
