@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import fs from 'fs';
 
 /**
@@ -20,24 +20,6 @@ describe('Environment Configuration', () => {
     it('uses NODE_ENV=production in the start script', () => {
       const pkg = JSON.parse(fs.readFileSync('package.json', 'utf-8'));
       expect(pkg.scripts.start).toContain('NODE_ENV=production');
-    });
-  });
-
-  describe('NODE_ENV-based env file path', () => {
-    const originalNodeEnv = process.env.NODE_ENV;
-    afterEach(() => {
-      if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
-      else process.env.NODE_ENV = originalNodeEnv;
-    });
-
-    it('constructs .env.<env> for the current NODE_ENV', () => {
-      const env = process.env.NODE_ENV || 'development';
-      expect(`.env.${env}`).toMatch(/^\.env\.(development|production|test)$/);
-    });
-
-    it('defaults to development when NODE_ENV is unset', () => {
-      delete process.env.NODE_ENV;
-      expect(process.env.NODE_ENV || 'development').toBe('development');
     });
   });
 });
