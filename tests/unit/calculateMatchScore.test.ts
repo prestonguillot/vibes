@@ -414,3 +414,75 @@ describe('calculateMatchScore quality bonuses require a text signal', () => {
     expect(breakdown.components.viewCountBonus).toBe(0.1);
   });
 });
+
+/**
+ * The other two matching strategies, which the exact-substring cases above never reach. Strategy 2
+ * (fuzzy) fires when the titles are close but neither contains the other; strategy 3 (word-by-word)
+ * fires when even that is below 0.8.
+ */
+describe('calculateMatchScore: the fuzzy and word-matching strategies', () => {
+  it('scores a near-typo through strategy 2, plus the artist bonus when the title carries it', () => {
+    // "Paranoid Android" vs "Paranoid Androd": neither is a substring of the other, but they are
+    // ~0.94 similar, so it falls to the fuzzy branch. Artist "Paranoid" is in the title.
+    const { score, breakdown } = calculateMatchScore(
+      track('Paranoid Android', 'Paranoid'),
+      video({ title: 'Paranoid Androd' }),
+    );
+
+    expect(breakdown.components.coreMatch).toBeUndefined();
+    expect(breakdown.components.fuzzySimilarity).toBeGreaterThan(0);
+    expect(breakdown.components.artistBonus).toBe(0.15);
+    // The score is the fuzzy component PLUS the artist bonus (pins that the bonus is added, not
+    // subtracted - the component is set to 0.15 either way).
+    expect(score).toBeCloseTo(breakdown.components.fuzzySimilarity! + 0.15, 5);
+  });
+
+  it('scores a word-for-word reorder through strategy 3 at exactly 0.4', () => {
+    // "Alpha Bravo" vs "Bravo Alpha": no substring match, low similarity (a reversal), but every
+    // word matches -> ratio 1.0 -> 0.4 * 1.0. No artist signal, so the score is exactly 0.4.
+    const { score, breakdown } = calculateMatchScore(
+      track('Alpha Bravo', 'Zed'),
+      video({ title: 'Bravo Alpha' }),
+    );
+
+    expect(breakdown.components.coreMatch).toBeUndefined();
+    expect(breakdown.components.fuzzySimilarity).toBeUndefined();
+    expect(breakdown.components.wordMatching).toBeCloseTo(0.4, 5);
+    expect(score).toBeCloseTo(0.4, 5);
+  });
+
+  it('adds the secondary 0.1 artist bonus when only the title (not a strategy-1/2 bonus) carries the artist', () => {
+    const { score, breakdown } = calculateMatchScore(
+      track('Alpha Bravo', 'Alpha'),
+      video({ title: 'Bravo Alpha' }),
+    );
+
+    expect(breakdown.components.wordMatching).toBeCloseTo(0.4, 5);
+    expect(breakdown.components.artistBonus).toBe(0.1);
+    // 0.4 word + 0.1 artist - pins that the 0.1 is added.
+    expect(score).toBeCloseTo(0.5, 5);
+  });
+});
+
+describe('optimalTrackMatching: the 0.4 threshold and contested detection', () => {
+  it('includes a pair that scores exactly the 0.4 minimum (>=, not >)', () => {
+    const result = optimalTrackMatching(
+      [track('Alpha Bravo', 'Zed')],
+      [video({ id: 'v1', title: 'Bravo Alpha' })],
+    );
+
+    expect(result.matches.get('Alpha Bravo-Zed')?.id).toBe('v1');
+  });
+
+  // Two DIFFERENT songs that happen to share a name are not the "playlist holds the song twice"
+  // case: the loser can still find its own video, so it is drift, not a contested dead end.
+  it('does not mark a same-name but different-artist track as contested', () => {
+    const result = optimalTrackMatching(
+      [track('Song', 'Alice'), track('Song', 'Bob')],
+      [video({ id: 'v1', title: 'Song' })],
+    );
+
+    expect(result.matches.size).toBe(1);
+    expect(result.contested.size).toBe(0);
+  });
+});
