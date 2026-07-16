@@ -262,6 +262,18 @@ describe('playlistMeta on a cold load', () => {
     expect(summary).toBe('141 of 141 tracks synced to YouTube');
   });
 
+  // The mirror of "newer cache wins": an OLDER cache must lose to a server count that disagrees,
+  // for both numbers - not tie with a server that happened to match.
+  it('an older cache loses to a different server count', () => {
+    const summary = coldLoad({
+      serverLinked: 50,
+      serverTracks: 80,
+      cached: { trackCount: 141, linkedCount: 99, needsResync: false },
+    });
+
+    expect(summary).toBe('50 of 80 tracks synced to YouTube');
+  });
+
   // An entry cached before stamping existed is from an earlier visit by definition.
   it('treats an unstamped entry as older than the page', () => {
     document.body.innerHTML = `
@@ -306,6 +318,94 @@ describe('playlistMeta on a cold load', () => {
 
     expect(document.querySelector('.playlist-track-summary')!.textContent).toBe(
       '141 of 141 tracks synced to YouTube',
+    );
+  });
+
+  // The distinguishing case: a NEWER cache disagrees with the server. It must win over both counts,
+  // not just tie with a server that happened to match.
+  it('a newer cache wins over a different server count', () => {
+    document.body.innerHTML = `
+      <div class="playlist-item" data-playlist-id="p1" data-youtube-count="50" data-track-count="100">
+        <h5><span class="drift-dot" data-drift-dot></span></h5>
+        <p class="playlist-track-summary">rendered by the server</p>
+      </div>`;
+
+    // Stamped now -> newer than the page. Both numbers differ from the server's.
+    (window as any).playlistMeta.setMeta('p1', {
+      trackCount: 141,
+      linkedCount: 60,
+      needsResync: false,
+    });
+    (window as any).playlistMeta.decorateAll();
+
+    expect(document.querySelector('.playlist-track-summary')!.textContent).toBe(
+      '60 of 141 tracks synced to YouTube',
+    );
+  });
+});
+
+/**
+ * The guards around the edges: unusable storage, missing ids, and rows or scopes that are not shaped
+ * the way the happy path assumes. None of it should throw, and none of it should paint a wrong row.
+ */
+describe('playlistMeta: edge guards', () => {
+  const meta = () => (window as any).playlistMeta;
+
+  it('returns null rather than throwing when storage is empty', () => {
+    localStorage.clear();
+
+    expect(meta().getMeta('nope')).toBeNull();
+  });
+
+  it('returns null when storage holds corrupt JSON', () => {
+    localStorage.setItem('playlist-meta', '{not valid json');
+
+    expect(meta().getMeta('p1')).toBeNull();
+  });
+
+  it('does not store anything for a falsy id', () => {
+    meta().setMeta('', { trackCount: 5, needsResync: false });
+
+    expect(localStorage.getItem('playlist-meta')).toBeNull();
+  });
+
+  it('does not crash decorating a row that has no summary element', () => {
+    document.body.innerHTML = `<div class="playlist-item" data-playlist-id="p1"><span data-drift-dot></span></div>`;
+    meta().setMeta('p1', { trackCount: 5, linkedCount: 2, needsResync: false });
+
+    expect(() => meta().decorateRow(document.querySelector('.playlist-item'))).not.toThrow();
+  });
+
+  it('leaves the summary alone when no count is known from either side', () => {
+    // makeRow sets data-youtube-count but no data-track-count, and the cache holds no count either.
+    const row = makeRow('p1', 0);
+    meta().setMeta('p1', { trackCount: null, linkedCount: null, needsResync: false });
+
+    meta().decorateRow(row);
+
+    expect(row.querySelector('.playlist-track-summary')!.textContent).toBe('Open to view tracks');
+  });
+
+  it('does not crash decorating a row that has no drift dot', () => {
+    document.body.innerHTML = `<div class="playlist-item" data-playlist-id="p1"><p class="playlist-track-summary">x</p></div>`;
+    meta().setMeta('p1', { trackCount: 5, needsResync: true });
+
+    expect(() => meta().decorateRow(document.querySelector('.playlist-item'))).not.toThrow();
+  });
+
+  it('ignores a null or query-less scope in syncFromDetails', () => {
+    expect(() => meta().syncFromDetails(null)).not.toThrow();
+    expect(() => meta().syncFromDetails({})).not.toThrow();
+  });
+
+  it('decorates the list on DOMContentLoaded', () => {
+    const row = makeRow('p1', 30);
+    meta().setMeta('p1', { trackCount: 33, linkedCount: 30, needsResync: false });
+
+    document.dispatchEvent(new Event('DOMContentLoaded'));
+
+    expect(row.querySelector('.playlist-track-summary')!.textContent).toBe(
+      '30 of 33 tracks synced to YouTube',
     );
   });
 });
