@@ -96,31 +96,52 @@ document.addEventListener('DOMContentLoaded', function () {
       return;
     }
 
-    try {
-      // Show loading indicator
-      const loadingIndicator = document.createElement('div');
-      loadingIndicator.id = 'playlist-tracks-loading';
-      loadingIndicator.className = 'alert alert-info mt-2';
-      loadingIndicator.textContent = 'Loading track data for search...';
-      playlistsContainer.parentElement.insertBefore(loadingIndicator, playlistsContainer);
+    /** The one notice slot: says what search can do right now, or nothing when it can do it all. */
+    const notice = (text, className) => {
+      let el = document.getElementById('playlist-tracks-loading');
+      if (!text) {
+        if (el) el.remove();
+        return;
+      }
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'playlist-tracks-loading';
+        playlistsContainer.parentElement.insertBefore(el, playlistsContainer);
+      }
+      el.className = `alert ${className} mt-2`;
+      el.textContent = text;
+    };
 
-      // Fetch all playlist tracks in parallel
+    try {
+      notice('Loading track data for search...', 'alert-info');
+
       const response = await fetch(`/api/playlistTracks?playlistIds=${playlistIds.join(',')}`);
       if (!response.ok) {
         throw new Error('Failed to fetch playlist tracks');
       }
 
-      playlistSpotifyTracks = await response.json();
+      const { tracks, failed } = await response.json();
+      playlistSpotifyTracks = tracks;
 
-      // Remove loading indicator
-      const indicator = document.getElementById('playlist-tracks-loading');
-      if (indicator) {
-        indicator.remove();
+      // Searching by song only works for playlists whose tracks came back. Saying nothing means a
+      // search that cannot match a song sitting in a playlist right there on the page reads as
+      // "you do not have it".
+      if (failed && failed.length > 0) {
+        Logger.warn('Some playlists could not be read; search covers names only for those', {
+          failed: failed.length,
+        });
+        notice(
+          `Search is by name only for ${failed.length} playlist${failed.length === 1 ? '' : 's'} - their songs could not be loaded.`,
+          'alert-warning',
+        );
+      } else {
+        notice(null);
       }
     } catch (error) {
       Logger.error('Error loading Spotify tracks', {}, error);
-      spotifyTracksLoading = false;
-      // Continue with search anyway, just without Spotify track data
+      // Search still works on names, which is worth keeping - but the user has to know that is all
+      // it is doing, or a song they own and cannot find looks like a song they do not own.
+      notice('Search is by name only - song data could not be loaded.', 'alert-warning');
     }
 
     spotifyTracksLoading = false;
