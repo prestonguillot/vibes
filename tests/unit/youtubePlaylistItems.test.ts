@@ -8,8 +8,13 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { fetchAllYoutubePlaylistItems, findYoutubePlaylistItem } from '../../src/youtube/playlist';
-import type { YoutubeClient, YtPlaylistItem } from '../../src/youtube/client';
+import {
+  fetchAllYoutubePlaylistItems,
+  fetchAllYoutubePlaylists,
+  findYoutubePlaylistItem,
+  findSyncedYoutubePlaylist,
+} from '../../src/youtube/playlist';
+import type { YoutubeClient, YtPlaylist, YtPlaylistItem } from '../../src/youtube/client';
 
 const item = (videoId: string): YtPlaylistItem =>
   ({ id: `item-${videoId}`, snippet: { resourceId: { videoId } } }) as YtPlaylistItem;
@@ -119,5 +124,94 @@ describe('findYoutubePlaylistItem', () => {
 
     expect(found).toBeNull();
     expect(itemsScanned).toBe(2);
+  });
+});
+
+/**
+ * The user's own playlists, which findSyncedYoutubePlaylist walks to decide whether a Spotify
+ * playlist has been synced. A truncated walk here is a synced playlist reported as unsynced, and a
+ * mine:false request is somebody else's playlists entirely.
+ */
+function clientWithPlaylistPages(pages: YtPlaylist[][]) {
+  const requests: Array<{ part: string[]; mine?: boolean; pageToken?: string }> = [];
+  const list = vi.fn(async (params: { part: string[]; mine?: boolean; pageToken?: string }) => {
+    requests.push(params);
+    const index = params.pageToken ? Number(params.pageToken) : 0;
+    const isLast = index === pages.length - 1;
+    return {
+      data: { items: pages[index], nextPageToken: isLast ? undefined : String(index + 1) },
+    };
+  });
+  return { client: { playlists: { list } } as unknown as YoutubeClient, requests };
+}
+
+const playlist = (id: string, title: string): YtPlaylist =>
+  ({ id, snippet: { title } }) as YtPlaylist;
+
+describe('fetchAllYoutubePlaylists', () => {
+  it('returns every playlist across pages', async () => {
+    const { client } = clientWithPlaylistPages([
+      [playlist('p1', 'A'), playlist('p2', 'B')],
+      [playlist('p3', 'C')],
+    ]);
+
+    const all = await fetchAllYoutubePlaylists(client);
+
+    expect(all.map((p) => p.id)).toEqual(['p1', 'p2', 'p3']);
+  });
+
+  // The second page is only reached by following nextPageToken; a broken loop returns page one and
+  // silently drops the rest, which is a synced playlist that lives on page two read as unsynced.
+  it('follows the page token to the end', async () => {
+    const { client, requests } = clientWithPlaylistPages([
+      [playlist('p1', 'A')],
+      [playlist('p2', 'B')],
+    ]);
+
+    await fetchAllYoutubePlaylists(client);
+
+    expect(requests).toHaveLength(2);
+    expect(requests[1]!.pageToken).toBe('1');
+  });
+
+  it('asks for the current user, and the parts it reads', async () => {
+    const { client, requests } = clientWithPlaylistPages([[playlist('p1', 'A')]]);
+
+    await fetchAllYoutubePlaylists(client);
+
+    expect(requests[0]!.mine).toBe(true);
+    expect(requests[0]!.part).toEqual(['id', 'snippet', 'contentDetails']);
+  });
+
+  it('handles a user with no playlists', async () => {
+    const { client } = clientWithPlaylistPages([[]]);
+
+    expect(await fetchAllYoutubePlaylists(client)).toEqual([]);
+  });
+});
+
+describe('findSyncedYoutubePlaylist', () => {
+  it('finds the playlist whose title is the synced-title of the Spotify one', async () => {
+    const { client } = clientWithPlaylistPages([
+      [playlist('other', 'Unrelated'), playlist('match', 'My Mix (from Spotify)')],
+    ]);
+
+    const found = await findSyncedYoutubePlaylist(client, 'My Mix');
+
+    expect(found?.id).toBe('match');
+  });
+
+  // The suffix is the whole convention: a YouTube playlist that merely shares the Spotify name is
+  // not the synced one, and treating it as such would sync into a playlist the user made by hand.
+  it('does not match a playlist that lacks the (from Spotify) suffix', async () => {
+    const { client } = clientWithPlaylistPages([[playlist('bare', 'My Mix')]]);
+
+    expect(await findSyncedYoutubePlaylist(client, 'My Mix')).toBeNull();
+  });
+
+  it('is null when the user has no matching playlist', async () => {
+    const { client } = clientWithPlaylistPages([[playlist('p1', 'Something Else (from Spotify)')]]);
+
+    expect(await findSyncedYoutubePlaylist(client, 'My Mix')).toBeNull();
   });
 });
