@@ -408,6 +408,17 @@ describe('playlist search: loading the track index once', () => {
 
     expect(globalThis.fetch).not.toHaveBeenCalled();
   });
+
+  // The request must name exactly the playlists on the page, comma-joined - the ids come from each
+  // row's data-playlist-id, and the endpoint keys its per-playlist results off them.
+  it('requests exactly the page’s playlist ids, comma-joined', async () => {
+    await boot(`<div id="playlists-content">${row('pl-1', 'A Mix')}${row('pl-2', 'B Mix')}</div>`);
+    vi.mocked(globalThis.fetch).mockClear();
+
+    await search('mix');
+
+    expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining('playlistIds=pl-1,pl-2'));
+  });
 });
 
 /**
