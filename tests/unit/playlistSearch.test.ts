@@ -349,3 +349,63 @@ describe('playlist search: when the track index is incomplete', () => {
     expect(notice()?.className).toContain('alert-warning');
   });
 });
+
+/**
+ * The track index loads once, on first search, over every playlist on the page - the only network
+ * call this feature makes, and the answer does not change while the page is open.
+ */
+describe('playlist search: loading the track index once', () => {
+  async function boot(html: string) {
+    vi.useFakeTimers();
+    (globalThis as { Logger?: unknown }).Logger = { error: vi.fn(), warn: vi.fn() };
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ tracks: TRACKS, failed: [] }),
+    }) as typeof fetch;
+    document.body.innerHTML = `<input id="playlistSearch" type="text" />${html}`;
+    await loadModule();
+    document.dispatchEvent(new window.Event('DOMContentLoaded'));
+  }
+
+  afterEach(() => vi.useRealTimers());
+
+  /**
+   * A second search reuses what the first loaded. (The load is guarded twice over - the keyup
+   * handler skips it once tracks exist, and loadSpotifyTracks itself returns early - so a single
+   * mutation to either guard leaves the behaviour unchanged, which is why those two survive as
+   * equivalent mutants. What this pins is the behaviour they jointly produce.)
+   */
+  it('does not fetch the index again once it is loaded', async () => {
+    await boot(`<div id="playlists-content">${row('pl-1', 'Blinding Lights Mix')}</div>`);
+
+    await search('lights'); // first search loads the index
+    // Forget that legitimate first fetch, then assert the second search adds no new one - robust to
+    // any fetch a preceding test may have left on the shared mock.
+    vi.mocked(globalThis.fetch).mockClear();
+
+    await search('mix');
+
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+
+  // The length===0 guard: nothing to index means no request. Proven - removing it fails this.
+  it('does not fetch when the page has no playlists to index', async () => {
+    await boot('<div id="playlists-content"></div>');
+    vi.mocked(globalThis.fetch).mockClear();
+
+    await search('anything');
+
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+
+  // Playlists are counted by querySelectorAll('.playlist-item'); an element that merely carries a
+  // data-playlist-id (a nested control) is not a row and must not make the page fetch an index.
+  it('counts only .playlist-item elements, not everything with a playlist id', async () => {
+    await boot(`<div id="playlists-content"><button data-playlist-id="pl-1">x</button></div>`);
+    vi.mocked(globalThis.fetch).mockClear();
+
+    await search('anything');
+
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+});
