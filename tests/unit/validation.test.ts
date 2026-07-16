@@ -248,4 +248,144 @@ describe('Validation Schemas', () => {
       expect(typeof falseResult).toBe('boolean');
     });
   });
+
+  /**
+   * The ^ and $ anchors are the difference between "is exactly this" and "contains this". Drop
+   * either and the regex matches a substring, so an id with a valid core wrapped in junk - or one
+   * simply too long - passes validation and reaches the API as a malformed request the app thought
+   * it had rejected. The existing reject cases used bad characters, which fail with or without the
+   * anchors; these use only valid characters, in the wrong length or position.
+   */
+  describe('the id regexes are anchored, not substring matches', () => {
+    const valid22 = 'a'.repeat(22);
+    const validYtVideo = 'a'.repeat(11);
+    const validYtPlaylist = 'a'.repeat(13);
+
+    it.each([
+      ['spotifyPlaylistId', () => schemas.spotifyPlaylistId, valid22],
+      ['youtubeVideoId', () => schemas.youtubeVideoId, validYtVideo],
+    ])('%s rejects a valid core with trailing valid characters ($ anchor)', (_l, get, core) => {
+      expect(() => get().parse(core + 'a')).toThrow();
+    });
+
+    it.each([
+      ['spotifyPlaylistId', () => schemas.spotifyPlaylistId, valid22],
+      ['youtubeVideoId', () => schemas.youtubeVideoId, validYtVideo],
+      ['youtubePlaylistId', () => schemas.youtubePlaylistId, validYtPlaylist],
+    ])('%s rejects a valid core with a newline after it', (_l, get, core) => {
+      // A trailing newline is the classic $-anchor bypass: without $, `{n}$` becomes `{n}` and the
+      // first n chars of "core\njunk" match. youtubePlaylistId is {13,}, so length can't catch its
+      // $ drop - only trailing junk can.
+      expect(() => get().parse(core + '\nInvalid request data')).toThrow();
+    });
+
+    it('youtubePlaylistId (13+) rejects a leading junk char before a valid tail (^ anchor)', () => {
+      // This one is open-ended (13 OR MORE), so length alone cannot catch a ^ drop; a leading
+      // space in front of an otherwise valid id is what does.
+      expect(() => schemas.youtubePlaylistId.parse(' ' + validYtPlaylist)).toThrow();
+    });
+
+    it('accepts the exact-length valid ids, so the anchors are not just rejecting everything', () => {
+      expect(schemas.spotifyPlaylistId.parse(valid22)).toBe(valid22);
+      expect(schemas.youtubeVideoId.parse(validYtVideo)).toBe(validYtVideo);
+      expect(schemas.youtubePlaylistId.parse(validYtPlaylist)).toBe(validYtPlaylist);
+    });
+  });
+});
+
+/**
+ * The middleware, which nothing exercised. It replaces req.params/query/body with the schema's
+ * PARSED value - which is not the same object: batchSize turns '3' into a string it re-formats,
+ * booleanFlag turns 'true' into a real boolean. A handler reads the validated value expecting the
+ * transform to have happened; if the middleware wrote to the wrong key or skipped the assignment,
+ * the handler silently sees the raw request instead.
+ */
+describe('the validate() middleware', () => {
+  let validate: typeof import('@/lib/validation').validate;
+  let z: typeof import('zod').z;
+
+  beforeEach(async () => {
+    vi.resetModules();
+    ({ validate } = await import('@/lib/validation'));
+    ({ z } = await import('zod'));
+  });
+
+  const run = async (
+    schema: Parameters<typeof validate>[0],
+    req: { params?: unknown; query?: unknown; body?: unknown; path?: string },
+  ) => {
+    const res = {
+      statusCode: 200,
+      rendered: undefined as unknown,
+      status(code: number) {
+        this.statusCode = code;
+        return this;
+      },
+      render(_view: string, data: unknown) {
+        this.rendered = data;
+        return this;
+      },
+    };
+    let nexted = false;
+    // req.query/params are getters on a real Request; a plain object lets defineProperty stand in.
+    const reqObj = { path: '/x', ...req } as never;
+    await validate(schema)(reqObj, res as never, () => {
+      nexted = true;
+    });
+    return { res, nexted, reqObj: reqObj as Record<string, unknown> };
+  };
+
+  it('writes the parsed value back, transform and all', async () => {
+    const { nexted, reqObj } = await run(
+      { query: z.object({ ownOnly: z.enum(['true', 'false']).transform((v) => v === 'true') }) },
+      { query: { ownOnly: 'true' } },
+    );
+
+    expect(nexted).toBe(true);
+    // The handler must see a real boolean, not the string it arrived as.
+    expect((reqObj.query as { ownOnly: boolean }).ownOnly).toBe(true);
+  });
+
+  // Each slot is written to its own key: a handler reading req.params.id must get the parsed
+  // params, not the parsed body, and vice versa. setValidated writing the wrong key name would
+  // leave the real slot holding the raw request.
+  it('writes each of params, query and body back to its own key', async () => {
+    const idSchema = z.object({ v: z.string().transform((s) => `parsed:${s}`) });
+    const { reqObj } = await run(
+      { params: idSchema, query: idSchema, body: idSchema },
+      { params: { v: 'p' }, query: { v: 'q' }, body: { v: 'b' } },
+    );
+
+    expect((reqObj.params as { v: string }).v).toBe('parsed:p');
+    expect((reqObj.query as { v: string }).v).toBe('parsed:q');
+    expect((reqObj.body as { v: string }).v).toBe('parsed:b');
+  });
+
+  it('400s with the field and message when validation fails, and does not call next', async () => {
+    const { res, nexted } = await run(
+      { params: z.object({ id: z.string().min(5, 'too short') }) },
+      { params: { id: 'ab' } },
+    );
+
+    expect(nexted).toBe(false);
+    expect(res.statusCode).toBe(400);
+    expect((res.rendered as { details: string }).details).toContain('id: too short');
+  });
+
+  it('passes an unexpected non-Zod error to the error handler rather than rendering a 400', async () => {
+    const exploding = {
+      parse() {
+        throw new Error('not a zod error');
+      },
+    } as never;
+
+    let passed: unknown;
+    const res = { status: () => res, render: () => res } as never;
+    await validate({ body: exploding })({ path: '/x', body: {} } as never, res, (err?: unknown) => {
+      passed = err;
+    });
+
+    expect(passed).toBeInstanceOf(Error);
+    expect((passed as Error).message).toBe('not a zod error');
+  });
 });
