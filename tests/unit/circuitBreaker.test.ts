@@ -1,19 +1,35 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+/**
+ * The breaker is made of clock reads: isOpen() is `state === OPEN && Date.now() < nextAttemptTime`.
+ *
+ * So these run on fake timers, and time moves only when a test says so. They used to wait for real,
+ * which forced resetTimeout down to 50ms to keep the suite quick - and that made "record two
+ * failures, assert it is open" a race the test could lose: under load the assertion arrived more
+ * than 50ms after the failures, the window had passed, and isOpen() was correctly false. It failed
+ * about one run in six with nine suites running at once, and never once running alone.
+ *
+ * That flake was not confined to this file. A static mutant is tested by running the WHOLE suite,
+ * and stryker counts any failure as the mutant being caught - so this test failing at random handed
+ * out kills nothing earned. src/lib/circuitBreakerConfig.ts read 60% against a real 40% because of
+ * it.
+ */
+
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { CircuitBreaker, CircuitState } from '../../src/lib/circuitBreaker';
 
 describe('CircuitBreaker', () => {
   let circuitBreaker: CircuitBreaker;
 
   beforeEach(() => {
+    vi.useFakeTimers();
     circuitBreaker = new CircuitBreaker('Test Circuit', {
       failureThreshold: 2,
-      // The waits below are real, so this is as short as the clock can be trusted to resolve.
-      // A second each was five seconds of the suite sitting still, and a test that sleeps starves
-      // the ones beside it until one of them times out having tested nothing.
-      resetTimeout: 50,
+      // A real minute, because nothing waits for it: the clock is ours now.
+      resetTimeout: 60_000,
       successThreshold: 2,
     });
   });
+
+  afterEach(() => vi.useRealTimers());
 
   describe('Initial State', () => {
     it('should start in CLOSED state', () => {
@@ -91,7 +107,7 @@ describe('CircuitBreaker', () => {
 
     it('should transition to HALF_OPEN after timeout', async () => {
       // Wait for reset timeout
-      await new Promise((resolve) => setTimeout(resolve, 60));
+      vi.advanceTimersByTime(60_001);
 
       expect(circuitBreaker.canProceed()).toBe(true);
       const state = circuitBreaker.getState();
@@ -106,7 +122,7 @@ describe('CircuitBreaker', () => {
       circuitBreaker.recordFailure();
 
       // Wait for reset timeout to enter HALF_OPEN
-      await new Promise((resolve) => setTimeout(resolve, 60));
+      vi.advanceTimersByTime(60_001);
       circuitBreaker.canProceed(); // Trigger transition to HALF_OPEN
     });
 
@@ -178,7 +194,7 @@ describe('CircuitBreaker', () => {
       expect(circuitBreaker.canProceed()).toBe(false);
 
       // Wait for timeout
-      await new Promise((resolve) => setTimeout(resolve, 60));
+      vi.advanceTimersByTime(60_001);
 
       expect(circuitBreaker.canProceed()).toBe(true);
     });
@@ -199,7 +215,7 @@ describe('CircuitBreaker', () => {
       expect(customBreaker.getState().state).toBe(CircuitState.OPEN);
     });
 
-    it('should respect custom success threshold in HALF_OPEN', async () => {
+    it('should respect custom success threshold in HALF_OPEN', () => {
       const customBreaker = new CircuitBreaker('Custom', {
         failureThreshold: 2,
         resetTimeout: 100,
@@ -208,7 +224,7 @@ describe('CircuitBreaker', () => {
 
       // Open and wait for HALF_OPEN
       customBreaker.open();
-      await new Promise((resolve) => setTimeout(resolve, 150));
+      vi.advanceTimersByTime(101);
       customBreaker.canProceed();
 
       // Should need 3 successes to close
