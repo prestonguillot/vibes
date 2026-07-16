@@ -409,3 +409,68 @@ describe('playlist search: loading the track index once', () => {
     expect(globalThis.fetch).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * Search does not only read the playlist title and the lazy-loaded track index - it also reads the
+ * song and video rows already rendered inside an expanded playlist. None of that was exercised: the
+ * fixtures were title-only, so the whole `.track-item`/`.video-title` branch of getPlaylistSearchText
+ * had never run.
+ */
+describe('playlist search: matching the rows rendered inside a playlist', () => {
+  async function boot(html: string) {
+    vi.useFakeTimers();
+    (globalThis as { Logger?: unknown }).Logger = { error: vi.fn(), warn: vi.fn() };
+    // Empty index: this suite is about the rendered rows, not the lazy-loaded track names.
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ tracks: {}, failed: [] }),
+    }) as typeof fetch;
+    document.body.innerHTML = `<input id="playlistSearch" type="text" /><div id="playlists-content">${html}</div>`;
+    await loadModule();
+    document.dispatchEvent(new window.Event('DOMContentLoaded'));
+  }
+
+  afterEach(() => vi.useRealTimers());
+
+  const withTitleOnly = (id: string) =>
+    `<div class="playlist-item" data-playlist-id="${id}"><h5 class="playlist-title">Plain</h5></div>`;
+
+  it('matches a song name rendered in an expanded playlist', async () => {
+    await boot(
+      `<div class="playlist-item" data-playlist-id="pl-1"><h5 class="playlist-title">Some Mix</h5>` +
+        `<div class="track-item">Paranoid Android</div></div>` +
+        withTitleOnly('pl-2'),
+    );
+
+    await search('paranoid'); // only in pl-1's rendered track row, not in any title
+
+    expect(hidden('pl-1')).toBe(false);
+    expect(hidden('pl-2')).toBe(true);
+  });
+
+  it('matches a video title rendered in the playlist', async () => {
+    await boot(
+      `<div class="playlist-item" data-playlist-id="pl-1"><h5 class="playlist-title">Some Mix</h5>` +
+        `<span class="video-title">Karma Police (Live)</span></div>` +
+        withTitleOnly('pl-2'),
+    );
+
+    await search('karma');
+
+    expect(hidden('pl-1')).toBe(false);
+    expect(hidden('pl-2')).toBe(true);
+  });
+
+  it('matches a video whose title is only in the data-video-title attribute', async () => {
+    await boot(
+      `<div class="playlist-item" data-playlist-id="pl-1"><h5 class="playlist-title">Some Mix</h5>` +
+        `<div data-video-title="No Surprises"></div></div>` +
+        withTitleOnly('pl-2'),
+    );
+
+    await search('surprises'); // no textContent, so the dataset fallback is the only source
+
+    expect(hidden('pl-1')).toBe(false);
+    expect(hidden('pl-2')).toBe(true);
+  });
+});
