@@ -27,7 +27,7 @@
   --toner: 0.26; /* fractal-noise grain strength */
   --toner-blend: multiply;
   --blotch: rgba(0, 0, 0, 0.06); /* soft uneven toner blotches */
-  --streak: rgba(0, 0, 0, 0.05); /* faint copier roller streaks (the tilted grid) */
+  --streak: rgba(0, 0, 0, 0.1); /* copier roller streaks (the tilted grid) */
 }
 
 /* Dark theme: near-black surfaces, light borders/text, SAME neon accents (they pop harder on
@@ -50,7 +50,7 @@
   --toner: 0.1;
   --toner-blend: screen;
   --blotch: rgba(255, 255, 255, 0.05);
-  --streak: rgba(255, 255, 255, 0.04);
+  --streak: rgba(255, 255, 255, 0.08);
 
   /* Re-point Bootstrap's own theme variables so its components (cards set their own
      color/bg, .text-muted, form controls, dropdowns) follow the dark theme rather than their
@@ -791,6 +791,27 @@ body::after {
 .card-header h5 {
   margin: 0;
   font-size: 1.2rem;
+}
+
+/* Textured "Your Playlists" panel: the page's photocopy speckle, dialed down, so the panel
+   reads as part of the zine rather than a flat box. It shows in the gaps around the (solid)
+   playlist rows; the header and all content sit above it. */
+.playlists-panel {
+  position: relative;
+}
+.playlists-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: var(--speckle);
+  background-size: 520px 520px;
+  opacity: 0.9;
+}
+.playlists-panel > * {
+  position: relative;
+  z-index: 1;
 }
 
 /* === BADGES === */
