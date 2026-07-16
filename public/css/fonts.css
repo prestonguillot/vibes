@@ -9,33 +9,33 @@
 }
 
 @font-face {
-  font-family: 'Fredoka One';
+  font-family: 'Special Elite';
   font-style: normal;
   font-weight: 400;
   font-display: block;
-  src: url('/fonts/fredoka-one-400.woff2') format('woff2');
+  src: url('/fonts/special-elite-400.woff2') format('woff2');
 }
 
 @font-face {
-  font-family: 'Bungee';
+  font-family: 'Anton';
   font-style: normal;
   font-weight: 400;
   font-display: block;
-  src: url('/fonts/bungee-400.woff2') format('woff2');
+  src: url('/fonts/anton-400.woff2') format('woff2');
 }
 
 @font-face {
-  font-family: 'Courier Prime';
+  font-family: 'Stardos Stencil';
   font-style: normal;
   font-weight: 400;
   font-display: block;
-  src: url('/fonts/courier-prime-400.woff2') format('woff2');
+  src: url('/fonts/stardos-stencil-400.woff2') format('woff2');
 }
 
 @font-face {
-  font-family: 'Courier Prime';
+  font-family: 'Stardos Stencil';
   font-style: normal;
   font-weight: 700;
   font-display: block;
-  src: url('/fonts/courier-prime-700.woff2') format('woff2');
+  src: url('/fonts/stardos-stencil-700.woff2') format('woff2');
 }

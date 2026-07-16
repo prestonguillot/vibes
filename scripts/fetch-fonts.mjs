@@ -6,11 +6,18 @@ import fs from 'fs';
 import path from 'path';
 
 // Families + weights as used by views/index.ejs.
+// One face per TOOL, not per heading level - a zine page is made of whatever was in the room:
+//   Special Elite    - the typewriter the body was typed on (distressed strikes baked in)
+//   Anton            - the newsprint headline that got cut out and pasted down
+//   Permanent Marker - the hand that annotated it
+//   Stardos Stencil  - the rubber stamps
+// Special Elite and Anton ship a single weight each, which is the point: a typewriter cannot bold
+// (you overstrike), so the CSS never asks for a weight these faces don't have.
 const FAMILIES = [
   { name: 'Permanent Marker', param: 'Permanent+Marker', weights: [400] },
-  { name: 'Fredoka One', param: 'Fredoka+One', weights: [400] },
-  { name: 'Bungee', param: 'Bungee', weights: [400] },
-  { name: 'Courier Prime', param: 'Courier+Prime:wght@400;700', weights: [400, 700] },
+  { name: 'Special Elite', param: 'Special+Elite', weights: [400] },
+  { name: 'Anton', param: 'Anton', weights: [400] },
+  { name: 'Stardos Stencil', param: 'Stardos+Stencil:wght@400;700', weights: [400, 700] },
 ];
 const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36';

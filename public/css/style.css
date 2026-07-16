@@ -122,7 +122,11 @@ body {
     auto,
     auto,
     auto;
-  font-family: 'Courier Prime', monospace;
+  font-family: 'Special Elite', monospace;
+  /* Every face here ships a single weight, on purpose - a typewriter cannot bold, you overstrike
+     (see the text-shadow emphases below). Never let the browser synthesise the missing weights: a
+     faked bold smears the typewriter's uneven strikes into mush. */
+  font-synthesis-weight: none;
   min-height: 100vh;
   width: 100%;
   min-width: 320px;
@@ -190,22 +194,22 @@ body::after {
 }
 
 .punk-title {
-  font-family: 'Bungee', cursive;
-  font-size: 3.5rem;
+  font-family: 'Anton', sans-serif;
+  font-size: 6.5rem;
   color: var(--text);
   text-transform: uppercase;
-  letter-spacing: -2px;
+  letter-spacing: -1px;
   margin: 0;
   text-shadow:
-    3px 3px 0px #ff0040,
-    6px 6px 0px rgba(var(--shadow-rgb), 0.3);
+    5px 5px 0px #ff0040,
+    9px 9px 0px rgba(var(--shadow-rgb), 0.3);
   transform: rotate(0.8deg);
   line-height: 0.9;
 }
 
 .punk-subtitle {
   font-family: 'Permanent Marker', cursive;
-  font-size: 1.2rem;
+  font-size: 1.6rem;
   color: var(--text);
   margin: 15px 0 0 0;
   transform: rotate(-0.3deg);
@@ -215,8 +219,8 @@ body::after {
 }
 
 .punk-arrow {
-  font-family: 'Fredoka One', cursive;
-  font-size: 2.5rem;
+  font-family: 'Anton', sans-serif;
+  font-size: 4rem;
   color: #0066ff;
   text-shadow: 2px 2px 0px rgb(var(--shadow-rgb));
   display: inline-block;
@@ -311,8 +315,8 @@ body::after {
   padding: 7px 20px;
   border: 2px solid transparent;
   color: var(--text-muted);
-  font-family: 'Courier Prime', monospace;
-  font-weight: 700;
+  font-family: 'Special Elite', monospace;
+  text-shadow: 0.6px 0 0 currentColor;
   text-transform: uppercase;
   letter-spacing: 1px;
   font-size: 0.78rem;
@@ -337,7 +341,7 @@ body::after {
 
 .expand-indicator {
   font-size: 13px;
-  font-weight: bold;
+  text-shadow: 0.6px 0 0 currentColor;
   transition: transform 0.3s ease;
   transform: rotate(0deg);
 }
@@ -374,9 +378,9 @@ body::after {
   align-items: center;
   gap: 12px;
   font-size: 1rem;
-  font-weight: 600;
+  text-shadow: 0.6px 0 0 currentColor;
   letter-spacing: 0.5px;
-  font-family: 'Courier Prime', monospace;
+  font-family: 'Special Elite', monospace;
 }
 
 .loading-spinner {
@@ -423,7 +427,7 @@ body::after {
 .collapse-indicator {
   font-size: 16px;
   color: var(--text-muted);
-  font-weight: bold;
+  text-shadow: 0.6px 0 0 currentColor;
   transition:
     color 0.2s ease,
     transform 0.3s ease;
@@ -547,7 +551,7 @@ body::after {
 }
 
 .track-title {
-  font-weight: 600;
+  text-shadow: 0.6px 0 0 currentColor;
   margin-bottom: 0;
   line-height: 1.4;
   white-space: nowrap;
@@ -624,7 +628,7 @@ body::after {
   justify-self: center;
   align-self: center;
   font-size: 3rem;
-  font-weight: bold;
+  text-shadow: 0.6px 0 0 currentColor;
   color: var(--text-muted);
 }
 
@@ -666,7 +670,7 @@ body::after {
   border: 4px solid var(--border);
   border-radius: 0;
   box-shadow: 8px 8px 0px rgba(var(--shadow-rgb), 0.8);
-  font-family: 'Courier Prime', monospace;
+  font-family: 'Special Elite', monospace;
   background-image:
     radial-gradient(circle at 10% 20%, rgba(0, 0, 0, 0.05) 1px, transparent 1px),
     radial-gradient(circle at 90% 80%, rgba(0, 0, 0, 0.03) 1px, transparent 1px);
@@ -684,7 +688,7 @@ body::after {
 }
 
 .modal-header .modal-title {
-  font-family: 'Fredoka One', cursive;
+  font-family: 'Anton', sans-serif;
   font-size: 1.5rem;
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -851,8 +855,8 @@ body::after {
 }
 
 .card-title {
-  font-family: 'Fredoka One', cursive;
-  font-size: 1.5rem;
+  font-family: 'Anton', sans-serif;
+  font-size: 3rem;
   color: var(--text);
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -862,14 +866,14 @@ body::after {
   background: #000;
   color: #fff;
   border-bottom: 3px solid var(--border);
-  font-family: 'Fredoka One', cursive;
+  font-family: 'Anton', sans-serif;
   text-transform: uppercase;
   letter-spacing: 1px;
 }
 
 .card-header h5 {
   margin: 0;
-  font-size: 1.2rem;
+  font-size: 1.7rem;
 }
 
 /* Textured "Your Playlists" panel: the page's photocopy speckle, dialed down, so the panel
@@ -903,8 +907,8 @@ body::after {
 
 /* === BADGES === */
 .badge {
-  font-family: 'Courier Prime', monospace;
-  font-weight: 700;
+  font-family: 'Special Elite', monospace;
+  text-shadow: 0.6px 0 0 currentColor;
   border: 2px solid var(--border);
   border-radius: 0;
   text-transform: uppercase;
@@ -932,7 +936,7 @@ body::after {
    outline, a worn-ink mask that punches a few holes, and a slight tilt - in place of solid fills.
    Scoped to .track-status so other badges keep their look. */
 .track-status .badge {
-  font-family: 'Bungee', cursive;
+  font-family: 'Stardos Stencil', sans-serif;
   font-size: 0.6rem;
   /* solid chip so the inked stamp reads over busy album-art backdrops; no tilt, so it lines up
      with the square edit/add button beside it. */
@@ -1007,8 +1011,9 @@ body::after {
 
 /* === BUTTONS === */
 .connect-btn {
-  font-family: 'Courier Prime', monospace;
-  font-weight: 700;
+  font-family: 'Special Elite', monospace;
+  font-size: 1.15rem;
+  text-shadow: 0.6px 0 0 currentColor;
   border: 3px solid var(--border);
   border-radius: 0;
   text-transform: uppercase;
@@ -1052,8 +1057,8 @@ body::after {
 /* === AUTH EXPIRED RECONNECT BUTTONS === */
 .btn-spotify-reconnect,
 .btn-youtube-reconnect {
-  font-family: 'Courier Prime', monospace;
-  font-weight: 700;
+  font-family: 'Special Elite', monospace;
+  text-shadow: 0.6px 0 0 currentColor;
   border: 2px solid var(--border);
   border-radius: 0;
   text-transform: uppercase;
@@ -1139,8 +1144,8 @@ body::after {
   white-space: nowrap;
 
   /* Typography */
-  font-family: 'Courier Prime', monospace;
-  font-weight: 700;
+  font-family: 'Special Elite', monospace;
+  text-shadow: 0.6px 0 0 currentColor;
   font-size: 0.9rem;
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -1272,8 +1277,8 @@ body::after {
   border-color: var(--border);
   color: #fff;
   box-shadow: 2px 2px 0px rgba(var(--shadow-rgb), 0.3);
-  font-family: 'Courier Prime', monospace;
-  font-weight: 700;
+  font-family: 'Special Elite', monospace;
+  text-shadow: 0.6px 0 0 currentColor;
   border: 2px solid var(--border);
   border-radius: 0;
   text-transform: uppercase;
@@ -1291,8 +1296,8 @@ body::after {
   border-color: var(--border);
   color: var(--text);
   box-shadow: 2px 2px 0px rgba(var(--shadow-rgb), 0.3);
-  font-family: 'Courier Prime', monospace;
-  font-weight: 700;
+  font-family: 'Special Elite', monospace;
+  text-shadow: 0.6px 0 0 currentColor;
   border: 2px solid var(--border);
   border-radius: 0;
   text-transform: uppercase;
@@ -1321,8 +1326,8 @@ body::after {
   border: 2px solid var(--border);
   color: #fff;
   box-shadow: 3px 3px 0px rgba(var(--shadow-rgb), 0.3);
-  font-family: 'Courier Prime', monospace;
-  font-weight: 700;
+  font-family: 'Special Elite', monospace;
+  text-shadow: 0.6px 0 0 currentColor;
   border-radius: 0;
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -1350,8 +1355,8 @@ body::after {
   padding: 4px 8px;
   font-size: 0.875rem;
   box-shadow: 3px 3px 0px rgba(255, 255, 255, 0.3);
-  font-family: 'Courier Prime', monospace;
-  font-weight: 700 !important;
+  font-family: 'Special Elite', monospace;
+  text-shadow: 0.6px 0 0 currentColor !important;
   text-transform: uppercase !important;
   letter-spacing: 1px;
   border-radius: 0;
@@ -1573,15 +1578,15 @@ body::after {
 
 .playlist-info h5 {
   margin-bottom: 8px;
-  font-weight: 700;
+  text-shadow: 0.6px 0 0 currentColor;
   color: var(--text);
-  font-family: 'Courier Prime', monospace;
+  font-family: 'Special Elite', monospace;
 }
 
 .playlist-info p {
   margin-bottom: 4px;
   font-size: 0.95rem;
-  font-family: 'Courier Prime', monospace;
+  font-family: 'Special Elite', monospace;
 }
 
 /* .sync-btn definition consolidated at line ~580 */
@@ -1594,7 +1599,7 @@ body::after {
   border: 2px solid var(--border);
   border-radius: 0;
   background: var(--surface-alt);
-  font-family: 'Courier Prime', monospace;
+  font-family: 'Special Elite', monospace;
   margin-top: 15px;
   padding: 2rem;
   text-align: center;
@@ -1710,12 +1715,12 @@ body::after {
 /* Mobile devices (phones, up to 768px) */
 @media (max-width: 768px) {
   .punk-title {
-    font-size: 2rem;
+    font-size: 3.2rem;
     letter-spacing: -1px;
   }
 
   .punk-subtitle {
-    font-size: 1rem;
+    font-size: 1.3rem;
   }
 
   .punk-arrow {
@@ -1740,11 +1745,11 @@ body::after {
 /* Tablet devices (768px to 1024px) */
 @media (min-width: 769px) and (max-width: 1024px) {
   .punk-title {
-    font-size: 3rem;
+    font-size: 5rem;
   }
 
   .punk-arrow {
-    font-size: 2.2rem;
+    font-size: 3rem;
   }
 
   .sync-btn {
@@ -1765,7 +1770,7 @@ body::after {
   }
 
   .punk-title {
-    font-size: 4rem;
+    font-size: 8rem;
   }
 
   .card {
@@ -1785,7 +1790,7 @@ body::after {
   transition:
     transform 0.3s ease,
     color 0.2s ease;
-  font-weight: bold;
+  text-shadow: 0.6px 0 0 currentColor;
 }
 
 /* === PLAYLIST DETAILS === */
@@ -1804,8 +1809,8 @@ body::after {
 }
 
 .form-check-label {
-  font-family: 'Courier Prime', monospace;
-  font-weight: 700;
+  font-family: 'Special Elite', monospace;
+  text-shadow: 0.6px 0 0 currentColor;
   text-transform: uppercase;
   letter-spacing: 1px;
   cursor: pointer;
@@ -1814,8 +1819,8 @@ body::after {
 /* Select inputs - Matching punk styling */
 .form-select,
 select {
-  font-family: 'Courier Prime', monospace;
-  font-weight: 700;
+  font-family: 'Special Elite', monospace;
+  text-shadow: 0.6px 0 0 currentColor;
   border: 2px solid var(--border);
   border-radius: 0;
   background-color: var(--surface);
@@ -1893,7 +1898,7 @@ body.oauth-error-body {
   border-radius: 0;
   padding: 20px;
   margin-bottom: 20px;
-  font-family: 'Courier Prime', monospace;
+  font-family: 'Special Elite', monospace;
   box-shadow: 4px 4px 0px rgba(var(--shadow-rgb), 0.3);
   background: var(--surface);
 }
@@ -1923,7 +1928,7 @@ body.oauth-error-body {
        otherwise ride up and overlap the box while a sync is showing. */
   margin: 12px 0 16px 0;
   border: 1px solid;
-  font-family: 'Courier Prime', monospace;
+  font-family: 'Special Elite', monospace;
   font-size: 0.9rem;
   min-height: 80px;
 }
@@ -1995,9 +2000,9 @@ body.oauth-error-body {
 }
 
 .punk-alert__title {
-  font-family: 'Fredoka One', cursive;
+  font-family: 'Anton', sans-serif;
   font-size: 1.1rem;
-  font-weight: 700;
+  text-shadow: 0.6px 0 0 currentColor;
   text-transform: uppercase;
   letter-spacing: 1px;
   margin: 0;
@@ -2006,7 +2011,7 @@ body.oauth-error-body {
 
 .punk-alert__message {
   font-size: 1rem;
-  font-weight: 600;
+  text-shadow: 0.6px 0 0 currentColor;
   margin: 0 0 8px 0;
   color: var(--text);
 }
@@ -2070,7 +2075,7 @@ body.oauth-error-body {
   padding-left: 40px;
   border: 2px solid var(--border);
   border-radius: 0;
-  font-family: 'Courier Prime', monospace;
+  font-family: 'Special Elite', monospace;
   font-size: 0.95rem;
 }
 
@@ -2120,8 +2125,8 @@ body.oauth-error-body {
 
 /* Connection error modal button - matches app button style */
 .btn-error-modal {
-  font-family: 'Courier Prime', monospace;
-  font-weight: 700;
+  font-family: 'Special Elite', monospace;
+  text-shadow: 0.6px 0 0 currentColor;
   border: 2px solid var(--border);
   border-radius: 0;
   text-transform: uppercase;
@@ -2214,7 +2219,7 @@ body.oauth-error-body {
     visibility 0.2s ease;
   border: 1px solid #444;
   box-shadow: 0 4px 12px rgba(var(--shadow-rgb), 0.3);
-  font-family: 'Courier Prime', monospace;
+  font-family: 'Special Elite', monospace;
   pointer-events: none;
   max-width: 90vw;
   max-height: 200px;
@@ -2253,7 +2258,7 @@ body.oauth-error-body {
   max-width: none;
   max-height: none;
   overflow-y: visible;
-  font-family: 'Courier Prime', monospace;
+  font-family: 'Special Elite', monospace;
 }
 
 .match-score-badge--modal .match-score-tooltip::after {
@@ -2261,7 +2266,7 @@ body.oauth-error-body {
 }
 
 .match-score-badge--modal .tooltip-title {
-  font-weight: 600;
+  text-shadow: 0.6px 0 0 currentColor;
   margin-bottom: 4px;
   border-bottom: 1px solid #ddd;
   padding-bottom: 4px;
@@ -2289,7 +2294,7 @@ body.oauth-error-body {
 }
 
 .tooltip-title {
-  font-weight: bold;
+  text-shadow: 0.6px 0 0 currentColor;
   margin-bottom: 6px;
   border-bottom: 1px solid #444;
   padding-bottom: 6px;
@@ -2529,11 +2534,11 @@ body.oauth-error-body {
    playlist cards, track rows, and video modal into a single readable column. */
 @media (max-width: 575.98px) {
   .punk-title {
-    font-size: 1.8rem;
+    font-size: 2.5rem;
     letter-spacing: -1px;
   }
   .punk-arrow {
-    font-size: 1.4rem;
+    font-size: 1.8rem;
   }
 
   /* Drop the 180px min-width so buttons size to their (now narrower) container. */
