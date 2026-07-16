@@ -9,7 +9,11 @@
      <% if (cover) { %>style="--playlist-art: url('<%= cover %>')"<% } %>>
   <div class="playlist-item__header">
     <% if (cover) { %>
-      <img src="<%= cover %>" alt="" class="playlist-cover" aria-hidden="true">
+      <span class="cover-wrap">
+        <span class="cover-wrap__inner">
+          <img src="<%= cover %>" alt="" class="playlist-cover" aria-hidden="true">
+        </span>
+      </span>
     <% } %>
     <div class="playlist-info">
       <h5 class="mb-1 playlist-name" title="<%= name %>"><%= syncIcon || '' %><%= name %><span class="drift-dot" data-drift-dot title="YouTube is out of sync with Spotify - re-sync to update"></span></h5>

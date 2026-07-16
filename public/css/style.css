@@ -28,6 +28,15 @@
   --toner-blend: multiply;
   --blotch: rgba(0, 0, 0, 0.06); /* soft uneven toner blotches */
   --streak: rgba(0, 0, 0, 0.1); /* copier roller streaks (the tilted grid) */
+
+  /* Clear-scotch-tape treatment for taped-in images (covers, thumbnails). The tape frosts the
+     photo behind it (backdrop-filter); values flip for dark below. */
+  --tape-fill: rgba(230, 234, 238, 0.06);
+  --tape-edge-top: rgba(255, 255, 255, 0.45);
+  --tape-edge-bottom: rgba(255, 255, 255, 0.16);
+  --tape-sheen-a: 0.1;
+  --tape-bright: 1.07;
+  --tape-box: rgba(0, 0, 0, 0.26);
 }
 
 /* Dark theme: near-black surfaces, light borders/text, SAME neon accents (they pop harder on
@@ -51,6 +60,14 @@
   --toner-blend: screen;
   --blotch: rgba(255, 255, 255, 0.05);
   --streak: rgba(255, 255, 255, 0.08);
+
+  /* Tape, dialled down for dark so it stays a soft milky film, not glassy shards. */
+  --tape-fill: rgba(210, 214, 220, 0.06);
+  --tape-edge-top: rgba(255, 255, 255, 0.28);
+  --tape-edge-bottom: rgba(255, 255, 255, 0.1);
+  --tape-sheen-a: 0.06;
+  --tape-bright: 1.05;
+  --tape-box: rgba(0, 0, 0, 0.5);
 
   /* Re-point Bootstrap's own theme variables so its components (cards set their own
      color/bg, .text-muted, form controls, dropdowns) follow the dark theme rather than their
@@ -1312,9 +1329,125 @@ body::after {
   border: 2px solid var(--border);
   border-radius: 0;
   box-shadow: 2px 2px 0px rgba(var(--shadow-rgb), 0.3);
+  display: block;
+  transition: filter 0.18s ease;
+}
+
+/* Wrapper so tape can attach to the cover (pseudo-elements can't live on an <img>). Carries the
+   flex sizing + spacing the cover used to own. */
+.cover-wrap {
+  position: relative;
+  display: inline-block;
   flex-shrink: 0;
   margin-right: 16px;
-  transition: filter 0.18s ease;
+  line-height: 0;
+  /* Four corner-mount tape angles (one per corner), diagonal across each corner: top-left and
+     bottom-right lean "/" (negative), top-right and bottom-left lean "\" (positive). Magnitudes
+     vary per row below for the hand-placed randomness. Inherited by the tape pseudo-elements. */
+  --tape-tl: -42deg;
+  --tape-tr: 46deg;
+  --tape-bl: 44deg;
+  --tape-br: -40deg;
+}
+.cover-wrap__inner {
+  position: relative;
+  display: block;
+  line-height: 0;
+}
+
+/* Four pieces of clear tape - one per corner - holding the cover down. An element has only
+   ::before/::after, so two corners live on .cover-wrap and two on the nested .cover-wrap__inner.
+   Each overhangs its corner onto the photo and frosts the art beneath (backdrop-filter); the
+   inconsistent angles are the randomness. The row's clip-path leaves the top open so the top
+   corners' overhang shows. */
+.cover-wrap::before,
+.cover-wrap::after,
+.cover-wrap__inner::before,
+.cover-wrap__inner::after {
+  content: '';
+  position: absolute;
+  z-index: 6;
+  width: 42px;
+  height: 16px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, var(--tape-sheen-a)), transparent 65%);
+  background-color: var(--tape-fill);
+  -webkit-backdrop-filter: blur(1.2px) brightness(var(--tape-bright)) saturate(0.85);
+  backdrop-filter: blur(1.2px) brightness(var(--tape-bright)) saturate(0.85);
+  border-top: 1px solid var(--tape-edge-top);
+  border-bottom: 1px solid var(--tape-edge-bottom);
+  box-shadow: 1px 2px 4px var(--tape-box);
+  border-radius: 1px;
+}
+.cover-wrap::before {
+  top: -11px;
+  left: -12px;
+  transform: rotate(var(--tape-tl));
+}
+.cover-wrap::after {
+  top: -11px;
+  right: -12px;
+  transform: rotate(var(--tape-tr));
+}
+.cover-wrap__inner::before {
+  bottom: -11px;
+  left: -12px;
+  transform: rotate(var(--tape-bl));
+}
+.cover-wrap__inner::after {
+  bottom: -11px;
+  right: -12px;
+  transform: rotate(var(--tape-br));
+}
+
+/* Per-row variation on a 7-row cycle (nth-of-type ignores the leading summary <p>): scramble the
+   corner-mount angles AND drop pieces so rows don't all look fully-taped. Rule for 2 missing: the
+   remaining two must be both-on-top or opposite corners - never two adjacent/one-side. Pseudo map:
+   ::before=TL, ::after=TR (on .cover-wrap); __inner::before=BL, __inner::after=BR. 7n+1 = default. */
+.playlist-item:nth-of-type(7n + 2) .cover-wrap {
+  --tape-tl: -38deg;
+  --tape-tr: 50deg;
+  --tape-bl: 40deg;
+}
+.playlist-item:nth-of-type(7n + 2) .cover-wrap__inner::after {
+  display: none; /* drop BR (3 pieces) */
+}
+.playlist-item:nth-of-type(7n + 3) .cover-wrap {
+  --tape-tl: -48deg;
+  --tape-tr: 40deg;
+}
+.playlist-item:nth-of-type(7n + 3) .cover-wrap__inner::before,
+.playlist-item:nth-of-type(7n + 3) .cover-wrap__inner::after {
+  display: none; /* drop BL + BR -> keep both top (TL + TR) */
+}
+.playlist-item:nth-of-type(7n + 4) .cover-wrap {
+  --tape-tr: 44deg;
+  --tape-bl: 49deg;
+  --tape-br: -37deg;
+}
+.playlist-item:nth-of-type(7n + 4) .cover-wrap::before {
+  display: none; /* drop TL (3 pieces) */
+}
+.playlist-item:nth-of-type(7n + 5) .cover-wrap {
+  --tape-tr: 48deg;
+  --tape-bl: 42deg;
+}
+.playlist-item:nth-of-type(7n + 5) .cover-wrap::before,
+.playlist-item:nth-of-type(7n + 5) .cover-wrap__inner::after {
+  display: none; /* drop TL + BR -> keep opposite corners (TR + BL) */
+}
+.playlist-item:nth-of-type(7n + 6) .cover-wrap {
+  --tape-tl: -45deg;
+  --tape-tr: 38deg;
+  --tape-bl: 47deg;
+  --tape-br: -44deg;
+}
+.playlist-item:nth-of-type(7n) .cover-wrap {
+  --tape-tl: -40deg;
+  --tape-br: -47deg;
+}
+.playlist-item:nth-of-type(7n) .cover-wrap::after,
+.playlist-item:nth-of-type(7n) .cover-wrap__inner::before {
+  display: none; /* drop TR + BL -> keep opposite corners (TL + BR) */
 }
 
 /* Photocopy the cover on row hover: snap to high-contrast grayscale, like a flyer run one too
@@ -1330,10 +1463,12 @@ body::after {
 .playlist-item--art::after {
   content: '';
   position: absolute;
+  /* Anchored above the item top and tall enough to bleed behind the whole collapsed band -
+     header + the show/hide-tracks row - now that the 150px cover makes that band taller. */
   top: -28px;
   right: -40px;
   width: 300px;
-  height: 180px;
+  height: 240px;
   transform: rotate(-6deg);
   background-image: var(--playlist-art);
   background-size: cover;
