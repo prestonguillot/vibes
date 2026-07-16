@@ -210,4 +210,74 @@ describe('getYoutubeAuthUrl', () => {
     expect(params(getYoutubeAuthUrl(['s'], 'the-state')).get('state')).toBe('the-state');
     expect(params(getYoutubeAuthUrl(['s'])).has('state')).toBe(false);
   });
+
+  it('carries the configured redirect uri', async () => {
+    const { getYoutubeAuthUrl } = await import('../../src/youtube/client');
+
+    expect(params(getYoutubeAuthUrl(['s'])).get('redirect_uri')).toBe(
+      'http://127.0.0.1:3000/auth/youtube/callback',
+    );
+  });
+});
+
+/**
+ * The failure paths the mapping tests above never took: a token endpoint that answers with an
+ * error, credentials that are not configured, an access_token that is empty rather than absent, and
+ * the warning emitted when a lifetime has to be assumed.
+ */
+describe('the OAuth failure paths', () => {
+  beforeEach(() => mockFetch.mockResolvedValue(okJson({ access_token: 'AT', expires_in: 3600 })));
+
+  it('surfaces a failed token request as a YoutubeApiError with the error description', async () => {
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 400,
+      text: async () => JSON.stringify({ error: 'invalid_grant', error_description: 'Bad code' }),
+    } as never);
+
+    await expect(exchangeYoutubeCode('code')).rejects.toMatchObject({
+      code: 400,
+      message: expect.stringContaining('Bad code'),
+    });
+  });
+
+  it('falls back to the status when the OAuth error body is not JSON', async () => {
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 503,
+      text: async () => '<html>gateway</html>',
+    } as never);
+
+    await expect(refreshYoutubeAccessToken('RT')).rejects.toMatchObject({ code: 503 });
+  });
+
+  it('throws when the YouTube client credentials are not configured', async () => {
+    delete process.env.YOUTUBE_CLIENT_SECRET;
+
+    await expect(exchangeYoutubeCode('code')).rejects.toThrow(/Missing YOUTUBE/);
+  });
+
+  it('rejects an EMPTY access_token, naming the operation and the reason', async () => {
+    mockFetch.mockResolvedValue(okJson({ access_token: '', expires_in: 3600 }));
+
+    await expect(exchangeYoutubeCode('code')).rejects.toMatchObject({
+      code: 502,
+      reason: 'invalidTokenResponse',
+      message: expect.stringContaining('code exchange'),
+    });
+  });
+
+  it('warns when it has to assume the default token lifetime', async () => {
+    const { Logger } = await import('../../src/lib/logger');
+    const warn = vi.spyOn(Logger, 'warn').mockImplementation(() => undefined);
+    mockFetch.mockResolvedValue(okJson({ access_token: 'AT' })); // no expires_in
+
+    await exchangeYoutubeCode('code');
+
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('no usable expires_in'),
+      expect.objectContaining({ assumedSeconds: 3600 }),
+    );
+    warn.mockRestore();
+  });
 });
