@@ -42,10 +42,6 @@
       %>
       <div class="track-item <%= index % 2 === 0 ? 'track-item--even' : '' %> <%= (!track.spotify || !track.spotify.albumArt) && isSpotifyOnly ? 'track-item--simple' : '' %> <%= hasArtBleed ? 'track-item--art-fill' : '' %>"
            <% if (hasArtBleed) { %>style="--album-art: url('<%= track.spotify.albumArt %>')"<% } %>>
-        <div class="track-number">
-          <%= index + 1 %>
-        </div>
-
         <div class="track-content flex-grow-1">
           <% if (track.spotify) { %>
             <div class="spotify-track">

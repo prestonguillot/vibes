@@ -721,9 +721,6 @@ describe('Playlist Details Error Handling', () => {
       // Should include album art image
       expect(response.text).toContain('https://example.com/album1.jpg');
 
-      // Should include track number (4-column grid shows track number)
-      expect(response.text).toContain('class="track-number"');
-
       // Should NOT have YouTube-specific elements
       expect(response.text).not.toContain('img.youtube.com');
     });
