@@ -37,6 +37,12 @@
   --tape-sheen-a: 0.1;
   --tape-bright: 1.07;
   --tape-box: rgba(0, 0, 0, 0.26);
+
+  /* Torn paper edge: an organic contour (a rect whose top is displaced by turbulence) used as a
+     mask. Theme-independent. --tear-rim is the light fibre rim that makes the tear read on the
+     dark page; light mode needs none (paper-on-page contrast already shows it). */
+  --torn: url('/images/torn-edge.svg');
+  --tear-rim: rgba(0, 0, 0, 0);
 }
 
 /* Dark theme: near-black surfaces, light borders/text, SAME neon accents (they pop harder on
@@ -68,6 +74,9 @@
   --tape-sheen-a: 0.06;
   --tape-bright: 1.05;
   --tape-box: rgba(0, 0, 0, 0.5);
+
+  /* Near-black paper on a near-black page: the tear needs a light fibre rim to read at all. */
+  --tear-rim: rgba(255, 255, 255, 0.5);
 
   /* Re-point Bootstrap's own theme variables so its components (cards set their own
      color/bg, .text-muted, form controls, dropdowns) follow the dark theme rather than their
@@ -798,6 +807,47 @@ body::after {
   box-shadow: 5px 5px 0px rgba(var(--shadow-rgb), 0.3);
 }
 
+/* Torn paper top. The drawn top border SURVIVES at the far ends and the tear takes over in
+   between, tapering back into it - a tear that collides head-on with the side borders reads as a
+   mistake, and in dark the border is also what stops the tear looking like a line floating in
+   space (near-black paper on a near-black page is otherwise invisible).
+   Two stacked strips extend the panel upward: ::after is the paper (masked to the torn contour, so
+   the page shows above it), ::before a light fibre rim 1.5px higher and behind it.
+   A filter drop-shadow can't do the rim: filter is applied before the element's own mask, so it
+   gets clipped to the same torn shape. */
+.torn-top {
+  position: relative;
+}
+.torn-top::before,
+.torn-top::after {
+  content: '';
+  position: absolute;
+  left: -3px; /* cover the panel's 3px side borders */
+  right: -3px;
+  height: 26px;
+  /* The taper lives in the contour itself (the rip's depth eases to zero at both ends, so it meets
+     the drawn border flush) - NOT an alpha fade of the strip, which just smears the corners. */
+  -webkit-mask: var(--torn) bottom / 100% 100% no-repeat;
+  mask: var(--torn) bottom / 100% 100% no-repeat;
+}
+.torn-top::before {
+  top: -23.5px;
+  background: var(--tear-rim);
+}
+/* The paper strip carries the side borders itself, so the drawn border rides UP with the paper and
+   is cut by the same torn mask - it terminates raggedly in the rip rather than stopping at the
+   panel's box edge. The strip's left/right of -3px lines these up exactly on top of the panel's
+   own 3px side borders. (Tapering these into a brush stroke was tried and abandoned: any smoothly
+   narrowing dark line just reads as a drop shadow, which is the opposite of the intent. Letting
+   the rip terminate them is the organic bit.) */
+.torn-top::after {
+  top: -22px;
+  background: var(--surface);
+  box-sizing: border-box;
+  border-left: 3px solid var(--border);
+  border-right: 3px solid var(--border);
+}
+
 .card-title {
   font-family: 'Fredoka One', cursive;
   font-size: 1.5rem;
@@ -1311,10 +1361,11 @@ body::after {
 /* === PLAYLIST ITEMS === */
 .playlist-item {
   width: 100%;
-  /* Leave the TOP open (so the cover's top-corner tape can overhang above the cover without being
-     cut by the row edge) while still clipping the art-bleed on the right/bottom/left. */
-  clip-path: inset(-16px 0 0 0);
-  padding: 10px 20px 5px 20px;
+  overflow: hidden;
+  /* The generous top padding is deliberate: it gives the cover's top-corner tape room to overhang
+     INSIDE the row, so the row can keep clipping everything (which the rotated art-bleed needs to
+     stay contained) without cutting the tape off. */
+  padding: 26px 20px 5px 20px;
   margin-bottom: 15px;
   border-left: 2px solid var(--border);
   border-right: 2px solid var(--border);
@@ -1482,13 +1533,13 @@ body::after {
 .playlist-item--art::after {
   content: '';
   position: absolute;
-  /* Anchored at the item top (not above it - the clip-path leaves the top open, so a negative top
-     would leak the bleed into the gap between rows). Tall enough to cover the whole collapsed band
-     - header + the show/hide-tracks row. */
-  top: 0;
+  /* Anchored above the item top - the row's overflow:hidden contains it (it's rotated, so its
+     corners reach well past its box). Tall enough to bleed behind the whole collapsed band:
+     header + the show/hide-tracks row. */
+  top: -28px;
   right: -40px;
   width: 300px;
-  height: 215px;
+  height: 250px;
   transform: rotate(-6deg);
   background-image: var(--playlist-art);
   background-size: cover;
