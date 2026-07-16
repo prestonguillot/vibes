@@ -211,6 +211,20 @@ describe('updating a playlist that already exists', () => {
     expect(current).toEqual([{ videoId: 'v1', playlistItemId: 'item-v1' }]);
   });
 
+  // The other half of "cannot be moved": an item with a video id but NO playlist-item id. reconcile
+  // addresses items by playlistItemId, so one without it must be dropped, not passed through.
+  it('ignores an existing item that has a video id but no playlist-item id', async () => {
+    h.fetchAllYoutubePlaylistItems.mockResolvedValue([
+      ytItem('v1', 'One'),
+      { snippet: { resourceId: { videoId: 'v2' } } }, // video id present, top-level id missing
+    ]);
+
+    await run();
+
+    const [, , , current] = h.reconcilePlaylist.mock.calls[0]!;
+    expect(current).toEqual([{ videoId: 'v1', playlistItemId: 'item-v1' }]);
+  });
+
   // An update with nothing new is still worth doing: the Spotify order may have changed.
   it('still reconciles when every track is already synced', async () => {
     h.fetchAllYoutubePlaylistItems.mockResolvedValue([ytItem('v1', 'One'), ytItem('v2', 'Two')]);
@@ -278,6 +292,22 @@ describe('the batch size', () => {
     });
 
     expect(await trackLimitFor('all')).toBe(2);
+  });
+
+  // When the batch caps the sync below the playlist size, the completion report must say so - it is
+  // how the user learns there is more to sync in a later pass.
+  const completeDetails = async (batchSizeRaw: string) => {
+    await run({ batchSizeRaw });
+    return progress.filter((p) => p.type === 'complete').at(-1)?.details ?? '';
+  };
+
+  it('reports how much was held back when the batch is smaller than the playlist', async () => {
+    // Two tracks, batch of one.
+    expect(await completeDetails('1')).toContain('limited from 2 total');
+  });
+
+  it('does not claim a limit when it synced the whole playlist', async () => {
+    expect(await completeDetails('all')).not.toContain('limited from');
   });
 });
 
