@@ -41,7 +41,7 @@
     "src/routes/youtube.ts": 80.36,
     "src/spotify/auth.ts": 95.45,
     "src/spotify/client.ts": 83.53,
-    "src/spotify/playlistItems.ts": 71.05,
+    "src/spotify/playlistItems.ts": 100,
     "src/sync/addedVideoPosition.ts": 80.36,
     "src/sync/applyVideoChoice.ts": 83.51,
     "src/sync/playlistDetailsService.ts": 65.52,
