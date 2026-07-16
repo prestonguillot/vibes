@@ -25,7 +25,7 @@
     "src/lib/cache.ts": 100,
     "src/lib/circuitBreaker.ts": 75.32,
     "src/lib/circuitBreakerConfig.ts": 40,
-    "src/lib/concurrency.ts": 73.33,
+    "src/lib/concurrency.ts": 93.33,
     "src/lib/delay.ts": 100,
     "src/lib/envValidation.ts": 91.6,
     "src/lib/errorFormatter.ts": 100,
