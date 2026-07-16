@@ -1010,6 +1010,9 @@ body::after {
 }
 
 /* === BUTTONS === */
+/* THE CONNECTION STAMP. Keeps the typewriter face (it's a typed label, not a headline) but earns a
+   worn-ink mask of its own - the plate never inks perfectly - and a single heavy box rather than
+   the action stamp's double rule. */
 .connect-btn {
   font-family: 'Special Elite', monospace;
   font-size: 1.15rem;
@@ -1021,6 +1024,24 @@ body::after {
   padding: 10px 20px;
   box-shadow: 3px 3px 0px rgba(var(--shadow-rgb), 0.5);
   transition: all 0.2s ease;
+  transform: rotate(-1.2deg);
+  -webkit-mask:
+    radial-gradient(circle at 14% 34%, transparent 0 1.4px, #000 1.4px),
+    radial-gradient(circle at 63% 22%, transparent 0 1.1px, #000 1.1px),
+    radial-gradient(circle at 84% 71%, transparent 0 1.6px, #000 1.6px),
+    radial-gradient(circle at 37% 84%, transparent 0 1.2px, #000 1.2px), linear-gradient(#000 0 0);
+  -webkit-mask-composite: source-in;
+  mask:
+    radial-gradient(circle at 14% 34%, transparent 0 1.4px, #000 1.4px),
+    radial-gradient(circle at 63% 22%, transparent 0 1.1px, #000 1.1px),
+    radial-gradient(circle at 84% 71%, transparent 0 1.6px, #000 1.6px),
+    radial-gradient(circle at 37% 84%, transparent 0 1.2px, #000 1.2px), linear-gradient(#000 0 0);
+  mask-composite: intersect;
+}
+
+/* Two presses of the same stamp - same mark, different hand. */
+.row > div:nth-child(2) .connect-btn {
+  transform: rotate(1.5deg);
 }
 
 .connect-btn:hover {
@@ -1143,17 +1164,32 @@ body::after {
   height: 38px;
   white-space: nowrap;
 
-  /* Typography */
-  font-family: 'Special Elite', monospace;
-  text-shadow: 0.6px 0 0 currentColor;
-  font-size: 0.9rem;
+  /* THE ACTION STAMP. Its own face (the newsprint punch, not the typewriter) and its own outline:
+     a double rule, the way an official stamp is ruled. Angle varies per row (below) - one physical
+     stamp, pressed by hand, never lands the same twice. */
+  font-family: 'Anton', sans-serif;
+  font-size: 1.05rem;
   text-transform: uppercase;
   letter-spacing: 1px;
 
-  /* Borders & Styling */
-  border: 2px solid var(--border);
+  /* Borders & Styling: border + offset outline = the double rule */
+  border: 3px solid var(--border);
+  outline: 2px solid var(--border);
+  outline-offset: 2px;
   border-radius: 0;
   box-shadow: 3px 3px 0px rgba(var(--shadow-rgb), 0.3);
+  transform: rotate(-1.4deg);
+}
+
+/* Pressed by hand, so no two rows land at the same angle. */
+.playlist-item:nth-of-type(4n + 2) .sync-btn {
+  transform: rotate(1.1deg);
+}
+.playlist-item:nth-of-type(4n + 3) .sync-btn {
+  transform: rotate(-0.6deg);
+}
+.playlist-item:nth-of-type(4n) .sync-btn {
+  transform: rotate(1.7deg);
 }
 
 .punk-btn:hover,
@@ -1321,16 +1357,20 @@ body::after {
   justify-content: center;
 }
 
+/* THE HAND. Not a stamp at all - someone scrawled it on in marker. So: no outline, no overstrike
+   (a marker doesn't strike twice), and the ink chip + offset shadow are what keep it reading as a
+   pressable control. */
 .btn-outline-primary {
   background-color: #0066ff;
-  border: 2px solid var(--border);
+  border: none;
   color: #fff;
   box-shadow: 3px 3px 0px rgba(var(--shadow-rgb), 0.3);
-  font-family: 'Special Elite', monospace;
-  text-shadow: 0.6px 0 0 currentColor;
+  font-family: 'Permanent Marker', cursive;
+  font-size: 1rem;
   border-radius: 0;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0;
+  transform: rotate(-1.8deg);
 }
 
 .btn-outline-primary:hover {
