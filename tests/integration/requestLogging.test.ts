@@ -213,4 +213,42 @@ describe('the content security policy', () => {
   it('names no external origin', async () => {
     expect(await csp()).not.toMatch(/https:\/\/[a-z]/);
   });
+
+  // The app is never meant to be framed. Weaken this to 'self' or drop it and it can be loaded in
+  // an attacker's iframe and clickjacked - and nothing else in the policy would say so.
+  it('refuses to be framed', async () => {
+    expect(await csp()).toContain("frame-src 'none'");
+  });
+
+  // default-src is the fallback for every directive not named. 'self' is what keeps a fetch/font/
+  // worker origin nobody thought to restrict from defaulting open.
+  it('falls back to self for anything not named', async () => {
+    expect(await csp()).toContain("default-src 'self'");
+  });
+
+  it('allows fonts from self only', async () => {
+    expect(await csp()).toContain("font-src 'self'");
+  });
+});
+
+/**
+ * HSTS tells the browser to refuse plain HTTP to this host for a year, which is what stops a
+ * downgrade of the very cookies the whole app trusts. helmet builds it while createApp() runs, so
+ * the same module-scope caveat as the CSP applies - asserted against a fresh app inside the test.
+ */
+describe('strict transport security', () => {
+  const hsts = async () => {
+    const response = await request(createApp()).get('/health');
+    return response.headers['strict-transport-security'];
+  };
+
+  it('pins HTTPS for a year, subdomains included', async () => {
+    const header = await hsts();
+    expect(header).toContain('max-age=31536000');
+    expect(header).toContain('includeSubDomains');
+  });
+
+  it('is preload-eligible', async () => {
+    expect(await hsts()).toContain('preload');
+  });
 });
