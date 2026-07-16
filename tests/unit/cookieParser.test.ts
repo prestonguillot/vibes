@@ -6,6 +6,7 @@ import {
   validateAndSerializeSpotifyTokens,
   validateAndSerializeYouTubeTokens,
 } from '../../src/auth/cookieParser';
+import { Logger } from '../../src/lib/logger';
 import { Response } from 'express';
 
 describe('Cookie Parser Utilities', () => {
@@ -343,5 +344,53 @@ describe('validateAndSerializeYouTubeTokens', () => {
     ['no token_type', { access_token: 'a', scope: 's' }],
   ])('refuses to serialize %s', (_label, tokens) => {
     expect(() => validateAndSerializeYouTubeTokens(tokens)).toThrow();
+  });
+});
+
+/**
+ * The error path of the two parsers: what happens when a cookie is malformed.
+ *
+ * Two behaviours the earlier tests left unpinned. First, the parsers may be called with no Response
+ * (auth checks that only read the token), so the `res.clearCookie(...)` on the failure path is
+ * guarded by `if (res)` - without the guard, a malformed cookie on a res-less call would throw
+ * instead of returning null. Second, the failure is logged as possible malicious activity, and that
+ * diagnostic - the reason it failed, and that a cookie was in fact present - is the whole point of
+ * the catch block.
+ */
+describe('malformed-cookie handling', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('returns null without throwing when Spotify cookie is malformed and no res is given', () => {
+    vi.spyOn(Logger, 'warn').mockImplementation(() => {});
+
+    expect(parseSpotifyTokenCookie('not json {[}')).toBeNull();
+  });
+
+  it('returns null without throwing when YouTube cookie is malformed and no res is given', () => {
+    vi.spyOn(Logger, 'warn').mockImplementation(() => {});
+
+    expect(parseYouTubeTokenCookie('not json {[}')).toBeNull();
+  });
+
+  it('logs the Spotify parse failure with the reason and that a cookie was present', () => {
+    const warn = vi.spyOn(Logger, 'warn').mockImplementation(() => {});
+
+    parseSpotifyTokenCookie('not json {[}', { clearCookie: vi.fn() } as unknown as Response);
+
+    expect(warn).toHaveBeenCalledWith(
+      'Failed to parse Spotify token cookie - possible malicious activity',
+      expect.objectContaining({ cookiePresent: true, error: expect.any(String) }),
+    );
+  });
+
+  it('logs the YouTube parse failure with the reason and that a cookie was present', () => {
+    const warn = vi.spyOn(Logger, 'warn').mockImplementation(() => {});
+
+    parseYouTubeTokenCookie('not json {[}', { clearCookie: vi.fn() } as unknown as Response);
+
+    expect(warn).toHaveBeenCalledWith(
+      'Failed to parse YouTube token cookie - possible malicious activity',
+      expect.objectContaining({ cookiePresent: true, error: expect.any(String) }),
+    );
   });
 });
