@@ -52,7 +52,7 @@
     "src/sync/videoPicker.ts": 90.48,
     "src/sync/videoSearch.ts": 80,
     "src/youtube/auth.ts": 97.56,
-    "src/youtube/client.ts": 75.72,
+    "src/youtube/client.ts": 85.55,
     "src/youtube/playlist.ts": 84.21,
     "src/youtube/scraper.ts": 67.92,
     "src/youtube/writes.ts": 91.86
