@@ -19,12 +19,22 @@ import { testServer } from '@tests/helpers/testServer';
 import { YoutubeApiError } from '@/youtube/client';
 import { YoutubeQuotaError } from '@/youtube/writes';
 
-const h = vi.hoisted(() => ({ fetchPlaylistDetails: vi.fn() }));
+const h = vi.hoisted(() => ({
+  fetchPlaylistDetails: vi.fn(),
+  ensureValidSpotifyToken: vi.fn(() => Promise.resolve('sp-token')),
+}));
 
 vi.mock('@/sync/playlistDetailsService', async (importActual) => {
   const actual = await importActual<typeof import('@/sync/playlistDetailsService')>();
   return { ...actual, fetchPlaylistDetails: h.fetchPlaylistDetails };
 });
+
+// The route resolves its Spotify token through ensureValidSpotifyToken; mock it so the quota
+// scenarios below reach fetchPlaylistDetails without a live /me probe.
+vi.mock('@/spotify/auth', async (importActual) => ({
+  ...(await importActual<typeof import('@/spotify/auth')>()),
+  ensureValidSpotifyToken: h.ensureValidSpotifyToken,
+}));
 
 const app = testServer(createApp());
 

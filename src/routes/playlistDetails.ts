@@ -8,6 +8,7 @@ import { CacheDuration, setCache } from '../lib/cache';
 import { formatErrorDetails } from '../lib/errorFormatter';
 import { escapeHtml } from '../lib/htmlEscape';
 import { ensureValidYouTubeToken } from '../youtube/auth';
+import { ensureValidSpotifyToken } from '../spotify/auth';
 import { authExpired } from '../auth/authExpired';
 import { classifyYoutubeError } from '../youtube/writes';
 import { z } from 'zod';
@@ -65,7 +66,11 @@ router.get(
         return res.status(401).send(html);
       }
 
-      const accessToken = spotifyTokens.accessToken;
+      // Through ensureValidSpotifyToken: the cookie's access token lasts about an hour, and this
+      // panel is opened on a page that may have been sitting idle far longer. On 401 it refreshes
+      // and rewrites the cookie; when the refresh token is dead too it throws SPOTIFY_AUTH_REQUIRED,
+      // which the catch block renders as the reconnect frame.
+      const accessToken = await ensureValidSpotifyToken(req as Request, res);
 
       // Initialize YouTube API (optional - only if user is connected). Through
       // ensureValidYouTubeToken: the cookie's access token lasts about an hour, and this panel is
@@ -379,8 +384,13 @@ router.post(
       // reason the user cannot act on ("Video replacement failed. Please try again").
       const youtube = (await ensureValidYouTubeToken(req as Request, res)).client;
 
+      // Through ensureValidSpotifyToken for the same reason: this WRITE reads the Spotify playlist,
+      // and an hour-old access token 401s here for a reason the user cannot act on. On 401 it
+      // refreshes; a dead refresh token throws SPOTIFY_AUTH_REQUIRED and the catch renders reconnect.
+      const spotifyAccessToken = await ensureValidSpotifyToken(req as Request, res);
+
       // Find the YouTube playlist mirroring this Spotify one, by the synced-title convention.
-      const spotifyPlaylistData = await getPlaylist(spotifyTokens.accessToken, playlistId);
+      const spotifyPlaylistData = await getPlaylist(spotifyAccessToken, playlistId);
       const expectedYouTubePlaylistName = syncedPlaylistTitle(spotifyPlaylistData.name);
 
       Logger.external('YouTube', 'Looking for playlist', { name: expectedYouTubePlaylistName });
@@ -412,7 +422,7 @@ router.post(
         choice = await applyVideoChoice({
           youtube,
           youtubePlaylistId: targetPlaylist.id!,
-          spotifyAccessToken: spotifyTokens.accessToken,
+          spotifyAccessToken,
           spotifyPlaylistId: playlistId,
           trackId,
           newVideoId,

@@ -18,11 +18,17 @@ const h = vi.hoisted(() => ({
   fetchPlaylistDetails: vi.fn(),
   findSyncedYoutubePlaylist: vi.fn(),
   ensureValidYouTubeToken: vi.fn(),
+  ensureValidSpotifyToken: vi.fn(),
 }));
 
 vi.mock('@/youtube/auth', async (importActual) => ({
   ...(await importActual<typeof import('@/youtube/auth')>()),
   ensureValidYouTubeToken: h.ensureValidYouTubeToken,
+}));
+
+vi.mock('@/spotify/auth', async (importActual) => ({
+  ...(await importActual<typeof import('@/spotify/auth')>()),
+  ensureValidSpotifyToken: h.ensureValidSpotifyToken,
 }));
 
 vi.mock('@/spotify/client', async (importActual) => ({
@@ -89,6 +95,7 @@ beforeEach(() => {
     accessToken: 'yt',
     quotaUsed: 0,
   });
+  h.ensureValidSpotifyToken.mockResolvedValue('sp-access');
 });
 
 describe('the cached YouTube playlist id', () => {
@@ -135,6 +142,40 @@ describe('the cached YouTube playlist id', () => {
 
     expect(response.status).toBe(200);
     expect(response.headers['x-yt-playlist-id']).toBeUndefined();
+  });
+});
+
+/**
+ * The panel is opened on a page that may have sat idle far longer than a Spotify access token
+ * lives (~1 hour). The route must resolve the token through ensureValidSpotifyToken, which refreshes
+ * a stale token transparently - not read the raw cookie token and dead-end on a 401.
+ */
+describe('when the Spotify access token has expired', () => {
+  it('uses the refreshed token to fetch the details, and loads them', async () => {
+    // ensureValidSpotifyToken hides the refresh: it returns whatever token the request should use.
+    h.ensureValidSpotifyToken.mockResolvedValue('fresh-sp-access');
+
+    const response = await get('CACHED_PL');
+
+    expect(response.status).toBe(200);
+    expect(h.ensureValidSpotifyToken).toHaveBeenCalled();
+    // The fetch must run on the token the auth path handed back, not the raw cookie one.
+    expect(h.fetchPlaylistDetails.mock.calls[0]![0]).toBe('fresh-sp-access');
+  });
+
+  /**
+   * The refresh token is dead too, so the connection is over. ensureValidSpotifyToken throws
+   * SPOTIFY_AUTH_REQUIRED; the route must offer a reconnect rather than a generic "please try again".
+   */
+  it('offers a reconnect when the refresh token is also dead', async () => {
+    h.ensureValidSpotifyToken.mockRejectedValue(new Error('SPOTIFY_AUTH_REQUIRED'));
+
+    const response = await get('CACHED_PL');
+
+    expect(response.status).toBe(401);
+    expect(response.text).toContain('Reconnect to Spotify');
+    expect(response.text).toContain('/auth/spotify/login');
+    expect(response.text).not.toContain('Please try again');
   });
 });
 

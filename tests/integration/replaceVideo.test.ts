@@ -21,12 +21,19 @@ const h = vi.hoisted(() => ({
   playlistItemsDelete: vi.fn(),
   playlistItemsUpdate: vi.fn(),
   refreshYoutubeAccessToken: vi.fn(),
+  getCurrentUser: vi.fn(),
+  refreshAccessToken: vi.fn(),
 }));
 
 vi.mock('@/lib/delay', () => ({ sleep: h.sleep }));
+// The real Spotify token path runs too: getCurrentUser is the /me probe ensureValidSpotifyToken uses
+// to validate the cookie's token, and refreshAccessToken is the refresh - only those network edges
+// are faked, so an expired Spotify cookie really is refreshed and rewritten the way it would be live.
 vi.mock('@/spotify/client', async (importActual) => ({
   ...(await importActual<typeof import('@/spotify/client')>()),
   getPlaylist: h.getPlaylist,
+  getCurrentUser: h.getCurrentUser,
+  refreshAccessToken: h.refreshAccessToken,
 }));
 vi.mock('@/spotify/playlistItems', () => ({ fetchAllPlaylistItems: h.fetchAllPlaylistItems }));
 // The real token path runs: only the network edges are faked, so an expired cookie really is
@@ -46,6 +53,7 @@ vi.mock('@/youtube/client', async (importActual) => ({
 }));
 
 import { createApp } from '@/app';
+import { SpotifyApiError } from '@/spotify/client';
 import { testServer } from '@tests/helpers/testServer';
 import { findSetCookie } from '@tests/helpers/httpCookies';
 import { youtubeTokenCookie } from '@tests/helpers/tokenCookies';
@@ -94,6 +102,8 @@ const syncedPlaylist = { id: 'PL-yt', snippet: { title: 'My Playlist (from Spoti
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Default: the /me probe accepts the cookie's token, so ensureValidSpotifyToken returns it as-is.
+  h.getCurrentUser.mockResolvedValue({ id: 'me', display_name: 'Me' });
   h.getPlaylist.mockResolvedValue({
     id: PLAYLIST_ID,
     name: 'My Playlist',
@@ -237,6 +247,55 @@ describe('POST /replace: when the page has been open longer than the token lives
     expect(response.status).toBe(401);
     expect(response.text).toContain('Reconnect to YouTube');
     expect(response.text).toContain('/auth/youtube/login');
+    expect(h.playlistItemsInsert).not.toHaveBeenCalled();
+    expect(h.playlistItemsDelete).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * The same page-open-longer-than-the-token problem, on the Spotify side: this write reads the
+ * Spotify playlist, and its access token lasts about an hour. Reading with the cookie's token
+ * directly 401'd the write with "Video replacement failed. Please try again" - advice that could
+ * never work. The route must refresh through ensureValidSpotifyToken, or offer a reconnect.
+ */
+describe('POST /replace: when the Spotify access token has expired', () => {
+  const expired = () => new SpotifyApiError('The access token expired', 401);
+
+  it('refreshes the Spotify token and does the write', async () => {
+    h.getCurrentUser.mockRejectedValue(expired());
+    h.refreshAccessToken.mockResolvedValue({
+      accessToken: 'fresh-sp-access',
+      refreshToken: 'sp-refresh',
+    });
+
+    const response = await replace({
+      newVideoId: NEW_VIDEO,
+      currentVideoId: OLD_VIDEO,
+      playlistId: PLAYLIST_ID,
+    });
+
+    expect(h.refreshAccessToken).toHaveBeenCalledWith('sp-refresh');
+    expect(response.status).toBe(200);
+    expect(h.playlistItemsInsert).toHaveBeenCalled();
+    // The rewritten cookie must carry the refreshed token, or the next request pays to refresh again.
+    expect(findSetCookie(response, 'spotify_tokens')).toContain('fresh-sp-access');
+  });
+
+  // The refresh token is dead too: the connection is over, so offer a reconnect and write nothing.
+  it('offers a reconnect when the refresh fails, and writes nothing', async () => {
+    h.getCurrentUser.mockRejectedValue(expired());
+    h.refreshAccessToken.mockRejectedValue(new Error('invalid_grant'));
+
+    const response = await replace({
+      newVideoId: NEW_VIDEO,
+      currentVideoId: OLD_VIDEO,
+      playlistId: PLAYLIST_ID,
+    });
+
+    expect(response.status).toBe(401);
+    expect(response.text).toContain('Reconnect to Spotify');
+    expect(response.text).toContain('/auth/spotify/login');
+    expect(response.text).not.toContain('Please try again');
     expect(h.playlistItemsInsert).not.toHaveBeenCalled();
     expect(h.playlistItemsDelete).not.toHaveBeenCalled();
   });
