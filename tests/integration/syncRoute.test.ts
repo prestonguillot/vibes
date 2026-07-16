@@ -226,6 +226,55 @@ describe('GET /api/sync/playlist/:id/stream', () => {
     );
     expect(res.status).toBe(401);
   });
+
+  /**
+   * A sync needs BOTH services. When one is missing the 401 must name the RIGHT one, or it sends the
+   * user to reconnect the service that is already connected while the actually-missing one stays
+   * missing. Both cookies absent, the existing test above, does not distinguish the two branches.
+   */
+  const streamWith = (cookies: string[]) =>
+    request(app)
+      .get('/api/sync/playlist/1234567890123456789012/stream?batchSize=all')
+      .set('Cookie', cookies);
+
+  it('names Spotify when only YouTube is connected', async () => {
+    const res = await streamWith([`youtube_tokens=${youtubeCookie}`]);
+
+    expect(res.status).toBe(401);
+    expect(res.text).toContain('Spotify Authentication Required');
+    expect(res.text).not.toContain('YouTube Authentication Required');
+  });
+
+  it('names YouTube when only Spotify is connected', async () => {
+    const res = await streamWith([`spotify_tokens=${spotifyCookie}`]);
+
+    expect(res.status).toBe(401);
+    expect(res.text).toContain('YouTube Authentication Required');
+  });
+
+  /**
+   * A YouTube cookie from before the channel id was cached has no channel_id. The sync needs it (to
+   * name the user's own playlists), so a token without it is not usable - the route stops at a 500
+   * "Authentication Error" before opening the stream rather than syncing against an unknown account.
+   */
+  it('refuses a YouTube token that carries no channel id', async () => {
+    const noChannel = JSON.stringify({
+      access_token: 'a',
+      refresh_token: 'b',
+      scope: 's',
+      token_type: 'Bearer',
+    });
+
+    const res = await streamWith([
+      `spotify_tokens=${spotifyCookie}`,
+      `youtube_tokens=${noChannel}`,
+    ]);
+
+    expect(res.status).toBe(500);
+    expect(res.text).toContain('Authentication Error');
+    // It stopped before the stream: no sync work happened.
+    expect(h.reconcilePlaylist).not.toHaveBeenCalled();
+  });
 });
 
 /**
