@@ -23,7 +23,7 @@
     "src/auth/csrfSecret.ts": 84,
     "src/auth/oauthState.ts": 93.75,
     "src/lib/cache.ts": 100,
-    "src/lib/circuitBreaker.ts": 75.32,
+    "src/lib/circuitBreaker.ts": 87.01,
     "src/lib/circuitBreakerConfig.ts": 40,
     "src/lib/concurrency.ts": 93.33,
     "src/lib/delay.ts": 100,
