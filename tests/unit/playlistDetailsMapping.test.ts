@@ -18,6 +18,7 @@ vi.mock('../../src/spotify/playlistItems', () => ({
 }));
 
 import { fetchPlaylistDetails } from '../../src/sync/playlistDetailsService';
+import { Logger } from '../../src/lib/logger';
 
 const spotifyTrack = (over: Record<string, unknown> = {}) => ({
   track: {
@@ -38,6 +39,12 @@ const youtubeWith = (snippets: Array<Record<string, unknown>>) =>
         data: { items: snippets.map((snippet, i) => ({ id: `pi${i}`, snippet })) },
       })),
     },
+  }) as never;
+
+/** A YouTube client serving raw playlist items verbatim - so a test can omit `snippet` entirely. */
+const youtubeRaw = (items: Array<Record<string, unknown>>) =>
+  ({
+    playlistItems: { list: vi.fn(async () => ({ data: { items } })) },
   }) as never;
 
 const creepSnippet = (over: Record<string, unknown> = {}) => ({
@@ -253,5 +260,120 @@ describe('fetchPlaylistDetails: counts', () => {
 
     expect(details.hasYoutubePlaylist).toBe(false);
     expect(details.tracks[0]!.youtube).toBeNull();
+  });
+});
+
+describe('fetchPlaylistDetails: degenerate track fields', () => {
+  it('fills in defaults when a track has no artist, album, art, or preview', async () => {
+    h.fetchAllPlaylistItems.mockResolvedValue([
+      spotifyTrack({
+        id: 't1',
+        name: 'Nameless',
+        artists: [], // no artist -> 'Unknown Artist' (and artists[0] is undefined, not a throw)
+        album: undefined, // no album -> 'Unknown Album', no art
+        duration_ms: 1000,
+        external_urls: { spotify: 'https://open.spotify.com/track/t1' },
+        preview_url: null,
+      }),
+    ]);
+
+    const details = await fetchPlaylistDetails('token', null, 'pl1', undefined);
+
+    // Asserted whole - every default in one place.
+    expect(details.tracks[0]!.spotify).toEqual({
+      id: 't1',
+      name: 'Nameless',
+      artist: 'Unknown Artist',
+      album: 'Unknown Album',
+      albumArt: undefined,
+      duration_ms: 1000,
+      external_urls: { spotify: 'https://open.spotify.com/track/t1' },
+      preview_url: null,
+    });
+  });
+
+  it('carries a present preview_url through unchanged', async () => {
+    h.fetchAllPlaylistItems.mockResolvedValue([
+      spotifyTrack({ preview_url: 'https://preview/t1.mp3' }),
+    ]);
+
+    const details = await fetchPlaylistDetails('token', null, 'pl1', undefined);
+
+    expect(details.tracks[0]!.spotify!.preview_url).toBe('https://preview/t1.mp3');
+  });
+});
+
+describe('fetchPlaylistDetails: unavailable-track accounting', () => {
+  it('warns, with counts, when the playlist reports more tracks than are usable', async () => {
+    // trackTotal 3, but two items have no track (removed/local) - so 2 are unavailable.
+    h.getPlaylist.mockResolvedValue({
+      id: 'pl1',
+      name: 'My Playlist',
+      ownerId: 'me',
+      trackTotal: 3,
+      spotifyUrl: 'https://open.spotify.com/playlist/pl1',
+    });
+    h.fetchAllPlaylistItems.mockResolvedValue([spotifyTrack(), { track: null }, { track: null }]);
+    const warn = vi.spyOn(Logger, 'warn').mockImplementation(() => undefined);
+
+    await fetchPlaylistDetails('token', null, 'pl1', undefined);
+
+    expect(warn).toHaveBeenCalledWith(
+      'Playlist contains unavailable tracks',
+      expect.objectContaining({
+        playlistId: 'pl1',
+        totalTracks: 3,
+        availableTracks: 1,
+        unavailableTracks: 2,
+      }),
+    );
+  });
+
+  it('does not warn when every reported track is available', async () => {
+    h.fetchAllPlaylistItems.mockResolvedValue([spotifyTrack()]); // trackTotal defaults to 1
+    const warn = vi.spyOn(Logger, 'warn').mockImplementation(() => undefined);
+
+    await fetchPlaylistDetails('token', null, 'pl1', undefined);
+
+    expect(warn).not.toHaveBeenCalledWith(
+      'Playlist contains unavailable tracks',
+      expect.anything(),
+    );
+  });
+});
+
+describe('fetchPlaylistDetails: reading a broken YouTube item', () => {
+  it('requests the id and snippet parts from YouTube', async () => {
+    h.fetchAllPlaylistItems.mockResolvedValue([spotifyTrack()]);
+    const list = vi.fn(async (_opts: { part: string[] }) => ({ data: { items: [] } }));
+
+    await fetchPlaylistDetails('token', { playlistItems: { list } } as never, 'pl1', 'PL1');
+
+    expect(list).toHaveBeenCalled();
+    expect(list.mock.calls[0]![0].part).toEqual(['id', 'snippet']);
+  });
+
+  it('does not throw on a playlist item with no snippet at all', async () => {
+    h.fetchAllPlaylistItems.mockResolvedValue([spotifyTrack()]);
+
+    const details = await fetchPlaylistDetails('token', youtubeRaw([{ id: 'pi0' }]), 'pl1', 'PL1');
+
+    // A snippet-less item becomes an empty video: present (so hasYoutubePlaylist), but unmatchable.
+    expect(details.hasYoutubePlaylist).toBe(true);
+    expect(details.tracks[0]!.linked).toBe(false);
+  });
+
+  it('does not throw on a snippet with no resourceId', async () => {
+    h.fetchAllPlaylistItems.mockResolvedValue([spotifyTrack()]);
+
+    const details = await fetchPlaylistDetails(
+      'token',
+      youtubeWith([{ title: 'Totally Unrelated Cooking Show' }]), // snippet present, resourceId absent
+      'pl1',
+      'PL1',
+    );
+
+    expect(details.tracks[0]!.linked).toBe(false);
+    expect(details.totalTracks).toBe(1);
   });
 });

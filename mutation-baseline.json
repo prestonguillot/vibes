@@ -44,7 +44,7 @@
     "src/spotify/playlistItems.ts": 100,
     "src/sync/addedVideoPosition.ts": 80.36,
     "src/sync/applyVideoChoice.ts": 83.51,
-    "src/sync/playlistDetailsService.ts": 65.52,
+    "src/sync/playlistDetailsService.ts": 90.63,
     "src/sync/playlistReconcile.ts": 79.38,
     "src/sync/runSync.ts": 70.2,
     "src/sync/trackClassification.ts": 80.6,
