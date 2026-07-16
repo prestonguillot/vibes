@@ -45,7 +45,7 @@
     "src/sync/addedVideoPosition.ts": 80.36,
     "src/sync/applyVideoChoice.ts": 83.51,
     "src/sync/playlistDetailsService.ts": 90.63,
-    "src/sync/playlistReconcile.ts": 79.38,
+    "src/sync/playlistReconcile.ts": 87.11,
     "src/sync/runSync.ts": 71.43,
     "src/sync/trackClassification.ts": 80.6,
     "src/sync/trackMatching.ts": 73.62,

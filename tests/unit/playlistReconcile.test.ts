@@ -5,7 +5,7 @@
  * desired order without any content matching.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   computeReconcileOps,
   buildSyncDesiredVideoIds,
@@ -13,6 +13,7 @@ import {
   ReconcileSafetyError,
   CurrentPlaylistItem,
 } from '../../src/sync/playlistReconcile';
+import { Logger } from '../../src/lib/logger';
 
 const ci = (...videoIds: string[]): CurrentPlaylistItem[] =>
   videoIds.map((videoId) => ({ videoId, playlistItemId: `pi-${videoId}` }));
@@ -167,6 +168,47 @@ describe('buildSyncDesiredVideoIds', () => {
     );
     expect(result).toEqual(['dup']);
   });
+
+  // `found` is load-bearing on its own: a result that carries a videoId but was NOT found must not
+  // be used, or a stale/guessed video slips into the desired order.
+  it('ignores a not-found search result even when it carries a video id', () => {
+    const result = buildSyncDesiredVideoIds(
+      ['t1'],
+      [],
+      [{ spotifyTrackId: 't1', videoId: 'v9', found: false }],
+    );
+
+    expect(result).toEqual([]);
+  });
+
+  // The drop is deliberately loud: a silently-dropped track leaves needsResync stuck on forever.
+  it('warns, with a count, when a track is dropped for a video an earlier track already claimed', () => {
+    const warn = vi.spyOn(Logger, 'warn').mockImplementation(() => undefined);
+
+    buildSyncDesiredVideoIds(
+      ['t1', 't2'],
+      [
+        { trackId: 't1', videoId: 'dup' },
+        { trackId: 't2', videoId: 'dup' },
+      ],
+      [],
+    );
+
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('already claimed'),
+      expect.objectContaining({ droppedCount: 1 }),
+    );
+    warn.mockRestore();
+  });
+
+  it('does not warn when nothing is dropped', () => {
+    const warn = vi.spyOn(Logger, 'warn').mockImplementation(() => undefined);
+
+    buildSyncDesiredVideoIds(order, [{ trackId: 't1', videoId: 'v1' }], []);
+
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
 });
 
 describe('assertReconcileSafe (delete-safety rail)', () => {
@@ -207,5 +249,34 @@ describe('assertReconcileSafe (delete-safety rail)', () => {
     const current = items(2);
     const ops = computeReconcileOps([], current); // delete both, but current < min
     expect(() => assertReconcileSafe(ops, [], current.length)).not.toThrow();
+  });
+
+  // The minimum is inclusive at 3: two items is "tiny" and exempt, three is not.
+  it('does guard a playlist of exactly the minimum size (3)', () => {
+    const current = items(3);
+    const ops = computeReconcileOps(['v0'], current); // keep 1, delete 2 (67% > 50%)
+    expect(() => assertReconcileSafe(ops, ['v0'], current.length)).toThrow(ReconcileSafetyError);
+  });
+
+  // The threshold is on DELETES, not on total writes: a heavy reorder (all moves, no deletes) must
+  // never be mistaken for a destructive plan.
+  it('never trips a plan that deletes nothing, however many moves it makes', () => {
+    const current = items(6);
+    const desired = [...current].reverse().map((c) => c.videoId); // every video kept, order reversed
+    const ops = computeReconcileOps(desired, current);
+
+    expect(ops.some((op) => op.kind === 'delete')).toBe(false);
+    expect(ops.some((op) => op.kind === 'move')).toBe(true);
+    expect(() => assertReconcileSafe(ops, desired, current.length)).not.toThrow();
+  });
+
+  // The boundary is exclusive: deleting EXACTLY half is allowed; only MORE than half trips it.
+  it('allows a plan that deletes exactly half', () => {
+    const current = items(4);
+    const desired = current.slice(0, 2).map((c) => c.videoId); // 2 of 4 deleted = 50%
+    const ops = computeReconcileOps(desired, current);
+
+    expect(ops.filter((op) => op.kind === 'delete')).toHaveLength(2);
+    expect(() => assertReconcileSafe(ops, desired, current.length)).not.toThrow();
   });
 });
