@@ -8,7 +8,7 @@
  * whole request, because search covers every playlist at once.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 
 const h = vi.hoisted(() => ({ ensureValidSpotifyToken: vi.fn(), fetchAllPlaylistItems: vi.fn() }));
@@ -17,6 +17,7 @@ vi.mock('@/spotify/playlistItems', () => ({ fetchAllPlaylistItems: h.fetchAllPla
 
 import { createApp } from '@/app';
 import { testServer } from '@tests/helpers/testServer';
+import { Logger } from '@/lib/logger';
 
 const app = testServer(createApp());
 
@@ -48,10 +49,13 @@ describe('GET /api/playlistTracks: validation', () => {
     expect((await get('playlistIds=')).status).toBe(400);
   });
 
-  it('rejects more than 100 playlists', async () => {
+  it('rejects more than 100 playlists, saying why', async () => {
     const ids = Array.from({ length: 101 }, (_, i) => `pl${i}`).join(',');
 
-    expect((await get(`playlistIds=${ids}`)).status).toBe(400);
+    const response = await get(`playlistIds=${ids}`);
+
+    expect(response.status).toBe(400);
+    expect(response.text).toContain('Maximum 100 playlists per request');
   });
 
   it('accepts exactly 100 playlists', async () => {
@@ -69,8 +73,20 @@ describe('GET /api/playlistTracks: validation', () => {
     expect(h.fetchAllPlaylistItems).toHaveBeenCalledTimes(2);
   });
 
-  it('rejects a list of nothing but blanks', async () => {
-    expect((await get('playlistIds=,,')).status).toBe(400);
+  // A whitespace-only id is blank too - it is trimmed before the length check, not just `''`.
+  it('filters whitespace-only ids, not only empty ones', async () => {
+    const response = await get('playlistIds=pl1,%20%20,pl2');
+
+    expect(response.status).toBe(200);
+    expect(Object.keys(response.body.tracks)).toEqual(['pl1', 'pl2']);
+    expect(h.fetchAllPlaylistItems).toHaveBeenCalledTimes(2);
+  });
+
+  it('rejects a list of nothing but blanks, saying why', async () => {
+    const response = await get('playlistIds=,,');
+
+    expect(response.status).toBe(400);
+    expect(response.text).toContain('At least one playlistId is required');
   });
 });
 
@@ -184,6 +200,19 @@ describe('GET /api/playlistTracks: track mapping', () => {
     expect((await get('playlistIds=pl1')).body.tracks.pl1).toEqual(['Unknown Artist • Creep']);
   });
 
+  // No artists ARRAY at all (not just an empty one): the `artists?.[0]` guard must hold, or the
+  // whole playlist would throw and be reported as failed instead of yielding one Unknown-Artist row.
+  it('falls back to Unknown Artist when a track has no artists array', async () => {
+    h.fetchAllPlaylistItems.mockResolvedValue([
+      { track: { id: 't1', name: 'Creep', type: 'track' } },
+    ]);
+
+    const response = await get('playlistIds=pl1');
+
+    expect(response.body.tracks.pl1).toEqual(['Unknown Artist • Creep']);
+    expect(response.body.failed).toEqual([]);
+  });
+
   it.each([
     ['a null track', { track: null }],
     ['a track with no name', { track: { id: 't1', artists: [{ name: 'X' }] } }],
@@ -197,5 +226,53 @@ describe('GET /api/playlistTracks: track mapping', () => {
     await get('playlistIds=pl1,pl2,pl3');
 
     expect(h.fetchAllPlaylistItems).toHaveBeenCalledTimes(3);
+  });
+});
+
+// The warnings are how an operator learns the search index shipped incomplete - the user only sees
+// a search that quietly misses songs, so the log is the signal.
+describe('GET /api/playlistTracks: what it reports on partial failure', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  const oneBad = () =>
+    h.fetchAllPlaylistItems.mockImplementation(async (_token: string, playlistId: string) => {
+      if (playlistId === 'bad') throw new Error('404 playlist gone');
+      return [item('Creep')];
+    });
+
+  it('warns that the index is incomplete, with counts, when a playlist fails', async () => {
+    oneBad();
+    const warn = vi.spyOn(Logger, 'warn').mockImplementation(() => undefined);
+
+    await get('playlistIds=good,bad');
+
+    expect(warn).toHaveBeenCalledWith(
+      'Some playlists could not be read - the search index is incomplete',
+      expect.objectContaining({ failedCount: 1, requested: 2 }),
+    );
+  });
+
+  it('does not raise that warning when every playlist succeeds', async () => {
+    const warn = vi.spyOn(Logger, 'warn').mockImplementation(() => undefined);
+
+    await get('playlistIds=pl1,pl2');
+
+    expect(warn).not.toHaveBeenCalledWith(
+      'Some playlists could not be read - the search index is incomplete',
+      expect.anything(),
+    );
+  });
+
+  it('names the specific playlist that could not be read', async () => {
+    oneBad();
+    const warn = vi.spyOn(Logger, 'warn').mockImplementation(() => undefined);
+
+    await get('playlistIds=good,bad');
+
+    expect(warn).toHaveBeenCalledWith(
+      'Could not fetch tracks for playlist',
+      expect.objectContaining({ playlistId: 'bad' }),
+      expect.anything(),
+    );
   });
 });
