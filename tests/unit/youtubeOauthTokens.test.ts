@@ -25,6 +25,54 @@ beforeEach(() => {
   process.env.YOUTUBE_REDIRECT_URI = 'http://127.0.0.1:3000/auth/youtube/callback';
 });
 
+/** The form body of the most recent fetch, parsed back into fields. */
+const sentForm = () => new URLSearchParams(mockFetch.mock.calls.at(-1)![1].body as string);
+/** The URL of the most recent fetch. */
+const sentUrl = () => mockFetch.mock.calls.at(-1)![0] as string;
+
+/**
+ * What goes TO Google, which the response-mapping tests below never look at. grant_type is the
+ * field that says whether this is a code exchange or a refresh - blank it and both calls malform
+ * into an OAuth error the user can do nothing about, and no test of the mapping would notice.
+ */
+describe('the OAuth request each call sends', () => {
+  beforeEach(() => mockFetch.mockResolvedValue(okJson({ access_token: 'AT', expires_in: 3600 })));
+
+  it('exchanges a code as grant_type=authorization_code, with the code and redirect uri', async () => {
+    await exchangeYoutubeCode('the-code');
+
+    const form = sentForm();
+    expect(form.get('grant_type')).toBe('authorization_code');
+    expect(form.get('code')).toBe('the-code');
+    expect(form.get('redirect_uri')).toBe('http://127.0.0.1:3000/auth/youtube/callback');
+  });
+
+  it('refreshes as grant_type=refresh_token, with the refresh token', async () => {
+    await refreshYoutubeAccessToken('the-refresh-token');
+
+    const form = sentForm();
+    expect(form.get('grant_type')).toBe('refresh_token');
+    expect(form.get('refresh_token')).toBe('the-refresh-token');
+  });
+
+  it('sends the client credentials on both', async () => {
+    await exchangeYoutubeCode('c');
+    expect(sentForm().get('client_id')).toBe('cid');
+    expect(sentForm().get('client_secret')).toBe('secret');
+
+    await refreshYoutubeAccessToken('r');
+    expect(sentForm().get('client_id')).toBe('cid');
+    expect(sentForm().get('client_secret')).toBe('secret');
+  });
+
+  it('posts to the Google OAuth token endpoint', async () => {
+    await exchangeYoutubeCode('c');
+
+    expect(sentUrl()).toBe('https://oauth2.googleapis.com/token');
+    expect(mockFetch.mock.calls.at(-1)![1].method).toBe('POST');
+  });
+});
+
 describe('exchangeYoutubeCode', () => {
   it('maps a well-formed token response', async () => {
     mockFetch.mockResolvedValue(
@@ -66,6 +114,39 @@ describe('exchangeYoutubeCode', () => {
 
     expect(tokens.expiry_date).toBeGreaterThan(Date.now() + 3_500_000);
   });
+
+  // Zero and negative are not garbage - they parse as finite numbers - but a token that expires
+  // now or in the past is born dead. Both take the default rather than the number Google sent.
+  it.each([[0], [-100]])('assumes the default when expires_in is %i', async (expiresIn) => {
+    mockFetch.mockResolvedValue(okJson({ access_token: 'AT', expires_in: expiresIn }));
+
+    const tokens = await exchangeYoutubeCode('code');
+
+    expect(tokens.expiry_date).toBeGreaterThan(Date.now() + 3_500_000);
+  });
+
+  // token_type defaults to Bearer and scope to empty when Google omits them - the cookie schema
+  // requires both non-empty, so a token that dropped them would be rejected at storage rather than
+  // stored and mysteriously unusable.
+  it('defaults token_type to Bearer and scope to empty when they are absent', async () => {
+    mockFetch.mockResolvedValue(okJson({ access_token: 'AT', expires_in: 3600 }));
+
+    const tokens = await exchangeYoutubeCode('code');
+
+    expect(tokens.token_type).toBe('Bearer');
+    expect(tokens.scope).toBe('');
+  });
+
+  it('keeps the token_type and scope Google did send', async () => {
+    mockFetch.mockResolvedValue(
+      okJson({ access_token: 'AT', expires_in: 3600, token_type: 'MAC', scope: 'a b' }),
+    );
+
+    const tokens = await exchangeYoutubeCode('code');
+
+    expect(tokens.token_type).toBe('MAC');
+    expect(tokens.scope).toBe('a b');
+  });
 });
 
 describe('refreshYoutubeAccessToken', () => {
@@ -82,5 +163,51 @@ describe('refreshYoutubeAccessToken', () => {
 
     expect(tokens.access_token).toBe('AT2');
     expect(tokens.expiry_date).toBeGreaterThan(Date.now() + 3_500_000);
+  });
+
+  // Same defaults as the exchange path: a refresh that drops token_type/scope must still produce a
+  // token the cookie schema will accept, not one rejected at storage.
+  it('defaults token_type and scope on a refresh too', async () => {
+    mockFetch.mockResolvedValue(okJson({ access_token: 'AT2', expires_in: 3600 }));
+
+    const tokens = await refreshYoutubeAccessToken('RT');
+
+    expect(tokens.token_type).toBe('Bearer');
+    expect(tokens.scope).toBe('');
+  });
+});
+
+/**
+ * The authorize URL. access_type=offline and prompt=consent are load-bearing, not decoration: with
+ * only offline, Google returns a refresh_token on the FIRST consent and none on reconnect, so the
+ * access token died at its 1h expiry with nothing to refresh it. That was a real bug; these hold it
+ * shut.
+ */
+describe('getYoutubeAuthUrl', () => {
+  const params = (url: string) => new URL(url).searchParams;
+
+  it('asks for offline access and forces the consent screen every time', async () => {
+    const { getYoutubeAuthUrl } = await import('../../src/youtube/client');
+    const p = params(getYoutubeAuthUrl(['https://www.googleapis.com/auth/youtube']));
+
+    expect(p.get('access_type')).toBe('offline');
+    expect(p.get('prompt')).toBe('consent');
+    expect(p.get('response_type')).toBe('code');
+  });
+
+  // Scopes are space-separated in one param; join them with anything else and Google reads one
+  // unknown scope and refuses the lot.
+  it('space-joins the scopes', async () => {
+    const { getYoutubeAuthUrl } = await import('../../src/youtube/client');
+    const p = params(getYoutubeAuthUrl(['scope.a', 'scope.b']));
+
+    expect(p.get('scope')).toBe('scope.a scope.b');
+  });
+
+  it('includes the state when given one, and omits it when not', async () => {
+    const { getYoutubeAuthUrl } = await import('../../src/youtube/client');
+
+    expect(params(getYoutubeAuthUrl(['s'], 'the-state')).get('state')).toBe('the-state');
+    expect(params(getYoutubeAuthUrl(['s'])).has('state')).toBe(false);
   });
 });
