@@ -75,6 +75,23 @@ describe('playlist search (client-side filtering)', () => {
     expect(hidden('pl-2')).toBe(true);
   });
 
+  /**
+   * EVERY word must appear, not just one. "mix workout" above matches because both words are in
+   * "Workout Mix", so it cannot tell .every from .some - a row where one word matches and the other
+   * does not is what does. "workout zzz" must hide the Workout row: it has "workout" but no "zzz".
+   */
+  it('requires every query word to match, not just one', async () => {
+    await search('workout zzz');
+    expect(hidden('pl-3')).toBe(true); // has "workout", lacks "zzz"
+  });
+
+  // The query and the text are both lowered before comparing, so casing on either side is ignored.
+  it('matches regardless of the case typed', async () => {
+    await search('BLINDING');
+    expect(hidden('pl-1')).toBe(false);
+    expect(hidden('pl-2')).toBe(true);
+  });
+
   it('matches on lazy-loaded track names, not just the title', async () => {
     await search('tiger'); // only pl-3 has the track "Eye of the Tiger"
     expect(hidden('pl-3')).toBe(false);
