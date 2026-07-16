@@ -44,7 +44,7 @@ describe('playlist search (client-side filtering)', () => {
     (globalThis as { Logger?: unknown }).Logger = { error: vi.fn() };
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => TRACKS,
+      json: async () => ({ tracks: TRACKS, failed: [] }),
     }) as typeof fetch;
 
     document.body.innerHTML = `
@@ -101,9 +101,10 @@ describe('playlist search: the no-results message', () => {
   beforeEach(async () => {
     vi.useFakeTimers();
     (globalThis as { Logger?: unknown }).Logger = { error: vi.fn() };
-    globalThis.fetch = vi
-      .fn()
-      .mockResolvedValue({ ok: true, json: async () => TRACKS }) as typeof fetch;
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ tracks: TRACKS, failed: [] }),
+    }) as typeof fetch;
     document.body.innerHTML = `
       <input id="playlistSearch" type="text" />
       <div id="playlists-content">
@@ -162,9 +163,10 @@ describe('playlist search: Escape', () => {
   beforeEach(async () => {
     vi.useFakeTimers();
     (globalThis as { Logger?: unknown }).Logger = { error: vi.fn() };
-    globalThis.fetch = vi
-      .fn()
-      .mockResolvedValue({ ok: true, json: async () => TRACKS }) as typeof fetch;
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ tracks: TRACKS, failed: [] }),
+    }) as typeof fetch;
     document.body.innerHTML = `
       <input id="playlistSearch" type="text" />
       <div id="playlists-content">
@@ -213,9 +215,10 @@ describe('playlist search: when the list is swapped out', () => {
   beforeEach(async () => {
     vi.useFakeTimers();
     (globalThis as { Logger?: unknown }).Logger = { error: vi.fn() };
-    globalThis.fetch = vi
-      .fn()
-      .mockResolvedValue({ ok: true, json: async () => TRACKS }) as typeof fetch;
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ tracks: TRACKS, failed: [] }),
+    }) as typeof fetch;
     document.body.innerHTML = `
       <input id="playlistSearch" type="text" />
       <div id="playlists-content">
@@ -271,5 +274,61 @@ describe('playlist search: when the list is swapped out', () => {
     await vi.runAllTimersAsync();
 
     expect(vi.mocked(globalThis.fetch).mock.calls.length).toBe(before);
+  });
+});
+
+/**
+ * What search can do right now, said out loud.
+ *
+ * Searching by song needs the track index; the page can only build it for playlists Spotify
+ * answered for. When some are missing, a search for a song sitting in one of them matches nothing -
+ * which reads as "you do not have that", not as "the box could not check". The notice is the whole
+ * difference between a search that is incomplete and a search that is wrong.
+ */
+describe('playlist search: when the track index is incomplete', () => {
+  const notice = () => document.getElementById('playlist-tracks-loading');
+
+  async function boot(response: unknown, ok = true) {
+    vi.useFakeTimers();
+    (globalThis as { Logger?: unknown }).Logger = { error: vi.fn(), warn: vi.fn() };
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValue({ ok, json: async () => response }) as typeof fetch;
+    document.body.innerHTML = `
+      <input id="playlistSearch" type="text" />
+      <div id="playlists-content">${row('pl-1', 'Blinding Lights Mix')}</div>`;
+    await loadModule();
+    document.dispatchEvent(new window.Event('DOMContentLoaded'));
+    // The index is built lazily, on the first keystroke - nothing is fetched before the user asks.
+    await search('lights');
+  }
+
+  afterEach(() => vi.useRealTimers());
+
+  it('says nothing when every playlist came back', async () => {
+    await boot({ tracks: TRACKS, failed: [] });
+
+    expect(notice()).toBeNull();
+  });
+
+  it('says so when some playlists could not be read', async () => {
+    await boot({ tracks: { 'pl-1': ['Blinding Lights'] }, failed: ['pl-2', 'pl-3'] });
+
+    expect(notice()?.textContent).toContain('2 playlists');
+    expect(notice()?.className).toContain('alert-warning');
+  });
+
+  it('counts one playlist as one', async () => {
+    await boot({ tracks: TRACKS, failed: ['pl-2'] });
+
+    expect(notice()?.textContent).toContain('1 playlist -');
+  });
+
+  // The whole fetch failing is the same problem, whole: name matching still works, and that is all.
+  it('says so when the index could not be built at all', async () => {
+    await boot(undefined, false);
+
+    expect(notice()?.textContent).toContain('name only');
+    expect(notice()?.className).toContain('alert-warning');
   });
 });

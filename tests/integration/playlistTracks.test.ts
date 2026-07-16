@@ -37,7 +37,7 @@ describe('GET /api/playlistTracks: validation', () => {
     const response = await get('playlistIds=pl1');
 
     expect(response.status).toBe(200);
-    expect(response.body).toEqual({ pl1: ['Radiohead • Creep'] });
+    expect(response.body.tracks).toEqual({ pl1: ['Radiohead • Creep'] });
   });
 
   it('rejects a request with no playlistIds', async () => {
@@ -65,7 +65,7 @@ describe('GET /api/playlistTracks: validation', () => {
     const response = await get('playlistIds=pl1,,pl2');
 
     expect(response.status).toBe(200);
-    expect(Object.keys(response.body)).toEqual(['pl1', 'pl2']);
+    expect(Object.keys(response.body.tracks)).toEqual(['pl1', 'pl2']);
     expect(h.fetchAllPlaylistItems).toHaveBeenCalledTimes(2);
   });
 
@@ -93,9 +93,15 @@ describe('GET /api/playlistTracks: auth', () => {
   });
 });
 
+/**
+ * This is the index the song search runs on. A playlist that could not be read is not a playlist
+ * with no songs - but it used to be reported as one, so a search for a song sitting in it matched
+ * nothing and read as "you do not have that". Saying which ones failed is what lets the page say
+ * the search is incomplete instead of quietly being wrong.
+ */
 describe('GET /api/playlistTracks: resilience', () => {
   // Search asks for every playlist at once, so one bad playlist must not blank the whole feature.
-  it('returns an empty list for a failing playlist and keeps the others', async () => {
+  it('keeps the others when one playlist fails', async () => {
     h.fetchAllPlaylistItems.mockImplementation(async (_token: string, playlistId: string) => {
       if (playlistId === 'bad') throw new Error('404 playlist gone');
       return [item('Creep')];
@@ -104,16 +110,62 @@ describe('GET /api/playlistTracks: resilience', () => {
     const response = await get('playlistIds=good,bad');
 
     expect(response.status).toBe(200);
-    expect(response.body).toEqual({ good: ['Radiohead • Creep'], bad: [] });
+    expect(response.body.tracks).toEqual({ good: ['Radiohead • Creep'] });
   });
 
-  it('still answers 200 when every playlist fails', async () => {
+  it('names the playlist that failed rather than calling it empty', async () => {
+    h.fetchAllPlaylistItems.mockImplementation(async (_token: string, playlistId: string) => {
+      if (playlistId === 'bad') throw new Error('404 playlist gone');
+      return [item('Creep')];
+    });
+
+    const response = await get('playlistIds=good,bad');
+
+    expect(response.body.failed).toEqual(['bad']);
+    // The distinction that matters: absent, not present-and-empty.
+    expect(response.body.tracks).not.toHaveProperty('bad');
+  });
+
+  // A playlist that really has no songs is an answer, and must not read as a failure.
+  it('reports a genuinely empty playlist as empty, not failed', async () => {
+    h.fetchAllPlaylistItems.mockResolvedValue([]);
+
+    const response = await get('playlistIds=pl1');
+
+    expect(response.body.tracks).toEqual({ pl1: [] });
+    expect(response.body.failed).toEqual([]);
+  });
+
+  it('still answers 200 when every playlist fails, and says so', async () => {
     h.fetchAllPlaylistItems.mockRejectedValue(new Error('spotify is down'));
 
     const response = await get('playlistIds=pl1,pl2');
 
     expect(response.status).toBe(200);
-    expect(response.body).toEqual({ pl1: [], pl2: [] });
+    expect(response.body.tracks).toEqual({});
+    expect(response.body.failed).toEqual(['pl1', 'pl2']);
+  });
+
+  /**
+   * Each playlist is a paginated fetch. Sixty of them at once is a few hundred requests in a burst,
+   * which Spotify answers with 429 - so asking for the search index is what made the search index
+   * wrong. The work is bounded instead.
+   */
+  it('does not ask Spotify for everything at once', async () => {
+    let inFlight = 0;
+    let peak = 0;
+    h.fetchAllPlaylistItems.mockImplementation(async () => {
+      peak = Math.max(peak, ++inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      inFlight--;
+      return [item('Creep')];
+    });
+
+    const ids = Array.from({ length: 40 }, (_, i) => `pl${i}`).join(',');
+    await get(`playlistIds=${ids}`);
+
+    expect(peak).toBeLessThanOrEqual(5);
+    expect(h.fetchAllPlaylistItems).toHaveBeenCalledTimes(40);
   });
 });
 
@@ -121,7 +173,7 @@ describe('GET /api/playlistTracks: track mapping', () => {
   it('formats a track as "Artist • Name"', async () => {
     h.fetchAllPlaylistItems.mockResolvedValue([item('Karma Police', 'Radiohead')]);
 
-    expect((await get('playlistIds=pl1')).body.pl1).toEqual(['Radiohead • Karma Police']);
+    expect((await get('playlistIds=pl1')).body.tracks.pl1).toEqual(['Radiohead • Karma Police']);
   });
 
   it('falls back to Unknown Artist when a track has no artists', async () => {
@@ -129,7 +181,7 @@ describe('GET /api/playlistTracks: track mapping', () => {
       { track: { id: 't1', name: 'Creep', type: 'track', artists: [] } },
     ]);
 
-    expect((await get('playlistIds=pl1')).body.pl1).toEqual(['Unknown Artist • Creep']);
+    expect((await get('playlistIds=pl1')).body.tracks.pl1).toEqual(['Unknown Artist • Creep']);
   });
 
   it.each([
@@ -138,13 +190,7 @@ describe('GET /api/playlistTracks: track mapping', () => {
   ])('drops %s', async (_label, badItem) => {
     h.fetchAllPlaylistItems.mockResolvedValue([badItem, item('Creep')]);
 
-    expect((await get('playlistIds=pl1')).body.pl1).toEqual(['Radiohead • Creep']);
-  });
-
-  it('returns an empty list for an empty playlist', async () => {
-    h.fetchAllPlaylistItems.mockResolvedValue([]);
-
-    expect((await get('playlistIds=pl1')).body).toEqual({ pl1: [] });
+    expect((await get('playlistIds=pl1')).body.tracks.pl1).toEqual(['Radiohead • Creep']);
   });
 
   it('fetches every requested playlist', async () => {
