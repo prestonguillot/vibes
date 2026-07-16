@@ -45,14 +45,17 @@ describe('Button Styling Consistency', () => {
   });
 
   describe('Primary button styling', () => {
-    it('should have contrasting borders for blue buttons (btn-outline-primary)', () => {
-      // Check for the btn-outline-primary rule
+    it('keeps the borderless marker button reading as a control (btn-outline-primary)', () => {
       const btnOutlinePrimaryMatch = cssContent.match(/\.btn-outline-primary\s*{[^}]*}/);
       expect(btnOutlinePrimaryMatch).toBeTruthy();
 
       const btnOutlinePrimaryStyles = btnOutlinePrimaryMatch?.[0] || '';
-      expect(btnOutlinePrimaryStyles).toContain('border: 2px solid var(--border)');
-      expect(btnOutlinePrimaryStyles).not.toContain('border: 2px solid #0066ff');
+      // This one is scrawled on in marker, not stamped in a box - it has no border on purpose.
+      expect(btnOutlinePrimaryStyles).toContain('border: none');
+      // Which puts the whole affordance on the ink chip and its offset shadow: lose either and the
+      // control stops looking pressable, which is what the old border rule was really protecting.
+      expect(btnOutlinePrimaryStyles).toMatch(/background-color:\s*#0066ff/);
+      expect(btnOutlinePrimaryStyles).toMatch(/box-shadow:\s*3px 3px 0px/);
     });
   });
 
