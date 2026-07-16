@@ -316,6 +316,58 @@ describe('refreshing the details panel after a replace', () => {
 
     expect(reads()).toBe(0);
   });
+
+  it('closes the modal on a successful replace', async () => {
+    const { confirm, dialog } = await setup();
+    fakeHtmxRefresh([NEW_VIDEO]);
+
+    await replaceAndSettle(confirm);
+
+    expect(dialog.close).toHaveBeenCalled();
+  });
+
+  // Without a playlist id the button cannot say which panel to refresh - it must say so, not refresh.
+  it('cannot refresh, and says so, when the confirm button has no playlist id', async () => {
+    const { confirm, logger } = await setup();
+    confirm.removeAttribute('data-playlist-id');
+    const reads = fakeHtmxRefresh([NEW_VIDEO]);
+
+    await replaceAndSettle(confirm);
+
+    expect(reads()).toBe(0);
+    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('no playlist id'));
+  });
+
+  // If no pick was captured there is nothing to verify the refresh against - say so rather than
+  // refreshing blind.
+  it('cannot verify the refresh, and says so, when no video id was captured', async () => {
+    const { confirm, logger } = await setup();
+    (document.getElementById('hidden-new-video-id') as HTMLInputElement).value = '';
+    const reads = fakeHtmxRefresh([NEW_VIDEO]);
+
+    await replaceAndSettle(confirm);
+
+    expect(reads()).toBe(0);
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.stringContaining('no video id was captured'),
+      expect.objectContaining({ playlistId: PLAYLIST_ID }),
+    );
+  });
+
+  // afterRequest fires for every htmx request on the page; only the confirm button's own is ours.
+  it('ignores an afterRequest fired for a different element', async () => {
+    const { logger } = await setup();
+    const reads = fakeHtmxRefresh([NEW_VIDEO]);
+    const other = document.createElement('button');
+    other.id = 'not-the-confirm-button';
+    document.body.appendChild(other);
+
+    settleConfirm(other, true);
+    await vi.advanceTimersByTimeAsync(120_000);
+
+    expect(reads()).toBe(0);
+    expect(logger.error).not.toHaveBeenCalled();
+  });
 });
 
 describe('video-selection-modal template', () => {
