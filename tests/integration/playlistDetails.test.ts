@@ -18,12 +18,20 @@ const h = vi.hoisted(() => ({
   getPlaylist: vi.fn(),
   fetchAllPlaylistItems: vi.fn(),
   scrapeYouTubeSearch: vi.fn(),
+  ensureValidSpotifyToken: vi.fn(() => Promise.resolve('sp-access')),
 }));
 
 vi.mock('@/spotify/client', async (importActual) => {
   const actual = await importActual<typeof import('@/spotify/client')>();
   return { ...actual, getPlaylist: h.getPlaylist };
 });
+
+// The route resolves its Spotify token through ensureValidSpotifyToken (validate/refresh/rewrite);
+// mock it so these tests exercise the details rendering without a live /me probe.
+vi.mock('@/spotify/auth', async (importActual) => ({
+  ...(await importActual<typeof import('@/spotify/auth')>()),
+  ensureValidSpotifyToken: h.ensureValidSpotifyToken,
+}));
 
 vi.mock('@/spotify/playlistItems', () => ({
   fetchAllPlaylistItems: h.fetchAllPlaylistItems,
