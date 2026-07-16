@@ -15,6 +15,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { CircuitBreaker, CircuitState } from '../../src/lib/circuitBreaker';
+import { Logger } from '../../src/lib/logger';
 
 describe('CircuitBreaker', () => {
   let circuitBreaker: CircuitBreaker;
@@ -234,6 +235,96 @@ describe('CircuitBreaker', () => {
       expect(customBreaker.getState().state).toBe(CircuitState.HALF_OPEN);
       customBreaker.recordSuccess();
       expect(customBreaker.getState().state).toBe(CircuitState.CLOSED);
+    });
+  });
+
+  // The boundaries and the state guards: the exact instant the window opens, and the fact that
+  // success/failure counting only happens in the states that should count them.
+  describe('boundaries and state guards', () => {
+    let cb: CircuitBreaker;
+
+    beforeEach(() => {
+      cb = new CircuitBreaker('Guarded', {
+        failureThreshold: 2,
+        resetTimeout: 60_000,
+        successThreshold: 2,
+      });
+    });
+
+    afterEach(() => vi.restoreAllMocks());
+
+    // >= not >: at the exact reset instant the breaker may probe again, it does not wait a tick more.
+    it('transitions to HALF_OPEN at exactly the reset time', () => {
+      cb.open();
+      vi.advanceTimersByTime(60_000); // now === nextAttemptTime
+
+      expect(cb.canProceed()).toBe(true);
+      expect(cb.getState().state).toBe(CircuitState.HALF_OPEN);
+    });
+
+    // recordSuccess only counts toward closing in HALF_OPEN - a success while OPEN must not close it.
+    it('does not count successes toward closing while OPEN', () => {
+      cb.open();
+
+      cb.recordSuccess();
+      cb.recordSuccess();
+
+      expect(cb.getState().state).toBe(CircuitState.OPEN);
+    });
+
+    // The threshold-open only fires from CLOSED; failures while already OPEN must not re-arm the timer.
+    it('does not re-arm the reset timer on failures while already OPEN', () => {
+      cb.open();
+      const armed = cb.getState().nextAttemptTime;
+      vi.advanceTimersByTime(10_000);
+
+      cb.recordFailure();
+      cb.recordFailure();
+
+      expect(cb.getState().nextAttemptTime).toBe(armed);
+    });
+
+    // isOpen is `state===OPEN && now < nextAttemptTime`: past the window it is NOT open (the || and
+    // the &&-true mutants would keep it open).
+    it('is not open once an OPEN breaker is past its reset window', () => {
+      cb.open();
+      vi.advanceTimersByTime(60_001);
+
+      expect(cb.isOpen()).toBe(false);
+    });
+
+    // The window is exclusive at the top: AT nextAttemptTime it is already not open (the <= mutant
+    // would keep it open one instant too long).
+    it('is not open at the exact reset instant', () => {
+      cb.open();
+      vi.advanceTimersByTime(60_000);
+
+      expect(cb.isOpen()).toBe(false);
+    });
+
+    it('logs the reset window in whole minutes when opening', () => {
+      const warn = vi.spyOn(Logger, 'warn').mockImplementation(() => undefined);
+
+      cb.open(); // resetTimeout 60_000ms -> 1 minute
+
+      expect(warn).toHaveBeenCalledWith(
+        'Circuit breaker OPEN',
+        expect.objectContaining({ name: 'Guarded', resetInMinutes: 1 }),
+      );
+    });
+
+    it('logs Unknown error for a non-Error failure in HALF_OPEN', () => {
+      cb.open();
+      vi.advanceTimersByTime(60_001);
+      cb.canProceed(); // -> HALF_OPEN
+      const warn = vi.spyOn(Logger, 'warn').mockImplementation(() => undefined);
+
+      cb.recordFailure('a string, not an Error');
+
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining('HALF_OPEN'),
+        expect.objectContaining({ error: 'Unknown error' }),
+      );
     });
   });
 });
