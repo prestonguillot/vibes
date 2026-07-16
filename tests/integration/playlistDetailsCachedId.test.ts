@@ -35,13 +35,13 @@ vi.mock('@/youtube/client', async (importActual) => ({
 
 import { createApp } from '@/app';
 import { testServer } from '@tests/helpers/testServer';
+import { spotifyTokenCookie, youtubeTokenCookie } from '@tests/helpers/tokenCookies';
 
 const app = testServer(createApp());
 
 const PLAYLIST_ID = '37i9dQZF1DXcBWIGoYBM5M';
-const SPOTIFY_COOKIE = 'spotify_tokens={"accessToken":"sp","refreshToken":"re"}';
-const YOUTUBE_COOKIE =
-  'youtube_tokens={"access_token":"yt","refresh_token":"re","scope":"s","token_type":"Bearer"}';
+const SPOTIFY_COOKIE = spotifyTokenCookie();
+const YOUTUBE_COOKIE = youtubeTokenCookie();
 
 const details = (hasYoutubePlaylist = true) => ({
   playlistId: PLAYLIST_ID,

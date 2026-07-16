@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request } from 'express';
 import { Logger } from '../lib/logger';
 import { validate, schemas, ValidatedRequest } from '../lib/validation';
 import { csrfValidationMiddleware } from '../auth/csrf';
@@ -7,7 +7,7 @@ import { parseSpotifyTokenCookie, parseYouTubeTokenCookie } from '../auth/cookie
 import { CacheDuration, setCache } from '../lib/cache';
 import { formatErrorDetails } from '../lib/errorFormatter';
 import { escapeHtml } from '../lib/htmlEscape';
-import { createYoutubeClient } from '../youtube/client';
+import { ensureValidYouTubeToken } from '../youtube/auth';
 import { classifyYoutubeError } from '../youtube/writes';
 import { z } from 'zod';
 import ejs from 'ejs';
@@ -66,8 +66,12 @@ router.get(
 
       const accessToken = spotifyTokens.accessToken;
 
-      // Initialize YouTube API (optional - only if user is connected)
-      const youtube = youtubeTokens ? createYoutubeClient(youtubeTokens.access_token) : null;
+      // Initialize YouTube API (optional - only if user is connected). Through
+      // ensureValidYouTubeToken: the cookie's access token lasts about an hour, and this panel is
+      // opened on a page that may have been sitting idle far longer.
+      const youtube = youtubeTokens
+        ? (await ensureValidYouTubeToken(req as Request, res)).client
+        : null;
 
       // Resolve the YouTube playlist id. The client may send the id it has cached
       // (X-YT-Playlist-Id); trusting it skips listing all of the user's playlists
@@ -363,8 +367,10 @@ router.post(
         return res.status(401).send(html);
       }
 
-      // Initialize YouTube API
-      const youtube = createYoutubeClient(youtubeTokens.access_token);
+      // Initialize YouTube API. Through ensureValidYouTubeToken: this is a WRITE, reached from a
+      // modal on a page that may have been open for hours, and an hour-old token fails it for a
+      // reason the user cannot act on ("Video replacement failed. Please try again").
+      const youtube = (await ensureValidYouTubeToken(req as Request, res)).client;
 
       // Find the YouTube playlist mirroring this Spotify one, by the synced-title convention.
       const spotifyPlaylistData = await getPlaylist(spotifyTokens.accessToken, playlistId);

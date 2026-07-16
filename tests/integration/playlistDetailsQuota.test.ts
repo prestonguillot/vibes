@@ -14,6 +14,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import request from 'supertest';
 import { createApp } from '@/app';
+import { spotifyTokenCookie, youtubeTokenCookie } from '@tests/helpers/tokenCookies';
 import { testServer } from '@tests/helpers/testServer';
 import { YoutubeApiError } from '@/youtube/client';
 import { YoutubeQuotaError } from '@/youtube/writes';
@@ -27,13 +28,8 @@ vi.mock('@/sync/playlistDetailsService', async (importActual) => {
 
 const app = testServer(createApp());
 
-const spotifyCookie = `spotify_tokens=${JSON.stringify({ accessToken: 'sp-token', refreshToken: 'sp-refresh' })}`;
-const youtubeCookie = `youtube_tokens=${JSON.stringify({
-  access_token: 'yt-token',
-  refresh_token: 'yt-refresh',
-  scope: 'https://www.googleapis.com/auth/youtube',
-  token_type: 'Bearer',
-})}`;
+const spotifyCookie = spotifyTokenCookie('sp-token', 'sp-refresh');
+const youtubeCookie = youtubeTokenCookie({ access_token: 'yt-token' });
 const playlistId = '1234567890123456789012';
 
 // Both cookies + a cached playlist id so the route reaches fetchPlaylistDetails directly.
