@@ -13,8 +13,27 @@
  */
 
 import http from 'node:http';
+import { afterEach } from 'vitest';
+import { spotifyCircuitBreaker, youtubeCircuitBreaker } from '@/lib/circuitBreaker';
 
 process.env.NODE_ENV = 'test';
+
+/**
+ * Close both circuit breakers after every test, everywhere.
+ *
+ * The breakers are module singletons shared across every test file. A test that trips one - the
+ * YouTube quota test opens it on purpose - leaves it open for whatever runs next, and ten files
+ * touch it. In a plain run the order is stable and a per-file beforeEach papers over it; under
+ * stryker each mutant reloads and re-runs the whole suite, the order shifts, and a test inherits an
+ * open breaker it did not expect. That failed the initial run at random, and stryker reads a failed
+ * suite as the mutant being caught - so static-mutant scores moved between sweeps for no reason in
+ * the code (circuitBreakerConfig read 40 or 60 depending on whether it fired). Resetting globally
+ * makes the leak impossible rather than order-dependent. Same shape as the keep-alive fix below.
+ */
+afterEach(() => {
+  spotifyCircuitBreaker.close();
+  youtubeCircuitBreaker.close();
+});
 
 /**
  * Do not let a connection outlive the server it was opened to.
