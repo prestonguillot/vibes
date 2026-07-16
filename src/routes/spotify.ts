@@ -1,6 +1,7 @@
 import { Router, Request } from 'express';
 import { YoutubeApiError, YtPlaylist } from '../youtube/client';
 import { ensureValidYouTubeToken } from '../youtube/auth';
+import { authExpired } from '../auth/authExpired';
 import { Logger } from '../lib/logger';
 import { getSecureCookieOptions } from '../auth/cookieParser';
 import { validate, schemas, ValidatedRequest } from '../lib/validation';
@@ -316,15 +317,11 @@ router.get(
     } catch (error) {
       Logger.error('Error fetching playlists', {}, error);
 
-      // Check if it's an authentication error
-      if (error instanceof Error && error.message === 'SPOTIFY_AUTH_REQUIRED') {
-        // loginUrl is not optional: the template links it, and rendering without it throws, which
-        // express turns into a 500. An expired session reported as "something went wrong" is a
-        // reconnect the user is never offered.
-        return res.status(401).render('partials/auth-expired', {
-          service: 'Spotify',
-          loginUrl: '/auth/spotify/login',
-        });
+      // An expired session reported as "something went wrong" is a reconnect the user is never
+      // offered. Either service can be the one that ran out here.
+      const expired = authExpired(error);
+      if (expired) {
+        return res.status(401).render('partials/auth-expired', { ...expired });
       }
 
       // Check if it's a Spotify API server error (502/503)
@@ -439,11 +436,14 @@ router.get(
     } catch (error) {
       Logger.error('Error fetching playlist button', {}, error);
 
-      if (error instanceof Error && error.message === 'SPOTIFY_AUTH_REQUIRED') {
+      // Either service can be the one that ran out - the button needs BOTH to know what to say.
+      // This slot is a button, so it says so as a button rather than as the alert other routes use.
+      const expired = authExpired(error);
+      if (expired) {
         const html = await ejs.renderFile(
           path.join(__dirname, '../../views/partials/sync-button-disabled.ejs'),
           {
-            message: 'Reconnect to Spotify',
+            message: `Reconnect to ${expired.service}`,
           },
         );
         return res.status(401).send(html);
