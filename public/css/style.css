@@ -842,7 +842,9 @@ body::after {
    the rip terminate them is the organic bit.) */
 .torn-top::after {
   top: -22px;
-  background: var(--surface);
+  /* --torn-fill lets the same recipe tear a different surface: paper by default, but the
+     "Your Playlists" panel's top edge is its black header, so it overrides this to match. */
+  background: var(--torn-fill, var(--surface));
   box-sizing: border-box;
   border-left: 3px solid var(--border);
   border-right: 3px solid var(--border);
@@ -875,6 +877,14 @@ body::after {
    playlist rows; the header and all content sit above it. */
 .playlists-panel {
   position: relative;
+  /* The tear hangs off the header rather than the panel (the panel's ::before is the speckle, and
+     the tear needs both pseudos), so the panel gives up its own top border for it. */
+  border-top: none;
+}
+
+/* This panel's top edge is its black header, not paper - so the rip is filled to match. */
+.playlists-panel > .card-header {
+  --torn-fill: #000;
 }
 .playlists-panel::before {
   content: '';
@@ -1539,7 +1549,10 @@ body::after {
   top: -28px;
   right: -40px;
   width: 300px;
-  height: 250px;
+  /* Must clear the bottom of the collapsed band even though it's rotated: the -6deg tilt lifts one
+     bottom corner by ~half-width * sin(6deg) (~16px), so a height that merely reaches the row's
+     bottom leaves that corner short and its edge shows. The excess is clipped by the row. */
+  height: 272px;
   transform: rotate(-6deg);
   background-image: var(--playlist-art);
   background-size: cover;
