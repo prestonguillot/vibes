@@ -140,6 +140,8 @@ export async function validateYouTubeConnection(
     return breakerOpenResult('YouTube', 'youtube_tokens', youtubeCircuitBreaker, res);
   }
 
-  const outcome = await resolveYouTubeToken(youtubeTokens, res);
+  // probe: this endpoint exists to say whether YouTube is working for this user, which a token's
+  // own expiry cannot answer. The call is how quota exhaustion and API health reach the breaker.
+  const outcome = await resolveYouTubeToken(youtubeTokens, res, { probe: true });
   return toConnectionResult('YouTube', 'youtube_tokens', youtubeCircuitBreaker, 403, outcome, res);
 }
