@@ -841,6 +841,83 @@ body::after {
   background-color: #00ff00 !important;
 }
 
+/* Track status badges (Linked / Unlinked / YouTube Only) as inked rubber stamps: a coloured
+   outline, a worn-ink mask that punches a few holes, and a slight tilt - in place of solid fills.
+   Scoped to .track-status so other badges keep their look. */
+.track-status .badge {
+  font-family: 'Bungee', cursive;
+  font-size: 0.6rem;
+  /* solid chip so the inked stamp reads over busy album-art backdrops; no tilt, so it lines up
+     with the square edit/add button beside it. */
+  background: var(--surface) !important;
+  border-width: 3px;
+  padding: 4px 9px;
+  white-space: nowrap;
+  transform: rotate(-5deg);
+  box-shadow: 3px 3px 0 rgba(var(--shadow-rgb), 0.5);
+  -webkit-mask:
+    radial-gradient(circle at 22% 28%, transparent 0 1.2px, #000 1.2px),
+    radial-gradient(circle at 72% 62%, transparent 0 1.5px, #000 1.5px),
+    radial-gradient(circle at 46% 82%, transparent 0 1px, #000 1px), linear-gradient(#000 0 0);
+  -webkit-mask-composite: source-in;
+  mask:
+    radial-gradient(circle at 22% 28%, transparent 0 1.2px, #000 1.2px),
+    radial-gradient(circle at 72% 62%, transparent 0 1.5px, #000 1.5px),
+    radial-gradient(circle at 46% 82%, transparent 0 1px, #000 1px), linear-gradient(#000 0 0);
+  mask-composite: intersect;
+}
+.track-status .badge.bg-success {
+  color: #12b24a;
+  border-color: #12b24a;
+}
+.track-status .badge.bg-warning {
+  color: #e0a800;
+  border-color: #e0a800;
+}
+.track-status .badge.bg-info {
+  color: #2b7fff;
+  border-color: #2b7fff;
+}
+
+/* Tilt the edit/add button the other way from the stamp, so the pair reads hand-placed
+   rather than mechanically aligned. */
+.track-status .btn {
+  transform: rotate(3deg);
+}
+
+/* Vary the tilt across rows (a 5-row cycle of small, mixed-direction angles) so each stamp and
+   button looks individually hand-placed rather than machine-stamped down the list. */
+.tracks-list .track-item:nth-child(5n + 1) .track-status .badge {
+  transform: rotate(-6deg);
+}
+.tracks-list .track-item:nth-child(5n + 2) .track-status .badge {
+  transform: rotate(-2deg);
+}
+.tracks-list .track-item:nth-child(5n + 3) .track-status .badge {
+  transform: rotate(4deg);
+}
+.tracks-list .track-item:nth-child(5n + 4) .track-status .badge {
+  transform: rotate(-4deg);
+}
+.tracks-list .track-item:nth-child(5n + 5) .track-status .badge {
+  transform: rotate(2deg);
+}
+.tracks-list .track-item:nth-child(5n + 1) .track-status .btn {
+  transform: rotate(3deg);
+}
+.tracks-list .track-item:nth-child(5n + 2) .track-status .btn {
+  transform: rotate(-4deg);
+}
+.tracks-list .track-item:nth-child(5n + 3) .track-status .btn {
+  transform: rotate(-2deg);
+}
+.tracks-list .track-item:nth-child(5n + 4) .track-status .btn {
+  transform: rotate(4deg);
+}
+.tracks-list .track-item:nth-child(5n + 5) .track-status .btn {
+  transform: rotate(-3deg);
+}
+
 /* === BUTTONS === */
 .connect-btn {
   font-family: 'Courier Prime', monospace;
