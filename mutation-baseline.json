@@ -48,7 +48,7 @@
     "src/sync/playlistReconcile.ts": 79.38,
     "src/sync/runSync.ts": 70.2,
     "src/sync/trackClassification.ts": 80.6,
-    "src/sync/trackMatching.ts": 72.02,
+    "src/sync/trackMatching.ts": 73.62,
     "src/sync/videoPicker.ts": 90.48,
     "src/sync/videoSearch.ts": 80,
     "src/youtube/auth.ts": 97.56,
