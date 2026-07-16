@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 160" width="100" height="160">
+  <!-- Cut by hand, not drawn by a compass: every vertex sits a few units off the line it would
+       take if this were geometric, and no two edges are parallel. That irregularity is the whole
+       point - a symmetrical bolt reads as a corporate logo. -->
+  <path
+    d="M 61,2
+       L 47,31 L 36,58 L 21,88
+       L 33,90 L 46,93
+       L 37,123 L 26,157
+       L 41,137 L 58,112 L 86,66
+       L 71,64 L 55,61
+       L 64,33 L 72,3
+       Z"
+    fill="#000"
+  />
+</svg>

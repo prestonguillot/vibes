@@ -218,28 +218,83 @@ body::after {
   text-underline-offset: 5px;
 }
 
-.punk-arrow {
-  font-family: 'Anton', sans-serif;
-  font-size: 4rem;
-  color: #0066ff;
-  text-shadow: 2px 2px 0px rgb(var(--shadow-rgb));
+/* The sigils flanking the title. Two nested spans because the ink is masked to the bolt shape and
+   an element's own filter is applied BEFORE its own mask - a drop-shadow on the masked element
+   gets clipped to the same bolt and vanishes. The shadow has to live on the parent, which sees the
+   child already rendered. */
+.punk-sigil {
   display: inline-block;
-  animation: punk-bounce 2s infinite;
+  width: 0.62em;
+  height: 0.88em;
+  margin: 0 0.1em;
+  filter: drop-shadow(3px 3px 0px rgb(var(--shadow-rgb)));
+  animation: punk-jolt 2.4s infinite;
 }
 
-@keyframes punk-bounce {
+/* Blue, because the masthead banner behind it is #ff0040 - red ink here disappears into it and
+   leaves only the drop-shadow, which reads as a scratch rather than a bolt. */
+.punk-sigil__ink {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background-color: #0066ff;
+  -webkit-mask: url('/images/bolt.svg') center / contain no-repeat;
+  mask: url('/images/bolt.svg') center / contain no-repeat;
+}
+
+/* Mirrored so the pair reads as hand-cut rather than stamped twice, and offset half a cycle so
+   they jolt against each other instead of in lockstep. */
+.punk-sigil--flip {
+  transform: scaleX(-1);
+  animation-delay: -1.2s;
+}
+
+@keyframes punk-jolt {
   0%,
-  20%,
-  50%,
-  80%,
+  62%,
   100% {
     transform: translateY(0) rotate(0deg);
   }
-  40% {
-    transform: translateY(-10px) rotate(-5deg);
+  68% {
+    transform: translateY(-7px) rotate(-6deg);
   }
-  60% {
-    transform: translateY(-5px) rotate(3deg);
+  74% {
+    transform: translateY(2px) rotate(4deg);
+  }
+  80% {
+    transform: translateY(-3px) rotate(-2deg);
+  }
+}
+
+/* scaleX(-1) is a transform, so the mirrored sigil needs its own keyframes or the animation
+   overwrites the flip and it snaps back to facing the same way as its partner. */
+@keyframes punk-jolt-flip {
+  0%,
+  62%,
+  100% {
+    transform: scaleX(-1) translateY(0) rotate(0deg);
+  }
+  68% {
+    transform: scaleX(-1) translateY(-7px) rotate(-6deg);
+  }
+  74% {
+    transform: scaleX(-1) translateY(2px) rotate(4deg);
+  }
+  80% {
+    transform: scaleX(-1) translateY(-3px) rotate(-2deg);
+  }
+}
+
+.punk-sigil--flip {
+  animation-name: punk-jolt-flip;
+}
+
+/* The bounce this replaced ignored motion preferences entirely. Honour them now: the sigils are
+   decorative, so they simply sit still. */
+@media (prefers-reduced-motion: reduce) {
+  .punk-sigil,
+  .punk-sigil--flip {
+    animation: none;
   }
 }
 
@@ -1763,10 +1818,6 @@ body::after {
     font-size: 1.3rem;
   }
 
-  .punk-arrow {
-    font-size: 1.5rem;
-  }
-
   .sync-btn {
     min-width: 120px;
     font-size: 0.75rem;
@@ -1786,10 +1837,6 @@ body::after {
 @media (min-width: 769px) and (max-width: 1024px) {
   .punk-title {
     font-size: 5rem;
-  }
-
-  .punk-arrow {
-    font-size: 3rem;
   }
 
   .sync-btn {
@@ -2576,9 +2623,6 @@ body.oauth-error-body {
   .punk-title {
     font-size: 2.5rem;
     letter-spacing: -1px;
-  }
-  .punk-arrow {
-    font-size: 1.8rem;
   }
 
   /* Drop the 180px min-width so buttons size to their (now narrower) container. */

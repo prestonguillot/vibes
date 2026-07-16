@@ -16,7 +16,29 @@ describe('Index Page', () => {
       const response = await request(app).get('/').expect(200);
 
       expect(response.text).toBeDefined();
-      expect(response.text).toContain('<title>Spotify to YouTube Playlist Sync</title>');
+      expect(response.text).toContain('<title>SLOPSYNC - same slop, different service</title>');
+    });
+
+    it('renders the masthead: the name, the tagline, and a sigil either side', async () => {
+      const response = await request(app).get('/');
+
+      expect(response.text).toContain('SLOPSYNC');
+      expect(response.text).toContain('same slop, different service');
+
+      // Two sigils, one of them mirrored - the pair is the replacement for the old bouncing arrow.
+      // Anchored so `punk-sigil__ink` (the inner masked span) isn't counted as a sigil of its own.
+      const sigils = response.text.match(/class="punk-sigil(?:\s[^"]*)?"/g) ?? [];
+      expect(sigils).toHaveLength(2);
+      expect(sigils.filter((s) => s.includes('punk-sigil--flip'))).toHaveLength(1);
+    });
+
+    it('hides the decorative sigils from screen readers', async () => {
+      const response = await request(app).get('/');
+
+      // They carry no meaning; announcing them would just read as noise between the letters.
+      const sigilTags = response.text.match(/<span class="punk-sigil(?:\s[^"]*)?"[^>]*>/g) ?? [];
+      expect(sigilTags).toHaveLength(2);
+      sigilTags.forEach((tag) => expect(tag).toContain('aria-hidden="true"'));
     });
 
     it('should include HTMX script', async () => {

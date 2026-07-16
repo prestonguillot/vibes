@@ -205,6 +205,49 @@ describe('Button Styling Consistency', () => {
     });
   });
 
+  describe('Masthead sigils', () => {
+    it('masks the ink rather than the element that carries the shadow', () => {
+      // A filter is applied before the element's own mask, so a drop-shadow on the masked span
+      // gets clipped to the bolt and disappears. The shadow must sit on the parent.
+      const ink = cssContent.match(/\.punk-sigil__ink\s*{[^}]*}/)?.[0] ?? '';
+      expect(ink).toMatch(/mask:\s*url\('\/images\/bolt\.svg'\)/);
+      expect(ink).not.toContain('drop-shadow');
+
+      const sigil = cssContent.match(/\.punk-sigil\s*{[^}]*}/)?.[0] ?? '';
+      expect(sigil).toContain('drop-shadow');
+      expect(sigil).not.toContain('mask:');
+    });
+
+    it('gives the mirrored sigil keyframes that preserve the flip', () => {
+      // punk-jolt animates `transform`, which would overwrite scaleX(-1) and snap the sigil back
+      // to facing the same way as its partner. Its keyframes must carry the flip through.
+      const flipFrames = cssContent.match(/@keyframes punk-jolt-flip\s*{[\s\S]*?\n}/)?.[0] ?? '';
+      expect(flipFrames).toBeTruthy();
+
+      const transforms = flipFrames.match(/transform:[^;]+;/g) ?? [];
+      expect(transforms.length).toBeGreaterThan(0);
+      transforms.forEach((t) => expect(t).toContain('scaleX(-1)'));
+    });
+
+    it('sizes the sigils in em so they track the title across breakpoints', () => {
+      const sigil = cssContent.match(/\.punk-sigil\s*{[^}]*}/)?.[0] ?? '';
+      expect(sigil).toMatch(/width:\s*[\d.]+em/);
+      expect(sigil).toMatch(/height:\s*[\d.]+em/);
+    });
+
+    it('stands the sigils still when the user asks for reduced motion', () => {
+      const reduced =
+        cssContent.match(/@media \(prefers-reduced-motion: reduce\)\s*{[\s\S]*?\n}/)?.[0] ?? '';
+      expect(reduced).toContain('.punk-sigil');
+      expect(reduced).toMatch(/animation:\s*none/);
+    });
+
+    it('leaves no trace of the arrow it replaced', () => {
+      expect(cssContent).not.toContain('punk-arrow');
+      expect(cssContent).not.toContain('punk-bounce');
+    });
+  });
+
   describe('Form control cursor styling', () => {
     it('should have pointer cursor for checkbox inputs (form-check-input)', () => {
       const formCheckInputMatch = cssContent.match(/\.form-check-input\s*{[^}]*}/);
