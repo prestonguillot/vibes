@@ -4,10 +4,16 @@
  * @vitest-environment happy-dom
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 describe('Playlist Scroll Behavior', () => {
   beforeEach(async () => {
+    // The scroll fires on a setTimeout(fn, 100) to let the collapse animation start. On fake timers
+    // the test advances that 100ms itself, instead of really waiting 150ms per test - which made
+    // these five the slowest unit tests in the file and, under load, candidates to tip a mutant
+    // over stryker's timeout into a bogus kill.
+    vi.useFakeTimers();
+
     // Set up the DOM
     document.body.innerHTML = `
       <div class="playlist-item" data-playlist-id="test-playlist-123">
@@ -111,33 +117,27 @@ describe('Playlist Scroll Behavior', () => {
     await import('../../public/js/playlistScroll.js');
   });
 
+  afterEach(() => vi.useRealTimers());
+
+  /** Dispatch a click and run the scroll's 100ms timer, without waiting for real time. */
+  const clickAndSettle = (target: Element) => {
+    const clickEvent = new window.Event('click', { bubbles: true });
+    Object.defineProperty(clickEvent, 'target', { value: target, enumerable: true });
+    document.dispatchEvent(clickEvent);
+    vi.advanceTimersByTime(100);
+  };
+
   it('should calculate scroll position based on expand button bottom', () => {
     const collapseArea = document.querySelector('.playlist-collapse-area') as HTMLElement;
     expect(collapseArea).toBeTruthy();
 
-    // Simulate click
-    const clickEvent = new window.Event('click', { bubbles: true });
-    Object.defineProperty(clickEvent, 'target', { value: collapseArea, enumerable: true });
-    document.dispatchEvent(clickEvent);
+    clickAndSettle(collapseArea);
 
-    // Wait for the setTimeout to execute
-    return new Promise<void>((resolve) => {
-      setTimeout(() => {
-        // Check that scrollTo was called
-        expect(window.scrollTo).toHaveBeenCalled();
-
-        const scrollCall = (window.scrollTo as any).mock.calls[0][0];
-
-        // Expand button is at top: 100, bottom: 150
-        // Page offset: 3000
-        // Expand button bottom absolute position: 3000 + 150 = 3150
-        // Target: 3150 - (800 / 3) = 3150 - 266.67 = 2883.33
-        expect(scrollCall.top).toBeCloseTo(2883, 0);
-        expect(scrollCall.behavior).toBe('smooth');
-
-        resolve();
-      }, 150);
-    });
+    expect(window.scrollTo).toHaveBeenCalled();
+    const scrollCall = (window.scrollTo as any).mock.calls[0][0];
+    // Expand button bottom absolute: 3000 + 150 = 3150. Target: 3150 - 800/3 = 2883.33.
+    expect(scrollCall.top).toBeCloseTo(2883, 0);
+    expect(scrollCall.behavior).toBe('smooth');
   });
 
   // Note: Testing the "skip scrolling if already close to target" scenario is challenging
@@ -150,39 +150,19 @@ describe('Playlist Scroll Behavior', () => {
 
     const collapseArea = document.querySelector('.playlist-collapse-area') as HTMLElement;
 
-    // Simulate click
-    const clickEvent = new window.Event('click', { bubbles: true });
-    Object.defineProperty(clickEvent, 'target', { value: collapseArea, enumerable: true });
-    document.dispatchEvent(clickEvent);
+    clickAndSettle(collapseArea);
 
-    // Wait for potential setTimeout
-    return new Promise<void>((resolve) => {
-      setTimeout(() => {
-        expect(window.scrollTo).not.toHaveBeenCalled();
-        resolve();
-      }, 150);
-    });
+    expect(window.scrollTo).not.toHaveBeenCalled();
   });
 
   it('should not scroll if expand button is not found', () => {
-    // Remove the expand button
-    const expandButton = document.querySelector('.playlist-expand-area');
-    expandButton?.remove();
+    document.querySelector('.playlist-expand-area')?.remove();
 
     const collapseArea = document.querySelector('.playlist-collapse-area') as HTMLElement;
 
-    // Simulate click
-    const clickEvent = new window.Event('click', { bubbles: true });
-    Object.defineProperty(clickEvent, 'target', { value: collapseArea, enumerable: true });
-    document.dispatchEvent(clickEvent);
+    clickAndSettle(collapseArea);
 
-    // Wait for potential setTimeout
-    return new Promise<void>((resolve) => {
-      setTimeout(() => {
-        expect(window.scrollTo).not.toHaveBeenCalled();
-        resolve();
-      }, 150);
-    });
+    expect(window.scrollTo).not.toHaveBeenCalled();
   });
 
   it('should respect maximum scroll boundaries', () => {
@@ -197,43 +177,21 @@ describe('Playlist Scroll Behavior', () => {
 
     const collapseArea = document.querySelector('.playlist-collapse-area') as HTMLElement;
 
-    // Simulate click
-    const clickEvent = new window.Event('click', { bubbles: true });
-    Object.defineProperty(clickEvent, 'target', { value: collapseArea, enumerable: true });
-    document.dispatchEvent(clickEvent);
+    clickAndSettle(collapseArea);
 
-    // Wait for setTimeout
-    return new Promise<void>((resolve) => {
-      setTimeout(() => {
-        expect(window.scrollTo).toHaveBeenCalled();
-
-        const scrollCall = (window.scrollTo as any).mock.calls[0][0];
-
-        // maxScroll = 4000 - 800 = 3200
-        // Should never scroll beyond 3200
-        expect(scrollCall.top).toBeLessThanOrEqual(3200);
-
-        resolve();
-      }, 150);
-    });
+    expect(window.scrollTo).toHaveBeenCalled();
+    const scrollCall = (window.scrollTo as any).mock.calls[0][0];
+    // maxScroll = 4000 - 800 = 3200; never beyond it.
+    expect(scrollCall.top).toBeLessThanOrEqual(3200);
   });
 
   it('should handle clicks on child elements of collapse area', () => {
     const collapseIndicator = document.querySelector('.collapse-indicator') as HTMLElement;
     expect(collapseIndicator).toBeTruthy();
 
-    // Simulate click on the indicator (child of collapse area)
-    const clickEvent = new window.Event('click', { bubbles: true });
-    Object.defineProperty(clickEvent, 'target', { value: collapseIndicator, enumerable: true });
-    document.dispatchEvent(clickEvent);
+    // The indicator is a child of the collapse area; the handler uses closest().
+    clickAndSettle(collapseIndicator);
 
-    // Wait for setTimeout
-    return new Promise<void>((resolve) => {
-      setTimeout(() => {
-        // Should still work since we use closest() in the handler
-        expect(window.scrollTo).toHaveBeenCalled();
-        resolve();
-      }, 150);
-    });
+    expect(window.scrollTo).toHaveBeenCalled();
   });
 });
