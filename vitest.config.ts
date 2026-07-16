@@ -21,6 +21,10 @@ export default defineConfig({
       // while a mutation run is in flight also globs the sandbox copies - running duplicate tests
       // against deliberately broken source, and failing for no real reason.
       '.stryker-tmp/**',
+      // git worktrees (EnterWorktree) live here, INSIDE the repo. Same problem: without this, a run
+      // in the main tree also globs every worktree's copy of the suite, so a test reads as failing
+      // from a worktree whose source is a branch behind - which is exactly what it looks like.
+      '.claude/worktrees/**',
     ],
     coverage: {
       provider: 'v8',
