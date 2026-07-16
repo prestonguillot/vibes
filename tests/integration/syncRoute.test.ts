@@ -218,6 +218,35 @@ describe('GET /api/sync/playlist/:id/stream', () => {
 
     expect(res.status).toBe(200);
     expect(res.text).toContain('YouTube Quota Exceeded');
+    // The body tells the user WHY they are blocked.
+    expect(res.text).toContain('quota has been exceeded');
+  });
+
+  it('a non-quota failure streams the generic error, not the quota partial', async () => {
+    h.fetchAllPlaylistItems.mockResolvedValue([track('t1', 'Song One')]);
+    h.playlistsList.mockResolvedValue({ data: { items: [] } }); // create mode
+    h.searchMusicVideo.mockResolvedValue('v1');
+    // A plain error (not a YouTube quota/rate-limit) must take the generic branch, same write point
+    // the quota test uses.
+    h.playlistsInsert.mockRejectedValue(new Error('database exploded'));
+
+    const res = await stream();
+
+    expect(res.status).toBe(200);
+    expect(res.text).toContain('Error syncing playlist');
+    expect(res.text).toContain('Something went wrong');
+    expect(res.text).not.toContain('YouTube Quota Exceeded');
+  });
+
+  it('opens a no-cache event-stream and greets with a comment frame', async () => {
+    h.fetchAllPlaylistItems.mockResolvedValue([track('t1', 'Song One')]);
+
+    const res = await stream();
+
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toContain('text/event-stream');
+    expect(res.headers['cache-control']).toContain('no-cache');
+    expect(res.text).toContain('stream open');
   });
 
   it('missing auth: 401 before the stream opens', async () => {
@@ -242,6 +271,7 @@ describe('GET /api/sync/playlist/:id/stream', () => {
 
     expect(res.status).toBe(401);
     expect(res.text).toContain('Spotify Authentication Required');
+    expect(res.text).toContain('Please connect to Spotify first');
     expect(res.text).not.toContain('YouTube Authentication Required');
   });
 
@@ -596,6 +626,7 @@ describe('GET stream: authentication', () => {
 
     expect(response.status).toBe(500);
     expect(response.text).toContain('Authentication Error');
+    expect(response.text).toContain('Failed to verify your connection');
     expect(response.text).not.toContain('/auth/spotify/login');
   });
 });

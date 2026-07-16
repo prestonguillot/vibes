@@ -37,7 +37,7 @@
     "src/routes/playlistDetails.ts": 67.46,
     "src/routes/playlistTracks.ts": 86.11,
     "src/routes/spotify.ts": 75.64,
-    "src/routes/sync.ts": 66.02,
+    "src/routes/sync.ts": 79.61,
     "src/routes/youtube.ts": 80.36,
     "src/spotify/auth.ts": 95.45,
     "src/spotify/client.ts": 83.53,
