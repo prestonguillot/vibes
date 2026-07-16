@@ -806,4 +806,63 @@ describe('Video Search Modal', () => {
     expect(response.text).not.toContain('video-option-radio');
     expect(response.text).not.toContain('modal-header');
   });
+
+  // With no currentVideoId this is a first link, not a replacement: the title and instruction must
+  // say "video", not "alternative video".
+  it('frames the modal as a new link when no current video is given', async () => {
+    h.scrapeYouTubeSearch.mockResolvedValue([scraperResult('vvvvvvvvvvv', 'A Result')]);
+
+    const response = await request(app).get(
+      searchUrl({ trackName: 'Creep', artistName: 'Radiohead', playlistId: PLAYLIST_ID }),
+    );
+
+    expect(response.text).toContain('Select Video');
+    expect(response.text).not.toContain('Select Alternative Video');
+    expect(response.text).toContain('Choose a YouTube video for:');
+  });
+
+  // A currentVideoId means the track already has a video and this is a swap: the wording changes.
+  it('frames the modal as a replacement when a current video is given', async () => {
+    h.scrapeYouTubeSearch.mockResolvedValue([scraperResult('vvvvvvvvvvv', 'A Result')]);
+
+    const response = await request(app).get(
+      searchUrl({
+        trackName: 'Creep',
+        artistName: 'Radiohead',
+        playlistId: PLAYLIST_ID,
+        currentVideoId: 'aaaaaaaaaaa',
+      }),
+    );
+
+    expect(response.text).toContain('Select Alternative Video');
+    expect(response.text).toContain('Choose a different YouTube video for:');
+  });
+
+  // The track and artist names are user-controlled and are interpolated into the instruction HTML.
+  it('escapes the track and artist names in the instruction, defeating an injected script', async () => {
+    h.scrapeYouTubeSearch.mockResolvedValue([scraperResult('vvvvvvvvvvv', 'A Result')]);
+
+    const response = await request(app).get(
+      searchUrl({
+        trackName: '<script>alert(1)</script>',
+        artistName: 'Radiohead',
+        playlistId: PLAYLIST_ID,
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.text).toContain('&lt;script&gt;');
+    expect(response.text).not.toContain('<script>alert(1)</script>');
+  });
+
+  it('renders an error partial when the search itself fails', async () => {
+    h.scrapeYouTubeSearch.mockRejectedValue(new Error('scraper exploded'));
+
+    const response = await request(app).get(
+      searchUrl({ trackName: 'Creep', artistName: 'Radiohead', playlistId: PLAYLIST_ID }),
+    );
+
+    expect(response.status).toBe(500);
+    expect(response.text).toContain('Error searching for videos');
+  });
 });
