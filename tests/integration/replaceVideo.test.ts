@@ -20,6 +20,7 @@ const h = vi.hoisted(() => ({
   playlistItemsInsert: vi.fn(),
   playlistItemsDelete: vi.fn(),
   playlistItemsUpdate: vi.fn(),
+  refreshYoutubeAccessToken: vi.fn(),
 }));
 
 vi.mock('@/lib/delay', () => ({ sleep: h.sleep }));
@@ -28,8 +29,11 @@ vi.mock('@/spotify/client', async (importActual) => ({
   getPlaylist: h.getPlaylist,
 }));
 vi.mock('@/spotify/playlistItems', () => ({ fetchAllPlaylistItems: h.fetchAllPlaylistItems }));
+// The real token path runs: only the network edges are faked, so an expired cookie really is
+// refreshed and rewritten the way it would be in front of a user.
 vi.mock('@/youtube/client', async (importActual) => ({
   ...(await importActual<typeof import('@/youtube/client')>()),
+  refreshYoutubeAccessToken: h.refreshYoutubeAccessToken,
   createYoutubeClient: () => ({
     playlists: { list: h.playlistsList },
     playlistItems: {
@@ -44,12 +48,21 @@ vi.mock('@/youtube/client', async (importActual) => ({
 import { createApp } from '@/app';
 import { testServer } from '@tests/helpers/testServer';
 import { findSetCookie } from '@tests/helpers/httpCookies';
+import { youtubeTokenCookie } from '@tests/helpers/tokenCookies';
 
 const app = testServer(createApp());
 
 const SPOTIFY_COOKIE = 'spotify_tokens={"accessToken":"sp-token","refreshToken":"sp-refresh"}';
-const YOUTUBE_COOKIE =
-  'youtube_tokens={"access_token":"yt-token","refresh_token":"yt-refresh","scope":"s","token_type":"Bearer"}';
+// expiry_date is on every real cookie - it is written on the code exchange and on every refresh -
+// and it is what the auth path reads to decide whether the token can be used as-is. A fixture
+// without it describes a cookie this app never writes.
+const YOUTUBE_COOKIE = `youtube_tokens=${JSON.stringify({
+  access_token: 'yt-token',
+  refresh_token: 'yt-refresh',
+  scope: 's',
+  token_type: 'Bearer',
+  expiry_date: Date.now() + 3_600_000,
+})}`;
 
 const TRACK_ID = '4iV5W9uYEdYUVa79Axb7Rh';
 const PLAYLIST_ID = '37i9dQZF1DXcBWIGoYBM5M';
@@ -166,6 +179,59 @@ describe('POST /replace: refusing the request', () => {
     expect(response.status).toBe(404);
     expect(response.text).toContain('Video not found');
     // Nothing was written - it did not add the new video and leave the old one behind.
+    expect(h.playlistItemsInsert).not.toHaveBeenCalled();
+    expect(h.playlistItemsDelete).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * A replace is reached from a modal on a page that may have been open for hours, and a YouTube
+ * access token lasts about one. Reading with the cookie's token directly failed the write for a
+ * reason the user could do nothing about - "Video replacement failed. Please try again" - and
+ * trying again did not help, because the token was no fresher the second time.
+ */
+describe('POST /replace: when the page has been open longer than the token lives', () => {
+  it('refreshes the token and does the write', async () => {
+    h.refreshYoutubeAccessToken.mockResolvedValue({
+      access_token: 'fresh-token',
+      expiry_date: Date.now() + 3_600_000,
+    });
+
+    const response = await replace(
+      { newVideoId: NEW_VIDEO, currentVideoId: OLD_VIDEO, playlistId: PLAYLIST_ID },
+      { cookies: [SPOTIFY_COOKIE, youtubeTokenCookie({ expiresInMs: -1000 })] },
+    );
+
+    expect(h.refreshYoutubeAccessToken).toHaveBeenCalledWith('yt-refresh');
+    expect(response.status).toBe(200);
+    expect(h.playlistItemsInsert).toHaveBeenCalled();
+  });
+
+  // The refreshed token is written back, or the next request pays to refresh again.
+  it('stores the refreshed token', async () => {
+    h.refreshYoutubeAccessToken.mockResolvedValue({
+      access_token: 'fresh-token',
+      expiry_date: Date.now() + 3_600_000,
+    });
+
+    const response = await replace(
+      { newVideoId: NEW_VIDEO, currentVideoId: OLD_VIDEO, playlistId: PLAYLIST_ID },
+      { cookies: [SPOTIFY_COOKIE, youtubeTokenCookie({ expiresInMs: -1000 })] },
+    );
+
+    expect(findSetCookie(response, 'youtube_tokens')).toContain('fresh-token');
+  });
+
+  // Nothing to refresh with means the connection is genuinely gone: say so, do not half-write.
+  it('asks the user to reconnect when the refresh fails, and writes nothing', async () => {
+    h.refreshYoutubeAccessToken.mockRejectedValue(new Error('invalid_grant'));
+
+    const response = await replace(
+      { newVideoId: NEW_VIDEO, currentVideoId: OLD_VIDEO, playlistId: PLAYLIST_ID },
+      { cookies: [SPOTIFY_COOKIE, youtubeTokenCookie({ expiresInMs: -1000 })] },
+    );
+
+    expect(response.status).toBe(500);
     expect(h.playlistItemsInsert).not.toHaveBeenCalled();
     expect(h.playlistItemsDelete).not.toHaveBeenCalled();
   });

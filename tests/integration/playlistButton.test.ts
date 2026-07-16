@@ -32,14 +32,14 @@ vi.mock('@/youtube/auth', async (importActual) => ({
 }));
 
 import { createApp } from '@/app';
+import { spotifyTokenCookie, youtubeTokenCookie } from '@tests/helpers/tokenCookies';
 import { testServer } from '@tests/helpers/testServer';
 
 const app = testServer(createApp());
 
 const PLAYLIST_ID = '37i9dQZF1DXcBWIGoYBM5M';
-const SPOTIFY_COOKIE = 'spotify_tokens={"accessToken":"sp","refreshToken":"re"}';
-const YOUTUBE_COOKIE =
-  'youtube_tokens={"access_token":"yt","refresh_token":"re","scope":"s","token_type":"Bearer"}';
+const SPOTIFY_COOKIE = spotifyTokenCookie();
+const YOUTUBE_COOKIE = youtubeTokenCookie();
 
 const button = (cookies: string[] = [SPOTIFY_COOKIE, YOUTUBE_COOKIE]) =>
   request(app).get(`/auth/spotify/playlist-button/${PLAYLIST_ID}`).set('Cookie', cookies);
