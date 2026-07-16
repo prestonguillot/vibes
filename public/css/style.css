@@ -19,6 +19,15 @@
   --border: #000; /* the heavy punk borders */
   --border-subtle: #dee2e6; /* hairline borders */
   --shadow-rgb: 0, 0, 0; /* offset drop-shadows, used as rgba(var(--shadow-rgb), a) */
+
+  /* Photocopy-zine page background (light): warm paper ground with dark toner/speckle.
+     --page is the body ground only - kept distinct from --surface-alt (raised surfaces). */
+  --page: #e8e5dd;
+  --speckle: url('/images/speckle-light.svg'); /* random print speckle, no lattice */
+  --toner: 0.26; /* fractal-noise grain strength */
+  --toner-blend: multiply;
+  --blotch: rgba(0, 0, 0, 0.06); /* soft uneven toner blotches */
+  --streak: rgba(0, 0, 0, 0.05); /* faint copier roller streaks (the tilted grid) */
 }
 
 /* Dark theme: near-black surfaces, light borders/text, SAME neon accents (they pop harder on
@@ -34,6 +43,14 @@
   --border-subtle: #333;
   --shadow-rgb: 255, 255, 255; /* light offset shadows - black ones vanish on the dark surfaces */
   --row-stripe: rgba(255, 255, 255, 0.07); /* light overlay so stripes read on the dark surface */
+
+  /* Photocopy-zine page background (dark): near-black page, gentle light toner/speckle. */
+  --page: #0c0c0c;
+  --speckle: url('/images/speckle-dark.svg');
+  --toner: 0.1;
+  --toner-blend: screen;
+  --blotch: rgba(255, 255, 255, 0.05);
+  --streak: rgba(255, 255, 255, 0.04);
 
   /* Re-point Bootstrap's own theme variables so its components (cards set their own
      color/bg, .text-muted, form controls, dropdowns) follow the dark theme rather than their
@@ -58,25 +75,56 @@ html {
 
 /* === BASE STYLES === */
 body {
-  background: var(--surface-alt);
+  background-color: var(--page);
   color: var(--text); /* themed default so inherited text flips in dark mode (was browser-black) */
+  /* Photocopy zine: random speckle field + uneven toner blotches + tilted roller streaks.
+     The fine toner grain and darkened flyer margin are layered on via body::before/::after. */
   background-image:
-    radial-gradient(circle at 20% 80%, rgba(0, 0, 0, 0.1) 1px, transparent 1px),
-    radial-gradient(circle at 80% 20%, rgba(0, 0, 0, 0.1) 1px, transparent 1px),
-    radial-gradient(circle at 40% 40%, rgba(0, 0, 0, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 0, 0, 0.02) 1px, transparent 1px),
-    linear-gradient(0deg, rgba(0, 0, 0, 0.02) 1px, transparent 1px);
+    var(--speckle), radial-gradient(ellipse 38% 26% at 12% 18%, var(--blotch), transparent 62%),
+    radial-gradient(ellipse 30% 40% at 88% 62%, var(--blotch), transparent 62%),
+    radial-gradient(ellipse 46% 22% at 58% 92%, var(--blotch), transparent 62%),
+    radial-gradient(ellipse 24% 30% at 40% 45%, var(--blotch), transparent 62%),
+    radial-gradient(ellipse 30% 18% at 72% 12%, var(--blotch), transparent 62%),
+    repeating-linear-gradient(19deg, var(--streak) 0 1px, transparent 1px 37px),
+    repeating-linear-gradient(-71deg, var(--streak) 0 1px, transparent 1px 61px);
   background-size:
-    50px 50px,
-    60px 60px,
-    30px 30px,
-    20px 20px,
-    20px 20px;
+    520px 520px,
+    auto,
+    auto,
+    auto,
+    auto,
+    auto,
+    auto,
+    auto;
   font-family: 'Courier Prime', monospace;
   min-height: 100vh;
   width: 100%;
   min-width: 320px;
   overflow-x: auto;
+}
+
+/* Fine photocopy toner grain over the whole page. Fixed (doesn't scroll) and z-index:-1 so it
+   sits above the page ground but below all content. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  background-image: url('/images/toner.svg');
+  background-size: 300px 300px;
+  opacity: var(--toner);
+  mix-blend-mode: var(--toner-blend);
+}
+
+/* Darkened, uneven flyer margin - the edge of a page on a copier bed. */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  box-shadow: inset 0 0 140px 30px rgba(var(--shadow-rgb), 0.12);
 }
 
 .container {
