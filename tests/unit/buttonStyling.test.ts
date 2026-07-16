@@ -144,14 +144,14 @@ describe('Button Styling Consistency', () => {
   });
 
   describe('Punk aesthetic consistency', () => {
-    it('should use Courier Prime font for all buttons', () => {
+    it('should use the typewriter face for all buttons', () => {
       const buttonFontPatterns = [
-        /\.connect-btn[\s\S]*?font-family:\s*'Courier Prime'/,
-        /\.punk-btn[\s\S]*?font-family:\s*'Courier Prime'/,
-        /\.btn-outline-secondary[\s\S]*?font-family:\s*'Courier Prime'/,
-        /\.btn-outline-primary[\s\S]*?font-family:\s*'Courier Prime'/,
-        /\.btn-spotify-reconnect[\s\S]*?font-family:\s*'Courier Prime'/,
-        /\.btn-youtube-reconnect[\s\S]*?font-family:\s*'Courier Prime'/,
+        /\.connect-btn[\s\S]*?font-family:\s*'Special Elite'/,
+        /\.punk-btn[\s\S]*?font-family:\s*'Special Elite'/,
+        /\.btn-outline-secondary[\s\S]*?font-family:\s*'Special Elite'/,
+        /\.btn-outline-primary[\s\S]*?font-family:\s*'Special Elite'/,
+        /\.btn-spotify-reconnect[\s\S]*?font-family:\s*'Special Elite'/,
+        /\.btn-youtube-reconnect[\s\S]*?font-family:\s*'Special Elite'/,
       ];
 
       buttonFontPatterns.forEach((pattern) => {
