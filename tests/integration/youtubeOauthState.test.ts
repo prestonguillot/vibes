@@ -6,11 +6,21 @@
  * (login-CSRF / account fixation). Spotify had this protection; YouTube did not.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import request from 'supertest';
 import { findSetCookie, setCookies } from '@tests/helpers/httpCookies';
 import { createApp } from '../../src/app';
 import { testServer } from '../helpers/testServer';
+
+// The code exchange is the ONLY thing here that would otherwise hit the network - the state check
+// this file is about happens before it. Mocked to reject so the "passes the state check, then fails
+// at the exchange" case fails locally and instantly, rather than making a real call to Google that
+// was slow (~150ms) and, under load, timed out at 10s - a real external call in a test on both
+// counts.
+vi.mock('../../src/youtube/client', async (orig) => ({
+  ...(await orig<typeof import('../../src/youtube/client')>()),
+  exchangeYoutubeCode: vi.fn(() => Promise.reject(new Error('code exchange failed (mocked)'))),
+}));
 
 const app = testServer(createApp());
 const CODE = '4/0AXEQxICtest-authorization-code';

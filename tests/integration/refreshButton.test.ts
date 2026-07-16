@@ -16,6 +16,12 @@ vi.mock('../../src/auth/authValidation', async (orig) => ({
   validateYouTubeConnection: mockAuth.validateYouTubeConnection,
 }));
 
+// The status-button endpoints hold their response for MIN_DISPLAY_TIME_MS (~500ms) so the spinner
+// cannot flash. Nothing here tests that hold, and serving it really cost ~500ms PER test - five of
+// them, the slowest tests in the suite, and slow tests are what a mutant tips over stryker's timeout
+// into a bogus "killed". Resolve the delay immediately.
+vi.mock('../../src/lib/delay', () => ({ sleep: vi.fn(() => Promise.resolve()) }));
+
 // One server for the file. Rebuilding the app per test bought nothing - it holds no state, and what
 // varies between these tests is the mocked validators and the circuit breaker, both of which live
 // outside it.
