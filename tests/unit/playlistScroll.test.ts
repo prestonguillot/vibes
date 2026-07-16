@@ -140,9 +140,36 @@ describe('Playlist Scroll Behavior', () => {
     expect(scrollCall.behavior).toBe('smooth');
   });
 
-  // Note: Testing the "skip scrolling if already close to target" scenario is challenging
-  // in a unit test environment due to event listener persistence across tests.
-  // This behavior is manually verified and works correctly in production.
+  it('does not scroll when the click is not on a collapse area', () => {
+    const elsewhere = document.createElement('div');
+    document.body.appendChild(elsewhere);
+
+    clickAndSettle(elsewhere);
+
+    expect(window.scrollTo).not.toHaveBeenCalled();
+  });
+
+  it('does not scroll when the collapse area carries no playlist id', () => {
+    const collapseArea = document.querySelector('.playlist-collapse-area') as HTMLElement;
+    collapseArea.removeAttribute('data-playlist-id');
+
+    clickAndSettle(collapseArea);
+
+    expect(window.scrollTo).not.toHaveBeenCalled();
+  });
+
+  // The skip: when the page is already within 10px of the target, scrolling would only jitter.
+  // Geometry chosen so the target equals the current position (viewport/3 == the expand bottom).
+  it('does not scroll when it is already at the target', () => {
+    window.innerHeight = 450; // 450/3 = 150 = the expand button's bottom, so target == pageYOffset
+    window.pageYOffset = 3000;
+
+    const collapseArea = document.querySelector('.playlist-collapse-area') as HTMLElement;
+
+    clickAndSettle(collapseArea);
+
+    expect(window.scrollTo).not.toHaveBeenCalled();
+  });
 
   it('should not scroll if checkbox is not checked', () => {
     const checkbox = document.getElementById('expand-test-playlist-123') as HTMLInputElement;
@@ -166,14 +193,15 @@ describe('Playlist Scroll Behavior', () => {
   });
 
   it('should respect maximum scroll boundaries', () => {
-    // Mock documentElement properties
     Object.defineProperty(document.documentElement, 'scrollHeight', {
       value: 4000,
       configurable: true,
     });
 
     window.innerHeight = 800;
-    window.pageYOffset = 3000;
+    // pageYOffset high enough that the target (pageYOffset + 150 - 800/3 = 3883) exceeds the max, so
+    // the clamp actually bites - and the value it clamps TO pins scrollHeight - viewportHeight.
+    window.pageYOffset = 4000;
 
     const collapseArea = document.querySelector('.playlist-collapse-area') as HTMLElement;
 
@@ -181,8 +209,8 @@ describe('Playlist Scroll Behavior', () => {
 
     expect(window.scrollTo).toHaveBeenCalled();
     const scrollCall = (window.scrollTo as any).mock.calls[0][0];
-    // maxScroll = 4000 - 800 = 3200; never beyond it.
-    expect(scrollCall.top).toBeLessThanOrEqual(3200);
+    // maxScroll = 4000 - 800 = 3200; the target is above it, so it is pinned there exactly.
+    expect(scrollCall.top).toBeCloseTo(3200, 0);
   });
 
   it('should handle clicks on child elements of collapse area', () => {
