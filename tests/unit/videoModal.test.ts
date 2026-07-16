@@ -609,6 +609,66 @@ describe('opening the picker', () => {
     expect(dialog.showModal).not.toHaveBeenCalled();
     expect(document.getElementById('video-modal-content')!.innerHTML).toContain('Loading');
   });
+
+  const afterSwap = (targetId: string) =>
+    document.dispatchEvent(
+      new CustomEvent('htmx:afterSwap', {
+        detail: { target: document.getElementById(targetId) },
+        bubbles: true,
+      }),
+    );
+
+  // The full modal markup arriving is the other way the picker opens (the request having returned).
+  it('opens the modal when the full modal content is swapped in', async () => {
+    const dialog = await setupModal();
+
+    afterSwap('video-modal-content');
+
+    expect(dialog.showModal).toHaveBeenCalled();
+  });
+
+  it('does not re-open on a full-modal swap when the modal is already open', async () => {
+    const dialog = await setupModal({ open: true });
+
+    afterSwap('video-modal-content');
+
+    expect(dialog.showModal).not.toHaveBeenCalled();
+  });
+
+  // A manual re-search swaps only the results list - the modal is already open and must NOT be
+  // re-opened (showModal on an open dialog throws).
+  it('does not open the modal on a results-only swap', async () => {
+    const dialog = await setupModal({ open: true });
+    const results = document.createElement('div');
+    results.id = 'video-results-list';
+    document.body.appendChild(results);
+
+    afterSwap('video-results-list');
+
+    expect(dialog.showModal).not.toHaveBeenCalled();
+  });
+
+  // With the dialog gone (panel torn down mid-flight), a full-modal swap must say so, not throw.
+  it('logs an error, without throwing, when the modal element is missing on a full-modal swap', async () => {
+    await setupModal();
+    // Move the swap target out of the dialog, then remove the dialog itself.
+    document.body.appendChild(document.getElementById('video-modal-content')!);
+    document.getElementById('videoSelectionModal')!.remove();
+
+    expect(() => afterSwap('video-modal-content')).not.toThrow();
+    expect(
+      (window as unknown as { Logger: { error: ReturnType<typeof vi.fn> } }).Logger.error,
+    ).toHaveBeenCalledWith('Video selection modal element not found');
+  });
+
+  // The beforeRequest opener reads modalEl the same way; a missing dialog must not crash the request.
+  it('does not crash on a beforeRequest when the dialog is gone', async () => {
+    await setupModal();
+    document.body.appendChild(document.getElementById('video-modal-content')!);
+    document.getElementById('videoSelectionModal')!.remove();
+
+    expect(() => beforeRequest('video-modal-content')).not.toThrow();
+  });
 });
 
 /**
