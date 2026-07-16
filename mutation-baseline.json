@@ -19,7 +19,7 @@
     "src/auth/authExpired.ts": 100,
     "src/auth/authValidation.ts": 95.77,
     "src/auth/cookieParser.ts": 87.27,
-    "src/auth/csrf.ts": 69.4,
+    "src/auth/csrf.ts": 100,
     "src/auth/csrfSecret.ts": 84,
     "src/auth/oauthState.ts": 93.75,
     "src/lib/cache.ts": 100,

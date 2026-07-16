@@ -33,6 +33,15 @@ export function generateCsrfToken(): string {
 }
 
 /**
+ * A log-safe fragment of a token or signature: its first 8 characters, never the whole secret, and
+ * 'NONE' when it is absent. A CSRF token in a log is a CSRF token in a log, so every diagnostic
+ * below prints this rather than the value itself.
+ */
+export function logSafePrefix(value: string | undefined): string {
+  return value ? value.substring(0, 8) + '...' : 'NONE';
+}
+
+/**
  * Sign a CSRF token using HMAC
  */
 function signToken(token: string): string {
@@ -74,7 +83,7 @@ export function csrfCookieMiddleware(req: Request, res: Response, next: NextFunc
     res.locals.csrfToken = token;
 
     Logger.debug('Generated new CSRF token', {
-      tokenPrefix: token.substring(0, 8) + '...',
+      tokenPrefix: logSafePrefix(token),
     });
   } else {
     // Extract existing token from signed cookie
@@ -101,8 +110,8 @@ export function csrfValidationMiddleware(req: Request, res: Response, next: Next
     method: req.method,
     hasHeaderToken: !!headerToken,
     hasCookieToken: !!signedToken,
-    headerTokenPrefix: headerToken ? headerToken.substring(0, 8) + '...' : 'NONE',
-    cookieTokenPrefix: signedToken ? signedToken.substring(0, 8) + '...' : 'NONE',
+    headerTokenPrefix: logSafePrefix(headerToken),
+    cookieTokenPrefix: logSafePrefix(signedToken),
   });
 
   if (!headerToken) {
@@ -131,9 +140,9 @@ export function csrfValidationMiddleware(req: Request, res: Response, next: Next
   const [cookieToken, signature] = signedToken.split('.');
 
   Logger.debug('CSRF token components', {
-    cookieTokenPrefix: cookieToken ? cookieToken.substring(0, 8) + '...' : 'NONE',
-    signaturePrefix: signature ? signature.substring(0, 8) + '...' : 'NONE',
-    headerTokenPrefix: headerToken.substring(0, 8) + '...',
+    cookieTokenPrefix: logSafePrefix(cookieToken),
+    signaturePrefix: logSafePrefix(signature),
+    headerTokenPrefix: logSafePrefix(headerToken),
     tokensMatch: headerToken === cookieToken,
   });
 
@@ -156,17 +165,17 @@ export function csrfValidationMiddleware(req: Request, res: Response, next: Next
 
     Logger.debug('CSRF signature verification', {
       signatureValid,
-      providedSigPrefix: signature.substring(0, 8) + '...',
-      expectedSigPrefix: expectedSignature.substring(0, 8) + '...',
+      providedSigPrefix: logSafePrefix(signature),
+      expectedSigPrefix: logSafePrefix(expectedSignature),
     });
 
     if (!signatureValid) {
       Logger.warn('CSRF validation failed: invalid signature', {
         url: req.originalUrl,
         method: req.method,
-        cookieTokenPrefix: cookieToken.substring(0, 8) + '...',
-        providedSigPrefix: signature.substring(0, 8) + '...',
-        expectedSigPrefix: expectedSignature.substring(0, 8) + '...',
+        cookieTokenPrefix: logSafePrefix(cookieToken),
+        providedSigPrefix: logSafePrefix(signature),
+        expectedSigPrefix: logSafePrefix(expectedSignature),
       });
       return res.status(403).json({
         error: 'Invalid CSRF token signature',
@@ -191,8 +200,8 @@ export function csrfValidationMiddleware(req: Request, res: Response, next: Next
     Logger.warn('CSRF validation failed: token mismatch', {
       url: req.originalUrl,
       method: req.method,
-      headerTokenPrefix: headerToken.substring(0, 8) + '...',
-      cookieTokenPrefix: cookieToken.substring(0, 8) + '...',
+      headerTokenPrefix: logSafePrefix(headerToken),
+      cookieTokenPrefix: logSafePrefix(cookieToken),
     });
     return res.status(403).json({
       error: 'CSRF token mismatch',
@@ -202,7 +211,7 @@ export function csrfValidationMiddleware(req: Request, res: Response, next: Next
   Logger.info('CSRF validation successful ✓', {
     url: req.originalUrl,
     method: req.method,
-    tokenPrefix: headerToken.substring(0, 8) + '...',
+    tokenPrefix: logSafePrefix(headerToken),
   });
 
   return next();
