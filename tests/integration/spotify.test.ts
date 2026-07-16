@@ -412,6 +412,53 @@ describe('Spotify Playlists', () => {
       expect(response.headers['location']).toMatch(/^\/\?error=spotify&reason=/);
     });
 
+    /**
+     * The reason in the redirect is a contract with indexPage.js, which turns each one into a
+     * specific message ("Rate limited by Spotify", "temporarily unavailable"). Nothing on the
+     * server side pinned which status produces which reason: rename one here and the page silently
+     * falls back to "Connection failed. Please try again" for an error it has a real message for.
+     */
+    describe('the failure reason it reports', () => {
+      const callbackFailing = async (error: unknown) => {
+        const { exchangeCodeForTokens } = await import('@/spotify/client');
+        vi.mocked(exchangeCodeForTokens).mockRejectedValueOnce(error);
+        return request(app)
+          .get('/auth/spotify/callback')
+          .set('Cookie', 'spotify_oauth_state=s')
+          .query({ code: 'a-code', state: 's' });
+      };
+
+      it.each([
+        [429, 'rate_limited'],
+        [401, 'auth_error'],
+        [502, 'service_unavailable'],
+        [503, 'service_unavailable'],
+      ])('reports %i as reason=%s', async (status, reason) => {
+        const { SpotifyApiError } = await import('@/spotify/client');
+        const response = await callbackFailing(new SpotifyApiError('nope', status));
+
+        expect(response.headers['location']).toBe(`/?error=spotify&reason=${reason}`);
+      });
+
+      // A status with no specific message, and a failure that is not a Spotify error at all, both
+      // fall to the generic reason rather than throwing or leaking a status into the URL.
+      it.each([
+        ['a 500 SpotifyApiError', 500],
+        ['a 400 SpotifyApiError', 400],
+      ])('reports %s as reason=failed', async (_label, status) => {
+        const { SpotifyApiError } = await import('@/spotify/client');
+        const response = await callbackFailing(new SpotifyApiError('nope', status));
+
+        expect(response.headers['location']).toBe('/?error=spotify&reason=failed');
+      });
+
+      it('reports a non-Spotify error as reason=failed', async () => {
+        const response = await callbackFailing(new Error('socket hang up'));
+
+        expect(response.headers['location']).toBe('/?error=spotify&reason=failed');
+      });
+    });
+
     it('should reject callback when OAuth state does not match the cookie', async () => {
       const response = await request(app)
         .get('/auth/spotify/callback')
