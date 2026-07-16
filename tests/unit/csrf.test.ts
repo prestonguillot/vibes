@@ -11,6 +11,7 @@ import {
   csrfValidationMiddleware,
   generateCsrfToken,
   getCsrfToken,
+  logSafePrefix,
 } from '../../src/auth/csrf';
 import { fakeRequest, fakeResponse } from '../helpers/expressStubs';
 import { Logger } from '../../src/lib/logger';
@@ -37,6 +38,30 @@ describe('generateCsrfToken', () => {
 
   it('is different every time', () => {
     expect(generateCsrfToken()).not.toBe(generateCsrfToken());
+  });
+});
+
+// Every diagnostic in the middleware prints token/signature fragments through this one helper, so
+// the "never log a whole secret" property lives here rather than being re-checked at each log site.
+describe('logSafePrefix', () => {
+  it('keeps only the first 8 characters and marks the truncation', () => {
+    expect(logSafePrefix('abcdefghijklmnop')).toBe('abcdefgh...');
+  });
+
+  it('never returns the whole secret', () => {
+    const secret = generateCsrfToken(); // 64 hex chars
+
+    const printed = logSafePrefix(secret);
+
+    expect(printed).toBe(secret.substring(0, 8) + '...');
+    expect(printed).not.toContain(secret);
+  });
+
+  it.each([
+    ['undefined', undefined],
+    ['an empty string', ''],
+  ])('reports an absent value (%s) as NONE', (_label, value) => {
+    expect(logSafePrefix(value)).toBe('NONE');
   });
 });
 
@@ -251,7 +276,11 @@ describe('csrfValidationMiddleware: what it reports', () => {
     vi.spyOn(Logger, 'warn').mockImplementation(() => undefined);
     vi.spyOn(Logger, 'debug').mockImplementation(() => undefined);
     vi.spyOn(Logger, 'info').mockImplementation(() => undefined);
+    vi.spyOn(Logger, 'error').mockImplementation(() => undefined);
   });
+
+  const debugCall = (needle: string) =>
+    vi.mocked(Logger.debug).mock.calls.find(([m]) => String(m).includes(needle));
 
   it.each([
     ['missing header token', {}, {}],
@@ -314,13 +343,15 @@ describe('csrfValidationMiddleware: what it reports', () => {
     expect(components?.[1]).toMatchObject({ tokensMatch: false });
   });
 
-  // The header name is the first thing to check when a client stops sending it.
-  it('lists the csrf headers that WERE sent when the expected one was not', () => {
+  // The header name is the first thing to check when a client stops sending it. Only the csrf-ish
+  // headers are listed - not every header on the request, which would be noise (and could itself
+  // leak something). The content-type below must not appear.
+  it('lists only the csrf headers that WERE sent when the expected one was not', () => {
     const res = fakeResponse();
     csrfValidationMiddleware(
       fakeRequest({
         cookies: {},
-        headers: { 'x-csrf-tokn': 'typo' },
+        headers: { 'x-csrf-tokn': 'typo', 'content-type': 'application/json' },
         method: 'POST',
         originalUrl: '/api/x',
       }),
@@ -338,5 +369,78 @@ describe('csrfValidationMiddleware: what it reports', () => {
     );
 
     expect(lastWarning()?.[1]).toMatchObject({ hasCookieToken: true, hasSignature: false });
+  });
+
+  // The opening debug line records which of the two tokens even arrived - the first thing to look at.
+  it('records which of the header and cookie tokens were present', () => {
+    validate({}, { 'x-csrf-token': 'abc' }); // header present, cookie absent
+
+    const starting = vi
+      .mocked(Logger.debug)
+      .mock.calls.find(([m]) => String(m).includes('validation starting'));
+    expect(starting?.[1]).toMatchObject({ hasHeaderToken: true, hasCookieToken: false });
+  });
+
+  // The two attack-shaped rejections must be attributable to a request just like the plain ones.
+  it('attributes the invalid-signature rejection to the request', () => {
+    const { token } = issueToken();
+    validate({ csrf_token: `${token}.${'f'.repeat(64)}` }, { 'x-csrf-token': token });
+
+    expect(lastWarning()?.[0]).toContain('invalid signature');
+    expect(lastWarning()?.[1]).toMatchObject({ url: '/api/x', method: 'POST' });
+  });
+
+  it('attributes the token-mismatch rejection to the request', () => {
+    const { signed } = issueToken();
+    const other = issueToken();
+    validate({ csrf_token: signed }, { 'x-csrf-token': other.token });
+
+    expect(lastWarning()?.[0]).toContain('token mismatch');
+    expect(lastWarning()?.[1]).toMatchObject({ url: '/api/x', method: 'POST' });
+  });
+
+  it('records the signature-verification result on the happy path', () => {
+    const { signed, token } = issueToken();
+    validate({ csrf_token: signed }, { 'x-csrf-token': token });
+
+    expect(debugCall('signature verification')?.[1]).toMatchObject({ signatureValid: true });
+  });
+
+  it('attributes the wrong-length validation error to the request', () => {
+    const { token } = issueToken();
+
+    validate({ csrf_token: `${token}.tooshort` }, { 'x-csrf-token': token });
+
+    // The wrong-length signature throws in timingSafeEqual and lands in the catch as an error log.
+    expect(vi.mocked(Logger.error)).toHaveBeenCalledWith(
+      'CSRF validation error',
+      expect.objectContaining({ url: '/api/x', method: 'POST' }),
+      expect.anything(),
+    );
+  });
+
+  it('logs a successful validation against the request', () => {
+    const { signed, token } = issueToken();
+
+    validate({ csrf_token: signed }, { 'x-csrf-token': token });
+
+    expect(vi.mocked(Logger.info)).toHaveBeenCalledWith(
+      'CSRF validation successful ✓',
+      expect.objectContaining({ url: '/api/x', method: 'POST' }),
+    );
+  });
+});
+
+describe('csrfCookieMiddleware: what it reports', () => {
+  it('logs the generated token by prefix only, never in full', () => {
+    const debugSpy = vi.spyOn(Logger, 'debug').mockImplementation(() => undefined);
+    const res = fakeResponse();
+
+    csrfCookieMiddleware(fakeRequest({ cookies: {} }), res.res, next());
+
+    const token = res.cookies()[0]!.value.split('.')[0]!;
+    const gen = debugSpy.mock.calls.find(([m]) => String(m).includes('Generated new CSRF token'));
+    expect(gen?.[1]).toMatchObject({ tokenPrefix: `${token.substring(0, 8)}...` });
+    expect(JSON.stringify(gen)).not.toContain(token);
   });
 });
