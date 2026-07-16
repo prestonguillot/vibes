@@ -65,10 +65,20 @@ describe('validateEnvironment: required variables', () => {
     expect(() => validateEnvironment()).not.toThrow();
   });
 
-  it.each(Object.keys(REQUIRED))('throws when %s is missing', (key) => {
+  it.each(Object.keys(REQUIRED))('throws when %s is missing, naming what it is', (key) => {
     env({ ...REQUIRED, [key]: undefined });
 
-    expect(() => validateEnvironment()).toThrow(new RegExp(`Missing required.*${key}`));
+    try {
+      validateEnvironment();
+      throw new Error('should have thrown');
+    } catch (error) {
+      const message = (error as Error).message;
+      // An operator reads this to fix a failed boot, so the message must name the variable AND
+      // describe it. A blank description reads as "SPOTIFY_CLIENT_ID ()"; a dropped schema entry
+      // reads as "(undefined)" - both are worse messages than the real one.
+      expect(message).toMatch(new RegExp(`Missing required environment variable: ${key} \\(.+\\)`));
+      expect(message).not.toContain('(undefined)');
+    }
   });
 
   it('names every missing variable, not just the first', () => {
@@ -80,6 +90,9 @@ describe('validateEnvironment: required variables', () => {
     } catch (error) {
       const message = (error as Error).message;
       for (const key of Object.keys(REQUIRED)) expect(message).toContain(key);
+      // The errors are listed one per line, not run together into one unreadable string. (Checking
+      // line count, not just for a '\n' - the "failed:\n" prefix already carries one newline.)
+      expect(message.split('\n').length).toBeGreaterThan(Object.keys(REQUIRED).length);
     }
   });
 
@@ -126,12 +139,15 @@ describe('validateEnvironment: value validation', () => {
 });
 
 describe('validateEnvironment: optional variables', () => {
-  it('warns about an optional variable that has no default', () => {
+  it('warns about an optional variable that has no default, describing it', () => {
     env(REQUIRED); // CSRF_SECRET unset, and it has no defaultValue
 
     validateEnvironment();
 
-    expect(warnings()).toContainEqual(expect.stringContaining('CSRF_SECRET'));
+    const csrfWarning = warnings().find((w) => w.includes('CSRF_SECRET'));
+    // Same standard as the required-var errors: name it and describe it, don't print "(undefined)".
+    expect(csrfWarning).toMatch(/CSRF_SECRET \(.+\)/);
+    expect(csrfWarning).not.toContain('undefined');
   });
 
   it.each(['PORT', 'NODE_ENV'])('does not warn about %s, which has a default', (key) => {
@@ -203,5 +219,67 @@ describe('validateEnvironment: production checks', () => {
     validateEnvironment();
 
     expect(warnings().filter((w) => w.includes('REDIRECT_URI'))).toHaveLength(0);
+  });
+
+  // The production block reads the redirect URIs to look for localhost. They are required, so a
+  // missing one is already an error - and the `?.` is what lets that error be reported instead of
+  // `undefined.includes(...)` throwing a TypeError first and masking the real problem.
+  it.each(['SPOTIFY_REDIRECT_URI', 'YOUTUBE_REDIRECT_URI'])(
+    'reports a missing %s in production as missing, not a TypeError',
+    (key) => {
+      env({ ...REQUIRED, NODE_ENV: 'production', CSRF_SECRET: 'secret', [key]: undefined });
+
+      expect(() => validateEnvironment()).toThrow(new RegExp(`Missing required.*${key}`));
+    },
+  );
+});
+
+describe('validateEnvironment: what it logs', () => {
+  it('emits no warnings when every variable is valid', () => {
+    env({ ...REQUIRED, CSRF_SECRET: 'a-real-secret' });
+
+    validateEnvironment();
+
+    expect(warnings()).toHaveLength(0);
+  });
+
+  it('logs a debug line naming each defaulted optional variable', () => {
+    env({ ...REQUIRED, CSRF_SECRET: 'a-real-secret' }); // PORT and NODE_ENV fall back to defaults
+
+    validateEnvironment();
+
+    expect(Logger.debug).toHaveBeenCalledWith('Using default for PORT', {
+      default: '3000',
+      description: 'Server port',
+    });
+    expect(Logger.debug).toHaveBeenCalledWith('Using default for NODE_ENV', {
+      default: 'development',
+      description: 'Node environment (development/production)',
+    });
+  });
+
+  it('logs the error list when validation fails', () => {
+    env({});
+
+    expect(() => validateEnvironment()).toThrow();
+
+    expect(Logger.error).toHaveBeenCalledWith(
+      'Environment validation failed',
+      expect.objectContaining({
+        errorCount: Object.keys(REQUIRED).length,
+        errors: expect.arrayContaining([expect.stringContaining('SPOTIFY_CLIENT_ID')]),
+      }),
+    );
+  });
+
+  it('logs a passing summary carrying the variable counts', () => {
+    env({ ...REQUIRED, CSRF_SECRET: 'a-real-secret' });
+
+    validateEnvironment();
+
+    expect(Logger.info).toHaveBeenCalledWith(
+      'Environment validation passed ✓',
+      expect.objectContaining({ requiredVars: 6, optionalVars: 3, warnings: 0 }),
+    );
   });
 });
