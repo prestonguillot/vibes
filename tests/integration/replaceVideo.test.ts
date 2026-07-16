@@ -222,8 +222,11 @@ describe('POST /replace: when the page has been open longer than the token lives
     expect(findSetCookie(response, 'youtube_tokens')).toContain('fresh-token');
   });
 
-  // Nothing to refresh with means the connection is genuinely gone: say so, do not half-write.
-  it('asks the user to reconnect when the refresh fails, and writes nothing', async () => {
+  /**
+   * The connection is genuinely gone. "Unable to update the playlist. Please try again" is wrong
+   * twice over: trying again fails the same way, and the one action that fixes it is not offered.
+   */
+  it('offers a reconnect when the refresh fails, and writes nothing', async () => {
     h.refreshYoutubeAccessToken.mockRejectedValue(new Error('invalid_grant'));
 
     const response = await replace(
@@ -231,7 +234,9 @@ describe('POST /replace: when the page has been open longer than the token lives
       { cookies: [SPOTIFY_COOKIE, youtubeTokenCookie({ expiresInMs: -1000 })] },
     );
 
-    expect(response.status).toBe(500);
+    expect(response.status).toBe(401);
+    expect(response.text).toContain('Reconnect to YouTube');
+    expect(response.text).toContain('/auth/youtube/login');
     expect(h.playlistItemsInsert).not.toHaveBeenCalled();
     expect(h.playlistItemsDelete).not.toHaveBeenCalled();
   });

@@ -17,6 +17,12 @@ const h = vi.hoisted(() => ({
   getPlaylist: vi.fn(),
   fetchPlaylistDetails: vi.fn(),
   findSyncedYoutubePlaylist: vi.fn(),
+  ensureValidYouTubeToken: vi.fn(),
+}));
+
+vi.mock('@/youtube/auth', async (importActual) => ({
+  ...(await importActual<typeof import('@/youtube/auth')>()),
+  ensureValidYouTubeToken: h.ensureValidYouTubeToken,
 }));
 
 vi.mock('@/spotify/client', async (importActual) => ({
@@ -78,6 +84,11 @@ beforeEach(() => {
   });
   h.findSyncedYoutubePlaylist.mockResolvedValue({ id: 'RESOLVED_PL' });
   h.fetchPlaylistDetails.mockResolvedValue(details());
+  h.ensureValidYouTubeToken.mockResolvedValue({
+    client: { playlists: { list: vi.fn() } },
+    accessToken: 'yt',
+    quotaUsed: 0,
+  });
 });
 
 describe('the cached YouTube playlist id', () => {
@@ -124,6 +135,24 @@ describe('the cached YouTube playlist id', () => {
 
     expect(response.status).toBe(200);
     expect(response.headers['x-yt-playlist-id']).toBeUndefined();
+  });
+});
+
+/**
+ * A YouTube connection that cannot be refreshed is over. The panel used to answer that with
+ * "Unable to fetch playlist information. Please try again" - advice that cannot work, in place of
+ * the reconnect that would.
+ */
+describe('when the YouTube connection has run out', () => {
+  it('offers a reconnect rather than telling the user to try again', async () => {
+    h.ensureValidYouTubeToken.mockRejectedValue(new Error('YOUTUBE_AUTH_REQUIRED'));
+
+    const response = await get('CACHED_PL');
+
+    expect(response.status).toBe(401);
+    expect(response.text).toContain('Reconnect to YouTube');
+    expect(response.text).toContain('/auth/youtube/login');
+    expect(response.text).not.toContain('Please try again');
   });
 });
 

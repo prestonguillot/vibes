@@ -8,6 +8,7 @@ import { CacheDuration, setCache } from '../lib/cache';
 import { formatErrorDetails } from '../lib/errorFormatter';
 import { escapeHtml } from '../lib/htmlEscape';
 import { ensureValidYouTubeToken } from '../youtube/auth';
+import { authExpired } from '../auth/authExpired';
 import { classifyYoutubeError } from '../youtube/writes';
 import { z } from 'zod';
 import ejs from 'ejs';
@@ -155,6 +156,12 @@ router.get(
     } catch (error) {
       const duration = Date.now() - startTime;
       Logger.error('Error fetching playlist details', { playlistId, duration }, error);
+
+      // A session that has run out is not "try again" - trying again is exactly what does not work.
+      const expired = authExpired(error);
+      if (expired) {
+        return res.status(401).render('partials/auth-expired', { ...expired });
+      }
 
       // 'quota' (daily budget gone) and 'rate-limit' (transient throttle) both mean YouTube
       // refused on limits; anything else is a real error.
@@ -448,6 +455,13 @@ router.post(
       return res.send(html);
     } catch (error) {
       Logger.error('Error replacing video', { trackId, currentVideoId, newVideoId }, error);
+
+      // "Please try again" is wrong advice for a session that has run out: the retry fails the same
+      // way, and the one thing that would fix it is never offered.
+      const expired = authExpired(error);
+      if (expired) {
+        return res.status(401).render('partials/auth-expired', { ...expired });
+      }
 
       const html = await ejs.renderFile(
         path.join(__dirname, '../../views/partials/error-message.ejs'),
