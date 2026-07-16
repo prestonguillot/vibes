@@ -46,11 +46,72 @@ beforeEach(() => {
   h.channelsList.mockResolvedValue({ data: { items: [{ id: 'UC-1' }] } });
 });
 
+/**
+ * The token records when it dies. Asking YouTube instead costs a quota unit per request to learn
+ * what is already in hand - and that price is why this path was left off the routes that needed it,
+ * so they read with tokens that had expired and reported the failure as an empty library.
+ */
+describe('resolveYouTubeToken: what the token already knows', () => {
+  const withExpiry = (expiry_date: number) => ({ ...TOKENS, expiry_date });
+
+  it('takes a token that has not expired at its word, and spends nothing', async () => {
+    const outcome = await resolveYouTubeToken(withExpiry(Date.now() + 3_600_000), res());
+
+    expect(outcome).toEqual({ status: 'valid', accessToken: 'yt-access', quotaUsed: 0 });
+    expect(h.channelsList).not.toHaveBeenCalled();
+    expect(h.refresh).not.toHaveBeenCalled();
+  });
+
+  it('refreshes an expired one without asking YouTube to confirm it is dead', async () => {
+    h.refresh.mockResolvedValue({ access_token: 'fresh-access' });
+
+    const outcome = await resolveYouTubeToken(withExpiry(Date.now() - 1000), res());
+
+    expect(h.channelsList).not.toHaveBeenCalled();
+    expect(outcome).toMatchObject({ status: 'refreshed', accessToken: 'fresh-access' });
+  });
+
+  /**
+   * A token valid when checked must not die between the check and the call it was checked for.
+   * A minute of skew is the difference between a refresh and a request that 401s for no reason the
+   * user can act on.
+   */
+  it('treats one about to expire as already gone', async () => {
+    h.refresh.mockResolvedValue({ access_token: 'fresh-access' });
+
+    const outcome = await resolveYouTubeToken(withExpiry(Date.now() + 30_000), res());
+
+    expect(outcome).toMatchObject({ status: 'refreshed' });
+  });
+
+  it('asks YouTube when the cookie records no expiry at all', async () => {
+    const outcome = await resolveYouTubeToken(TOKENS, res());
+
+    expect(h.channelsList).toHaveBeenCalled();
+    expect(outcome).toMatchObject({ status: 'valid', quotaUsed: 1 });
+  });
+
+  /**
+   * The status endpoint's job is to say whether YouTube works for this user, which a token's own
+   * expiry cannot answer - the call is how quota exhaustion and API health reach the breaker.
+   */
+  it('still asks when the caller is probing, however fresh the token', async () => {
+    const outcome = await resolveYouTubeToken(withExpiry(Date.now() + 3_600_000), res(), {
+      probe: true,
+    });
+
+    expect(h.channelsList).toHaveBeenCalled();
+    expect(outcome).toMatchObject({ status: 'valid', quotaUsed: 1 });
+  });
+});
+
 describe('resolveYouTubeToken', () => {
   it('reports a working token as valid, without refreshing it', async () => {
     const outcome = await resolveYouTubeToken(TOKENS, res());
 
-    expect(outcome).toEqual({ status: 'valid', accessToken: 'yt-access' });
+    // TOKENS records no expiry, so there is nothing to reason from and YouTube has to be asked -
+    // which is the unit this reports.
+    expect(outcome).toEqual({ status: 'valid', accessToken: 'yt-access', quotaUsed: 1 });
     expect(h.refresh).not.toHaveBeenCalled();
   });
 
@@ -75,7 +136,8 @@ describe('resolveYouTubeToken', () => {
       const outcome = await resolveYouTubeToken(TOKENS, res());
 
       expect(h.refresh).toHaveBeenCalledWith('yt-refresh');
-      expect(outcome).toEqual({ status: 'refreshed', accessToken: 'fresh-access' });
+      // A refresh is an OAuth call, not a YouTube API one: it costs no quota.
+      expect(outcome).toEqual({ status: 'refreshed', accessToken: 'fresh-access', quotaUsed: 0 });
     });
 
     it('writes the refreshed token back to the cookie', async () => {

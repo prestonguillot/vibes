@@ -1,8 +1,10 @@
 /**
  * Tests for GET /auth/spotify/playlist-button/:playlistId - the per-playlist sync button.
  *
- * The button's label is the app's only signal for whether a playlist has been synced yet, and it
- * has to degrade rather than disappear: a YouTube lookup that fails still renders a usable button.
+ * The button's label is the app's only signal for whether a playlist has been synced yet. That
+ * makes the label the button: "Sync to YouTube" on a playlist that is already synced is not a
+ * degraded button, it is a wrong answer to the only question this endpoint is asked, and it sends
+ * the user to spend YouTube quota finding out.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -12,6 +14,7 @@ const h = vi.hoisted(() => ({
   ensureValidSpotifyToken: vi.fn(),
   getPlaylist: vi.fn(),
   playlistsList: vi.fn(),
+  ensureValidYouTubeToken: vi.fn(),
 }));
 
 vi.mock('@/spotify/auth', () => ({ ensureValidSpotifyToken: h.ensureValidSpotifyToken }));
@@ -22,6 +25,10 @@ vi.mock('@/spotify/client', async (importActual) => ({
 vi.mock('@/youtube/client', async (importActual) => ({
   ...(await importActual<typeof import('@/youtube/client')>()),
   createYoutubeClient: () => ({ playlists: { list: h.playlistsList } }),
+}));
+vi.mock('@/youtube/auth', async (importActual) => ({
+  ...(await importActual<typeof import('@/youtube/auth')>()),
+  ensureValidYouTubeToken: h.ensureValidYouTubeToken,
 }));
 
 import { createApp } from '@/app';
@@ -50,6 +57,11 @@ beforeEach(() => {
     spotifyUrl: 'https://open.spotify.com/playlist/x',
   });
   h.playlistsList.mockResolvedValue({ data: { items: [] } });
+  h.ensureValidYouTubeToken.mockResolvedValue({
+    client: { playlists: { list: h.playlistsList } },
+    accessToken: 'yt',
+    quotaUsed: 0,
+  });
 });
 
 describe('the button before both services are connected', () => {
@@ -132,14 +144,34 @@ describe('the button label', () => {
 });
 
 describe('when something fails', () => {
-  // A YouTube outage must not cost the user the button - it only decides the label.
-  it('still renders a usable button when the YouTube lookup fails', async () => {
+  /**
+   * This used to render "Sync to YouTube" on a lookup failure, on the reasoning that an outage
+   * "must not cost the user the button - it only decides the label". But the label IS the button:
+   * it is the app's only signal for whether a playlist has been synced, and answering "not synced"
+   * because the question could not be asked sends the user to run a sync that was already done and
+   * pay YouTube for it. A failure the route cannot interpret is reported, not guessed at.
+   */
+  it('reports the failure rather than guessing at the label', async () => {
     h.playlistsList.mockRejectedValue(new Error('youtube is down'));
 
     const response = await button();
 
+    expect(response.status).toBe(500);
+    expect(response.text).not.toContain('Sync to YouTube');
+  });
+
+  // An hour-old token is the ordinary case for a page left open, not a failure: refresh and answer.
+  it('refreshes an expired YouTube token rather than mislabelling the button', async () => {
+    h.ensureValidYouTubeToken.mockResolvedValue({
+      client: { playlists: { list: vi.fn(async () => ({ data: { items: [synced] } })) } },
+      accessToken: 'refreshed',
+      quotaUsed: 0,
+    });
+
+    const response = await button();
+
     expect(response.status).toBe(200);
-    expect(response.text).toContain('Sync to YouTube');
+    expect(response.text).toContain('Update YouTube Playlist');
   });
 
   it('asks the user to reconnect when the Spotify token cannot be refreshed', async () => {

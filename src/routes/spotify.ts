@@ -1,5 +1,5 @@
 import { Router, Request } from 'express';
-import { createYoutubeClient, YoutubeApiError, YtPlaylist } from '../youtube/client';
+import { YoutubeApiError, YtPlaylist } from '../youtube/client';
 import { ensureValidYouTubeToken } from '../youtube/auth';
 import { Logger } from '../lib/logger';
 import { getSecureCookieOptions } from '../auth/cookieParser';
@@ -406,21 +406,19 @@ router.get(
       // Get this specific playlist
       const playlist = await getPlaylist(accessToken, playlistId);
 
-      // Set up the YouTube client to check if this playlist has been synced
-      const youtube = createYoutubeClient(youtubeTokens.access_token);
+      // Set up the YouTube client to check if this playlist has been synced. Through
+      // ensureValidYouTubeToken: an hour-old access token would fail the check below, and this
+      // button is rendered on a page the user may have left open far longer than that.
+      const youtube = (await ensureValidYouTubeToken(req as Request, res)).client;
 
-      // Check if a YouTube playlist exists for this Spotify playlist
-      let isSynced = false;
-
-      try {
-        const foundPlaylist = await findSyncedYoutubePlaylist(youtube, playlist.name);
-        if (foundPlaylist) {
-          isSynced = true;
-        }
-      } catch (error) {
-        Logger.warn('Error checking YouTube playlist status', {}, error);
-        // Continue without YouTube status
-      }
+      // Check if a YouTube playlist exists for this Spotify playlist.
+      //
+      // Not caught: a failure here is not "not synced". The button is the only thing telling the
+      // user which of the two this is, and getting it wrong sends them to re-sync a playlist that
+      // was already synced - a full sync's worth of quota to discover nothing needed doing. The
+      // outer handler renders an error instead.
+      const foundPlaylist = await findSyncedYoutubePlaylist(youtube, playlist.name);
+      const isSynced = !!foundPlaylist;
 
       const buttonText = isSynced ? 'Update YouTube Playlist' : 'Sync to YouTube';
       const buttonClass = isSynced ? 'btn-outline-success' : 'btn-primary';
