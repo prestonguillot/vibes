@@ -198,6 +198,8 @@ describe('when the cached id has gone stale', () => {
 
     expect(response.status).toBe(500);
     expect(h.fetchPlaylistDetails).toHaveBeenCalledTimes(1);
+    // The retry starts by re-resolving the id; a non-404 must not even begin that work.
+    expect(h.findSyncedYoutubePlaylist).not.toHaveBeenCalled();
   });
 
   // Nothing was trusted, so a 404 here is the truth rather than a stale guess.
