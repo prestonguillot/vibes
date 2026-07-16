@@ -15,7 +15,7 @@
     "public/js/videoModal.js": 79.17,
     "public/js/youtubeCache.js": 82.35,
     "public/js/youtubeConnectionRefresh.js": 86.21,
-    "src/app.ts": 70.47,
+    "src/app.ts": 85.91,
     "src/auth/authExpired.ts": 100,
     "src/auth/authValidation.ts": 95.77,
     "src/auth/cookieParser.ts": 87.27,
