@@ -34,7 +34,7 @@
     "src/lib/minDisplayTime.ts": 87.5,
     "src/lib/renderPartial.ts": 100,
     "src/lib/validation.ts": 86.25,
-    "src/routes/playlistDetails.ts": 67.46,
+    "src/routes/playlistDetails.ts": 71.77,
     "src/routes/playlistTracks.ts": 86.11,
     "src/routes/spotify.ts": 75.64,
     "src/routes/sync.ts": 79.61,
