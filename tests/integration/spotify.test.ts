@@ -477,6 +477,122 @@ describe('Spotify Playlists', () => {
       expect(response.status).toBe(302);
       expect(response.headers['location']).toBe('/?error=spotify&reason=state_mismatch');
     });
+
+    // The happy path: nothing exercised the exchange SUCCEEDING - storing the tokens and going home.
+    it('stores the tokens and returns home on a successful exchange', async () => {
+      const { exchangeCodeForTokens } = await import('@/spotify/client');
+      vi.mocked(exchangeCodeForTokens).mockResolvedValueOnce({
+        accessToken: 'the-access-token',
+        refreshToken: 'the-refresh-token',
+      } as Awaited<ReturnType<typeof exchangeCodeForTokens>>);
+
+      const response = await request(app)
+        .get('/auth/spotify/callback')
+        .set('Cookie', 'spotify_oauth_state=s')
+        .query({ code: 'a-code', state: 's' });
+
+      expect(response.status).toBe(302);
+      expect(response.headers['location']).toBe('/');
+      const cookie = findSetCookie(response, 'spotify_tokens');
+      expect(cookie).toBeDefined();
+      expect(cookie).not.toMatch(/^spotify_tokens=;/); // a real value, not a clear
+    });
+  });
+
+  /**
+   * Branches of the playlist list that its own thorough suite left unpinned: the ownership filter
+   * actually filtering, the summary line, and the Spotify-side 503/429 error partials.
+   */
+  describe('GET /auth/spotify/playlists: filtering, summary, and Spotify errors', () => {
+    const spotifyCookie = `spotify_tokens=${JSON.stringify({
+      accessToken: 'test-access-token',
+      refreshToken: 'test-refresh-token',
+    })}`;
+    const list = (cookies: string[]) =>
+      request(app).get('/auth/spotify/playlists').set('Cookie', cookies);
+
+    it('keeps only the current user’s playlists when ownOnly is set', async () => {
+      mockedGetCurrentUser.mockResolvedValue({ id: 'me', displayName: null });
+      mockedGetUserPlaylists.mockResolvedValue([
+        playlistSummary('1', 'Mine', 1, 'me'),
+        playlistSummary('2', 'Theirs', 1, 'someone-else'),
+      ]);
+
+      const response = await list([spotifyCookie]).query({ ownOnly: 'true' });
+
+      expect(response.status).toBe(200);
+      expect(response.text).toContain('>Mine<');
+      expect(response.text).not.toContain('>Theirs<');
+    });
+
+    it('keeps every playlist when ownOnly is not set', async () => {
+      mockedGetCurrentUser.mockResolvedValue({ id: 'me', displayName: null });
+      mockedGetUserPlaylists.mockResolvedValue([
+        playlistSummary('1', 'Mine', 1, 'me'),
+        playlistSummary('2', 'Theirs', 1, 'someone-else'),
+      ]);
+
+      const response = await list([spotifyCookie]);
+
+      expect(response.text).toContain('>Mine<');
+      expect(response.text).toContain('>Theirs<');
+    });
+
+    it('summarizes the count alone when YouTube is not connected', async () => {
+      mockedGetUserPlaylists.mockResolvedValue([
+        playlistSummary('1', 'A', 1),
+        playlistSummary('2', 'B', 1),
+      ]);
+
+      const response = await list([spotifyCookie]);
+
+      expect(response.text).toContain('2 playlists');
+      expect(response.text).not.toContain(' · '); // the "· N synced" middot only appears when connected
+    });
+
+    it('summarizes count and synced when YouTube is connected', async () => {
+      mockedGetUserPlaylists.mockResolvedValue([playlistSummary('1', 'A', 1)]);
+      ytClient.client.playlists.list = vi.fn(() =>
+        Promise.resolve({ data: { items: [{ snippet: { title: 'A (from Spotify)' } }] } }),
+      );
+
+      const response = await list([spotifyCookie, `youtube_tokens=${createMockYouTubeToken()}`]);
+
+      expect(response.text).toContain('1 playlists · 1 synced');
+    });
+
+    it('renders a 503 partial when Spotify is temporarily unavailable', async () => {
+      const { SpotifyApiError } = await import('@/spotify/client');
+      mockedGetUserPlaylists.mockRejectedValueOnce(new SpotifyApiError('down', 503));
+
+      const response = await list([spotifyCookie]);
+
+      expect(response.status).toBe(503);
+      expect(response.text).toContain('Spotify is temporarily unavailable');
+    });
+
+    it('renders a 429 partial when Spotify rate-limits the request', async () => {
+      const { SpotifyApiError } = await import('@/spotify/client');
+      const err = new SpotifyApiError('slow down', 429);
+      (err as Error & { retryAfter?: number }).retryAfter = 30;
+      mockedGetUserPlaylists.mockRejectedValueOnce(err);
+
+      const response = await list([spotifyCookie]);
+
+      expect(response.status).toBe(429);
+      expect(response.text).toContain('Too many requests');
+    });
+
+    it('drops the YouTube connection when the circuit breaker is open', async () => {
+      youtubeCircuitBreaker.open();
+      mockedGetUserPlaylists.mockResolvedValue([playlistSummary('1', 'A', 1)]);
+
+      const response = await list([spotifyCookie, `youtube_tokens=${createMockYouTubeToken()}`]);
+
+      expect(response.status).toBe(200);
+      // The breaker refused the sync-status check, so the stale YouTube cookie is cleared.
+      expect(findSetCookie(response, 'youtube_tokens')).toMatch(/^youtube_tokens=;/);
+    });
   });
 
   describe('GET /auth/spotify/login - OAuth state', () => {

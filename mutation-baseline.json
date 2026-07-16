@@ -36,7 +36,7 @@
     "src/lib/validation.ts": 86.25,
     "src/routes/playlistDetails.ts": 71.77,
     "src/routes/playlistTracks.ts": 86.11,
-    "src/routes/spotify.ts": 75.64,
+    "src/routes/spotify.ts": 83.76,
     "src/routes/sync.ts": 79.61,
     "src/routes/youtube.ts": 80.36,
     "src/spotify/auth.ts": 95.45,
