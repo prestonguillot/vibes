@@ -466,6 +466,23 @@ body::after {
   );
 }
 
+/* A lesser take on the header's skewed, misregistered-print look, scattered across a subset of the
+   track thumbnails (video previews + album art): a slight tilt with a coloured offset peeking
+   behind (a coloured offset shadow in place of the thumbnail's default grey one). The overlapping
+   nth cycles keep which thumbnails get it - and which colour - from lining up into a pattern. */
+.tracks-list .track-item:nth-child(4n + 3) .youtube-video__thumbnail {
+  transform: rotate(1deg);
+  box-shadow: 3px 3px 0 rgba(255, 0, 64, 0.4);
+}
+.tracks-list .track-item:nth-child(7n + 2) .youtube-video__thumbnail {
+  transform: rotate(-1.1deg);
+  box-shadow: -3px 3px 0 rgba(0, 102, 255, 0.36);
+}
+.tracks-list .track-item:nth-child(9n + 7) .youtube-video__thumbnail {
+  transform: rotate(0.8deg);
+  box-shadow: 3px 3px 0 rgba(0, 200, 60, 0.34);
+}
+
 /* Spotify-only rows have no YouTube content on the right, so fill it with a faded, oversized,
    tilted bleed of the track's own album art (--album-art, set per row) - a punk-zine flourish
    that turns the empty space into deliberate composition. */
@@ -1294,7 +1311,9 @@ body::after {
 /* === PLAYLIST ITEMS === */
 .playlist-item {
   width: 100%;
-  overflow: hidden;
+  /* Leave the TOP open (so the cover's top-corner tape can overhang above the cover without being
+     cut by the row edge) while still clipping the art-bleed on the right/bottom/left. */
+  clip-path: inset(-16px 0 0 0);
   padding: 10px 20px 5px 20px;
   margin-bottom: 15px;
   border-left: 2px solid var(--border);
@@ -1463,12 +1482,13 @@ body::after {
 .playlist-item--art::after {
   content: '';
   position: absolute;
-  /* Anchored above the item top and tall enough to bleed behind the whole collapsed band -
-     header + the show/hide-tracks row - now that the 150px cover makes that band taller. */
-  top: -28px;
+  /* Anchored at the item top (not above it - the clip-path leaves the top open, so a negative top
+     would leak the bleed into the gap between rows). Tall enough to cover the whole collapsed band
+     - header + the show/hide-tracks row. */
+  top: 0;
   right: -40px;
   width: 300px;
-  height: 240px;
+  height: 215px;
   transform: rotate(-6deg);
   background-image: var(--playlist-art);
   background-size: cover;
