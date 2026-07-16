@@ -126,6 +126,61 @@ describe('youtubeConnectionRefresh on a connect', () => {
 
     expect(window.location.search).toBe('?debug=1');
   });
+
+  // The whole point of capturing state before the swap: a re-render clears the expand checkboxes,
+  // and the restore must put them back. The mock stands in for that reset.
+  it('re-checks an expanded checkbox the swap cleared, and clears the no-transition guard after', async () => {
+    let firstCall = true;
+    await setup('?connected=youtube', () => {
+      // Only the initial list swap re-renders the checkbox; later detail calls must not touch it.
+      if (firstCall) {
+        firstCall = false;
+        (document.getElementById('expand-p1') as HTMLInputElement).checked = false;
+      }
+      return Promise.resolve();
+    });
+    await flush();
+
+    expect((document.getElementById('expand-p1') as HTMLInputElement).checked).toBe(true);
+    expect(document.getElementById('playlists-content')!.classList.contains('no-transition')).toBe(
+      false,
+    );
+  });
+
+  it('defaults the own-only filter to true when there is no filter checkbox', async () => {
+    window.history.replaceState({}, '', '/?connected=youtube');
+    document.body.innerHTML = `<div id="playlists-content"></div>`; // no #ownPlaylistsOnly
+    const ajax = vi.fn(() => Promise.resolve());
+    (window as any).htmx = { ajax };
+    (window as any).Logger = { error: vi.fn() };
+    vi.resetModules();
+    await import('../../public/js/youtubeConnectionRefresh.js');
+    await flush();
+
+    expect(ajax).toHaveBeenCalledWith(
+      'GET',
+      '/auth/spotify/playlists?ownOnly=true',
+      expect.anything(),
+    );
+  });
+
+  it('skips the details refetch for an expanded playlist that has no details container', async () => {
+    window.history.replaceState({}, '', '/?connected=youtube');
+    document.body.innerHTML = `
+      <div id="playlists-content"></div>
+      <input type="checkbox" class="playlist-expand-toggle" id="expand-p9" checked>`; // no #details-p9
+    const ajax = vi.fn((_verb: string, _path: string) => Promise.resolve());
+    (window as any).htmx = { ajax };
+    (window as any).Logger = { error: vi.fn() };
+    vi.resetModules();
+    await import('../../public/js/youtubeConnectionRefresh.js');
+    await flush();
+
+    const detailsCalls = ajax.mock.calls.filter((c) =>
+      String(c[1]).includes('/api/playlistDetails/'),
+    );
+    expect(detailsCalls).toHaveLength(0);
+  });
 });
 
 describe('youtubeConnectionRefresh without a connect', () => {
