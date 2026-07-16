@@ -291,3 +291,182 @@ describe('the emoji a message gets', () => {
     expect(emojiFor('token refreshed', { playlistId: 'p1' })).toBe('🔐');
   });
 });
+
+/**
+ * The line's shape: the timestamp it opens with and the context it closes with. Every log line
+ * carries a formatTimestamp() prefix and a formatContext() suffix, and neither was ever read.
+ */
+describe('the shape of a log line', () => {
+  const lastLog = () => {
+    const spy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    return () => String(spy.mock.calls.at(-1)?.[0] ?? '');
+  };
+
+  beforeEach(() => Logger.setLevel(LogLevel.DEBUG));
+  afterEach(() => vi.useRealTimers());
+
+  it('stamps an ISO-8601 local timestamp with a timezone offset', () => {
+    const read = lastLog();
+
+    Logger.info('anything');
+
+    // [YYYY-MM-DDTHH:MM:SS.mmm(+|-)HH:MM] - every field zero-padded to its width.
+    expect(read()).toMatch(/\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}[+-]\d{2}:\d{2}\]/);
+  });
+
+  it('stamps the real calendar date, month 1-based and each part zero-padded', () => {
+    vi.useFakeTimers();
+    // Noon UTC on a single-digit day -> June 5 in any timezone, and the day must render "05" not "5".
+    vi.setSystemTime(new Date(Date.UTC(2024, 5, 5, 12, 0, 0)));
+    const read = lastLog();
+
+    Logger.info('anything');
+
+    expect(read()).toContain('2024-06-05T');
+  });
+
+  it('appends the context only when there is some, and adds no trailing space when there is none', () => {
+    const read = lastLog();
+
+    Logger.info('no context here');
+    expect(read()).not.toContain(' | ');
+    expect(read()).not.toMatch(/ $/); // formatContext returns '', not ' '
+
+    Logger.info('with context', { playlistId: 'p1' });
+    expect(read()).toContain(' | {"playlistId":"p1"}');
+  });
+});
+
+/**
+ * The pieces of the public API nothing called: the specialized helpers, and the error detail that
+ * warn/error print alongside the line.
+ */
+describe('the specialized log helpers', () => {
+  const consoleSpies = () => ({
+    debug: vi.spyOn(console, 'debug').mockImplementation(() => undefined),
+    log: vi.spyOn(console, 'log').mockImplementation(() => undefined),
+    warn: vi.spyOn(console, 'warn').mockImplementation(() => undefined),
+    error: vi.spyOn(console, 'error').mockImplementation(() => undefined),
+  });
+
+  beforeEach(() => Logger.setLevel(LogLevel.DEBUG));
+
+  it('logs a request at INFO', () => {
+    const c = consoleSpies();
+
+    Logger.httpRequest('POST', '/api/thing');
+
+    expect(c.log).toHaveBeenCalled();
+    expect(String(c.log.mock.calls.at(-1)?.[0])).toContain('HTTP Request: POST /api/thing');
+  });
+
+  it('logs an API operation at INFO', () => {
+    const c = consoleSpies();
+
+    Logger.apiOperation('reorder playlist');
+
+    expect(String(c.log.mock.calls.at(-1)?.[0])).toContain('API Operation: reorder playlist');
+  });
+
+  it('logs a performance entry with the duration', () => {
+    const c = consoleSpies();
+
+    Logger.performance('sync', 4200);
+
+    expect(String(c.log.mock.calls.at(-1)?.[0])).toContain('Performance: sync completed in 4200ms');
+  });
+
+  it('logs an HTTP response at ERROR when the status is >= 400', () => {
+    const c = consoleSpies();
+
+    Logger.httpResponse('GET', '/x', 404);
+
+    expect(c.error).toHaveBeenCalled();
+    expect(c.log).not.toHaveBeenCalled();
+    expect(String(c.error.mock.calls.at(-1)?.[0])).toContain('HTTP Response: GET /x - 404');
+  });
+
+  // The threshold is inclusive: 400 itself is an error, not an info line.
+  it('treats status exactly 400 as an error', () => {
+    const c = consoleSpies();
+
+    Logger.httpResponse('GET', '/x', 400);
+
+    expect(c.error).toHaveBeenCalled();
+    expect(c.log).not.toHaveBeenCalled();
+  });
+
+  it('logs an HTTP response at INFO for a success, with the duration when given', () => {
+    const c = consoleSpies();
+
+    Logger.httpResponse('GET', '/x', 200, 50);
+
+    expect(c.log).toHaveBeenCalled();
+    expect(c.error).not.toHaveBeenCalled();
+    expect(String(c.log.mock.calls.at(-1)?.[0])).toContain('(50ms)');
+  });
+
+  it('omits the duration when none is given', () => {
+    const c = consoleSpies();
+
+    Logger.httpResponse('GET', '/x', 200);
+
+    expect(String(c.log.mock.calls.at(-1)?.[0])).toContain('- 200');
+    expect(String(c.log.mock.calls.at(-1)?.[0])).not.toContain('ms)');
+  });
+
+  it('uppercases the operation in a request-start banner', () => {
+    const c = consoleSpies();
+
+    Logger.requestStart('sync playlist');
+
+    expect(String(c.log.mock.calls.at(-1)?.[0])).toContain('=== SYNC PLAYLIST START ===');
+  });
+
+  it('closes a request block with the duration', () => {
+    const c = consoleSpies();
+
+    Logger.requestEnd('sync playlist', 1234);
+
+    expect(String(c.log.mock.calls.at(-1)?.[0])).toContain('=== SYNC PLAYLIST END (1234ms) ===');
+  });
+
+  it('folds the session id into the context', () => {
+    const c = consoleSpies();
+
+    Logger.session('opened', 'sess-123');
+
+    const line = String(c.debug.mock.calls.at(-1)?.[0]);
+    expect(line).toContain('Session: opened');
+    expect(line).toContain('sess-123');
+  });
+
+  it('logs external calls at DEBUG', () => {
+    const c = consoleSpies();
+
+    Logger.external('Spotify', 'fetching playlist');
+
+    expect(c.debug).toHaveBeenCalled();
+    expect(String(c.debug.mock.calls.at(-1)?.[0])).toContain(
+      'External: Spotify - fetching playlist',
+    );
+  });
+
+  it('prints the error object alongside a warning', () => {
+    const c = consoleSpies();
+    const boom = new Error('boom');
+
+    Logger.warn('something off', {}, boom);
+
+    expect(c.warn).toHaveBeenCalledWith('❌ Error details:', boom);
+  });
+
+  it('prints the error object alongside an error', () => {
+    const c = consoleSpies();
+    const boom = new Error('boom');
+
+    Logger.error('something broke', {}, boom);
+
+    expect(c.error).toHaveBeenCalledWith('❌ Error details:', boom);
+  });
+});
