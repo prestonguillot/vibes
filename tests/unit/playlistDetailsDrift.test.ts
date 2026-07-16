@@ -108,4 +108,50 @@ describe('fetchPlaylistDetails needsResync', () => {
     expect(details.hasYoutubePlaylist).toBe(false);
     expect(details.needsResync).toBe(false);
   });
+
+  /**
+   * The ordinary state of every playlist that has never been synced: YouTube IS connected, and
+   * there is simply no playlist to compare against. Both halves are needed - a client with no id
+   * has nothing to fetch, and an id with no client has nothing to fetch it with. Either one alone
+   * asking YouTube for items would be a call for a playlist that does not exist.
+   */
+  it('is false when YouTube is connected but the playlist has never been synced', async () => {
+    h.fetchAllPlaylistItems.mockResolvedValue([sTrack('t1', 'Song A')]);
+    const youtube = youtubeStub([]);
+
+    const details = await fetchPlaylistDetails('tok', youtube, 'p', undefined);
+
+    expect(details.hasYoutubePlaylist).toBe(false);
+    expect(details.needsResync).toBe(false);
+    // Nothing to ask about, so nothing was asked.
+    expect(
+      (youtube as unknown as { playlistItems: { list: ReturnType<typeof vi.fn> } }).playlistItems
+        .list,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('is false when an id is known but YouTube is not connected', async () => {
+    h.fetchAllPlaylistItems.mockResolvedValue([sTrack('t1', 'Song A')]);
+
+    const details = await fetchPlaylistDetails('tok', null, 'p', 'PL-known');
+
+    expect(details.hasYoutubePlaylist).toBe(false);
+    expect(details.needsResync).toBe(false);
+  });
+
+  /**
+   * The scar the code comments describe: a contested track's song is already in the playlist under
+   * another track's slot, so a search finds that same video and sync drops it as a duplicate.
+   * Counting it as drift kept the dot on permanently and invited a re-sync that reconciles to 0
+   * ops - the flag telling the user to spend quota achieving nothing.
+   */
+  it('is false when the only unlinked track is one whose song is already in the playlist', async () => {
+    // Two Spotify tracks with the same song name: only one can own the single video.
+    h.fetchAllPlaylistItems.mockResolvedValue([sTrack('t1', 'Song A'), sTrack('t2', 'Song A')]);
+
+    const details = await fetchPlaylistDetails('tok', youtubeStub([['v1', 'Song A']]), 'p', 'PL');
+
+    expect(details.linkedCount).toBe(1);
+    expect(details.needsResync).toBe(false);
+  });
 });
