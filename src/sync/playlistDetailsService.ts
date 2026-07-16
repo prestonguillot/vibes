@@ -137,9 +137,9 @@ export async function fetchPlaylistDetails(
       'snippet',
     ]);
 
-    // Build video objects from the playlist-item snippets. Matching uses only
-    // title + channelTitle, both available on the snippet, so no videos.list
-    // call is needed.
+    // Build video objects from the playlist-item snippets. Only id, title, description and
+    // channelTitle are read after this point (matching uses title + channelTitle; the rendered
+    // rows re-derive their own thumbnail/url from the id), so nothing else is carried.
     youtubeVideos = allPlaylistItems.map((item: YtPlaylistItem): SimplifiedVideo => ({
       id: item.snippet?.resourceId?.videoId || '',
       title: item.snippet?.title || '',
@@ -148,12 +148,6 @@ export async function fetchPlaylistDetails(
       // a playlist item is the PLAYLIST OWNER's channel, so using it made every match miss the
       // official-video bonus (scores capped low, and official picks fell below the link threshold).
       channelTitle: item.snippet?.videoOwnerChannelTitle ?? item.snippet?.channelTitle ?? undefined,
-      thumbnail:
-        item.snippet?.thumbnails?.medium?.url ??
-        item.snippet?.thumbnails?.default?.url ??
-        undefined,
-      publishedAt: item.snippet?.publishedAt ?? undefined,
-      url: `https://www.youtube.com/watch?v=${item.snippet?.resourceId?.videoId || ''}`,
     }));
 
     hasYoutubePlaylist = allPlaylistItems.length > 0;
