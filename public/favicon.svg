@@ -1,37 +1,29 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <defs>
-    <style>
-      @keyframes bounce {
-        0%, 100% { transform: translateY(0) rotate(0deg); }
-        50% { transform: translateY(-4px) rotate(-3deg); }
-      }
-      .arrow { animation: bounce 2s infinite; transform-origin: 32px 32px; }
-    </style>
-  </defs>
+  <!-- The masthead lockup at 16px: the header's red, the header's bolt. The path is the one
+       public/images/bolt.svg cuts, so the tab icon and the sigils either side of SLOPSYNC are
+       literally the same bolt.
 
-  <!-- Background -->
-  <rect width="64" height="64" fill="#f8f8f8"/>
+       Blue on red is a muddy pairing at favicon size, so the bolt carries the same hard offset
+       shadow the sigils do - at 16px that black edge is what holds the silhouette apart from the
+       field. Everything else is left out on purpose: this used to carry two lettered circles, an
+       arrow and four 3px squares, none of which survived being 16 pixels wide. -->
+  <rect width="64" height="64" fill="#ff0040" />
+  <rect x="1.5" y="1.5" width="61" height="61" fill="none" stroke="#000" stroke-width="3" />
 
-  <!-- Hot pink border with rotation effect -->
-  <rect x="2" y="2" width="60" height="60" fill="none" stroke="#ff0040" stroke-width="2" opacity="0.6"/>
-
-  <!-- Spotify circle (green) -->
-  <circle cx="16" cy="32" r="10" fill="#1DB954" stroke="#000" stroke-width="1"/>
-  <text x="16" y="36" text-anchor="middle" font-size="14" font-weight="bold" fill="#fff" font-family="Arial">S</text>
-
-  <!-- YouTube circle (red) -->
-  <circle cx="48" cy="32" r="10" fill="#FF0000" stroke="#000" stroke-width="1"/>
-  <text x="48" y="36" text-anchor="middle" font-size="14" font-weight="bold" fill="#fff" font-family="Arial">Y</text>
-
-  <!-- Arrow connecting them (blue) with animation -->
-  <g class="arrow">
-    <path d="M 28 32 L 36 32" stroke="#0066ff" stroke-width="3" fill="none" stroke-linecap="round"/>
-    <polygon points="38,32 34,29 34,35" fill="#0066ff"/>
+  <g transform="rotate(-5 32 32)">
+    <g transform="translate(16.6, 7.4) scale(0.335)">
+      <path
+        d="M 61,2 L 47,31 L 36,58 L 21,88 L 33,90 L 46,93 L 37,123 L 26,157
+           L 41,137 L 58,112 L 86,66 L 71,64 L 55,61 L 64,33 L 72,3 Z"
+        fill="#000"
+      />
+    </g>
+    <g transform="translate(14.1, 5.4) scale(0.335)">
+      <path
+        d="M 61,2 L 47,31 L 36,58 L 21,88 L 33,90 L 46,93 L 37,123 L 26,157
+           L 41,137 L 58,112 L 86,66 L 71,64 L 55,61 L 64,33 L 72,3 Z"
+        fill="#0066ff"
+      />
+    </g>
   </g>
-
-  <!-- Punk accents - small distorted squares -->
-  <rect x="8" y="8" width="3" height="3" fill="#000" transform="rotate(-15 9.5 9.5)"/>
-  <rect x="53" y="8" width="3" height="3" fill="#000" transform="rotate(20 54.5 9.5)"/>
-  <rect x="8" y="53" width="3" height="3" fill="#000" transform="rotate(25 9.5 54.5)"/>
-  <rect x="53" y="53" width="3" height="3" fill="#000" transform="rotate(-10 54.5 54.5)"/>
 </svg>
