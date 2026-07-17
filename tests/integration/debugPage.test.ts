@@ -107,3 +107,49 @@ describe('the showcase covers the controls it is asked about', () => {
     expect(text).toContain('search-input');
   });
 });
+
+describe('the showcase shows components as the app assembles them', () => {
+  it('puts progress frames inside the status box the SSE stream swaps them into', async () => {
+    // A progress frame never appears on its own: the stream swaps it into .sync-status-content
+    // inside a .sync-status-box, and the box brings its own state colour. Rendered bare, the page
+    // showed a component that exists nowhere - which is how the light-blue working box survived in
+    // dark mode without anyone seeing it.
+    const { text } = await request(app).get('/debug/components');
+
+    expect(text).toContain('sync-status-box');
+    expect(text).toContain('sync-status-content');
+    expect(text).toContain('sync-status-working');
+  });
+
+  it('only shows success copy the app can actually produce', () => {
+    // The showcase used to invent "Video successfully linked to track", which nothing generates.
+    const route = fs.readFileSync(path.join(root, 'src/routes/playlistDetails.ts'), 'utf-8');
+    const showcase = fs.readFileSync(path.join(root, 'views/debug-components.ejs'), 'utf-8');
+
+    const shown = [
+      ...showcase.matchAll(
+        /include\('\.\/partials\/video-replace-success\.ejs',\s*{\s*message[^}]*}/g,
+      ),
+    ];
+    expect(shown.length).toBeGreaterThan(0);
+
+    // Every literal the showcase hands that partial must exist in the route that renders it.
+    const literals = [...showcase.matchAll(/\['[^']*',\s*'(Video[^']*)'\]/g)].map((m) => m[1]);
+    expect(literals.length).toBeGreaterThan(0);
+    literals.forEach((s) => expect(route, `the app never produces: ${s}`).toContain(s));
+  });
+});
+
+describe('sync status box', () => {
+  it('themes the working state for dark, not just success and error', () => {
+    // `working` is the state you look at for the ENTIRE duration of a sync. It stayed #e3f2fd -
+    // a bright light-blue slab on a black page - while the two momentary states were both themed.
+    const css = fs.readFileSync(path.join(root, 'public/css/style.css'), 'utf-8');
+
+    ['working', 'success', 'error'].forEach((state) => {
+      expect(css, `no dark override for .sync-status-${state}`).toMatch(
+        new RegExp(`\\[data-theme='dark'\\][^{]*\\.sync-status-${state}`),
+      );
+    });
+  });
+});

@@ -52,22 +52,30 @@
         <!-- PROGRESS UPDATES -->
         <div class="component-section">
             <h2 class="component-title">Progress Updates</h2>
-            <p class="component-description">Progress updates during sync using real progress-update.ejs template</p>
+            <p class="component-description">Sync progress, inside the status box the SSE stream actually swaps it into</p>
 
-            <div class="component-demo">
-                <div class="demo-label">Progress - In Progress</div>
-                <%- include('./partials/progress-update.ejs', { type: 'progress', message: 'Adding new tracks to playlist', percentage: 45, details: '✓ Linked 45 tracks • ⚠ Unlinked 5 tracks' }) %>
-            </div>
-
-            <div class="component-demo">
-                <div class="demo-label">Progress - Complete</div>
-                <%- include('./partials/progress-update.ejs', { type: 'complete', message: 'Sync Complete', percentage: 100, details: null }) %>
-            </div>
-
-            <div class="component-demo">
-                <div class="demo-label">Progress - Error</div>
-                <%- include('./partials/progress-update.ejs', { type: 'error', message: 'Failed to sync playlist', percentage: null, details: null }) %>
-            </div>
+            <%# A progress frame NEVER appears on its own: the sync stream swaps it into
+                .sync-status-content inside a .sync-status-box (see sync-subscriber.ejs), and that
+                box brings its own state colour. Rendering the partial bare showed a component that
+                does not exist anywhere in the app - which is exactly how the light-blue working box
+                went unnoticed in dark mode.
+                `state` maps type -> box state the way sync.ts does: a progress frame is 'working'
+                until it terminates. %>
+            <% [
+                 { label: 'Working — searching', state: 'working', props: { type: 'progress', message: 'Finding music videos', percentage: 0, details: 'Searching for "One Day (feat. Mr. 3-2 & Ronnie Spencer)" by UGK... (1/38)' } },
+                 { label: 'Working — adding', state: 'working', props: { type: 'progress', message: 'Adding new tracks to playlist', percentage: 45, details: '✓ Linked 45 tracks • ⚠ Unlinked 5 tracks' } },
+                 { label: 'Complete', state: 'success', props: { type: 'complete', message: 'Sync Complete', percentage: 100, details: null } },
+                 { label: 'Error', state: 'error', props: { type: 'error', message: 'Failed to sync playlist', percentage: null, details: null } }
+               ].forEach((demo) => { %>
+                <div class="component-demo">
+                    <div class="demo-label"><%= demo.label %></div>
+                    <%- include('./partials/sync-status-box.ejs', {
+                          playlistId: 'demo-' + demo.state,
+                          state: demo.state,
+                          content: include('./partials/progress-update.ejs', demo.props)
+                        }) %>
+                </div>
+            <% }); %>
         </div>
 
         <!-- PLAYLIST ITEMS -->
@@ -223,12 +231,23 @@
         <!-- SUCCESS MESSAGES -->
         <div class="component-section">
             <h2 class="component-title">Success Messages</h2>
-            <p class="component-description">Confirmation messages for successful actions</p>
+            <p class="component-description">What POST /api/playlistDetails/replace/:trackId returns after the video modal</p>
 
-            <div class="component-demo">
-                <div class="demo-label">Video Replacement Success</div>
-                <%- include('./partials/video-replace-success.ejs', { message: 'Video successfully linked to track' }) %>
-            </div>
+            <%# These are the ONLY three strings the app can produce (playlistDetails.ts ~452). The
+                showcase used to invent "Video successfully linked to track", which nothing anywhere
+                generates - so the one component on this page nobody could place was a component
+                showing copy that does not exist. The third is the interesting one and was never
+                shown at all: the write landed but the track could not be positioned. %>
+            <% [
+                 ['Linked (add)', 'Video linked successfully!'],
+                 ['Replaced', 'Video replaced successfully!'],
+                 ['Linked but not placed', 'Video linked, but it could not be moved into position - sync the playlist to fix the order.']
+               ].forEach(([label, message]) => { %>
+                <div class="component-demo">
+                    <div class="demo-label"><%= label %></div>
+                    <%- include('./partials/video-replace-success.ejs', { message }) %>
+                </div>
+            <% }); %>
         </div>
 
         <!-- BACK TO HOME -->

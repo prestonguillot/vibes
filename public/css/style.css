@@ -2819,6 +2819,14 @@ body.oauth-error-body {
   border-color: #ff4d5e;
   color: #ff9aa6;
 }
+/* The state above this rule's own comment kept missing: `working` is the one you look at for the
+   ENTIRE duration of a sync, and it stayed #e3f2fd - a bright light-blue slab on a black page.
+   Success and error are momentary and both got themed; the long-lived one did not. */
+[data-theme='dark'] .sync-status-working {
+  background-color: #0d1f33;
+  border-color: #0066ff;
+  color: #9ec5ff;
+}
 [data-theme='dark'] .video-option-radio:checked + .video-option {
   background-color: #10301f;
 }
