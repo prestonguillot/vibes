@@ -61,10 +61,21 @@ describe('Phone layout', () => {
     // The preview is nested inside .track-content and the stamps are its sibling, so they cannot
     // share a row without display:contents lifting .track-content's children into the grid.
     expect(ruleIn(mobile, '.track-content')).toContain('display: contents');
+  });
 
-    // ...which also means `.track-item--art-fill > *` (the rule lifting content above the bleed)
-    // has no box to apply to. Its children must be lifted directly or the row sinks into the ink.
-    expect(mobile).toMatch(/\.track-item--art-fill \.spotify-track[\s\S]{0,200}z-index:\s*1/);
+  it('lifts the picture above the bleed, not the box that generates no box', () => {
+    // The bleed painted straight over the video preview while `.youtube-video` carried
+    // position:relative AND z-index:1 - because it is display:contents, so it has no box and both
+    // were ignored. The rule read correctly in the stylesheet and did nothing in the browser.
+    // Whatever gets lifted must therefore be something that actually generates a box.
+    const lift = mobile.match(/([^{}]*)\{\s*position: relative;\s*z-index: 1;\s*\}/)?.[1] ?? '';
+
+    expect(lift).toContain('img.youtube-video__thumbnail');
+    expect(lift).not.toMatch(/\.youtube-video\s*,/); // the wrapper: display:contents, no box
+
+    // ...and the wrapper really is contents, so this is not a theoretical worry. (It heads a
+    // selector LIST, so ruleIn - which anchors on `selector {` - cannot see it.)
+    expect(mobile).toMatch(/\.youtube-video,[\s\S]{0,300}display: contents/);
   });
 
   it('matches the two stamps’ widths', () => {
