@@ -963,12 +963,49 @@ body::after {
   letter-spacing: normal;
 }
 
+/* Three things make a chip read as a tile rather than a clipping, and each needs its own fix:
+   the perfect rectangle (--cut), the laser-crisp type (the toner overlay), and the flatness
+   (--crease). A scrap fails at all three the moment any one of them is missing.
+
+   No box-shadow: clip-path would clip it away, and the only ground these are pasted on is a black
+   header, where an offset black shadow shows nothing anyway. */
 .ransom__chip {
+  position: relative;
   display: inline-block;
-  padding: 1px 4px;
+  padding: 3px 6px;
   line-height: 1.05;
-  /* Each chip is a scrap of paper with its own ink; the shadow lifts it off the header. */
-  box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.55);
+  /* Nothing gets cut out of a magazine with a paper trimmer. Every chip is clipped to a wobbling
+     outline: no square corners, no two edges parallel. */
+  clip-path: var(--cut);
+  /* Contains the overlays' blending to this chip's own paper and ink. Without it they multiply
+     straight through to the black header and the scrap goes black. */
+  isolation: isolate;
+  background-repeat: no-repeat;
+}
+
+/* The crease. Absolutely-positioned pseudo-elements paint above the element's own text, so this
+   lies across the letter too - a wrinkle doesn't stop at the edge of the ink. `overlay` because a
+   fold needs to both catch light and cast shade; multiply could only darken. */
+.ransom__chip::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: var(--crease);
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}
+
+/* The same toner the rest of the page is printed with, laid over the letter rather than under it.
+   A clipping's ink is photocopied too - crisp type was most of what made these read as tiles. */
+.ransom__chip::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url('/images/toner.svg');
+  background-size: 70px 70px;
+  mix-blend-mode: multiply;
+  opacity: 0.5;
+  pointer-events: none;
 }
 
 /* A word gap is the space between two pasted scraps, not a scrap of its own. */
@@ -977,38 +1014,134 @@ body::after {
   width: 0.45em;
 }
 
-/* Newsprint body text, cut close. */
+/* Newsprint body text, cut close and square-ish - the most carefully cut of the four. */
 .ransom__chip--v0 {
+  --cut: polygon(
+    1% 6%,
+    33% 1%,
+    67% 5%,
+    99% 1%,
+    97% 37%,
+    100% 71%,
+    98% 96%,
+    64% 100%,
+    30% 95%,
+    2% 99%,
+    0% 61%,
+    3% 27%
+  );
+  --crease: linear-gradient(
+    100deg,
+    rgba(0, 0, 0, 0.2) 0 4%,
+    rgba(255, 255, 255, 0.28) 4% 8%,
+    transparent 8% 47%,
+    rgba(0, 0, 0, 0.14) 47% 52%,
+    rgba(255, 255, 255, 0.2) 52% 56%,
+    transparent 56%
+  );
   font-family: 'Special Elite', monospace;
-  background: var(--ransom-paper);
+  background-color: var(--ransom-paper);
   color: #111;
   transform: rotate(-3.5deg);
   font-size: 1.05em;
 }
 
-/* A headline letter: heavy, condensed, and the loudest of the four. */
+/* A headline letter: heavy, condensed, loudest of the four, and torn along the bottom rather than
+   cut - whoever was making this ran out of patience. */
 .ransom__chip--v1 {
+  --cut: polygon(
+    2% 3%,
+    36% 0%,
+    71% 4%,
+    98% 1%,
+    100% 40%,
+    97% 79%,
+    84% 96%,
+    62% 88%,
+    41% 99%,
+    19% 90%,
+    3% 97%,
+    0% 52%
+  );
+  --crease: linear-gradient(
+    -70deg,
+    rgba(0, 0, 0, 0.16) 0 6%,
+    rgba(255, 255, 255, 0.22) 6% 11%,
+    transparent 11% 62%,
+    rgba(0, 0, 0, 0.18) 62% 67%,
+    transparent 67%
+  );
   font-family: 'Anton', sans-serif;
-  background: #ff0040;
+  background-color: #ff0040;
   color: #fff;
   transform: rotate(2.5deg) translateY(-1px);
   font-size: 1.15em;
   letter-spacing: 0.5px;
 }
 
-/* Stencilled - the odd one out, and the reason the row never settles into a pattern. */
+/* Stencilled - the odd one out, and the reason the row never settles into a pattern. Cut at an
+   angle, with a nicked corner.
+
+   Acid yellow, NOT the blue used elsewhere in the app: red + white + blue across a row of chips
+   reads as a flag, whatever the intent. Red and yellow is the Bollocks palette, which is the
+   reference the masthead is already speaking. */
 .ransom__chip--v2 {
+  --cut: polygon(
+    0% 9%,
+    24% 2%,
+    57% 7%,
+    89% 0%,
+    100% 14%,
+    96% 49%,
+    99% 88%,
+    67% 98%,
+    33% 91%,
+    4% 99%,
+    2% 56%
+  );
+  --crease: linear-gradient(
+    115deg,
+    rgba(0, 0, 0, 0.18) 0 5%,
+    rgba(255, 255, 255, 0.24) 5% 9%,
+    transparent 9% 38%,
+    rgba(0, 0, 0, 0.15) 38% 43%,
+    rgba(255, 255, 255, 0.18) 43% 47%,
+    transparent 47%
+  );
   font-family: 'Stardos Stencil', serif;
-  background: #0066ff;
-  color: #fff;
+  background-color: #ffe500;
+  color: #111;
   transform: rotate(-1.5deg) translateY(1px);
   font-size: 1.1em;
 }
 
-/* Hand-written over a scrap, as if the right letter couldn't be found and got drawn instead. */
+/* Hand-written over a scrap, as if the right letter couldn't be found and got drawn instead. Torn
+   along the top. */
 .ransom__chip--v3 {
+  --cut: polygon(
+    4% 7%,
+    27% 0%,
+    50% 8%,
+    75% 1%,
+    98% 6%,
+    96% 45%,
+    99% 92%,
+    71% 99%,
+    39% 93%,
+    7% 100%,
+    0% 50%
+  );
+  --crease: linear-gradient(
+    75deg,
+    rgba(0, 0, 0, 0.22) 0 4%,
+    rgba(255, 255, 255, 0.26) 4% 9%,
+    transparent 9% 55%,
+    rgba(0, 0, 0, 0.12) 55% 61%,
+    rgba(255, 255, 255, 0.16) 61% 64%,
+    transparent 64%
+  );
   font-family: 'Permanent Marker', cursive;
-  background: var(--ransom-paper);
+  background-color: var(--ransom-paper);
   color: #111;
   transform: rotate(4deg);
   font-size: 0.98em;
