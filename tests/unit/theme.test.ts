@@ -173,21 +173,31 @@ describe('themeToggle.js', () => {
 
     expect(toggleBtn().getAttribute('aria-pressed')).toBe('true');
     expect(toggleBtn().getAttribute('aria-label')).toBe('Switch to light theme');
-    expect(icon().textContent).toBe('☀');
   });
 
-  it('updates the icon and a11y state on click', async () => {
+  it('updates the a11y state on click', async () => {
     html().setAttribute('data-theme', 'light');
     renderToggle();
     await loadToggle();
     expect(toggleBtn().getAttribute('aria-pressed')).toBe('false');
-    expect(icon().textContent).toBe('☾');
 
     toggleBtn().click();
 
     expect(toggleBtn().getAttribute('aria-pressed')).toBe('true');
     expect(toggleBtn().getAttribute('aria-label')).toBe('Switch to light theme');
-    expect(icon().textContent).toBe('☀');
+  });
+
+  it('leaves the mark itself to CSS', async () => {
+    // The patch is drawn off [data-theme] - which half is inked IS the state. The script used to
+    // swap an emoji in here; anything it writes now is a second source of truth for the same fact.
+    html().setAttribute('data-theme', 'light');
+    renderToggle();
+    await loadToggle();
+    expect(icon().textContent).toBe('');
+
+    toggleBtn().click();
+
+    expect(icon().textContent).toBe('');
   });
 
   it('still applies the theme when the choice cannot be persisted', async () => {

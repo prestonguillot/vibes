@@ -91,6 +91,13 @@
           <% } %>
         </div>
 
+        <%# The artist, overprinted across the bleed. Only where there IS a bleed - it is what makes
+            that space read as a printed sheet rather than a void with a photo behind it. Decorative
+            and duplicated from the row's own text, so it's hidden from assistive tech. %>
+        <% if (hasArtBleed) { %>
+          <span class="track-art-word" aria-hidden="true"><%= track.spotify.artist %></span>
+        <% } %>
+
         <div class="track-status ms-2 d-flex align-items-center gap-2">
           <% if (hasYoutubeConnection && hasYoutubePlaylist) { %>
             <% if (track.linked && track.spotify) { %>

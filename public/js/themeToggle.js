@@ -1,19 +1,19 @@
 // Wires the header theme toggle: flips [data-theme] on <html>, persists the choice to
-// localStorage (client-owned UI preference), and keeps the button's icon + a11y state in sync.
+// localStorage (client-owned UI preference), and keeps the button's a11y state in sync.
 // The initial [data-theme] is set pre-paint by theme.js.
 (function () {
   function current() {
     return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
   }
 
+  // Only the a11y state. The mark itself is a density patch drawn in CSS off [data-theme] - which
+  // half is inked IS the state, so there is no glyph to keep in sync from here.
   function updateButton(theme) {
     var btn = document.getElementById('theme-toggle');
     if (!btn) return;
     var dark = theme === 'dark';
     btn.setAttribute('aria-pressed', String(dark));
     btn.setAttribute('aria-label', dark ? 'Switch to light theme' : 'Switch to dark theme');
-    var icon = btn.querySelector('.theme-toggle__icon');
-    if (icon) icon.textContent = dark ? '☀' : '☾';
   }
 
   function apply(theme) {
