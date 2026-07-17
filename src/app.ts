@@ -17,6 +17,7 @@ import { validateSpotifyConnection, validateYouTubeConnection } from './auth/aut
 import { csrfCookieMiddleware, getCsrfToken } from './auth/csrf';
 import { parseSpotifyTokenCookie, parseYouTubeTokenCookie } from './auth/cookieParser';
 import { enforceMinDisplayTime } from './lib/minDisplayTime';
+import { toRansom } from './lib/ransom';
 import debugFixtures from './debug-fixtures.json';
 import { setCache, CacheDuration } from './lib/cache';
 
@@ -117,6 +118,10 @@ export function createApp() {
   // View engine setup (EJS for templating)
   app.set('views', path.join(__dirname, '../views'));
   app.set('view engine', 'ejs');
+
+  // Available to every template, so a ransom heading can be included anywhere without each route
+  // remembering to pass the helper down.
+  app.locals.toRansom = toRansom;
 
   // Routes
   app.use('/auth/spotify', spotifyRouter);
