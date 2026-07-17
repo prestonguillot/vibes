@@ -42,6 +42,9 @@
      dark page; light mode needs none (paper-on-page contrast already shows it). */
   --torn: url('/images/torn-edge.svg');
   --tear-rim: rgba(0, 0, 0, 0);
+  /* The bleed is printed 1-bit: on white paper that's black ink and reads as a picture. See the
+     dark override, which is not cosmetic. */
+  --bleed-print: url('#print-bleed');
   /* Ransom chips are pasted on the card header, which is #000 in BOTH themes - so this is a fixed
      paper colour and deliberately has no dark override. Flipping it would hide the scraps against
      the black they sit on. Same reasoning as --on-bright. */
@@ -64,6 +67,11 @@
      since #ff0040 at the light-mode alpha all but disappears against #171717. */
   --row-screen: rgba(255, 255, 255, 0.1);
   --row-plate: rgba(255, 0, 64, 0.24);
+
+  /* Dark paper needs light ink. Without the invert the picture's dark areas sink into the
+     near-black card and only its highlights survive - you end up looking at the bleed's negative
+     space instead of the bleed. */
+  --bleed-print: url('#print-bleed') invert(1);
 
   /* Photocopy-zine page background (dark): near-black page, gentle light toner/speckle. */
   --page: #0c0c0c;
@@ -608,8 +616,11 @@ body::after {
   background-image: var(--album-art);
   background-size: cover;
   background-position: center;
-  opacity: 0.4;
-  filter: contrast(1.1) saturate(1.2);
+  /* Blown out to 1-bit, and dense: the artist is overprinted on top of this, and a faint bleed
+     gives the type nothing to sit on. Unlike a thumbnail there is nothing here to read, so the
+     picture can be destroyed freely. */
+  opacity: 0.78;
+  filter: var(--bleed-print);
   mask-image: linear-gradient(to left, #000 40%, transparent 100%);
   -webkit-mask-image: linear-gradient(to left, #000 40%, transparent 100%);
   pointer-events: none;
@@ -620,6 +631,38 @@ body::after {
 .track-item--art-fill > * {
   position: relative;
   z-index: 1;
+}
+
+/* The artist, overprinted across the bleed in the red plate.
+   A REAL element, not a pseudo: both of the row's are spoken for - ::after is the bleed above and
+   ::before is the row separator's slipped plate.
+   Red because the bleed is 1-bit. A knocked-out white word is invisible here: white is already one
+   of the bleed's two values, so the letters dissolve into the picture's own highlights. Red is in
+   neither, and it is a second plate, which is the story this page already tells. */
+.track-art-word {
+  position: absolute;
+  left: 52%;
+  top: 50%;
+  transform: translateY(-50%) rotate(-4deg);
+  font-family: 'Anton', sans-serif;
+  font-size: 4.4rem;
+  line-height: 0.8;
+  letter-spacing: -1px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: #ff0040;
+  /* The ink plate lands first, red a few px off - the same fault as the row rules. --shadow-rgb
+     flips to white on dark, where a black plate would simply not be there. */
+  text-shadow: -5px -4px 0 rgba(var(--shadow-rgb), 0.85);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Anchored from the LEFT so a long name runs off the sheet on purpose. Anchored right it gets
+   guillotined at the row edge instead, which reads as a bug rather than a crop - "Fugazi" fits and
+   hides that; "Operation Ivy" does not. */
+.track-item--simple .track-art-word {
+  display: none;
 }
 
 .track-content {
@@ -688,6 +731,9 @@ body::after {
   border-radius: 4px;
   border: 2px solid var(--border);
   box-shadow: 2px 2px 0px rgba(var(--shadow-rgb), 0.3);
+  /* Run through the press - see views/partials/print-filters.ejs. Colour survives: you look at a
+     thumbnail to recognise a video, so anything that eats detail defeats the point. */
+  filter: url('#print-photo');
   justify-self: center;
   align-self: center;
   transition:
@@ -1750,6 +1796,8 @@ body::after {
   border-radius: 0;
   box-shadow: 2px 2px 0px rgba(var(--shadow-rgb), 0.3);
   display: block;
+  /* Printed by default; hover reveals the colour source (see .playlist-item:hover below). */
+  filter: url('#print-photo');
   transition: filter 0.18s ease;
 }
 
@@ -1870,10 +1918,12 @@ body::after {
   display: none; /* drop TR + BL -> keep opposite corners (TL + BR) */
 }
 
-/* Photocopy the cover on row hover: snap to high-contrast grayscale, like a flyer run one too
-   many times through a copier. */
+/* Hover peels the print back to the source photograph underneath.
+   This used to run the other way - the cover sat there as a full-colour photo and only got
+   photocopied on hover. On a photocopied zine that is inside out: the print is what exists, and
+   the colour original is the thing you have to go looking for. */
 .playlist-item:hover .playlist-cover {
-  filter: grayscale(1) contrast(1.6) brightness(1.08);
+  filter: none;
 }
 
 /* Faded, tilted playlist-cover backdrop bleeding off the right - the same treatment as the
@@ -1894,6 +1944,7 @@ body::after {
      bottom leaves that corner short and its edge shows. The excess is clipped by the row. */
   height: 272px;
   transform: rotate(-6deg);
+  filter: var(--bleed-print); /* printed 1-bit, same as the track-row bleed */
   background-image: var(--playlist-art);
   background-size: cover;
   background-position: center;
@@ -2390,12 +2441,19 @@ body.oauth-error-body {
   align-items: center;
 }
 
+/* Hand-cut, like the masthead bolt: the lens is not a circle and the handle is not straight. A
+   mask rather than an <img>, so it takes theme colour. Replaces an emoji - the last thing in the
+   UI that was drawn by someone else's font. */
 .search-icon {
   position: absolute;
   left: 12px;
-  font-size: 1.1rem;
+  width: 15px;
+  height: 15px;
   pointer-events: none;
-  color: var(--text-muted);
+  background-color: var(--text-muted);
+  -webkit-mask: url('/images/magnifier.svg') center / contain no-repeat;
+  mask: url('/images/magnifier.svg') center / contain no-repeat;
+  transform: rotate(-6deg);
 }
 
 .search-input {
@@ -2802,39 +2860,64 @@ body.oauth-error-body {
   pointer-events: none;
 }
 
-/* === THEME TOGGLE (fixed, top-right; sharp punk button) === */
+/* === THEME TOGGLE: a density patch in the margin ===
+   Light and dark are positive and negative, so the control is the mark a printer checks them with
+   rather than a button bolted to the corner. It was a 46px bordered box with a drop shadow and an
+   emoji in it, shouting from the top-right of every page; it is now flat, small, and quiet until
+   you go looking for it - which is what a mark on the sheet should do. */
 .theme-toggle {
   position: fixed;
-  top: 1rem;
-  right: 1rem;
+  top: 1.1rem;
+  right: 1.1rem;
   z-index: 1050;
-  width: 46px;
-  height: 46px;
+  width: 26px;
+  height: 26px;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
-  border: 3px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
+  border: 0;
+  background: none;
   border-radius: 0;
   cursor: pointer;
-  box-shadow: 3px 3px 0 rgba(var(--shadow-rgb), 0.4);
+  opacity: 0.45;
   transition:
-    transform 0.08s ease,
-    box-shadow 0.08s ease;
+    opacity 0.14s ease,
+    transform 0.14s ease;
 }
+.theme-toggle:hover,
+.theme-toggle:focus-visible {
+  opacity: 1;
+  transform: rotate(8deg);
+}
+.theme-toggle:focus-visible {
+  outline: 2px solid #0066ff;
+  outline-offset: 3px;
+}
+
+/* The patch itself: one circle, half ink and half paper, ringed in ink. The whole state is the
+   fill - no glyph, no text swap, nothing for the JS to keep in sync. */
 .theme-toggle__icon {
-  font-size: 1.4rem;
-  line-height: 1;
+  display: block;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--text);
+  background: linear-gradient(90deg, var(--text) 0 50%, transparent 50% 100%);
 }
-.theme-toggle:hover {
-  transform: translate(-1px, -1px);
-  box-shadow: 5px 5px 0 rgba(var(--shadow-rgb), 0.4);
+
+/* Dark flips which half is inked - the same patch, printed as its own negative. */
+[data-theme='dark'] .theme-toggle__icon {
+  background: linear-gradient(90deg, transparent 0 50%, var(--text) 50% 100%);
 }
-.theme-toggle:active {
-  transform: translate(1px, 1px);
-  box-shadow: 1px 1px 0 rgba(var(--shadow-rgb), 0.4);
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-toggle,
+  .theme-toggle:hover,
+  .theme-toggle:focus-visible {
+    transition: none;
+    transform: none;
+  }
 }
 
 /* === DARK THEME: status surfaces the neutral tokens don't cover ===

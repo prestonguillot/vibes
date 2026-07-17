@@ -17,8 +17,9 @@
     <script src="/vendor/sse.min.js"></script>
 </head>
 <body<% if (csrfToken) { %> hx-headers='{"X-CSRF-Token": "<%= csrfToken %>"}'<% } %>>
+    <%- include('partials/print-filters') %>
     <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Switch to dark theme" aria-pressed="false">
-        <span class="theme-toggle__icon" aria-hidden="true">☾</span>
+        <span class="theme-toggle__icon" aria-hidden="true"></span>
     </button>
     <div class="container mt-5">
         <div class="row justify-content-center">
@@ -126,7 +127,7 @@
                                 <!-- Playlist Search -->
                                 <div class="mb-3">
                                     <div class="search-input-wrapper">
-                                        <span class="search-icon">🔍</span>
+                                        <span class="search-icon" aria-hidden="true"></span>
                                         <input
                                             type="text"
                                             id="playlistSearch"
