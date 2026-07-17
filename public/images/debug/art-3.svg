@@ -1,11 +1,31 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300" width="300" height="300">
   <defs>
-    <radialGradient id="a3" cx="0.4" cy="0.45" r="0.75">
-      <stop offset="0" stop-color="#fff6e0"/><stop offset="0.45" stop-color="#8a9a5b"/>
-      <stop offset="1" stop-color="#1d2418"/>
+    <radialGradient id="c3" cx="0.42" cy="0.4" r="0.8">
+      <stop offset="0" stop-color="#fffaea"/><stop offset="0.4" stop-color="#9aa863"/>
+      <stop offset="1" stop-color="#1b2216"/>
     </radialGradient>
+    <filter id="haze3">
+      <feTurbulence type="fractalNoise" baseFrequency="0.03" numOctaves="5" seed="19"/>
+      <feColorMatrix type="saturate" values="0"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.6" intercept="0"/></feComponentTransfer>
+    </filter>
+    <!-- High-frequency grain so a 1-bit threshold stipples instead of collapsing to blobs.
+         See art-1.svg for the full reasoning. -->
+    <filter id="g3" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" seed="19" result="n"/>
+      <feColorMatrix in="n" type="saturate" values="0" result="g"/>
+      <feComponentTransfer in="g" result="soft">
+        <feFuncR type="linear" slope="1.6" intercept="-0.3"/>
+        <feFuncG type="linear" slope="1.6" intercept="-0.3"/>
+        <feFuncB type="linear" slope="1.6" intercept="-0.3"/>
+      </feComponentTransfer>
+      <feComposite in="SourceGraphic" in2="soft" operator="arithmetic" k1="1" k2="0" k3="0" k4="0"/>
+    </filter>
   </defs>
-  <rect width="300" height="300" fill="url(#a3)"/>
-  <path d="M 150 40 L 262 244 L 38 244 Z" fill="#f3ecd8" opacity="0.55"/>
-  <path d="M 150 96 L 214 220 L 86 220 Z" fill="#1d2418" opacity="0.7"/>
+  <rect width="300" height="300" fill="url(#c3)"/>
+  <rect width="300" height="300" filter="url(#haze3)" opacity="0.5"/>
+  <path d="M 150 44 L 258 240 L 42 240 Z" fill="#f7f0da" opacity="0.5"/>
+  <path d="M 150 98 L 212 216 L 88 216 Z" fill="#1b2216" opacity="0.75"/>
+  <circle cx="150" cy="158" r="26" fill="#fffaea" opacity="0.8"/>
+  <rect width="300" height="300" filter="url(#g3)" opacity="0.38"/>
 </svg>

@@ -4,20 +4,28 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <title>Component Showcase - Spotify to YouTube Sync</title>
+    <title>SLOPSYNC - component showcase</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="stylesheet" href="/css/fonts.css">
     <link href="/vendor/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="/css/debug-components.css">
-    <!-- Follow the saved/system theme (no toggle on this debug page) -->
     <script src="/js/theme.js"></script>
 </head>
 <body>
     <%- include('./partials/print-filters') %>
+    <%# Half this page's job is judging how components sit in BOTH themes; without a toggle it
+        could only ever show whatever the OS happened to prefer. Same markup and same script as
+        the real page, so the control being demonstrated is the real one. %>
+    <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Switch to dark theme" aria-pressed="false">
+        <span class="theme-toggle__icon" aria-hidden="true"></span>
+    </button>
     <div class="container mt-5">
         <div class="punk-header text-center mb-5">
-            <h1 class="punk-title">COMPONENT SHOWCASE</h1>
-            <p class="punk-subtitle">All punk-styled UI elements in one place</p>
+            <h1 class="punk-title">
+                <span class="punk-sigil" aria-hidden="true"><span class="punk-sigil__ink"></span></span>SHOWCASE<span class="punk-sigil punk-sigil--flip" aria-hidden="true"><span class="punk-sigil__ink"></span></span>
+            </h1>
+            <p class="punk-subtitle">every component, both themes, no spotify required</p>
         </div>
 
         <!-- ERROR MESSAGES -->
@@ -81,8 +89,23 @@
             <p class="component-description">Expanded playlist details showing tracks using real playlist-details.ejs template</p>
 
             <div class="component-demo">
-                <div class="demo-label">Playlist with Linked Tracks</div>
+                <div class="demo-label">Playlist with Linked Tracks — YouTube connected</div>
                 <%- include('./partials/playlist-details.ejs', mockPlaylistDetails) %>
+            </div>
+
+            <%# The Spotify-only view, which the app renders whenever YouTube is not connected or
+                the playlist is not synced. It was missing entirely, and it is the ONLY place the
+                album-art bleed carries the row on its own - the linked view above puts a video
+                preview over that same space. %>
+            <div class="component-demo">
+                <div class="demo-label">Not synced — Spotify only, album art carries the row</div>
+                <%- include('./partials/playlist-details.ejs',
+                      Object.assign({}, mockPlaylistDetails, {
+                        hasYoutubeConnection: false,
+                        hasYoutubePlaylist: false,
+                        linkedCount: 0,
+                        needsResync: false,
+                      })) %>
             </div>
         </div>
 
@@ -113,12 +136,28 @@
         <!-- SYNC BUTTONS -->
         <div class="component-section">
             <h2 class="component-title">Sync Buttons</h2>
-            <p class="component-description">Sync action buttons in different states</p>
+            <p class="component-description">Sync action buttons in the states the fixtures describe</p>
 
-            <% ['demo-1', 'demo-2', 'demo-3'].forEach((playlistId) => { %>
+            <%# Driven by each playlist's OWN state. This used to loop over hardcoded ids that did
+                not exist ('demo-1'..'demo-3'), label every one with the FIRST playlist, and pass a
+                hardcoded btn-primary "Sync to YouTube" - three identical buttons under a heading
+                promising different states, while the fixtures already carried three real ones. %>
+            <% mockPlaylists.forEach((playlist) => { %>
                 <div class="component-demo">
-                    <div class="demo-label"><%= mockPlaylists.find(p => p.id.startsWith('demo-')) ? mockPlaylists.find(p => p.id.startsWith('demo-')).name : 'Playlist' %> Sync</div>
-                    <%- include('./partials/sync-button.ejs', { playlistId: playlistId, playlistName: 'Demo Playlist', trackCount: 25, buttonClass: 'btn-primary', buttonText: 'Sync to YouTube', isDebug }) %>
+                    <div class="demo-label"><%= playlist.name %> — <%= playlist.isSynced ? 'synced' : (playlist.isDisabled ? 'YouTube not connected' : 'not synced') %></div>
+                    <% if (playlist.isDisabled) { %>
+                        <%# This partial takes `message`, not `buttonText` - the two sync buttons do
+                            not share an interface. %>
+                        <%- include('./partials/sync-button-disabled.ejs', { message: playlist.buttonText, title: 'Connect to YouTube first' }) %>
+                    <% } else { %>
+                        <%- include('./partials/sync-button.ejs', {
+                              playlistId: playlist.id,
+                              playlistName: playlist.name,
+                              trackCount: playlist.tracksTotal,
+                              buttonClass: playlist.buttonClass,
+                              buttonText: playlist.buttonText,
+                              isDebug }) %>
+                    <% } %>
                 </div>
             <% }); %>
         </div>
@@ -160,5 +199,7 @@
             <a href="/" class="btn btn-outline-secondary">← Back to Home</a>
         </div>
     </div>
+    <script src="/js/logger.js"></script>
+    <script src="/js/themeToggle.js"></script>
 </body>
 </html>

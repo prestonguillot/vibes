@@ -639,9 +639,13 @@ body::after {
    Red because the bleed is 1-bit. A knocked-out white word is invisible here: white is already one
    of the bleed's two values, so the letters dissolve into the picture's own highlights. Red is in
    neither, and it is a second plate, which is the story this page already tells. */
+/* Confined to the bleed's own side of the row. At 52% the word reached back under the track title
+   and artist and sapped their contrast - "washing out the text to its left". The bleed occupies
+   roughly the right third, so the word starts where the ink does and runs off the sheet from
+   there; it never enters the text column. */
 .track-art-word {
   position: absolute;
-  left: 52%;
+  left: 68%;
   top: 50%;
   transform: translateY(-50%) rotate(-4deg);
   font-family: 'Anton', sans-serif;
