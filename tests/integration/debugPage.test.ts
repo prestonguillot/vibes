@@ -96,3 +96,14 @@ describe('debug fixtures', () => {
     });
   });
 });
+
+describe('the showcase covers the controls it is asked about', () => {
+  it('shows the search field, so the hand-cut magnifier can be reviewed', async () => {
+    // The icon only existed on the real page, which needs Spotify. It could not be looked at here
+    // at all - the one surface that exists for looking at things.
+    const { text } = await request(app).get('/debug/components');
+
+    expect(text).toContain('search-icon');
+    expect(text).toContain('search-input');
+  });
+});

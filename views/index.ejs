@@ -21,7 +21,10 @@
     <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Switch to dark theme" aria-pressed="false">
         <span class="theme-toggle__icon" aria-hidden="true"></span>
     </button>
-    <div class="container mt-5">
+    <%# mt-2, not mt-5: the toggle is position:fixed and takes no space, but Bootstrap's 3rem left a
+        gap for it to sit IN, above the masthead - which reads as the mark pushing the header down.
+        With this it floats over the sheet's top corner, where a margin mark belongs. %>
+    <div class="container mt-2">
         <div class="row justify-content-center">
             <div class="col-lg-10">
                 <div class="punk-header text-center">

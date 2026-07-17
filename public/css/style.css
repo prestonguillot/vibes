@@ -2872,15 +2872,18 @@ body.oauth-error-body {
   outline-offset: 3px;
 }
 
-/* The patch itself: one circle, half ink and half paper, ringed in ink. The whole state is the
-   fill - no glyph, no text swap, nothing for the JS to keep in sync. */
+/* The patch itself: a square, half ink and half paper, hard-split. The whole state is the fill -
+   no glyph, no text swap, nothing for the JS to keep in sync.
+   Square, not a circle: a ringed circle split down the middle is a yin-yang (or a half-moon, which
+   is every theme toggle ever shipped). A press checks its inking against rectangular patches. */
 .theme-toggle__icon {
   display: block;
   width: 22px;
   height: 22px;
-  border-radius: 50%;
+  border-radius: 0;
   border: 2px solid var(--text);
   background: linear-gradient(90deg, var(--text) 0 50%, transparent 50% 100%);
+  transform: rotate(-3deg);
 }
 
 /* Dark flips which half is inked - the same patch, printed as its own negative. */

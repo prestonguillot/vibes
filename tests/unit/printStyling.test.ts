@@ -104,7 +104,20 @@ describe('The margin marks', () => {
 
     expect(toggle).toContain('border: 0');
     expect(toggle).not.toContain('box-shadow: 3px 3px');
-    expect(rule('.theme-toggle__icon')).toContain('border-radius: 50%');
+  });
+
+  it('keeps the patch square, because a split circle is a yin-yang', () => {
+    // A ringed circle split down the middle reads as a yin-yang, or as the half-moon every theme
+    // toggle ever shipped. A press checks its inking against rectangular patches.
+    expect(rule('.theme-toggle__icon')).toMatch(/border-radius:\s*0/);
+  });
+
+  it('floats the toggle instead of reserving space above the masthead', () => {
+    // It is position:fixed and takes no space - but the container's Bootstrap mt-5 left a 48px gap
+    // for it to sit IN, which read as the mark pushing the header down the page.
+    expect(rule('.theme-toggle')).toContain('position: fixed');
+    const index = fs.readFileSync(path.join(root, 'views/index.ejs'), 'utf-8');
+    expect(index).not.toContain('container mt-5');
   });
 
   it('makes the inked half the state, and flips it on dark', () => {
