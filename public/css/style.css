@@ -515,9 +515,15 @@ body::after {
 }
 
 /* The row drops away as its picture comes up - the same move a playlist row makes. A track row had
-   no hover at all before this. */
+   no hover at all before this.
+   The red rule is not decoration: on dark, --surface #171717 -> --row-hover #070707 is 16 units of
+   near-black and reads as nothing. A playlist row gets away with the same shift because it ALSO
+   flips its border red - that border is the signal, and the tint is the atmosphere. A track row has
+   no border to flip, so it gets an inset one. Light mode never showed the problem: #fff -> #e9e4d6
+   is a warm shift you can actually see. */
 .track-item:hover {
   background-color: var(--row-hover);
+  box-shadow: inset 4px 0 0 #ff0040;
 }
 
 /* Simplified layout for playlists not synced to YouTube */
@@ -3093,31 +3099,92 @@ body.oauth-error-body {
   }
 
   /* Video modal: stack the footer buttons full-width; let the search button shrink. */
+  /* Side by side and evenly split. These were stacked full-width, which turned two small choices
+     into a wall - and put Confirm below the fold of its own footer. */
   .video-modal #video-selection-form {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     gap: 10px;
   }
   .video-modal .modal-footer .punk-btn {
-    width: 100%;
+    width: auto;
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 8px 6px;
+    font-size: 0.72rem;
   }
+
   /* Let the search input shrink so the Search button stays inside the modal. */
   .video-search .punk-btn {
     min-width: 0;
+    /* The label was clipping: punk-btn's desktop type is too big for the width left beside the
+       input once the field has room to be usable. */
+    font-size: 0.7rem;
+    padding: 8px 10px;
+    white-space: nowrap;
   }
   .video-search .form-control {
     flex: 1 1 auto;
     min-width: 0;
   }
-  /* Video picker cards: shrink the thumbnail and drop the match badge below the text so
-     the title/description get usable width instead of wrapping one word per line. */
+  /* Video picker cards: the score goes UNDER THE THUMBNAIL, not below the text.
+     In the modal the badge's tooltip is position:static and always visible, so it is not a badge -
+     it is stars plus a whole score breakdown. Sat in the right-hand column it pushed every card
+     taller than its own thumbnail for no reason, while the left column sat empty beneath the image.
+
+     The badge is nested two wrappers deep (.flex-grow-1 > .justify-content-between), so the only
+     way to place it in the grid without touching the markup is display:contents on both - they
+     stop generating boxes and their children become items of this grid. */
   .video-option__thumbnail {
     width: 88px;
     height: 66px;
+    grid-column: 1;
+    grid-row: 1;
+    margin-right: 0 !important;
   }
+  /* !important because Bootstrap's own `.d-flex` is `display: flex !important`, and both of these
+     elements carry it. Without it the grid never forms and the score stays where it was. */
+  .video-option > .d-flex {
+    display: grid !important;
+    grid-template-columns: auto 1fr;
+    gap: 4px 12px;
+    align-items: start;
+  }
+  .video-option > .d-flex > .flex-grow-1,
   .video-option .justify-content-between {
-    flex-direction: column;
-    align-items: flex-start !important;
-    gap: 6px;
+    display: contents !important;
+  }
+  /* The text block: second column, spanning both rows so it uses the height the score frees up. */
+  .video-option .justify-content-between > div:first-child {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    min-width: 0;
+  }
+  .video-option .match-score-badge--modal {
+    grid-column: 1;
+    grid-row: 2;
+    width: 88px;
+  }
+  /* Stars and the score, nothing else. The component breakdown is a hover tooltip that --modal
+     forces permanently visible; in an 88px column it wraps into a tower and made the card TALLER
+     than leaving it in the right-hand column did. There is no hover on a phone either, so it is a
+     wall of text with no way to dismiss it - the score it explains is right there. */
+  .video-option .match-score-badge--modal .tooltip-components {
+    display: none;
+  }
+  .video-option .match-score-badge--modal .tooltip-title {
+    margin-bottom: 0;
+    border-bottom: none;
+    font-size: 0.68rem;
+    white-space: nowrap;
+  }
+  .video-option .match-score-badge--modal .match-score-tooltip {
+    padding-top: 2px;
+  }
+  .video-option .selection-indicator {
+    grid-column: 2;
+    grid-row: 3;
+    justify-self: end;
+    margin-left: 0 !important;
   }
 }
