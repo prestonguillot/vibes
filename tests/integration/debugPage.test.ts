@@ -54,7 +54,7 @@ describe('GET /debug/components', () => {
     const { text } = await request(app).get('/debug/components');
 
     expect(text).toContain('youtube-video__thumbnail--album');
-    expect(text).toContain('track-art-word');
+    expect(text).toContain('track-item--art-fill');
   });
 
   it('renders the press, or every picture on the page is a lie', async () => {
