@@ -133,3 +133,39 @@ describe('The margin marks', () => {
     expect(fs.existsSync(path.join(root, 'public/images/magnifier.svg'))).toBe(true);
   });
 });
+
+describe('Hovers', () => {
+  it('drops a row to its own hover ground, not to --surface-alt', () => {
+    // --surface-alt on light is #f8f8f8 against a #fff card: a 3% shift nobody can see. The effect
+    // was never missing from light mode - it was there and invisible. Dark got a real one only
+    // because there --surface-alt happens to be far darker than the card.
+    expect(rule('.playlist-item:hover')).toContain('var(--row-hover)');
+    expect(rule('.track-item:hover')).toContain('var(--row-hover)');
+    expect(css).toMatch(/--row-hover:\s*#e9e4d6/);
+    expect(css).toMatch(/--row-hover:\s*#070707/);
+  });
+
+  it('clears the print from the whole row, not just from under the cursor', () => {
+    // This worked by accident: `--clickable:hover { filter: brightness(0.85) }` outranks
+    // `img.youtube-video__thumbnail` (0,2,0 vs 0,1,1) and replaced the press wholesale, so the
+    // picture cleared only while you were over the image itself.
+    expect(rule('.track-item:hover img.youtube-video__thumbnail')).toContain('filter: none');
+    expect(rule('.youtube-video__thumbnail--clickable:hover')).not.toContain('filter:');
+  });
+
+  it('screens the bleed instead of thresholding it', () => {
+    // A 1-bit threshold has no dithering: on real album art every tone either clears the line or
+    // does not, and the picture collapses into black and white continents. A halftone carries tone
+    // in the size of each dot.
+    const bleed = filters.match(/<filter\s+id="print-bleed"[\s\S]*?<\/filter>/)?.[0] ?? '';
+
+    expect(bleed).toContain('feTile');
+    expect(bleed).toContain('operator="arithmetic"');
+    expect(bleed).toContain('feFuncA'); // the alpha the arithmetic would otherwise halve
+  });
+
+  it('leaves no tape behind', () => {
+    expect(css).not.toMatch(/--tape-/);
+    expect(css).not.toMatch(/backdrop-filter/);
+  });
+});

@@ -15,6 +15,12 @@
      coloured dots with no doubling to see. */
   --row-screen: rgba(0, 0, 0, 0.13); /* the black screen */
   --row-plate: rgba(255, 0, 64, 0.17); /* the red plate, landing a couple of px off */
+
+  /* The ground a row drops to on hover, as its picture clears. Its own token because the hover used
+     --surface-alt, and on light that is #f8f8f8 against a #fff card - a 3% shift nobody can see.
+     The effect was never missing from light mode; it was there and invisible. Dark got a real one
+     by accident, because there --surface-alt happens to be much darker than the card. */
+  --row-hover: #e9e4d6;
   --border: #000; /* the heavy punk borders */
   --border-subtle: #dee2e6; /* hairline borders */
   --shadow-rgb: 0, 0, 0; /* offset drop-shadows, used as rgba(var(--shadow-rgb), a) */
@@ -27,15 +33,6 @@
   --toner-blend: multiply;
   --blotch: rgba(0, 0, 0, 0.06); /* soft uneven toner blotches */
   --streak: rgba(0, 0, 0, 0.1); /* copier roller streaks (the tilted grid) */
-
-  /* Clear-scotch-tape treatment for taped-in images (covers, thumbnails). The tape frosts the
-     photo behind it (backdrop-filter); values flip for dark below. */
-  --tape-fill: rgba(230, 234, 238, 0.06);
-  --tape-edge-top: rgba(255, 255, 255, 0.45);
-  --tape-edge-bottom: rgba(255, 255, 255, 0.16);
-  --tape-sheen-a: 0.1;
-  --tape-bright: 1.07;
-  --tape-box: rgba(0, 0, 0, 0.26);
 
   /* Torn paper edge: an organic contour (a rect whose top is displaced by turbulence) used as a
      mask. Theme-independent. --tear-rim is the light fibre rim that makes the tear read on the
@@ -67,6 +64,8 @@
      since #ff0040 at the light-mode alpha all but disappears against #171717. */
   --row-screen: rgba(255, 255, 255, 0.1);
   --row-plate: rgba(255, 0, 64, 0.24);
+  /* Darker than the #171717 card - the row drops away as its picture comes up. */
+  --row-hover: #070707;
 
   /* Dark paper needs light ink. Without the invert the picture's dark areas sink into the
      near-black card and only its highlights survive - you end up looking at the bleed's negative
@@ -80,14 +79,6 @@
   --toner-blend: screen;
   --blotch: rgba(255, 255, 255, 0.05);
   --streak: rgba(255, 255, 255, 0.08);
-
-  /* Tape, dialled down for dark so it stays a soft milky film, not glassy shards. */
-  --tape-fill: rgba(210, 214, 220, 0.06);
-  --tape-edge-top: rgba(255, 255, 255, 0.28);
-  --tape-edge-bottom: rgba(255, 255, 255, 0.1);
-  --tape-sheen-a: 0.06;
-  --tape-bright: 1.05;
-  --tape-box: rgba(0, 0, 0, 0.5);
 
   /* Near-black paper on a near-black page: the tear needs a light fibre rim to read at all. */
   --tear-rim: rgba(255, 255, 255, 0.5);
@@ -520,6 +511,13 @@ body::after {
   gap: 16px;
   min-height: 120px;
   position: relative; /* anchors the slipped plate on the row divider */
+  transition: background-color 0.18s ease;
+}
+
+/* The row drops away as its picture comes up - the same move a playlist row makes. A track row had
+   no hover at all before this. */
+.track-item:hover {
+  background-color: var(--row-hover);
 }
 
 /* Simplified layout for playlists not synced to YouTube */
@@ -706,8 +704,16 @@ body::after {
     border-color 0.2s ease;
 }
 
+/* The print clears from the WHOLE row, not just from under the cursor.
+   This effect already existed by accident: `--clickable:hover { filter: brightness(0.85) }` is an
+   old rule that, at (0,2,0), outranks `img.youtube-video__thumbnail` (0,1,1) and replaced the press
+   outright - so the picture cleared whenever you happened to be over the image itself. Now it is
+   the row that peels the print back, the same way a playlist row does with its cover. */
+.track-item:hover img.youtube-video__thumbnail {
+  filter: none;
+}
+
 .youtube-video__thumbnail--clickable:hover {
-  filter: brightness(0.85);
   border-color: #0066ff;
 }
 
@@ -1732,10 +1738,10 @@ img.youtube-video__thumbnail {
 .playlist-item {
   width: 100%;
   overflow: hidden;
-  /* The generous top padding is deliberate: it gives the cover's top-corner tape room to overhang
-     INSIDE the row, so the row can keep clipping everything (which the rotated art-bleed needs to
-     stay contained) without cutting the tape off. */
-  padding: 26px 20px 5px 20px;
+  /* Was 26px on top purely to give the cover's corner tape room to overhang inside the row. The
+     tape is gone, so the space has nothing to hold. (The row still clips everything - the rotated
+     art-bleed needs that to stay contained.) */
+  padding: 12px 20px 5px 20px;
   margin-bottom: 15px;
   border-left: 2px solid var(--border);
   border-right: 2px solid var(--border);
@@ -1750,7 +1756,7 @@ img.youtube-video__thumbnail {
 }
 
 .playlist-item:hover {
-  background-color: var(--surface-alt);
+  background-color: var(--row-hover);
   border-color: #ff0040;
 }
 
@@ -1775,121 +1781,19 @@ img.youtube-video__thumbnail {
   transition: filter 0.18s ease;
 }
 
-/* Wrapper so tape can attach to the cover (pseudo-elements can't live on an <img>). Carries the
-   flex sizing + spacing the cover used to own. */
+/* Carries the flex sizing + spacing the cover itself would otherwise own. (It existed to hang four
+   pieces of clear tape off, since pseudo-elements can't live on an <img>; the tape is gone.) */
 .cover-wrap {
   position: relative;
   display: inline-block;
   flex-shrink: 0;
   margin-right: 16px;
   line-height: 0;
-  /* Four corner-mount tape angles (one per corner), diagonal across each corner: top-left and
-     bottom-right lean "/" (negative), top-right and bottom-left lean "\" (positive). Magnitudes
-     vary per row below for the hand-placed randomness. Inherited by the tape pseudo-elements. */
-  --tape-tl: -42deg;
-  --tape-tr: 46deg;
-  --tape-bl: 44deg;
-  --tape-br: -40deg;
 }
 .cover-wrap__inner {
   position: relative;
   display: block;
   line-height: 0;
-}
-
-/* Four pieces of clear tape - one per corner - holding the cover down. An element has only
-   ::before/::after, so two corners live on .cover-wrap and two on the nested .cover-wrap__inner.
-   Each overhangs its corner onto the photo and frosts the art beneath (backdrop-filter); the
-   inconsistent angles are the randomness. The row's clip-path leaves the top open so the top
-   corners' overhang shows. */
-.cover-wrap::before,
-.cover-wrap::after,
-.cover-wrap__inner::before,
-.cover-wrap__inner::after {
-  content: '';
-  position: absolute;
-  z-index: 6;
-  width: 42px;
-  height: 16px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, var(--tape-sheen-a)), transparent 65%);
-  background-color: var(--tape-fill);
-  -webkit-backdrop-filter: blur(1.2px) brightness(var(--tape-bright)) saturate(0.85);
-  backdrop-filter: blur(1.2px) brightness(var(--tape-bright)) saturate(0.85);
-  border-top: 1px solid var(--tape-edge-top);
-  border-bottom: 1px solid var(--tape-edge-bottom);
-  box-shadow: 1px 2px 4px var(--tape-box);
-  border-radius: 1px;
-}
-.cover-wrap::before {
-  top: -11px;
-  left: -12px;
-  transform: rotate(var(--tape-tl));
-}
-.cover-wrap::after {
-  top: -11px;
-  right: -12px;
-  transform: rotate(var(--tape-tr));
-}
-.cover-wrap__inner::before {
-  bottom: -11px;
-  left: -12px;
-  transform: rotate(var(--tape-bl));
-}
-.cover-wrap__inner::after {
-  bottom: -11px;
-  right: -12px;
-  transform: rotate(var(--tape-br));
-}
-
-/* Per-row variation on a 7-row cycle (nth-of-type ignores the leading summary <p>): scramble the
-   corner-mount angles AND drop pieces so rows don't all look fully-taped. Rule for 2 missing: the
-   remaining two must be both-on-top or opposite corners - never two adjacent/one-side. Pseudo map:
-   ::before=TL, ::after=TR (on .cover-wrap); __inner::before=BL, __inner::after=BR. 7n+1 = default. */
-.playlist-item:nth-of-type(7n + 2) .cover-wrap {
-  --tape-tl: -38deg;
-  --tape-tr: 50deg;
-  --tape-bl: 40deg;
-}
-.playlist-item:nth-of-type(7n + 2) .cover-wrap__inner::after {
-  display: none; /* drop BR (3 pieces) */
-}
-.playlist-item:nth-of-type(7n + 3) .cover-wrap {
-  --tape-tl: -48deg;
-  --tape-tr: 40deg;
-}
-.playlist-item:nth-of-type(7n + 3) .cover-wrap__inner::before,
-.playlist-item:nth-of-type(7n + 3) .cover-wrap__inner::after {
-  display: none; /* drop BL + BR -> keep both top (TL + TR) */
-}
-.playlist-item:nth-of-type(7n + 4) .cover-wrap {
-  --tape-tr: 44deg;
-  --tape-bl: 49deg;
-  --tape-br: -37deg;
-}
-.playlist-item:nth-of-type(7n + 4) .cover-wrap::before {
-  display: none; /* drop TL (3 pieces) */
-}
-.playlist-item:nth-of-type(7n + 5) .cover-wrap {
-  --tape-tr: 48deg;
-  --tape-bl: 42deg;
-}
-.playlist-item:nth-of-type(7n + 5) .cover-wrap::before,
-.playlist-item:nth-of-type(7n + 5) .cover-wrap__inner::after {
-  display: none; /* drop TL + BR -> keep opposite corners (TR + BL) */
-}
-.playlist-item:nth-of-type(7n + 6) .cover-wrap {
-  --tape-tl: -45deg;
-  --tape-tr: 38deg;
-  --tape-bl: 47deg;
-  --tape-br: -44deg;
-}
-.playlist-item:nth-of-type(7n) .cover-wrap {
-  --tape-tl: -40deg;
-  --tape-br: -47deg;
-}
-.playlist-item:nth-of-type(7n) .cover-wrap::after,
-.playlist-item:nth-of-type(7n) .cover-wrap__inner::before {
-  display: none; /* drop TR + BL -> keep opposite corners (TL + BR) */
 }
 
 /* Hover peels the print back to the source photograph underneath.
