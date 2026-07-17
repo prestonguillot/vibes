@@ -38,3 +38,21 @@
   font-weight: 600;
   text-transform: uppercase;
 }
+
+/* An open, non-modal <dialog> lays out in normal flow, so `.video-modal { width: 90% }` resolves
+   against this page's padded columns instead of the viewport - which is how the showcase rendered a
+   215px card for a modal that is 378px on the same phone, and invented a "one word per line" bug
+   the app does not have.
+
+   So it breaks out: 90vw, centred on the VIEWPORT, exactly what the real dialog gets from the top
+   layer. A demo at the wrong width is worse than no demo - you tune against a problem that isn't
+   there. */
+.video-modal--inline {
+  position: static;
+  width: min(90vw, 800px);
+  margin-left: 50%;
+  transform: translateX(-50%);
+}
+.component-demo:has(.video-modal--inline) {
+  overflow: visible;
+}

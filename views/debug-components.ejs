@@ -250,6 +250,36 @@
             <% }); %>
         </div>
 
+        <!-- VIDEO PICKER -->
+        <div class="component-section">
+            <h2 class="component-title">Video Picker</h2>
+            <p class="component-description">The modal behind the edit/add stamp — search field, result cards, and footer</p>
+
+            <%# The whole modal, not a slice of it: the search field, the result cards and the footer
+                only misbehave in relation to each other and to the modal's width. It was not on this
+                page at all, so every problem in it had to be found on a real phone against real
+                Spotify data - i.e. exactly when it is most expensive to find. %>
+            <%# A real <dialog open>, not a div wearing the class. `.video-modal` is width:90%, and in
+                the app that resolves against the VIEWPORT because a dialog is in the top layer.
+                Nested in this page's padded columns it collapsed to 215px and rendered a card two
+                thirds the real width - a demo that invents its own problems is worse than none. %>
+            <div class="component-demo">
+                <div class="demo-label">Video selection modal — search, results, footer</div>
+                <dialog class="video-modal video-modal--inline" open>
+                    <%- include('./partials/video-selection-modal.ejs', mockVideoPicker) %>
+                </dialog>
+            </div>
+
+            <div class="component-demo">
+                <div class="demo-label">No results</div>
+                <dialog class="video-modal video-modal--inline" open>
+                    <div class="modal-body">
+                        <%- include('./partials/video-results.ejs', { videos: [], searchQuery: 'asdfgh' }) %>
+                    </div>
+                </dialog>
+            </div>
+        </div>
+
         <!-- BACK TO HOME -->
         <div class="text-center mb-5">
             <a href="/" class="btn btn-outline-secondary">← Back to Home</a>

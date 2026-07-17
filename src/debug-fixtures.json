@@ -160,5 +160,65 @@
         "artist": "Unknown Artist"
       }
     ]
+  },
+  "mockVideoPicker": {
+    "trackId": "sp1",
+    "modalTitle": "Choose a different YouTube video",
+    "instructionText": "Choose a different YouTube video for: <strong>Blinding Lights</strong> by <strong>The Weeknd</strong>",
+    "playlistId": "demo-synced-1",
+    "currentVideoId": "yt1",
+    "trackName": "Blinding Lights",
+    "artistName": "The Weeknd",
+    "searchQuery": "Blinding Lights The Weeknd",
+    "videos": [
+      {
+        "id": "yt1",
+        "title": "The Weeknd - Blinding Lights (Official Video)",
+        "channelTitle": "TheWeekndVEVO",
+        "description": "Official music video for Blinding Lights, from the album After Hours. Directed by Anton Tammi. Listen everywhere, and watch the rest of the After Hours short films.",
+        "thumbnail": "/images/debug/thumb-1.svg",
+        "matchScore": {
+          "totalScore": 0.92,
+          "stars": 4.5,
+          "color": "#1db954",
+          "components": {
+            "coreMatch": 0.6,
+            "artistBonus": 0.15,
+            "officialVideo": 0.1,
+            "fuzzySimilarity": 0.07
+          }
+        }
+      },
+      {
+        "id": "yt9",
+        "title": "The Weeknd - Blinding Lights (Live From The BRIT Awards 2020)",
+        "channelTitle": "TheWeekndVEVO",
+        "description": "The Weeknd performing Blinding Lights live. This description is long on purpose: the picker truncates at 150 characters and the card has to hold that much text without wrapping one word per line.",
+        "thumbnail": "/images/debug/thumb-1.svg",
+        "matchScore": {
+          "totalScore": 0.61,
+          "stars": 3,
+          "color": "#e0a800",
+          "components": {
+            "coreMatch": 0.4,
+            "artistBonus": 0.15,
+            "livePerformance": 0.06
+          }
+        }
+      },
+      {
+        "id": "yt12",
+        "title": "Blinding Lights (8D Audio) [Use Headphones]",
+        "channelTitle": "8D_Uploads",
+        "description": "Not the official video, and a weak match. Here so the picker shows a poor score sitting next to a strong one.",
+        "thumbnail": "/images/debug/thumb-1.svg",
+        "matchScore": {
+          "totalScore": 0.28,
+          "stars": 1.5,
+          "color": "#dc3545",
+          "components": { "coreMatch": 0.2, "fuzzySimilarity": 0.08 }
+        }
+      }
+    ]
   }
 }

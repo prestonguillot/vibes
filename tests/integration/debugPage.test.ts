@@ -153,3 +153,33 @@ describe('sync status box', () => {
     });
   });
 });
+
+describe('the video picker is reviewable', () => {
+  it('shows the picker at all', async () => {
+    // It was not on this page, so every problem in it had to be found on a real phone against live
+    // Spotify data - i.e. exactly when it is most expensive to find.
+    const { text } = await request(app).get('/debug/components');
+
+    expect(text).toContain('video-option');
+    expect(text).toContain('video-search');
+    expect(text).toContain('confirm-selection-btn');
+  });
+
+  it('mounts it in a real dialog, not a div wearing the class', async () => {
+    // `.video-modal` is width:90%, which resolves against the VIEWPORT for a real dialog and
+    // against this page's padded columns for anything else - 378px vs 215px on the same phone. A
+    // demo at the wrong width invents problems the app does not have.
+    const { text } = await request(app).get('/debug/components');
+
+    expect(text).toMatch(/<dialog class="video-modal video-modal--inline" open>/);
+  });
+
+  it('shows a weak match beside a strong one, and the empty state', async () => {
+    const { text } = await request(app).get('/debug/components');
+
+    expect(text).toContain('No videos found');
+    const scores = [...text.matchAll(/data-score="(\d+)"/g)].map((m) => Number(m[1]));
+    expect(scores.length).toBeGreaterThan(1);
+    expect(Math.max(...scores) - Math.min(...scores)).toBeGreaterThan(30);
+  });
+});
