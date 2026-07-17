@@ -50,23 +50,33 @@ describe('Track row styling', () => {
     expect(Math.max(...alphas) / Math.min(...alphas)).toBeLessThan(3);
   });
 
-  it('hangs the slipped plate off ::before, leaving ::after to the album-art bleed', () => {
-    // `.track-item + .track-item::after` (0,2,1) outranks `.track-item--art-fill::after` (0,1,1),
-    // so using ::after here would erase the bleed on every row but the first.
-    expect(rule('.track-item + .track-item::before')).toBeTruthy();
-    expect(cssContent).not.toMatch(/\.track-item \+ \.track-item::after/);
-    expect(rule('.track-item--art-fill::after')).toContain('var(--album-art)');
+  it('carries the album-art bleed on its own clipping layer, not the row', () => {
+    // The bleed used to be .track-item--art-fill::after, and the row clipped it with
+    // overflow:hidden - which also clipped the score tooltip. It now lives on .track-bleed so the
+    // row can be overflow:visible and the tooltip can escape.
+    expect(rule('.track-bleed::after')).toContain('var(--album-art)');
+    expect(rule('.track-bleed')).toContain('overflow: hidden');
+    expect(rule('.track-item--art-fill')).not.toContain('overflow: hidden');
   });
 
-  it('keeps the plate inside the row, which art rows clip to', () => {
-    // .track-item--art-fill is overflow:hidden; a ghost positioned above the row's edge would be
-    // clipped away on exactly the rows that have artwork.
+  it('keeps the slipped plate at the top edge, inside the row', () => {
+    // On ::before, sitting at the row's top edge - so it needs no overflow to contain it, which is
+    // just as well now that the row no longer clips.
     const ghost = rule('.track-item + .track-item::before');
     // Unitless `0` is valid and is what's there - don't require a px suffix.
     const top = ghost.match(/top:\s*(-?[\d.]+)(?:px)?\s*;/)?.[1];
 
     expect(Number(top)).toBeGreaterThanOrEqual(0);
-    expect(rule('.track-item--art-fill')).toContain('overflow: hidden');
+    expect(cssContent).not.toMatch(/\.track-item \+ \.track-item::after/);
+  });
+
+  it('lifts the hovered row so the escaped score tooltip clears its neighbours', () => {
+    // Un-clipping the row lets the tooltip out; it still has to paint ABOVE the next row and the
+    // stamp beside it, which are later in the DOM. The row and its content rise on hover.
+    expect(cssContent).toMatch(
+      /\.track-item:has\(\.match-score-badge:hover\)[\s\S]{0,80}z-index:\s*40/,
+    );
+    expect(cssContent).toMatch(/\.match-score-badge:hover\s*\{[^}]*z-index:\s*4[01]/);
   });
 
   it('anchors the plate to the row', () => {

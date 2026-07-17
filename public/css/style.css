@@ -562,11 +562,8 @@ body::after {
     0 0;
 }
 
-/* The rule between rows, and the plate that slipped off it.
-   ::before, NOT ::after: .track-item--art-fill::after is the album-art bleed, and this selector
-   outranks it (0,2,1 vs 0,1,1) - it would silently erase the bleed on every row but the first.
-   And it sits INSIDE the box, because art rows are overflow:hidden and would clip anything
-   positioned above their edge. */
+/* The rule between rows, and the plate that slipped off it. On ::before (::after is left free); it
+   sits at the row's top edge, inside the box, so it needs no overflow to contain it. */
 .track-item + .track-item {
   border-top: 3px solid var(--border);
 }
@@ -604,12 +601,24 @@ body::after {
 /* Spotify-only rows have no YouTube content on the right, so fill it with a faded, oversized,
    tilted bleed of the track's own album art (--album-art, set per row) - a punk-zine flourish
    that turns the empty space into deliberate composition. */
+/* NOT overflow:hidden. The row used to clip its own bleed, which also clipped the score tooltip -
+   a tooltip cannot escape an overflow-clipped ancestor no matter its z-index. The bleed now lives
+   in .track-bleed, a layer that clips only itself, so the row is free and the tooltip can rise. */
 .track-item--art-fill {
   position: relative;
-  overflow: hidden;
 }
 
-.track-item--art-fill::after {
+/* The clipping layer. Fills the row's box and contains the rotated bleed to it; the row does not.
+   z-index 0 and first-in-DOM keep it under the content that .track-item--art-fill > * lifts to 1. */
+.track-bleed {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.track-bleed::after {
   content: '';
   position: absolute;
   right: -40px;
@@ -627,12 +636,12 @@ body::after {
   filter: var(--bleed-print);
   mask-image: linear-gradient(to left, #000 40%, transparent 100%);
   -webkit-mask-image: linear-gradient(to left, #000 40%, transparent 100%);
-  pointer-events: none;
-  z-index: 0;
 }
 
-/* Keep the row's real content above the decorative bleed. */
-.track-item--art-fill > * {
+/* Keep the row's real content above the decorative bleed. Excludes .track-bleed itself: it is the
+   bleed's own layer and must keep its position:absolute / z-index:0, which an unqualified `> *`
+   (equal specificity, defined later) would otherwise stomp to relative / 1. */
+.track-item--art-fill > *:not(.track-bleed) {
   position: relative;
   z-index: 1;
 }
@@ -2520,6 +2529,23 @@ body.oauth-error-body {
   visibility: visible;
 }
 
+/* The tooltip's z-index: 9999 is meaningless on its own - it is trapped inside .track-content's
+   own z-index: 1 stacking context, so it can never rise above the stamp rail (a sibling painted
+   later) or the next row (another z-index: 1). Lifting one number does nothing; the whole chain has
+   to rise. On hover: the row lifts above its neighbours, and .track-content above the rail beside
+   it. .track-content is display: contents on mobile (no box, z-index ignored), so the badge itself
+   is lifted there instead - harmless on desktop, load-bearing on mobile. */
+.track-item:has(.match-score-badge:hover),
+.playlist-item:has(.match-score-badge:hover) {
+  z-index: 40;
+}
+.track-item:has(.match-score-badge:hover) .track-content {
+  z-index: 40;
+}
+.match-score-badge:hover {
+  z-index: 41;
+}
+
 /* Modal context: display match score as static content */
 .match-score-badge--modal .match-score-tooltip {
   position: static;
@@ -2975,7 +3001,7 @@ body.oauth-error-body {
      clips it (so it can't push the page wide).
      The fade is steeper than desktop's because here the text spans the full width and the ink
      would otherwise sit straight under it. */
-  .track-item--art-fill::after {
+  .track-bleed::after {
     width: 260px;
     height: 130%;
     right: -40px;
@@ -3112,7 +3138,11 @@ body.oauth-error-body {
     text-align: center;
   }
 
-  /* The row's grid, laid out explicitly now that every wrapper is out of the way. */
+  /* The row's grid, laid out explicitly now that every wrapper is out of the way:
+       row 1  title / artist         (spans both columns)
+       row 2  preview      | stamps  (top of the rail)
+              preview      | score   (bottom of the rail, aligned to the preview's foot)
+       row 3  video title           (spans, full width, under everything) */
   .youtube-video .flex-grow-1 > .d-flex {
     display: contents !important;
   }
@@ -3121,48 +3151,70 @@ body.oauth-error-body {
     grid-column: 1;
     grid-row: 2;
   }
+  /* The video title drops below both columns and runs the full width of the row. */
   .track-item .youtube-video a,
   .track-item .youtube-video .text-muted {
-    grid-column: 1;
+    grid-column: 1 / -1;
     grid-row: 3;
     min-width: 0;
   }
-  /* The score joins the stamp rail: beside the video, under the stamps. Under the title it floated
-     in open space with nothing to belong to; here it is one of the row's marks. */
+  /* Stamps at the top of the rail, score at its foot - same cell, opposite ends - so the score sits
+     level with the bottom of the preview it scores. */
+  .track-item .track-status:has(.badge) {
+    grid-row: 2;
+    align-self: start;
+  }
   .track-item .match-score-badge {
     grid-column: 2;
-    grid-row: 3;
-    align-self: start;
-    justify-self: stretch;
+    grid-row: 2;
+    align-self: end;
+    justify-self: center;
     margin-top: 0;
   }
   .track-item .match-score-stars {
     justify-content: center;
   }
+  /* A paper chip behind the stars. Desktop keeps them bare because there they sit in clear space
+     under the title; in the mobile rail they are printed straight onto the deep-fried bleed, where
+     inked-in-ink reads as a smudge and vanishes into a busy row. The chip lifts them onto the page
+     like every other mark. */
+  .track-item--art-fill .match-score-badge {
+    background: var(--surface);
+    padding: 4px 7px;
+    border: 2px solid var(--border);
+    box-shadow: 2px 2px 0 rgba(var(--shadow-rgb), 0.3);
+    transform: rotate(-2deg);
+  }
 
-  /* Video modal: stack the footer buttons full-width; let the search button shrink. */
-  /* Side by side and evenly split. These were stacked full-width, which turned two small choices
-     into a wall - and put Confirm below the fold of its own footer. */
+  /* Footer buttons: each sized to its OWN label, side by side. Forcing them 50/50 (flex: 1 1 0)
+     starved "Confirm Selection" until it overflowed its stamp, while "Cancel" wasted half the row.
+     Content-sized they both fit with room to spare - Cancel ~55px + Confirm ~95px in a 378px modal. */
   .video-modal #video-selection-form {
     display: flex;
     flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-end;
     gap: 10px;
   }
   .video-modal .modal-footer .punk-btn {
+    flex: 0 1 auto;
     width: auto;
-    flex: 1 1 0;
     min-width: 0;
-    padding: 8px 6px;
-    font-size: 0.72rem;
+    padding: 9px 14px;
+    font-size: 0.75rem;
+    /* letter-spacing removed here: 1px x 17 characters was ~16px of pure width that pushed the label
+       past the stamp. The stamp is small; the tracking it wants at 1.05rem is not what it wants at
+       0.75rem. */
+    letter-spacing: 0;
   }
 
-  /* Let the search input shrink so the Search button stays inside the modal. */
+  /* The search button clipped for the same reason: punk-btn's desktop tracking does not fit the
+     width left beside a usable input. */
   .video-search .punk-btn {
     min-width: 0;
-    /* The label was clipping: punk-btn's desktop type is too big for the width left beside the
-       input once the field has room to be usable. */
-    font-size: 0.7rem;
-    padding: 8px 10px;
+    font-size: 0.72rem;
+    letter-spacing: 0;
+    padding: 8px 12px;
     white-space: nowrap;
   }
   .video-search .form-control {

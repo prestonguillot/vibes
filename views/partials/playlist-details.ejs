@@ -42,6 +42,10 @@
       %>
       <div class="track-item <%= index % 2 === 0 ? 'track-item--even' : '' %> <%= (!track.spotify || !track.spotify.albumArt) && isSpotifyOnly ? 'track-item--simple' : '' %> <%= hasArtBleed ? 'track-item--art-fill' : '' %>"
            <% if (hasArtBleed) { %>style="--album-art: url('<%= track.spotify.albumArt %>')"<% } %>>
+        <%# The album-art bleed lives in its own clipping layer, not on the row. The row must stay
+            overflow:visible so the score tooltip can escape it; this element is what keeps the
+            rotated bleed contained to the row instead. %>
+        <% if (hasArtBleed) { %><span class="track-bleed" aria-hidden="true"></span><% } %>
         <div class="track-content flex-grow-1">
           <% if (track.spotify) { %>
             <div class="spotify-track">
