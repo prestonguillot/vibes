@@ -60,15 +60,6 @@ describe('The press', () => {
     expect(css).toMatch(/^img\.youtube-video__thumbnail\s*{/m);
   });
 
-  it('prints the artist behind the row, not over its controls', () => {
-    // A linked row carries a video link and a status badge on the same side the word sits on.
-    // As a foreground element it draws straight over both.
-    const word = rule('.track-art-word');
-
-    expect(word).toMatch(/z-index:\s*0/);
-    expect(rule('.track-item--art-fill > *')).toMatch(/z-index:\s*1/);
-  });
-
   it('peels the print back to the photograph on hover, not the other way round', () => {
     // This shipped inverted: the cover was a colour photo that got photocopied on hover. On a
     // photocopied zine the print is what exists and the colour original is what you go looking for.
@@ -84,26 +75,26 @@ describe('The press', () => {
     expect(rule('.playlist-item--art::after')).toContain('filter: var(--bleed-print)');
   });
 
-  it('overprints the artist in a third ink', () => {
-    // The bleed is 1-bit, so white is already one of its two values: a knocked-out white word
-    // dissolves into the picture's own highlights. Red is in neither.
-    const word = rule('.track-art-word');
-
-    expect(word).toContain('#ff0040');
-    expect(word).not.toMatch(/color:\s*var\(--surface\)/);
+  it('declares filter exactly once in each rule that prints', () => {
+    // The test above passed for a full release while the playlist cover was NOT printed: the rule
+    // carried `filter: var(--bleed-print)` AND, six lines later, `filter: contrast(1.1)
+    // saturate(1.2)`. The later declaration won and the string sat in the file doing nothing.
+    // "The stylesheet contains X" and "X takes effect" are different claims, and only this one
+    // catches the difference.
+    [
+      '.track-item--art-fill::after',
+      '.playlist-item--art::after',
+      'img.youtube-video__thumbnail',
+    ].forEach((selector) => {
+      const declarations = rule(selector).match(/^\s*filter:/gm) ?? [];
+      expect(declarations, `${selector} declares filter ${declarations.length} times`).toHaveLength(
+        1,
+      );
+    });
   });
 
-  it('flips the artist’s offset plate on dark, where a black one would not exist', () => {
-    expect(rule('.track-art-word')).toMatch(/text-shadow:[^;]*rgba\(var\(--shadow-rgb\)/);
-  });
-
-  it('anchors the artist from the left so a long name bleeds off rather than being cut', () => {
-    // Anchored right, "Operation Ivy" gets guillotined at the row edge - which reads as a bug.
-    // "Fugazi" fits and hides the problem.
-    const word = rule('.track-art-word');
-
-    expect(word).toMatch(/left:\s*\d+%/);
-    expect(word).not.toMatch(/\bright:\s/);
+  it('leaves no trace of the overprinted artist', () => {
+    expect(css).not.toContain('track-art-word');
   });
 });
 
