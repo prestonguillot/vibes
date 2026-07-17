@@ -43,6 +43,10 @@
      dark page; light mode needs none (paper-on-page contrast already shows it). */
   --torn: url('/images/torn-edge.svg');
   --tear-rim: rgba(0, 0, 0, 0);
+  /* Ransom chips are pasted on the card header, which is #000 in BOTH themes - so this is a fixed
+     paper colour and deliberately has no dark override. Flipping it would hide the scraps against
+     the black they sit on. Same reasoning as --on-bright. */
+  --ransom-paper: #efe9d9;
 }
 
 /* Dark theme: near-black surfaces, light borders/text, SAME neon accents (they pop harder on
@@ -939,6 +943,75 @@ body::after {
   /* The tear hangs off the header rather than the panel (the panel's ::before is the speckle, and
      the tear needs both pseudos), so the panel gives up its own top border for it. */
   border-top: none;
+}
+
+/* === RANSOM-NOTE LETTERING ===
+   Letters clipped from four different magazines and pasted in a row. The four looks are built from
+   the faces the zine already owns rather than new ones - the cut-from-elsewhere effect comes from
+   mixing what's here, so the heading still belongs to the same publication.
+
+   `variant` is assigned server-side by a hash (src/lib/ransom.ts), so the cut is stable per render;
+   the tilts and offsets below are what make a fixed assignment still read as hand-pasted. */
+.ransom {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1px;
+  /* The card header uppercases and tracks out its text. Cut letters keep whatever case they were
+     cut with - the mixed case is half the effect - and each chip brings its own spacing. */
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.ransom__chip {
+  display: inline-block;
+  padding: 1px 4px;
+  line-height: 1.05;
+  /* Each chip is a scrap of paper with its own ink; the shadow lifts it off the header. */
+  box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.55);
+}
+
+/* A word gap is the space between two pasted scraps, not a scrap of its own. */
+.ransom__gap {
+  display: inline-block;
+  width: 0.45em;
+}
+
+/* Newsprint body text, cut close. */
+.ransom__chip--v0 {
+  font-family: 'Special Elite', monospace;
+  background: var(--ransom-paper);
+  color: #111;
+  transform: rotate(-3.5deg);
+  font-size: 1.05em;
+}
+
+/* A headline letter: heavy, condensed, and the loudest of the four. */
+.ransom__chip--v1 {
+  font-family: 'Anton', sans-serif;
+  background: #ff0040;
+  color: #fff;
+  transform: rotate(2.5deg) translateY(-1px);
+  font-size: 1.15em;
+  letter-spacing: 0.5px;
+}
+
+/* Stencilled - the odd one out, and the reason the row never settles into a pattern. */
+.ransom__chip--v2 {
+  font-family: 'Stardos Stencil', serif;
+  background: #0066ff;
+  color: #fff;
+  transform: rotate(-1.5deg) translateY(1px);
+  font-size: 1.1em;
+}
+
+/* Hand-written over a scrap, as if the right letter couldn't be found and got drawn instead. */
+.ransom__chip--v3 {
+  font-family: 'Permanent Marker', cursive;
+  background: var(--ransom-paper);
+  color: #111;
+  transform: rotate(4deg);
+  font-size: 0.98em;
 }
 
 /* This panel's top edge is its black header, not paper - so the rip is filled to match. */

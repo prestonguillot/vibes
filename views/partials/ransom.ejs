@@ -1,0 +1,10 @@
+<%#
+  Ransom-note heading. Expects `text` (string) and `toRansom` (helper from src/lib/ransom).
+
+  The whole run is labelled and its letters hidden from assistive tech: split into per-character
+  spans, a screen reader is liable to announce this letter-by-letter, or spell it as an acronym.
+  The chips are decoration - the word is the content.
+-%>
+<span class="ransom" role="text" aria-label="<%= text %>"
+    ><%_ toRansom(text).forEach(function (chip) { _%><%_ if (chip.isSpace) { _%><span class="ransom__gap" aria-hidden="true"> </span><%_ } else { _%><span class="ransom__chip ransom__chip--v<%= chip.variant %>" aria-hidden="true"><%= chip.char %></span><%_ } _%><%_ }); _%></span
+>

@@ -32,6 +32,24 @@ describe('Index Page', () => {
       expect(sigils.filter((s) => s.includes('punk-sigil--flip'))).toHaveLength(1);
     });
 
+    it('cuts the playlists heading as a ransom note, still readable as one word', async () => {
+      const response = await request(app).get('/');
+
+      // The letters are split into chips, so the accessible name has to come from the label -
+      // otherwise a screen reader spells the heading out or reads it as an acronym.
+      expect(response.text).toContain('aria-label="Your Playlists"');
+
+      const chips = response.text.match(/class="ransom__chip ransom__chip--v\d"/g) ?? [];
+      expect(chips).toHaveLength('YourPlaylists'.length);
+
+      // Every chip is decoration; the label carries the word.
+      const chipTags = response.text.match(/<span class="ransom__chip[^>]*>/g) ?? [];
+      chipTags.forEach((tag) => expect(tag).toContain('aria-hidden="true"'));
+
+      // The space is a gap between scraps, not a scrap of its own.
+      expect(response.text.match(/class="ransom__gap"/g)).toHaveLength(1);
+    });
+
     it('hides the decorative sigils from screen readers', async () => {
       const response = await request(app).get('/');
 
