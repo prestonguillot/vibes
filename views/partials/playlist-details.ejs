@@ -67,9 +67,6 @@
                       <a href="<%= track.youtube.url %>" target="_blank" class="text-decoration-none small flex-grow-1" title="<%= track.youtube.title %>">
                         <%= track.youtube.title %>
                       </a>
-                      <% if (track.matchScore) { %>
-                        <%- include('./match-score-badge.ejs', { score: track.matchScore }) %>
-                      <% } %>
                     </div>
                   </div>
                 </div>
@@ -121,6 +118,12 @@
               </button>
             <% } else { %>
               <span class="badge bg-info">YouTube Only</span>
+            <% } %>
+            <%# The match score lives WITH the stamps, so LINKED / edit / stars are one group - the
+                rail. On mobile that group becomes a single evenly-spaced column; on desktop it is a
+                horizontal status cluster. %>
+            <% if (track.matchScore) { %>
+              <%- include('./match-score-badge.ejs', { score: track.matchScore }) %>
             <% } %>
           <% } %>
         </div>
