@@ -2439,22 +2439,32 @@ body.oauth-error-body {
   user-select: none;
 }
 
+/* Printed in ink, not lit from behind.
+   These were font glyphs in traffic-light green/amber/red, wearing two stacked drop-shadows - a
+   glow, on a page whose every other mark is stamped or screened. The score's own colour
+   (--star-color, sent by the server) is deliberately ignored: #1db954/#e0a800/#dc3545 belong to a
+   Bootstrap alert, not to a zine printed in black, red and acid yellow. The percentage under them
+   carries the number; the stars carry the shape. */
 .match-score-stars {
-  color: var(--star-color, inherit);
   font-size: 1.2rem;
-  letter-spacing: 2px;
+  letter-spacing: 0;
   white-space: nowrap;
   display: flex;
-  gap: 2px;
-  transition:
-    text-shadow 0.2s ease,
-    filter 0.2s ease;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4)) drop-shadow(0 0 1px rgba(0, 0, 0, 0.3));
+  gap: 3px;
 }
 
+/* Hand-cut, masked so it takes the page's ink - the same trick as the masthead bolt and the search
+   magnifier. */
 .star {
   display: inline-block;
-  opacity: 0.3;
+  width: 0.85em;
+  height: 0.82em;
+  background-color: var(--text);
+  -webkit-mask: url('/images/star.svg') center / contain no-repeat;
+  mask: url('/images/star.svg') center / contain no-repeat;
+  /* The glyph is still in the markup for screen readers; the mask is what's seen. */
+  color: transparent;
+  opacity: 0.22;
   transition: opacity 0.2s ease;
 }
 
@@ -2463,13 +2473,10 @@ body.oauth-error-body {
 }
 
 .star--half {
-  opacity: 0.65;
+  opacity: 0.55;
 }
 
-.match-score-badge:hover .match-score-stars {
-  text-shadow: 0 0 10px currentColor;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 2px rgba(0, 0, 0, 0.5));
-}
+/* No glow on hover either - ink does not light up. The tooltip is the hover affordance. */
 
 /* Tooltip styling */
 .match-score-tooltip {
@@ -3050,19 +3057,35 @@ body.oauth-error-body {
     grid-column: 1 / -1;
     grid-row: 1;
   }
+  /* Every wrapper between the row and the picture is display:contents, so the picture, its title,
+     its score and the stamps all become items of THIS grid and can be placed independently:
+
+       row 1   title / artist            (spans both)
+       row 2   preview        | stamps
+       row 3   video title    | score
+
+     Which is the answer to two separate problems at once. The score stops floating under the title
+     with nothing to belong to and joins the stamp rail; and the PICTURE gets lifted above the
+     bleed rather than its wrapper - `.youtube-video` was carrying position:relative and z-index:1
+     while being display:contents, which means it generates no box and both were simply ignored.
+     The rule looked right in the stylesheet and did nothing in the browser. */
   .youtube-video,
-  .youtube-video--placeholder {
-    grid-column: 1;
-    grid-row: 2;
-    min-width: 0;
+  .youtube-video--placeholder,
+  .youtube-video > .d-flex,
+  .youtube-video--placeholder > .d-flex,
+  .youtube-video .flex-grow-1 {
+    display: contents !important;
   }
 
-  /* display:contents means .track-content generates no box, so the `.track-item--art-fill > *`
-     rule that lifts content above the bleed has nothing to apply to. Lift its children instead,
-     or the whole row sinks behind the ink. */
+  /* display:contents means these generate no box, so the `.track-item--art-fill > *` rule that
+     lifts content above the bleed has nothing to apply to. Lift the things that ARE boxes - and
+     that includes the picture itself, not the wrapper around it. */
   .track-item--art-fill .spotify-track,
-  .track-item--art-fill .youtube-video,
-  .track-item--art-fill .track-status {
+  .track-item--art-fill .track-status,
+  .track-item--art-fill img.youtube-video__thumbnail,
+  .track-item--art-fill .youtube-video__thumbnail--placeholder,
+  .track-item--art-fill .youtube-video a,
+  .track-item--art-fill .match-score-badge {
     position: relative;
     z-index: 1;
   }
@@ -3089,13 +3112,32 @@ body.oauth-error-body {
     text-align: center;
   }
 
-  /* The score sits under the title, not beside it. Beside a title that wraps, the stars end up
-     stranded in a column of their own with nothing else in it. */
+  /* The row's grid, laid out explicitly now that every wrapper is out of the way. */
   .youtube-video .flex-grow-1 > .d-flex {
-    display: block !important;
+    display: contents !important;
   }
-  .match-score-badge {
-    margin-top: 4px;
+  .track-item img.youtube-video__thumbnail,
+  .track-item .youtube-video__thumbnail--placeholder {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .track-item .youtube-video a,
+  .track-item .youtube-video .text-muted {
+    grid-column: 1;
+    grid-row: 3;
+    min-width: 0;
+  }
+  /* The score joins the stamp rail: beside the video, under the stamps. Under the title it floated
+     in open space with nothing to belong to; here it is one of the row's marks. */
+  .track-item .match-score-badge {
+    grid-column: 2;
+    grid-row: 3;
+    align-self: start;
+    justify-self: stretch;
+    margin-top: 0;
+  }
+  .track-item .match-score-stars {
+    justify-content: center;
   }
 
   /* Video modal: stack the footer buttons full-width; let the search button shrink. */
@@ -3135,6 +3177,12 @@ body.oauth-error-body {
      The badge is nested two wrappers deep (.flex-grow-1 > .justify-content-between), so the only
      way to place it in the grid without touching the markup is display:contents on both - they
      stop generating boxes and their children become items of this grid. */
+  /* The card's right padding is desktop's 16px on a card less than half the width, which reads as
+     dead space beside text that has none to spare. */
+  .video-option {
+    padding-right: 8px;
+    padding-left: 12px;
+  }
   .video-option__thumbnail {
     width: 88px;
     height: 66px;
