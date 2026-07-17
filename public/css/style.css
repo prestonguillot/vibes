@@ -2804,6 +2804,21 @@ body.oauth-error-body {
   }
 }
 
+/* On a touch screen the mark reads as missing, not subtle. 0.45 opacity works when a pointer can
+   hover it up to full - there is no hover on a phone, so quiet-until-you-look becomes just gone.
+   A 26px target is also under the ~44px minimum for a finger. */
+@media (hover: none) {
+  .theme-toggle {
+    width: 44px;
+    height: 44px;
+    opacity: 0.85;
+  }
+  .theme-toggle__icon {
+    width: 26px;
+    height: 26px;
+  }
+}
+
 /* === DARK THEME: status surfaces the neutral tokens don't cover ===
    Success/error/selected backgrounds are literal light colours (kept literal because they are
    status semantics, not neutral surfaces). In dark mode they'd be bright boxes, so re-theme
@@ -2838,6 +2853,43 @@ body.oauth-error-body {
   .punk-title {
     font-size: 2.5rem;
     letter-spacing: -1px;
+  }
+
+  /* The ransom heading is cut from em-sized chips, so the h5 is the dial. At 1.7rem the heading is
+     269px and the Refresh button 90px - 359px into a 358px bar, so it wrapped and left a lone "s"
+     on its own line. A cut-out heading must never wrap: the letters are physical objects.
+     nowrap makes that structural rather than a size I got lucky with, and the button shrinks with
+     it so it doesn't end up dominating a row whose heading just got smaller. */
+  .playlists-panel .card-header h5 {
+    /* Fluid, not a fixed size: the heading's width scales with this, and the room left for it is
+       (viewport - the button). A single value that fits at 420 overflows at 360. */
+    font-size: clamp(0.55rem, 2.9vw, 1.2rem);
+  }
+  .ransom {
+    flex-wrap: nowrap;
+    /* Never let the bar squeeze it: shrinking the box does not shrink the chips, it just makes them
+       spill out of it. If there is no room, the BAR wraps instead. */
+    flex-shrink: 0;
+  }
+  /* Each chip's padding is fixed px, so 13 of them contribute ~156px that no font-size can touch -
+     the heading bottomed out at 235px however small the type got. Trim the scrap, not the letter. */
+  .playlists-panel .ransom__chip {
+    padding: 1px 2px;
+  }
+  .playlists-panel .ransom__gap {
+    width: 0.3em;
+  }
+  /* Below ~340px even the floor cannot fit beside the button, so the BAR wraps and the button drops
+     to its own line. The heading still never breaks - which is the actual requirement: the letters
+     are physical cut-outs and a word cannot come apart mid-air. */
+  .playlists-panel .card-header .d-flex {
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  #refresh-playlists-btn {
+    font-size: 0.7rem;
+    padding: 5px 9px;
+    flex-shrink: 0;
   }
 
   /* Drop the 180px min-width so buttons size to their (now narrower) container. */
@@ -2900,12 +2952,39 @@ body.oauth-error-body {
     align-items: start;
     position: relative;
   }
-  /* Album-art bleed, resized for the narrower row (still clipped by the row's overflow:hidden,
-     so it can't push the page wide). */
+  /* The mobile row stacks, so it is TALL - a fixed 220px square floats in the middle of a 279px
+     row and reads as a block sitting inside it rather than ink running off the sheet. Height
+     tracks the row; the width still bleeds past the right edge, where the row's overflow:hidden
+     clips it (so it can't push the page wide).
+     The fade is steeper than desktop's because here the text spans the full width and the ink
+     would otherwise sit straight under it. */
   .track-item--art-fill::after {
-    width: 220px;
-    height: 220px;
+    width: 260px;
+    height: 130%;
+    right: -40px;
+    mask-image: linear-gradient(to left, #000 30%, transparent 92%);
+    -webkit-mask-image: linear-gradient(to left, #000 30%, transparent 92%);
+    opacity: 0.55;
+  }
+
+  /* Same problem on the playlist card, worse: a 300px bleed is a third of a desktop card and most
+     of a 390px phone. The track count and the Spotify/YouTube links sat under solid halftone.
+     Decoration loses to legibility - the ink gets out of the text's way. */
+  .playlist-item--art::after {
+    width: 190px;
     right: -30px;
+    opacity: 0.45;
+    mask-image: linear-gradient(to left, #000 22%, transparent 88%);
+    -webkit-mask-image: linear-gradient(to left, #000 22%, transparent 88%);
+  }
+
+  /* What ink still reaches the text gets a paper halo behind it. --surface, so it is the card's own
+     colour in either theme rather than a grey box. */
+  .playlist-item--art .playlist-info,
+  .track-item--art-fill .track-content {
+    text-shadow:
+      0 0 3px var(--surface),
+      0 0 6px var(--surface);
   }
   .track-content {
     grid-column: 1;
@@ -2957,9 +3036,13 @@ body.oauth-error-body {
     aspect-ratio: auto;
   }
   /* Only rows that actually have a status badge get the action-bar footer (skips the empty
-     status div on Spotify-only rows). */
+     status div on Spotify-only rows).
+     Column 1, not 2: the row is a SINGLE column here, so placing this at column 2 made grid invent
+     an implicit one - splitting a 420px row into 145px + 118px. That is what put the badges in a
+     diagonal corner and wrapped the video title after three words. The Spotify-only rows looked
+     clean precisely because they have no badge and never hit this rule. */
   .track-status:has(.badge) {
-    grid-column: 2;
+    grid-column: 1;
     grid-row: 2;
     width: 100%;
     margin-top: 10px;
