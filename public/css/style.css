@@ -2529,17 +2529,15 @@ body.oauth-error-body {
   visibility: visible;
 }
 
-/* The tooltip's z-index: 9999 is meaningless on its own - it is trapped inside .track-content's
-   own z-index: 1 stacking context, so it can never rise above the stamp rail (a sibling painted
-   later) or the next row (another z-index: 1). Lifting one number does nothing; the whole chain has
-   to rise. On hover: the row lifts above its neighbours, and .track-content above the rail beside
-   it. .track-content is display: contents on mobile (no box, z-index ignored), so the badge itself
-   is lifted there instead - harmless on desktop, load-bearing on mobile. */
+/* The tooltip's z-index: 9999 is meaningless on its own - it is trapped inside .track-status's
+   stacking context, so it can never rise above its neighbours by itself. The whole chain has to
+   rise: on hover the row lifts above sibling rows, .track-status lifts above the rest of the row's
+   content, and the badge lifts above the stamps beside it in the rail. */
 .track-item:has(.match-score-badge:hover),
 .playlist-item:has(.match-score-badge:hover) {
   z-index: 40;
 }
-.track-item:has(.match-score-badge:hover) .track-content {
+.track-item:has(.match-score-badge:hover) .track-status {
   z-index: 40;
 }
 .match-score-badge:hover {
@@ -3099,7 +3097,10 @@ body.oauth-error-body {
   .youtube-video--placeholder,
   .youtube-video > .d-flex,
   .youtube-video--placeholder > .d-flex,
-  .youtube-video .flex-grow-1 {
+  /* The WRAPPER div only, NOT any .flex-grow-1: the video title <a> also carries that class, and
+     making the link display:contents turns it into a boxless non-item that cannot be placed. */
+  .youtube-video > .d-flex > .flex-grow-1,
+  .youtube-video--placeholder > .d-flex > .flex-grow-1 {
     display: contents !important;
   }
 
@@ -3116,33 +3117,13 @@ body.oauth-error-body {
     z-index: 1;
   }
 
-  /* Both stamps, stacked and matched to the widest - a badge and a button that do the same job at
-     two different widths read as an accident. */
-  .track-status:has(.badge) {
-    grid-column: 2;
-    grid-row: 2;
-    align-self: start;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-    width: auto;
-    margin-top: 10px;
-    padding-top: 0;
-    border-top: none;
-  }
-  .track-status:has(.badge) > * {
-    width: 100%;
-    justify-content: center;
-  }
-  .track-status:has(.badge) .badge {
-    text-align: center;
-  }
+  /* The two-row table Preston described:
+       row 1   title / artist                    (spans both columns)
+       row 2   preview        | rail              (LINKED / edit / stars, evenly spaced)
+       row 3   video title                        (spans, full width, left-justified)
 
-  /* The row's grid, laid out explicitly now that every wrapper is out of the way:
-       row 1  title / artist         (spans both columns)
-       row 2  preview      | stamps  (top of the rail)
-              preview      | score   (bottom of the rail, aligned to the preview's foot)
-       row 3  video title           (spans, full width, under everything) */
+     The rail is ONE box now - the stars were moved into .track-status in the markup - so it is a
+     plain flex column, no per-item grid placement. */
   .youtube-video .flex-grow-1 > .d-flex {
     display: contents !important;
   }
@@ -3151,39 +3132,26 @@ body.oauth-error-body {
     grid-column: 1;
     grid-row: 2;
   }
-  /* The video title drops below both columns and runs the full width of the row. */
   .track-item .youtube-video a,
   .track-item .youtube-video .text-muted {
     grid-column: 1 / -1;
     grid-row: 3;
     min-width: 0;
+    text-align: left;
   }
-  /* Stamps at the top of the rail, score at its foot - same cell, opposite ends - so the score sits
-     level with the bottom of the preview it scores. */
-  .track-item .track-status:has(.badge) {
-    grid-row: 2;
-    align-self: start;
-  }
-  .track-item .match-score-badge {
+  /* The rail: LINKED, edit and stars, evenly spread down the full height of the preview beside it. */
+  .track-status:has(.badge) {
     grid-column: 2;
     grid-row: 2;
-    align-self: end;
-    justify-self: center;
-    margin-top: 0;
-  }
-  .track-item .match-score-stars {
-    justify-content: center;
-  }
-  /* A paper chip behind the stars. Desktop keeps them bare because there they sit in clear space
-     under the title; in the mobile rail they are printed straight onto the deep-fried bleed, where
-     inked-in-ink reads as a smudge and vanishes into a busy row. The chip lifts them onto the page
-     like every other mark. */
-  .track-item--art-fill .match-score-badge {
-    background: var(--surface);
-    padding: 4px 7px;
-    border: 2px solid var(--border);
-    box-shadow: 2px 2px 0 rgba(var(--shadow-rgb), 0.3);
-    transform: rotate(-2deg);
+    align-self: stretch;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: space-evenly;
+    gap: 6px;
+    width: auto;
+    margin: 0;
+    padding: 0;
+    border-top: none;
   }
 
   /* Footer buttons: each sized to its OWN label, side by side. Forcing them 50/50 (flex: 1 1 0)

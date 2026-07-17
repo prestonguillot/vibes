@@ -183,3 +183,17 @@ describe('the video picker is reviewable', () => {
     expect(Math.max(...scores) - Math.min(...scores)).toBeGreaterThan(30);
   });
 });
+
+describe('the track-row rail groups its three controls', () => {
+  it('renders the match score inside .track-status, beside the stamps', async () => {
+    // LINKED, edit and stars are one group in the markup - that is what lets the mobile rail be a
+    // single evenly-spaced flex column instead of three items scattered across a grid. If a refactor
+    // moves the score back into the video block, the rail silently splits again.
+    const { text } = await request(app).get('/debug/components');
+
+    // The score badge must appear between a .track-status open and its close, not in .youtube-video.
+    const statusBlocks = text.match(/<div class="track-status[\s\S]*?<\/div>\s*<\/div>/g) ?? [];
+    const inRail = statusBlocks.some((b) => b.includes('match-score-badge'));
+    expect(inRail, 'match-score-badge is not inside .track-status').toBe(true);
+  });
+});

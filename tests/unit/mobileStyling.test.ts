@@ -63,25 +63,25 @@ describe('Phone layout', () => {
     expect(ruleIn(mobile, '.track-content')).toContain('display: contents');
   });
 
-  it('lifts the picture above the bleed, not the box that generates no box', () => {
-    // The bleed painted straight over the video preview while `.youtube-video` carried
-    // position:relative AND z-index:1 - because it is display:contents, so it has no box and both
-    // were ignored. The rule read correctly in the stylesheet and did nothing in the browser.
-    // Whatever gets lifted must therefore be something that actually generates a box.
-    const lift = mobile.match(/([^{}]*)\{\s*position: relative;\s*z-index: 1;\s*\}/)?.[1] ?? '';
-
-    expect(lift).toContain('img.youtube-video__thumbnail');
-    expect(lift).not.toMatch(/\.youtube-video\s*,/); // the wrapper: display:contents, no box
-
-    // ...and the wrapper really is contents, so this is not a theoretical worry. (It heads a
-    // selector LIST, so ruleIn - which anchors on `selector {` - cannot see it.)
-    expect(mobile).toMatch(/\.youtube-video,[\s\S]{0,300}display: contents/);
+  it('lifts the picture above the bleed, not the boxless wrapper', () => {
+    // The bleed painted over the preview while `.youtube-video` carried position:relative AND
+    // z-index:1 - but it is display:contents, so it has no box and both were ignored. The thing
+    // lifted must be one that actually generates a box: the <img> itself.
+    expect(mobile).toMatch(
+      /img\.youtube-video__thumbnail[\s\S]{0,220}position: relative;\s*z-index: 1/,
+    );
+    // ...and the wrapper really is contents, so this is not a theoretical worry.
+    expect(mobile).toMatch(/\.youtube-video[\s\S]{0,700}display: contents/);
   });
 
-  it('matches the two stamps’ widths', () => {
-    // A badge and a button doing the same job at two different widths reads as an accident.
-    expect(ruleIn(mobile, '.track-status:has(.badge)')).toContain('flex-direction: column');
-    expect(ruleIn(mobile, '.track-status:has(.badge) > *')).toContain('width: 100%');
+  it('spreads the rail evenly - LINKED, edit and stars in one flex column', () => {
+    // The three controls are one group in the markup now (all inside .track-status), so the rail
+    // is a plain flex column that distributes them down the preview's height.
+    const rail = ruleIn(mobile, '.track-status:has(.badge)');
+
+    expect(rail).toContain('flex-direction: column');
+    expect(rail).toContain('justify-content: space-evenly');
+    expect(rail).toContain('align-self: stretch');
   });
 
   it('lets the bleed cover a stacked row instead of floating in it', () => {
