@@ -10,12 +10,11 @@
   --text: #000; /* body/heading text */
   --text-muted: #6c757d; /* secondary text (consolidates #666/#6c757d/#495057) */
   --on-bright: #000; /* text on a fixed bright/neon background (e.g. green buttons); never flips */
-  --row-stripe: rgba(
-    0,
-    0,
-    0,
-    0.08
-  ); /* alternating track-row tint; overlay so it reads on any surface */
+  /* The two inks of the track-row halftone. They must print at COMPARABLE weight: the whole effect
+     is two screens nearly agreeing, and if the plate out-shouts the screen the row just reads as
+     coloured dots with no doubling to see. */
+  --row-screen: rgba(0, 0, 0, 0.13); /* the black screen */
+  --row-plate: rgba(255, 0, 64, 0.17); /* the red plate, landing a couple of px off */
   --border: #000; /* the heavy punk borders */
   --border-subtle: #dee2e6; /* hairline borders */
   --shadow-rgb: 0, 0, 0; /* offset drop-shadows, used as rgba(var(--shadow-rgb), a) */
@@ -61,7 +60,10 @@
   --border: #f0f0f0; /* the heavy borders flip light so shapes read on dark */
   --border-subtle: #333;
   --shadow-rgb: 255, 255, 255; /* light offset shadows - black ones vanish on the dark surfaces */
-  --row-stripe: rgba(255, 255, 255, 0.07); /* light overlay so stripes read on the dark surface */
+  /* The screen flips to a light ink so it reads on the dark surface; the red plate lifts slightly,
+     since #ff0040 at the light-mode alpha all but disappears against #171717. */
+  --row-screen: rgba(255, 255, 255, 0.1);
+  --row-plate: rgba(255, 0, 64, 0.24);
 
   /* Photocopy-zine page background (dark): near-black page, gentle light toner/speckle. */
   --page: #0c0c0c;
@@ -509,6 +511,7 @@ body::after {
   border-radius: 0;
   gap: 16px;
   min-height: 120px;
+  position: relative; /* anchors the slipped plate on the row divider */
 }
 
 /* Simplified layout for playlists not synced to YouTube */
@@ -528,14 +531,45 @@ body::after {
   grid-row: unset;
 }
 
+/* === TRACK ROWS: ONE BAD PRINT RUN ===
+   Rows are told apart by a misregistered halftone rather than a hatch fill. A press doesn't
+   misregister in one place only, so the same fault explains the whole row: the screen prints
+   black, the red plate lands a couple of px off, and the rule between rows slips the same way.
+
+   Replaces a 45deg barber-pole hatch, which was even, soft and machine-perfect - nothing else on
+   the page is that tidy. */
 .track-item--even {
-  background-image: repeating-linear-gradient(
-    45deg,
-    transparent,
-    transparent 10px,
-    var(--row-stripe) 10px,
-    var(--row-stripe) 20px
-  );
+  background-image:
+    radial-gradient(var(--row-plate) 1.6px, transparent 1.7px),
+    radial-gradient(var(--row-screen) 1.6px, transparent 1.7px);
+  background-size:
+    6px 6px,
+    6px 6px;
+  background-position:
+    2px 1.5px,
+    0 0;
+}
+
+/* The rule between rows, and the plate that slipped off it.
+   ::before, NOT ::after: .track-item--art-fill::after is the album-art bleed, and this selector
+   outranks it (0,2,1 vs 0,1,1) - it would silently erase the bleed on every row but the first.
+   And it sits INSIDE the box, because art rows are overflow:hidden and would clip anything
+   positioned above their edge. */
+.track-item + .track-item {
+  border-top: 3px solid var(--border);
+}
+
+.track-item + .track-item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: #ff0040; /* the plate at full strength - it's ink, not a tint */
+  transform: translateX(2px);
+  pointer-events: none;
+  z-index: 1; /* above the album-art bleed, which sits at 0 */
 }
 
 /* A lesser take on the header's skewed, misregistered-print look, scattered across a subset of the
