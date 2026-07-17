@@ -20,7 +20,7 @@
     <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Switch to dark theme" aria-pressed="false">
         <span class="theme-toggle__icon" aria-hidden="true"></span>
     </button>
-    <div class="container mt-5">
+    <div class="container mt-2">
         <div class="punk-header text-center mb-5">
             <h1 class="punk-title">
                 <span class="punk-sigil" aria-hidden="true"><span class="punk-sigil__ink"></span></span>SHOWCASE<span class="punk-sigil punk-sigil--flip" aria-hidden="true"><span class="punk-sigil__ink"></span></span>
@@ -130,6 +130,43 @@
             <div class="component-demo">
                 <div class="demo-label">Sync Feedback - Multiple Videos Found</div>
                 <%- include('./partials/sync-feedback.ejs', mockSyncFeedback) %>
+            </div>
+        </div>
+
+        <!-- FORM CONTROLS -->
+        <div class="component-section">
+            <h2 class="component-title">Form Controls</h2>
+            <p class="component-description">The search field and its hand-cut magnifier, plus the batch-size select</p>
+
+            <%# The magnifier only exists on the real page, so it could not be reviewed here at all.
+                Same markup as index.ejs - if the two drift, this stops being worth looking at. %>
+            <div class="component-demo">
+                <div class="demo-label">Playlist search — hand-cut magnifier (was an emoji)</div>
+                <div class="search-input-wrapper">
+                    <span class="search-icon" aria-hidden="true"></span>
+                    <input type="text" class="form-control form-control-sm search-input"
+                           placeholder="Search playlists and tracks..." autocomplete="off">
+                </div>
+            </div>
+
+            <div class="component-demo">
+                <div class="demo-label">Tracks per sync</div>
+                <div class="d-flex align-items-center gap-2">
+                    <label for="debugBatchSize" class="form-label mb-0 small text-nowrap">Tracks per sync:</label>
+                    <select class="form-select form-select-sm batch-size-select" id="debugBatchSize">
+                        <option value="1">1</option>
+                        <option value="25">25</option>
+                        <option value="all" selected>All</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="component-demo">
+                <div class="demo-label">Own-playlists filter</div>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="debugOwnOnly" checked>
+                    <label class="form-check-label" for="debugOwnOnly">Show only playlists I created</label>
+                </div>
             </div>
         </div>
 
