@@ -65,10 +65,21 @@
           "albumArt": "/images/debug/art-1.svg"
         },
         "youtube": {
-          "title": "The Weeknd - Blinding Lights",
+          "title": "The Weeknd - Blinding Lights (Official Video)",
           "url": "https://youtube.com/watch?v=demo1",
           "thumbnail": "/images/debug/thumb-1.svg",
           "id": "yt1"
+        },
+        "matchScore": {
+          "totalScore": 0.92,
+          "stars": 4.5,
+          "color": "#1db954",
+          "components": {
+            "coreMatch": 0.5,
+            "artistBonus": 0.2,
+            "fuzzySimilarity": 0.12,
+            "officialVideo": 0.1
+          }
         },
         "linked": true
       },

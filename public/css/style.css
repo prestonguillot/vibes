@@ -2862,8 +2862,11 @@ body.oauth-error-body {
      it so it doesn't end up dominating a row whose heading just got smaller. */
   .playlists-panel .card-header h5 {
     /* Fluid, not a fixed size: the heading's width scales with this, and the room left for it is
-       (viewport - the button). A single value that fits at 420 overflows at 360. */
-    font-size: clamp(0.55rem, 2.9vw, 1.2rem);
+       (viewport - the button). A single value that fits at 420 overflows at 360.
+       Tuned against the ROOM, not just against overflow: once the chip padding was trimmed the
+       heading became genuinely font-proportional, and the old ceiling left it at ~150px on a
+       420px phone - legible-adjacent at best. It has ~270px to work with; use it. */
+    font-size: clamp(0.8rem, 4.2vw, 1.5rem);
   }
   .ransom {
     flex-wrap: nowrap;
@@ -2943,9 +2946,10 @@ body.oauth-error-body {
     white-space: nowrap;
   }
 
-  /* Track row -> stacked card: title/artist, a capped preview, then a status action bar. */
+  /* Track row -> stacked card: title/artist across the top, then the preview with its stamps
+     beside it. Two columns: content, and a stamp rail sized to its widest stamp. */
   .track-item {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr auto;
     gap: 4px 10px;
     padding: 12px 8px;
     min-height: auto;
@@ -2985,12 +2989,6 @@ body.oauth-error-body {
     text-shadow:
       0 0 3px var(--surface),
       0 0 6px var(--surface);
-  }
-  .track-content {
-    grid-column: 1;
-    grid-row: 1;
-    display: block;
-    text-align: left;
   }
   .spotify-track {
     display: block;
@@ -3035,20 +3033,63 @@ body.oauth-error-body {
     max-width: none;
     aspect-ratio: auto;
   }
-  /* Only rows that actually have a status badge get the action-bar footer (skips the empty
-     status div on Spotify-only rows).
-     Column 1, not 2: the row is a SINGLE column here, so placing this at column 2 made grid invent
-     an implicit one - splitting a 420px row into 145px + 118px. That is what put the badges in a
-     diagonal corner and wrapped the video title after three words. The Spotify-only rows looked
-     clean precisely because they have no badge and never hit this rule. */
-  .track-status:has(.badge) {
+  /* The stamps stack beside the preview instead of stranding themselves in a footer.
+     .track-content is display:contents so its children become grid items of the row itself -
+     otherwise the stamps cannot sit next to the preview at all, because the preview is nested
+     inside .track-content and the stamps are its sibling. */
+  .track-content {
+    display: contents;
+  }
+  .spotify-track {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+  .youtube-video,
+  .youtube-video--placeholder {
     grid-column: 1;
     grid-row: 2;
-    width: 100%;
+    min-width: 0;
+  }
+
+  /* display:contents means .track-content generates no box, so the `.track-item--art-fill > *`
+     rule that lifts content above the bleed has nothing to apply to. Lift its children instead,
+     or the whole row sinks behind the ink. */
+  .track-item--art-fill .spotify-track,
+  .track-item--art-fill .youtube-video,
+  .track-item--art-fill .track-status {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Both stamps, stacked and matched to the widest - a badge and a button that do the same job at
+     two different widths read as an accident. */
+  .track-status:has(.badge) {
+    grid-column: 2;
+    grid-row: 2;
+    align-self: start;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    width: auto;
     margin-top: 10px;
-    padding-top: 10px;
-    border-top: 2px solid var(--border-subtle);
-    justify-content: space-between;
+    padding-top: 0;
+    border-top: none;
+  }
+  .track-status:has(.badge) > * {
+    width: 100%;
+    justify-content: center;
+  }
+  .track-status:has(.badge) .badge {
+    text-align: center;
+  }
+
+  /* The score sits under the title, not beside it. Beside a title that wraps, the stars end up
+     stranded in a column of their own with nothing else in it. */
+  .youtube-video .flex-grow-1 > .d-flex {
+    display: block !important;
+  }
+  .match-score-badge {
+    margin-top: 4px;
   }
 
   /* Video modal: stack the footer buttons full-width; let the search button shrink. */

@@ -14,9 +14,19 @@ const css = fs.readFileSync(path.join(__dirname, '../../public/css/style.css'), 
 /** The phone block. Rules outside it are desktop and must not be matched by accident. */
 const mobile = css.match(/@media \(max-width: 575\.98px\) \{[\s\S]*?\n\}\n/)?.[0] ?? '';
 
+/**
+ * Anchored to the start of a line, because these selectors also appear as the TAIL of longer ones
+ * (`.track-item--art-fill .track-content`), and an unanchored match returns that rule instead.
+ */
 const ruleIn = (block: string, selector: string) => {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return block.match(new RegExp(`${escaped}\\s*\\{[^}]*\\}`))?.[0] ?? '';
+  return block.match(new RegExp(`^\\s*${escaped}\\s*\\{[^}]*\\}`, 'm'))?.[0] ?? '';
+};
+
+/** Every rule for a selector, so a duplicate declaration can't hide behind the cascade. */
+const rulesFor = (block: string, selector: string) => {
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return block.match(new RegExp(`^\\s*${escaped}\\s*\\{[^}]*\\}`, 'gm')) ?? [];
 };
 
 describe('Phone layout', () => {
@@ -24,13 +34,43 @@ describe('Phone layout', () => {
     expect(mobile).toBeTruthy();
   });
 
-  it('keeps the track row to the one column it declares', () => {
-    // `.track-item` is grid-template-columns: 1fr here. Placing the status bar at column 2 made
-    // grid invent an implicit second column and split a 420px row into 145px + 118px - which put
-    // the badges in a diagonal corner and wrapped the video title after three words.
-    expect(ruleIn(mobile, '.track-item')).toContain('grid-template-columns: 1fr');
-    expect(ruleIn(mobile, '.track-status:has(.badge)')).toContain('grid-column: 1');
-    expect(ruleIn(mobile, '.track-status:has(.badge)')).not.toContain('grid-column: 2');
+  it('never places a track-row child past the columns the grid declares', () => {
+    // The original bug: the row declared `1fr` and the status bar asked for column 2, so grid
+    // invented an implicit one and split a 420px row into 145px + 118px - badges in a diagonal
+    // corner, video title wrapping after three words. The row is two columns ON PURPOSE now, which
+    // is fine; asking for a column that was never declared is what is not.
+    const tracks = ruleIn(mobile, '.track-item').match(/grid-template-columns:\s*([^;]+);/)?.[1];
+    expect(tracks, '.track-item declares no columns on mobile').toBeTruthy();
+    const declared = (tracks ?? '').trim().split(/\s+/).length;
+
+    const used = [...mobile.matchAll(/grid-column:\s*(\d+)\s*;/g)].map((m) => Number(m[1]));
+    expect(used.length).toBeGreaterThan(0);
+    used.forEach((col) =>
+      expect(col, `column ${col} used but only ${declared} declared`).toBeLessThanOrEqual(declared),
+    );
+  });
+
+  it('declares the row and its content once each, not twice', () => {
+    // Two rules for one selector is how `filter: var(--bleed-print)` sat in the stylesheet doing
+    // nothing for a release: the later declaration wins and the earlier one reads as intent.
+    expect(rulesFor(mobile, '.track-item')).toHaveLength(1);
+    expect(rulesFor(mobile, '.track-content')).toHaveLength(1);
+  });
+
+  it('promotes the row’s content so the stamps can sit beside the preview', () => {
+    // The preview is nested inside .track-content and the stamps are its sibling, so they cannot
+    // share a row without display:contents lifting .track-content's children into the grid.
+    expect(ruleIn(mobile, '.track-content')).toContain('display: contents');
+
+    // ...which also means `.track-item--art-fill > *` (the rule lifting content above the bleed)
+    // has no box to apply to. Its children must be lifted directly or the row sinks into the ink.
+    expect(mobile).toMatch(/\.track-item--art-fill \.spotify-track[\s\S]{0,200}z-index:\s*1/);
+  });
+
+  it('matches the two stamps’ widths', () => {
+    // A badge and a button doing the same job at two different widths reads as an accident.
+    expect(ruleIn(mobile, '.track-status:has(.badge)')).toContain('flex-direction: column');
+    expect(ruleIn(mobile, '.track-status:has(.badge) > *')).toContain('width: 100%');
   });
 
   it('lets the bleed cover a stacked row instead of floating in it', () => {
