@@ -87,7 +87,7 @@ describe('Phone layout', () => {
   it('lets the bleed cover a stacked row instead of floating in it', () => {
     // A fixed 220px square in a 279px stacked row reads as a block sitting inside the row rather
     // than ink running off the sheet.
-    const bleed = ruleIn(mobile, '.track-item--art-fill::after');
+    const bleed = ruleIn(mobile, '.track-bleed::after');
 
     expect(bleed).toMatch(/height:\s*\d+%/);
     expect(bleed).not.toMatch(/height:\s*\d+px/);

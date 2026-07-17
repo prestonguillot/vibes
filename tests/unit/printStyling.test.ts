@@ -71,7 +71,7 @@ describe('The press', () => {
     // highlights survive - you see the bleed's negative space instead of the bleed.
     expect(css).toMatch(/--bleed-print:\s*url\('#print-bleed'\);/);
     expect(css).toMatch(/--bleed-print:\s*url\('#print-bleed'\) invert\(1\);/);
-    expect(rule('.track-item--art-fill::after')).toContain('filter: var(--bleed-print)');
+    expect(rule('.track-bleed::after')).toContain('filter: var(--bleed-print)');
     expect(rule('.playlist-item--art::after')).toContain('filter: var(--bleed-print)');
   });
 
@@ -81,16 +81,15 @@ describe('The press', () => {
     // saturate(1.2)`. The later declaration won and the string sat in the file doing nothing.
     // "The stylesheet contains X" and "X takes effect" are different claims, and only this one
     // catches the difference.
-    [
-      '.track-item--art-fill::after',
-      '.playlist-item--art::after',
-      'img.youtube-video__thumbnail',
-    ].forEach((selector) => {
-      const declarations = rule(selector).match(/^\s*filter:/gm) ?? [];
-      expect(declarations, `${selector} declares filter ${declarations.length} times`).toHaveLength(
-        1,
-      );
-    });
+    ['.track-bleed::after', '.playlist-item--art::after', 'img.youtube-video__thumbnail'].forEach(
+      (selector) => {
+        const declarations = rule(selector).match(/^\s*filter:/gm) ?? [];
+        expect(
+          declarations,
+          `${selector} declares filter ${declarations.length} times`,
+        ).toHaveLength(1);
+      },
+    );
   });
 
   it('leaves no trace of the overprinted artist', () => {
