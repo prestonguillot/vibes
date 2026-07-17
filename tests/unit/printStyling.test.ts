@@ -48,8 +48,25 @@ describe('The press', () => {
   });
 
   it('prints the thumbnails and the covers', () => {
-    expect(rule('.youtube-video__thumbnail')).toContain("filter: url('#print-photo')");
+    expect(rule('img.youtube-video__thumbnail')).toContain("filter: url('#print-photo')");
     expect(rule('.playlist-cover')).toContain("filter: url('#print-photo')");
+  });
+
+  it('spares the placeholder, which is a div holding a question mark', () => {
+    // The class is shared with --placeholder. Unscoped, the press halftones and plate-shifts a
+    // piece of UI that is not a photograph and never went near a press.
+    expect(rule('.youtube-video__thumbnail')).not.toContain('#print-photo');
+    expect(rule('.youtube-video__thumbnail--placeholder')).not.toContain('#print-photo');
+    expect(css).toMatch(/^img\.youtube-video__thumbnail\s*{/m);
+  });
+
+  it('prints the artist behind the row, not over its controls', () => {
+    // A linked row carries a video link and a status badge on the same side the word sits on.
+    // As a foreground element it draws straight over both.
+    const word = rule('.track-art-word');
+
+    expect(word).toMatch(/z-index:\s*0/);
+    expect(rule('.track-item--art-fill > *')).toMatch(/z-index:\s*1/);
   });
 
   it('peels the print back to the photograph on hover, not the other way round', () => {

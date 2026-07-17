@@ -13,7 +13,8 @@
       "buttonText": "Update YouTube Playlist",
       "buttonClass": "btn-outline-success",
       "isYouTubeConnected": true,
-      "isDisabled": false
+      "isDisabled": false,
+      "coverImage": "/images/debug/art-1.svg"
     },
     {
       "id": "demo-unsynced-1",
@@ -27,7 +28,8 @@
       "buttonText": "Sync to YouTube",
       "buttonClass": "btn-primary",
       "isYouTubeConnected": true,
-      "isDisabled": false
+      "isDisabled": false,
+      "coverImage": "/images/debug/art-2.svg"
     },
     {
       "id": "demo-no-yt-1",
@@ -41,7 +43,8 @@
       "buttonText": "Connect to YouTube to Sync",
       "buttonClass": "btn-secondary",
       "isYouTubeConnected": false,
-      "isDisabled": true
+      "isDisabled": true,
+      "coverImage": "/images/debug/art-3.svg"
     }
   ],
   "mockPlaylistDetails": {
@@ -58,12 +61,13 @@
           "name": "Blinding Lights",
           "artist": "The Weeknd",
           "album": "After Hours",
-          "id": "sp1"
+          "id": "sp1",
+          "albumArt": "/images/debug/art-1.svg"
         },
         "youtube": {
           "title": "The Weeknd - Blinding Lights",
           "url": "https://youtube.com/watch?v=demo1",
-          "thumbnail": "https://via.placeholder.com/120x90/FF0000/FFFFFF?text=YouTube",
+          "thumbnail": "/images/debug/thumb-1.svg",
           "id": "yt1"
         },
         "linked": true
@@ -73,7 +77,8 @@
           "name": "Levitating",
           "artist": "Dua Lipa",
           "album": "Future Nostalgia",
-          "id": "sp2"
+          "id": "sp2",
+          "albumArt": "/images/debug/art-2.svg"
         },
         "youtube": null,
         "linked": false
@@ -83,7 +88,8 @@
           "name": "Anti-Hero",
           "artist": "Taylor Swift",
           "album": "Midnights",
-          "id": "sp3"
+          "id": "sp3",
+          "albumArt": "/images/debug/art-3.svg"
         },
         "youtube": null,
         "linked": false
@@ -91,11 +97,36 @@
     ]
   },
   "mockConnectionButtonProps": [
-    { "service": "spotify", "connected": true, "loading": false, "error": null },
-    { "service": "spotify", "connected": false, "loading": false, "error": null },
-    { "service": "spotify", "connected": false, "loading": true, "error": null },
-    { "service": "youtube", "connected": true, "loading": false, "error": null },
-    { "service": "youtube", "connected": false, "loading": false, "error": null }
+    {
+      "service": "spotify",
+      "connected": true,
+      "loading": false,
+      "error": null
+    },
+    {
+      "service": "spotify",
+      "connected": false,
+      "loading": false,
+      "error": null
+    },
+    {
+      "service": "spotify",
+      "connected": false,
+      "loading": true,
+      "error": null
+    },
+    {
+      "service": "youtube",
+      "connected": true,
+      "loading": false,
+      "error": null
+    },
+    {
+      "service": "youtube",
+      "connected": false,
+      "loading": false,
+      "error": null
+    }
   ],
   "mockSyncFeedback": {
     "playlistId": "demo-feedback-1",
@@ -105,9 +136,18 @@
     "isLimited": false,
     "isUpdate": false,
     "unlinkedTracks": [
-      { "name": "Unknown Track 1", "artist": "Unknown Artist" },
-      { "name": "Unknown Track 2", "artist": "Unknown Artist" },
-      { "name": "Unknown Track 3", "artist": "Unknown Artist" }
+      {
+        "name": "Unknown Track 1",
+        "artist": "Unknown Artist"
+      },
+      {
+        "name": "Unknown Track 2",
+        "artist": "Unknown Artist"
+      },
+      {
+        "name": "Unknown Track 3",
+        "artist": "Unknown Artist"
+      }
     ]
   }
 }
