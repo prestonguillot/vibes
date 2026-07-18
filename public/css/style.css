@@ -790,12 +790,25 @@ img.youtube-video__thumbnail {
   font-size: 0.875rem;
 }
 
+/* The rail: LINKED + edit on one line (.track-stamps), the stars on their own line beneath. Stacked
+   like this the column is only as wide as the two stamps - putting the stars BESIDE them widened it
+   and starved the title/video column in the middle. */
 .track-status {
   grid-column: 3;
   display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.track-stamps {
+  display: flex;
   align-items: center;
   gap: 8px;
-  flex-shrink: 0;
+}
+.track-status .match-score-badge {
+  display: flex;
+  justify-content: flex-end;
 }
 
 /* Video Selection Modal Styles - PUNK ZINE AESTHETIC */
@@ -3139,7 +3152,12 @@ body.oauth-error-body {
     min-width: 0;
     text-align: left;
   }
-  /* The rail: LINKED, edit and stars, evenly spread down the full height of the preview beside it. */
+  /* The rail: LINKED, edit and stars, evenly spread down the full height of the preview beside it.
+     .track-stamps dissolves here so all THREE are direct flex children and space out evenly (on
+     desktop it stays a group, keeping LINKED + edit on one line with the stars beneath). */
+  .track-stamps {
+    display: contents;
+  }
   .track-status:has(.badge) {
     grid-column: 2;
     grid-row: 2;
