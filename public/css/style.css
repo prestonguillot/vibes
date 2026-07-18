@@ -667,13 +667,17 @@ body::after {
   align-self: start;
 }
 
+/* Wrap to two lines instead of truncating on one. In the narrow desktop range the middle column
+   gets tight, and a single-line ellipsis gave up after a couple of words ("Drop It..."); two lines
+   shows the whole title at almost every width and reads far better. */
 .track-title {
   text-shadow: 0.6px 0 0 currentColor;
   margin-bottom: 0;
   line-height: 1.4;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .track-artist {
@@ -681,9 +685,10 @@ body::after {
   font-size: 0.875rem;
   line-height: 1.4;
   margin-bottom: 0;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .youtube-video {
@@ -774,7 +779,10 @@ img.youtube-video__thumbnail {
   display: block;
 }
 
-.youtube-video .flex-grow-1 {
+/* The WRAPPER div only (direct child of the preview's d-flex). Unscoped, `.youtube-video
+   .flex-grow-1` also matched the video-title <a> - which carries flex-grow-1 - and forced it to
+   display:block, killing the -webkit-box the 2-line clamp needs. */
+.youtube-video > .d-flex > .flex-grow-1 {
   grid-column: 2;
   grid-row: 2;
   min-width: 0;
@@ -783,10 +791,10 @@ img.youtube-video__thumbnail {
 }
 
 .youtube-video a {
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
-  display: block;
   font-size: 0.875rem;
 }
 
@@ -3144,6 +3152,11 @@ body.oauth-error-body {
   .track-item .youtube-video__thumbnail--placeholder {
     grid-column: 1;
     grid-row: 2;
+    /* Left, not centred. The base rule is justify-self:center, which is invisible on a phone (the
+       preview fills the narrow column) but shoves it into the middle of the row in the wide tail
+       just below the breakpoint, where the column is far wider than the 240px preview. */
+    justify-self: start;
+    align-self: start;
   }
   .track-item .youtube-video a,
   .track-item .youtube-video .text-muted {

@@ -105,3 +105,32 @@ describe('Desktop rail', () => {
     expect(mobile).toMatch(/\.track-stamps\s*\{[^}]*display:\s*contents/);
   });
 });
+
+describe('Narrow-width text', () => {
+  it('wraps title, artist and video link to two lines instead of one-line truncation', () => {
+    // A single-line ellipsis gave up after a word or two once the middle column got tight
+    // ("Drop It..."). Two lines shows the whole thing at almost every width.
+    for (const sel of ['.track-title', '.track-artist', '.youtube-video a']) {
+      const r = rule(sel);
+      expect(r, `${sel} should not truncate on one line`).not.toContain('white-space: nowrap');
+      expect(r).toMatch(/-webkit-line-clamp:\s*2/);
+      expect(r).toContain('display: -webkit-box');
+    }
+  });
+
+  it('scopes the .flex-grow-1 wrapper rule so it cannot clobber the video-title link', () => {
+    // The <a> carries flex-grow-1; an unscoped `.youtube-video .flex-grow-1 { display: block }`
+    // outranks the link's own -webkit-box and kills the clamp. The rule targets the wrapper only.
+    expect(cssContent).toMatch(/\.youtube-video > \.d-flex > \.flex-grow-1\s*\{/);
+    expect(cssContent).not.toMatch(/^\.youtube-video \.flex-grow-1\s*\{/m);
+  });
+
+  it('left-aligns the stacked preview instead of centring it', () => {
+    // justify-self:center is invisible on a phone (the preview fills the narrow column) but shoves
+    // it into the middle of the row in the wide tail just below the stack breakpoint.
+    const mobile = cssContent.match(/@media \(max-width: 575\.98px\) \{[\s\S]*?\n\}\n/)?.[0] ?? '';
+    expect(mobile).toMatch(
+      /\.track-item img\.youtube-video__thumbnail[\s\S]{0,400}justify-self:\s*start/,
+    );
+  });
+});
