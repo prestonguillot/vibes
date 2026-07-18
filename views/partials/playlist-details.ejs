@@ -92,8 +92,11 @@
           <% } %>
         </div>
 
-        <div class="track-status ms-2 d-flex align-items-center gap-2">
+        <div class="track-status ms-2">
           <% if (hasYoutubeConnection && hasYoutubePlaylist) { %>
+            <%# LINKED + edit are grouped so the rail can put the stars on a line beneath them
+                (desktop) or dissolve the group and evenly space all three (mobile). %>
+            <div class="track-stamps">
             <% if (track.linked && track.spotify) { %>
               <span class="badge bg-success">Linked</span>
               <button type="button" class="btn btn-outline-secondary btn-sm"
@@ -119,9 +122,9 @@
             <% } else { %>
               <span class="badge bg-info">YouTube Only</span>
             <% } %>
-            <%# The match score lives WITH the stamps, so LINKED / edit / stars are one group - the
-                rail. On mobile that group becomes a single evenly-spaced column; on desktop it is a
-                horizontal status cluster. %>
+            </div>
+            <%# The score is a sibling of .track-stamps inside the rail: on desktop it sits on its
+                own line beneath the stamps; on mobile the group dissolves and all three space out. %>
             <% if (track.matchScore) { %>
               <%- include('./match-score-badge.ejs', { score: track.matchScore }) %>
             <% } %>

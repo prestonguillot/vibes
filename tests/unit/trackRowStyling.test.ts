@@ -88,3 +88,20 @@ describe('Track row styling', () => {
     expect(cssContent).not.toContain('--row-stripe');
   });
 });
+
+describe('Desktop rail', () => {
+  it('stacks the stars under the stamps, not beside them', () => {
+    // Stars BESIDE LINKED+edit widened the status column and starved the middle title/video column.
+    // .track-status is a flex column (stamps row on top, stars beneath), and .track-stamps groups
+    // LINKED+edit so the column measures to their width, not the wider unwrapped three-across.
+    expect(rule('.track-status')).toContain('flex-direction: column');
+    expect(rule('.track-stamps')).toContain('display: flex');
+  });
+
+  it('dissolves the stamp group on mobile so all three space out evenly', () => {
+    // On the phone the rail wants LINKED, edit and stars as three evenly-spaced items, so the
+    // desktop grouping must become display:contents there.
+    const mobile = cssContent.match(/@media \(max-width: 575\.98px\) \{[\s\S]*?\n\}\n/)?.[0] ?? '';
+    expect(mobile).toMatch(/\.track-stamps\s*\{[^}]*display:\s*contents/);
+  });
+});
